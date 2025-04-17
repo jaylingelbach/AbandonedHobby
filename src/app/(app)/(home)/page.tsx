@@ -1,12 +1,6 @@
 import configPromise from '@payload-config';
 import { getPayload } from 'payload';
 
-// import { Button } from '@/components/ui/button';
-// import { Checkbox } from '@/components/ui/checkbox';
-// import { Input } from '@/components/ui/input';
-// import { Progress } from '@/components/ui/progress';
-// import { Textarea } from '@/components/ui/textarea';
-
 export default async function Home() {
   const payload = await getPayload({
     config: configPromise
