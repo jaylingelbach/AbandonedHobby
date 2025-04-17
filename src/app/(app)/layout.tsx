@@ -22,5 +22,3 @@ export default function RootLayout({
     </html>
   );
 }
-
-// mongodb+srv://jaylingelbach:xXGolden69420!xX@abandonedhobbies1.oprhkqi.mongodb.net/AbandonedHobbies
