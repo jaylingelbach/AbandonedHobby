@@ -1,6 +1,5 @@
 import { Input } from '@/components/ui/input';
 import { SearchIcon } from 'lucide-react';
-import { useState } from 'react';
 
 interface Props {
   disabled?: boolean;

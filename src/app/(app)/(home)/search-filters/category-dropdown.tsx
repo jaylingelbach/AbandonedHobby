@@ -1,7 +1,8 @@
 'use client';
 
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { cn } from '@/lib/utils';
+import debounce from 'lodash/debounce';
 
 import { Button } from '@/components/ui/button';
 import { Category } from '@/payload-types';
@@ -23,6 +24,11 @@ export const CategoryDropdown = ({
   const dropdownRef = useRef<HTMLDivElement>(null);
   const { getDropdownPosition } = useDropdownPosition(dropdownRef);
 
+  const debuncedClose = useCallback(
+    debounce(() => setIsOpen(false), 150),
+    []
+  );
+
   const onMouseEnter = () => {
     if (category.subcategories) {
       setIsOpen(true);
@@ -30,10 +36,16 @@ export const CategoryDropdown = ({
   };
 
   const onMouseLeave = () => {
-    setIsOpen(false);
+    debuncedClose();
   };
 
-  const dropdownPosition = getDropdownPosition();
+  useEffect(() => {
+    return () => {
+      debuncedClose.cancel();
+    };
+  }, [debuncedClose]);
+
+  const dropdownPosition = isOpen ? getDropdownPosition() : { top: 0, left: 0 };
   // outer div is the ref we are passing to the getDropdownPosition method in the custom hook.
   return (
     <div

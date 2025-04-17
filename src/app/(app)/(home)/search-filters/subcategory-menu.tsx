@@ -26,7 +26,8 @@ export const SubcategoryMenu = ({ category, isOpen, position }: Props) => {
         left: position.left
       }}
     >
-      {/* invisible bridge to maintain hover */}
+      {/* This invisible div creates a bridge between the trigger button and the dropdown menu, 
++          helping maintain the hover state when moving the cursor from the button to the menu */}
       <div className="h-3 w-60" />
       <div
         style={{ backgroundColor }}

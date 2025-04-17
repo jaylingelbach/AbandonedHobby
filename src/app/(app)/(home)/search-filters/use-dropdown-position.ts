@@ -1,9 +1,7 @@
 import { RefObject } from 'react';
 
 // div wrapping button is the dropdown ref in category-dropdown
-export const useDropdownPosition = (
-  ref: RefObject<HTMLDivElement | null> | RefObject<HTMLDivElement>
-) => {
+export const useDropdownPosition = (ref: RefObject<HTMLDivElement | null>) => {
   const getDropdownPosition = () => {
     if (!ref.current) return { top: 0, left: 0 };
 

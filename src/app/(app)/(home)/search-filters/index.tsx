@@ -1,5 +1,5 @@
 import { Categories } from './categories';
-import SearchInput from './search-input';
+import { SearchInput } from './search-input';
 
 interface Props {
   data: any;
