@@ -39,11 +39,28 @@ export const CategoryDropdown = ({
     debuncedClose();
   };
 
+  const toggleDropdown = () => {
+    if (category.subcategories?.docs?.length) {
+      setIsOpen(!isOpen);
+    }
+  };
   useEffect(() => {
     return () => {
       debuncedClose.cancel();
     };
   }, [debuncedClose]);
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      if (category.subcategories?.docs?.length) {
+        setIsOpen(!isOpen);
+        e.preventDefault();
+      }
+    } else if (e.key === 'Escape' && isOpen) {
+      setIsOpen(false);
+      e.preventDefault();
+    }
+  };
 
   const dropdownPosition = isOpen ? getDropdownPosition() : { top: 0, left: 0 };
   // outer div is the ref we are passing to the getDropdownPosition method in the custom hook.
@@ -53,14 +70,18 @@ export const CategoryDropdown = ({
       ref={dropdownRef}
       onMouseEnter={onMouseEnter}
       onMouseLeave={onMouseLeave}
+      onKeyDown={handleKeyDown}
     >
       <div className="relative">
         <Button
           variant="elevated"
+          aria-expanded={isOpen}
+          aria-haspopup="true"
           className={cn(
             'h-11 px-4 bg-transparent border-transparent rounded-full hover:bg-white hover:border-primary text-black',
             isActive && !isNavigationHovered && 'bg-white border-primary'
           )}
+          onClick={toggleDropdown}
         >
           {category.name}
         </Button>
