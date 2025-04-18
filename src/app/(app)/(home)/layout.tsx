@@ -11,24 +11,20 @@ interface Props {
 }
 
 const Layout = async ({ children }: Props) => {
-  try {
-    const payload = await getPayload({
-      config: configPromise
-    });
+  const payload = await getPayload({
+    config: configPromise
+  });
 
-    const data = await payload.find({
-      collection: 'categories',
-      depth: 1, // if having problems querying increase. https://payloadcms.com/docs/queries/depth subcategories.[0] will ve of type Category. If depth is set to 0 will be strings and break everything.
-      pagination: false, // can change if there become too many
-      where: {
-        parent: {
-          exists: false
-        }
+  const data = await payload.find({
+    collection: 'categories',
+    depth: 1, // if having problems querying increase. https://payloadcms.com/docs/queries/depth subcategories.[0] will ve of type Category. If depth is set to 0 will be strings and break everything.
+    pagination: false, // can change if there become too many
+    where: {
+      parent: {
+        exists: false
       }
-    });
-  } catch (error) {
-    console.error('Failed to fetch categories: ', error);
-  }
+    }
+  });
 
   // simplifying data structure.
   const formattedData = data.docs.map((doc) => ({
