@@ -1,9 +1,9 @@
 import Link from 'next/link';
 
-import { CustomCategory } from '../types';
+import { CategoriesGetManyOutputSingle } from '@/modules/categories/types';
 
 interface Props {
-  category: CustomCategory;
+  category: CategoriesGetManyOutputSingle;
   isOpen?: boolean;
   position: { top: number; left: number };
 }
