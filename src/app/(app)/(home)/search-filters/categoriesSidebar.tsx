@@ -1,5 +1,5 @@
-import { useRouter } from 'next/navigation';
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
 import {
@@ -9,21 +9,24 @@ import {
   SheetTitle
 } from '@/components/ui/sheet';
 
-import { CustomCategory } from '../types';
+import { useTRPC } from '@/trpc/client';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { CategoriesGetManyOutput, CategoriesGetManyOutputSingle } from '@/modules/categories/types';
 
 interface Props {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  data: CustomCategory[]; // TODO: remove
 }
 
-export const CategoriesSidebar = ({ open, onOpenChange, data }: Props) => {
+export const CategoriesSidebar = ({ open, onOpenChange }: Props) => {
+  const trpc = useTRPC();
+  const { data } = useSuspenseQuery(trpc.categories.getMany.queryOptions());
   const [parentCategories, setParentCategories] = useState<
-    CustomCategory[] | null
+  CategoriesGetManyOutput | null
   >(null);
 
   const [selectedCategory, setSelectedCategory] =
-    useState<CustomCategory | null>(null);
+    useState<CategoriesGetManyOutputSingle | null>(null);
 
   // parent categories? show.
   const currentCategories = parentCategories ?? data ?? [];
@@ -36,9 +39,9 @@ export const CategoriesSidebar = ({ open, onOpenChange, data }: Props) => {
     onOpenChange(open);
   };
 
-  const handleCategoryClick = (category: CustomCategory) => {
+  const handleCategoryClick = (category: CategoriesGetManyOutputSingle) => {
     if (category.subcategories && category.subcategories.length > 0) {
-      setParentCategories(category.subcategories as CustomCategory[]);
+      setParentCategories(category.subcategories as CategoriesGetManyOutput);
       setSelectedCategory(category);
     } else {
       if (parentCategories && selectedCategory) {
@@ -50,7 +53,6 @@ export const CategoriesSidebar = ({ open, onOpenChange, data }: Props) => {
           router.push(`/${category.slug}`);
         }
       }
-      //
       handleOpenChange(false);
     }
   };
@@ -82,7 +84,7 @@ export const CategoriesSidebar = ({ open, onOpenChange, data }: Props) => {
               Back
             </button>
           )}
-          {currentCategories.map((category) => (
+          {currentCategories? .map((category) => (
             <button
               className="w-full text-left p-4 hover:bg-black hover:text-white flex justify-between text-base font-medium cursor-pointer"
               key={category.slug}

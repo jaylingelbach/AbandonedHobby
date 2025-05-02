@@ -4,5 +4,7 @@
     "plaintext": false,
     "markdown": false,
     "scminput": false
-  }
+  },
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true
 }

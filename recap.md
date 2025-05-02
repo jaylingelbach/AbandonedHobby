@@ -1,4 +1,4 @@
-## Categories finalization branch
+# Categories finalization branch
 
 ### New Features
 
@@ -25,3 +25,30 @@
 ### Documentation
 
 - Added a recap markdown note summarizing the finalization of the categories feature.
+
+#
+
+# tRPC integration
+
+### New Features
+
+- Introduced tRPC and React Query integration for efficient data fetching and state management.
+  Added new API endpoints for category retrieval using tRPC.
+- Implemented client and server providers for tRPC and React Query.
+- Enhanced category sidebar and filter components to fetch data dynamically.
+
+### Bug Fixes
+
+- Improved type safety for category-related components and data structures.
+
+### Refactor
+
+- Refactored category and search filter components to use internal data fetching instead of prop drilling.
+- Simplified and updated component props and removed obsolete types.
+
+### Chores
+
+- Updated dependencies and added new packages for tRPC, React Query, and related utilities.
+- Added and updated workspace configuration for TypeScript support.
+
+###
