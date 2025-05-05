@@ -1,5 +1,4 @@
 import z from 'zod';
-import { Filter } from 'bad-words';
 // TODO: Implement additional security checks like Reserved usernames (admin, system, etc.) and potentially offensive usernames.
 // https://www.npmjs.com/package/bad-words
 // https://github.com/alexzel/bad-words-next

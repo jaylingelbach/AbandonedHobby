@@ -1,5 +1,4 @@
 import { headers as getHeaders, cookies as getCookies } from 'next/headers';
-import z from 'zod';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { AUTH_COOKIE } from '../constants';
@@ -92,7 +91,8 @@ export const authRouter = createTRPCRouter({
       name: 'AUTH_COOKIE',
       value: data.token,
       httpOnly: true,
-      path: '/'
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7
       // TODO: ensure cross domain cookie sharing.
     });
     return data;

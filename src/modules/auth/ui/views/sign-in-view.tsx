@@ -131,7 +131,7 @@ function SignInView() {
         className="h-screen w-full lg:col-span-2 hidden lg:block"
         style={{
           backgroundImage: "url('/auth-bg.png')",
-          backgroundSize: 'hover',
+          backgroundSize: 'cover',
           backgroundPosition: 'center'
         }}
       />
