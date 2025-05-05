@@ -73,3 +73,30 @@
 ### Other
 
 - Improved documentation and comments for clarity.
+
+### File(s) Change Summary
+
+- src/app/(app)/(auth)/sign-up/page.tsx
+  - Added new Next.js page components for sign-in and sign-up, each rendering their respective view components.
+- src/app/(app)/(home)/page.tsx
+  - Converted Home component to client-side, added session query with TRPC, and now renders user JSON data.
+- src/app/(app)/layout.tsx
+  - Added global Toaster component inside TRPCReactProvider for toast notifications.
+- src/collections/Users.ts
+  - Added required, unique username field to Users collection configuration.
+- src/modules/auth/constants.ts
+  - Introduced and exported AUTH_COOKIE constant for authentication cookie management.
+- src/modules/auth/schemas.ts
+  - Added and exported loginSchema and registerSchema using Zod for authentication form validation.
+- src/modules/auth/server/procedures.ts
+  - Added authRouter TRPC router with session, logout, register, and login procedures for authentication.
+- src/modules/auth/ui/views/sign-in-view.tsx
+  - Added SignInView React component with form validation, TRPC login mutation, and UI feedback.
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Added SignUpView React component with form validation, TRPC register mutation, username preview, and UI feedback.
+- src/payload-types.ts
+  - Extended User and UsersSelect interfaces to include the username field.
+- src/trpc/init.ts
+  - Updated a comment in baseProcedure middleware for clarity; no code changes.
+- src/trpc/routers/\_app.ts
+  - Imported and added authRouter to the main TRPC appRouter under the auth key.

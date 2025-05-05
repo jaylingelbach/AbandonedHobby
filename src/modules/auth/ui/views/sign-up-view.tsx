@@ -9,8 +9,6 @@ import { useMutation } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useTRPC } from '@/trpc/client';
 
-import z from 'zod';
-
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -101,7 +99,7 @@ function SignUpView() {
               name="username"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text=base">Username</FormLabel>
+                  <FormLabel className="text-base">Username</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} />
@@ -122,7 +120,7 @@ function SignUpView() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text=base">Email</FormLabel>
+                  <FormLabel className="text-base">Email</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} />
@@ -136,7 +134,7 @@ function SignUpView() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text=base">Password</FormLabel>
+                  <FormLabel className="text-base">Password</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} type="password" />

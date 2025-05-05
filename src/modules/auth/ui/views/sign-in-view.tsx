@@ -21,7 +21,7 @@ import {
 
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
-import { loginSchema, registerSchema } from '../../schemas';
+import { loginSchema } from '../../schemas';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -91,7 +91,7 @@ function SignInView() {
               name="email"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text=base">Email</FormLabel>
+                  <FormLabel className="text-base">Email</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} />
@@ -105,7 +105,7 @@ function SignInView() {
               name="password"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel className="text=base">Password</FormLabel>
+                  <FormLabel className="text-base">Password</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} type="password" />
