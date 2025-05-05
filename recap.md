@@ -28,7 +28,7 @@
 
 #
 
-# tRPC integration
+# tRPC integration 5/2/25
 
 ### New Features
 
@@ -52,3 +52,24 @@
 - Added and updated workspace configuration for TypeScript support.
 
 ###
+
+# Authentication 5/5/25
+
+### New Features
+
+- Introduced user authentication with sign-in and sign-up pages, including form validation and error handling.
+- Added support for username during registration, with live validation and preview.
+- Implemented session management, logout, and authentication status retrieval.
+  -Added global toast notifications for feedback on authentication actions.
+
+### Enhancements
+
+- The home page now displays user session information when available.
+
+### Data Model Updates
+
+- User profiles now require a unique username field.
+
+### Other
+
+- Improved documentation and comments for clarity.
