@@ -60,7 +60,7 @@
 - Introduced user authentication with sign-in and sign-up pages, including form validation and error handling.
 - Added support for username during registration, with live validation and preview.
 - Implemented session management, logout, and authentication status retrieval.
-  -Added global toast notifications for feedback on authentication actions.
+  - Added global toast notifications for feedback on authentication actions.
 
 ### Enhancements
 
