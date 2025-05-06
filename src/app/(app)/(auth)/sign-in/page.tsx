@@ -5,9 +5,13 @@ import SignInView from '@/modules/auth/ui/views/sign-in-view';
 import { redirect } from 'next/navigation';
 
 const Page = async () => {
-  const session = await caller.auth.session();
-  if (session.user) {
-    redirect('/');
+  try {
+    const session = await caller.auth.session();
+    if (session.user) {
+      redirect('/');
+    }
+  } catch (error) {
+    console.error('Failed to fetch session', error);
   }
   return <SignInView />;
 };

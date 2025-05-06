@@ -100,3 +100,45 @@
   - Updated a comment in baseProcedure middleware for clarity; no code changes.
 - src/trpc/routers/\_app.ts
   - Imported and added authRouter to the main TRPC appRouter under the auth key.
+
+###
+
+# Auth states 5/6/25
+
+### New Features
+
+- Sign-in and sign-up pages now automatically redirect authenticated users to the home page.
+- Navbar dynamically displays a "Dashboard" button for authenticated users, or "Login" and "Start Selling" for others.
+- "Library" button appears in search filters for authenticated users.
+
+### Improvements
+
+- Session state is now checked server-side for authentication pages, enhancing security and user experience.
+- Session data is refreshed after successful sign-in or sign-up, ensuring up-to-date user information.
+  Bug Fixes
+
+- Removed unused props from the search input component.
+
+### Chores
+
+- Internal authentication cookie handling was centralized and streamlined.
+- Unused constants and the logout mutation were removed.
+
+### Changes to files
+
+- src/app/(app)/(auth)/sign-in/page.tsx,
+
+  - Converted Page components to async arrow functions; added server-side session checks and conditional redirects for authenticated users.
+
+- src/app/(app)/(home)/navbar.tsx
+
+  - Integrated session state via tRPC and React Query; updated conditional rendering of navigation buttons based on authentication status.
+
+- src/modules/auth/server/procedures.ts
+  - Removed logout mutation; replaced direct cookie manipulation with new generateAuthCookie utility in authentication mutations.
+    -src/modules/auth/ui/views/sign-in-view.tsx
+  - Added cache invalidation for session queries on successful login/registration using React Query's useQueryClient.
+- src/modules/auth/utiils.ts
+  - Added new generateAuthCookie utility to encapsulate authentication cookie creation logic.
+- src/trpc/server.ts
+  - Added new exported caller for direct server-side tRPC procedure invocation.

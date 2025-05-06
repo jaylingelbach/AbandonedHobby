@@ -5,11 +5,7 @@ import { Poppins } from 'next/font/google';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
-import {
-  QueryClient,
-  useMutation,
-  useQueryClient
-} from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'next/navigation';
 import { useTRPC } from '@/trpc/client';
 

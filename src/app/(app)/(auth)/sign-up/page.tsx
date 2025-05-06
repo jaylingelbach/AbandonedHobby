@@ -6,8 +6,12 @@ import SignUpView from '@/modules/auth/ui/views/sign-up-view';
 
 const Page = async () => {
   const session = await caller.auth.session();
-  if (session.user) {
-    redirect('/');
+  try {
+    if (session.user) {
+      redirect('/');
+    }
+  } catch (error) {
+    console.error('Failed to fetch the session: ', error);
   }
   return <SignUpView />;
 };

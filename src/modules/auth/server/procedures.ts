@@ -2,7 +2,7 @@ import { headers as getHeaders } from 'next/headers';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { loginSchema, registerSchema } from '../schemas';
-import { generateAuthCookie } from '../utiils';
+import { generateAuthCookie } from '../utils';
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
