@@ -3,7 +3,10 @@ import config from '@payload-config';
 
 const categories = [
   // … your existing categories …
-
+  {
+    name: 'All',
+    slug: 'all'
+  },
   {
     name: 'Writing & Publishing',
     color: '#D8B5FF',
@@ -85,6 +88,20 @@ const categories = [
       { name: 'Model Building', slug: 'model-building' },
       { name: 'LEGO & Building Blocks', slug: 'lego-building-blocks' },
       { name: 'Homebrewing & Fermentation', slug: 'homebrewing-fermentation' }
+    ]
+  },
+  {
+    name: 'Drawing & Painting',
+    color: '#FFB347',
+    slug: 'drawing-painting',
+    subcategories: [
+      { name: 'Charcoal', slug: 'charcoal' },
+      { name: 'Pastel', slug: 'pastel' },
+      { name: 'Oil', slug: 'oil' },
+      { name: 'Acrylic', slug: 'acrylic' },
+      { name: 'Watercolor', slug: 'watercolor' },
+      { name: 'Other Supplies', slug: 'other-supplies' },
+      { name: 'Completed Artwork', slug: 'completed-artwork' }
     ]
   },
 
@@ -200,18 +217,45 @@ const categories = [
 
 const seed = async () => {
   const payload = await getPayload({ config });
+
   for (const category of categories) {
-    const parentCategory = await payload.create({
+    // Check if parent category already exists
+    const existingParent = await payload.find({
       collection: 'categories',
-      data: {
-        name: category.name,
-        slug: category.slug,
-        color: category.color,
-        parent: null
-      }
+      where: { slug: { equals: category.slug } },
+      limit: 1
     });
 
+    let parentCategory;
+
+    if (existingParent.docs.length > 0) {
+      console.log(`Skipping existing category: ${category.slug}`);
+      parentCategory = existingParent.docs[0];
+    } else {
+      parentCategory = await payload.create({
+        collection: 'categories',
+        data: {
+          name: category.name,
+          slug: category.slug,
+          color: category.color,
+          parent: null
+        }
+      });
+      console.log(`Created category: ${category.slug}`);
+    }
+
     for (const subCategory of category.subcategories || []) {
+      const existingSub = await payload.find({
+        collection: 'categories',
+        where: { slug: { equals: subCategory.slug } },
+        limit: 1
+      });
+
+      if (existingSub.docs.length > 0) {
+        console.log(`Skipping existing subcategory: ${subCategory.slug}`);
+        continue;
+      }
+
       await payload.create({
         collection: 'categories',
         data: {
@@ -220,13 +264,15 @@ const seed = async () => {
           parent: parentCategory.id
         }
       });
+
+      console.log(`Created subcategory: ${subCategory.slug}`);
     }
   }
 };
 
 try {
   await seed();
-  console.log('Seeding successful!');
+  console.log('Seeding completed.');
   process.exit(0);
 } catch (error) {
   console.error('Error during seed: ', error);
