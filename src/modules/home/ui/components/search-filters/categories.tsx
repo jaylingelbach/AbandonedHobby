@@ -1,9 +1,10 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ListFilterIcon } from 'lucide-react';
+import { useParams } from 'next/navigation';
 
+import { Button } from '@/components/ui/button';
 import { CategoryDropdown } from './category-dropdown';
 import { CategoriesSidebar } from './categoriesSidebar';
 import { CategoriesGetManyOutput } from '@/modules/categories/types';
@@ -13,6 +14,8 @@ interface Props {
 }
 
 export const Categories = ({ data }: Props) => {
+  const params = useParams();
+
   const containerRef = useRef<HTMLDivElement>(null);
   const measurerRef = useRef<HTMLDivElement>(null);
   const viewAllRef = useRef<HTMLDivElement>(null);
@@ -21,9 +24,11 @@ export const Categories = ({ data }: Props) => {
   const [isAnyHovered, setIsAnyHovered] = useState(false);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
-  const activeCategory = 'all';
+  const categoryParam = params.category as string | undefined;
+  const activeCategory = categoryParam || 'all';
+
   const activeCategoryIndex = data.findIndex((cat) => {
-    cat.slug === activeCategory;
+    return cat.slug === activeCategory;
   });
 
   const isActiveCategoryHidden =
@@ -104,6 +109,7 @@ export const Categories = ({ data }: Props) => {
                 'bg-white border-primary'
             )}
             onClick={() => setIsSidebarOpen(true)}
+            variant="elevated"
           >
             View All
             <ListFilterIcon className="ml-2" />

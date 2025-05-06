@@ -124,7 +124,7 @@
 - Internal authentication cookie handling was centralized and streamlined.
 - Unused constants and the logout mutation were removed.
 
-### Changes to files
+### Changes to files:
 
 - src/app/(app)/(auth)/sign-in/page.tsx,
 
@@ -142,3 +142,43 @@
   - Added new generateAuthCookie utility to encapsulate authentication cookie creation logic.
 - src/trpc/server.ts
   - Added new exported caller for direct server-side tRPC procedure invocation.
+
+# Category Pages 5/6/25
+
+### New Features
+
+- Added breadcrumb navigation to display the current category and subcategory.
+- Introduced dynamic category and subcategory pages for improved navigation.
+- Updated category selection to reflect the current route.
+
+### Improvements
+
+- Enhanced search filters with responsive design and dynamic background colors based on category.
+
+### Bug Fixes
+
+- Prevented duplicate categories and subcategories during database seeding.
+
+### Chores
+
+- Updated import paths for better code organization.
+
+### Changes to files:
+
+- src/app/(app)/(home)/[category]/[subcategory]/page.tsx
+- src/app/(app)/(home)/[category]/page.tsx
+  - Added new asynchronous React server components for category and subcategory pages, rendering category and subcategory names from awaited route parameters.
+- src/app/(app)/(home)/layout.tsx
+  - Updated import paths for Footer, Navbar, SearchFilters, and SearchFiltersLoading to use absolute imports from the home UI components directory
+- src/app/(app)/(home)/search-filters/index.tsx
+  - Deleted file containing the previous implementations of SearchFilters and SearchFiltersLoading components.
+- src/modules/home/ui/components/search-filters/index.tsx
+  - Added new SearchFilters and SearchFiltersLoading components, now using React Query, TRPC, and Next.js route params for dynamic rendering and category/subcategory awareness.
+- src/modules/home/ui/components/search-filters/breadcrumb-navigation.tsx
+  - Introduced BreadcrumbNavigation component to display navigational breadcrumbs based on active category and subcategory.
+- src/modules/home/ui/components/search-filters/categories.tsx
+  - Enhanced Categories component to dynamically set the active category from URL params and added a variant prop to the "View All" button.
+- src/modules/home/constants.ts
+  - Added DEFAULT_BG_COLOR constant with value 'F5F5F5'.
+- src/lib/seed.ts
+  - Improved seeding logic to prevent duplicate categories and subcategories, added "All" and "Drawing & Painting" categories, and updated success message.
