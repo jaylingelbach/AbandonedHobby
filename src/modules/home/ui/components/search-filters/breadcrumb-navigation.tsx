@@ -31,7 +31,7 @@ export const BreadcrumbNavigation = ({
                 asChild
                 className="text-xl font-medium underline text-primary"
               >
-                <Link href={`/${activeCategory}`}> {activeCategoryName}</Link>
+                <Link href={`/${activeCategory}/`}>{activeCategoryName}</Link>
               </BreadcrumbLink>
             </BreadcrumbItem>
             <BreadcrumbSeparator className="text-primary font-medium text-xl">

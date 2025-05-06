@@ -28,7 +28,7 @@ export const Categories = ({ data }: Props) => {
   const activeCategory = categoryParam || 'all';
 
   const activeCategoryIndex = data.findIndex((cat) => {
-    cat.slug === activeCategory;
+    return cat.slug === activeCategory;
   });
 
   const isActiveCategoryHidden =
