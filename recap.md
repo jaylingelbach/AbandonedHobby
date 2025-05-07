@@ -182,3 +182,40 @@
   - Added DEFAULT_BG_COLOR constant with value 'F5F5F5'.
 - src/lib/seed.ts
   - Improved seeding logic to prevent duplicate categories and subcategories, added "All" and "Drawing & Painting" categories, and updated success message.
+
+# Products 5/6/25
+
+### Summary
+
+This update introduces a new "Products" collection to the CMS schema, complete with type definitions and admin configuration. It implements a TRPC router for querying products by category and subcategory, and adds React components for data-driven product listing with server-side prefetching, client-side hydration, and suspense-based loading states. Minor improvements and comments are also included in related UI components.
+
+### New Features
+
+- Introduced a new Products collection in the CMS, enabling management of products with fields such as name, description, price, category, image, and refund policy.
+
+- Added product listing pages that display products by category and subcategory, with support for server-side data prefetching and client-side hydration.
+
+- Implemented a loading skeleton for product lists to enhance user experience during data fetching.
+  Improvements
+
+- The admin interface now displays category entries using their names for easier identification.
+  Technical Enhancements
+
+- Product data is now fetched dynamically and rendered using suspense-enabled components for smoother and more responsive UI updates.
+
+### Changes:
+
+- src/collections/Products.ts, src/payload-types.ts, src/payload.config.ts
+  - Added a new "Products" collection to the CMS, defined its schema, types, and registered it in the config.
+- src/collections/Categories.ts
+  - Added admin configuration to use the "name" field as the display title for categories.
+- src/modules/products/server/procedures.ts, src/trpc/routers/\_app.ts
+  - Introduced a TRPC router for products, with a getMany procedure for querying products by category and subcategories; registered the router in the main app router.
+- src/modules/products/types.ts
+  - Added TypeScript types for the output of the products TRPC router.
+- src/modules/products/ui/components/product-list.tsx
+  - Added ProductList and ProductListSkeleton React components for displaying products and loading states.
+- src/app/(app)/(home)/[category]/[subcategory]/page.tsx, src/app/(app)/(home)/[category]/page.tsx
+  - Refactored category and subcategory pages to prefetch product data, hydrate React Query state, and render product lists with suspense and skeleton loading.
+- src/modules/home/ui/components/search-filters/categories.tsx
+  - Added a TODO comment to clarify future logic for the "all" category button; no functional changes.

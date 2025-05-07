@@ -18,6 +18,11 @@ export const Products: CollectionConfig = {
       required: true,
       admin: {
         description: 'In USD'
+      },
+      validate: (value: number | undefined | null) => {
+        if (value === undefined || value === null) return 'Price is required';
+        if (value < 0) return 'Price cannot be negative';
+        return true;
       }
     },
     {
