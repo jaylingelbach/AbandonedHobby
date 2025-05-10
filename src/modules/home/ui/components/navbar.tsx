@@ -53,6 +53,7 @@ export const Navbar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
   const session = useQuery(trpc.auth.session.queryOptions());
+  if (session.isLoading) return null;
 
   return (
     <nav className="h-20 flex border-b justify-between font-medium bg-white">
@@ -84,7 +85,7 @@ export const Navbar = () => {
           <Button
             asChild
             variant="secondary"
-            className="border-l border-t- border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors tx-lg"
+            className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors text-lg"
           >
             <Link href="/admin">Dashboard</Link>
           </Button>
@@ -94,16 +95,16 @@ export const Navbar = () => {
           <Button
             asChild
             variant="secondary"
-            className="border-l border-t- border-b-0 border-r-0 px-12 h-full rounded-none bg-white hover:bg-pink-400 transition-colors tx-lg"
+            className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-white hover:bg-pink-400 transition-colors text-lg"
           >
-            <Link prefetch href="/">
+            <Link prefetch href="/sign-in">
               Login
             </Link>
           </Button>
           <Button
             asChild
             variant="secondary"
-            className="border-l border-t- border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors tx-lg"
+            className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors text-lg"
           >
             <Link prefetch href="/sign-up">
               Start Selling
