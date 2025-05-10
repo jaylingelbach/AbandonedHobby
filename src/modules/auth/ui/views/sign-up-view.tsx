@@ -88,9 +88,7 @@ function SignUpView() {
                 size="sm"
                 className="text-base border-none underline"
               >
-                <Link prefetch href="/sign-in">
-                  Sign-in
-                </Link>
+                <Link href="/sign-in">Sign-in</Link>
               </Button>
             </div>
             <h1 className="text-4xl font-medium">

@@ -11,7 +11,10 @@ import {
 
 import { useTRPC } from '@/trpc/client';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { CategoriesGetManyOutput, CategoriesGetManyOutputSingle } from '@/modules/categories/types';
+import {
+  CategoriesGetManyOutput,
+  CategoriesGetManyOutputSingle
+} from '@/modules/categories/types';
 
 interface Props {
   open: boolean;
@@ -21,9 +24,8 @@ interface Props {
 export const CategoriesSidebar = ({ open, onOpenChange }: Props) => {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(trpc.categories.getMany.queryOptions());
-  const [parentCategories, setParentCategories] = useState<
-  CategoriesGetManyOutput | null
-  >(null);
+  const [parentCategories, setParentCategories] =
+    useState<CategoriesGetManyOutput | null>(null);
 
   const [selectedCategory, setSelectedCategory] =
     useState<CategoriesGetManyOutputSingle | null>(null);
@@ -84,7 +86,7 @@ export const CategoriesSidebar = ({ open, onOpenChange }: Props) => {
               Back
             </button>
           )}
-          {currentCategories? .map((category) => (
+          {currentCategories?.map((category) => (
             <button
               className="w-full text-left p-4 hover:bg-black hover:text-white flex justify-between text-base font-medium cursor-pointer"
               key={category.slug}
