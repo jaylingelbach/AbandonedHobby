@@ -6,7 +6,7 @@ import { getQueryClient, trpc } from '@/trpc/server';
 import {
   ProductList,
   ProductListSkeleton
-} from '@/modules/products/ui/components/ist';
+} from '@/modules/products/ui/components/product-list';
 
 interface Props {
   params: Promise<{

@@ -219,3 +219,53 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Refactored category and subcategory pages to prefetch product data, hydrate React Query state, and render product lists with suspense and skeleton loading.
 - src/modules/home/ui/components/search-filters/categories.tsx
   - Added a TODO comment to clarify future logic for the "all" category button; no functional changes.
+
+# Filters 1 5/10/25
+
+### New Features
+
+- Added price filtering to product listings, allowing users to filter products by minimum and maximum price.
+- Introduced a sidebar with collapsible product filter sections for improved browsing.
+
+### Improvements
+
+- Updated the product list to display products in a styled grid of cards for better readability.
+- Enhanced the home page layout with a responsive grid, displaying filters and products side by side.
+- Improved navigation bar behavior and styling, including corrected login link and button styles.
+- Updated app metadata with a new title and description.
+
+### Bug Fixes
+
+- Fixed minor style and formatting issues in various components.
+
+### Chores
+
+- Updated dependencies and removed unused platform-specific packages.
+- Improved TypeScript configuration for stricter type checking.
+
+### File changes:
+
+- src/modules/products/ui/components/product-filters.tsx, src/modules/products/ui/components/price-filter.tsx, src/modules/products/hooks/use-product-filters.ts
+  - Added new product filter UI components (ProductFilters, ProductFilter, PriceFilter) and a custom hook (useProductFilters) to manage price filter state via URL query parameters.
+- src/modules/products/server/procedures.ts
+  - Extended the getMany procedure input schema to support optional minPrice and maxPrice filters. Updated query logic to apply price filtering. Refactored category filtering logic.
+- src/app/(app)/(home)/[category]/page.tsx
+  - Integrated the new ProductFilters component into the category page, updating the layout to a responsive grid with filters and product list side-by-side.
+- src/modules/products/ui/components/product-list.tsx
+  - Changed the product list from a raw JSON display to a styled grid of product cards.
+- package.json
+  - Added nuqs as a dependency; removed two platform-specific devDependencies.
+- src/app/(app)/layout.tsx
+  - Updated app metadata (title, description) and nested the root provider in a new NuqsAdapter for query state management.
+- src/app/(app)/(home)/[category]/[subcategory]/page.tsx
+  - Fixed import path for product list components.
+- src/modules/categories/server/procedures.ts
+  - Stopped forcibly setting subcategories to undefined in subcategory objects, preserving any existing subcategory data.
+- src/modules/home/ui/components/navbar.tsx
+  - Prevented rendering while session is loading, fixed button class typos, and updated the login link destination.
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Removed the prefetch attribute from the sign-in link.
+- src/modules/home/ui/components/search-filters/categoriesSidebar.tsx
+  - Code formatting and whitespace/style fixes; no logic changes.
+- tsconfig.json
+  - Enabled noUncheckedIndexedAccess for stricter type checking; reformatted arrays for compactness.

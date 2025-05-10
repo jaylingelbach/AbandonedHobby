@@ -11,7 +11,7 @@ const dmSans = DM_Sans({
 });
 
 export const metadata: Metadata = {
-  title: 'Abandonded Hobbies',
+  title: 'Abandoned Hobbies',
   description:
     'A safe place for ADHD people to trade, buy and sell their hobbies judgement free'
 };
