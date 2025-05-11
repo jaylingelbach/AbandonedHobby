@@ -41,7 +41,7 @@ export const PriceFilter = ({
   };
 
   const handleMaxPriceChange = (e: ChangeEvent<HTMLInputElement>) => {
-    const numericValue = e.target.value.replace(/[0-9.]/g, '');
+    const numericValue = e.target.value.replace(/[^0-9.]/g, '');
     onMaxPriceChange(numericValue);
   };
   return (
