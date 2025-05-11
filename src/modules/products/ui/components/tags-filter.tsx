@@ -12,20 +12,33 @@ interface TagsFilterProps {
 
 export const TagsFilter = ({ value, onChange }: TagsFilterProps) => {
   const trpc = useTRPC();
-  const { data, isLoading, fetchNextPage, hasNextPage, isFetchingNextPage } =
-    useInfiniteQuery(
-      trpc.tags.getMany.infiniteQueryOptions(
-        {
-          limit: DEFAULT_LIMIT
-        },
-        {
-          getNextPageParam: (lastPage) => {
-            return lastPage.docs.length > 0 ? lastPage.nextPage : undefined;
-          }
+  const {
+    data,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+    error
+  } = useInfiniteQuery(
+    trpc.tags.getMany.infiniteQueryOptions(
+      {
+        limit: DEFAULT_LIMIT
+      },
+      {
+        getNextPageParam: (lastPage) => {
+          return lastPage.docs.length > 0 ? lastPage.nextPage : undefined;
         }
-      )
-    );
+      }
+    )
+  );
 
+  if (error) {
+    return (
+      <div className="text-red-500 p-2">
+        Failed to load tags. Please try again.
+      </div>
+    );
+  }
   const onClick = (tag: string) => {
     // tag already in list? Remove, otherwise add it to the list .
     if (value?.includes(tag)) {
@@ -57,6 +70,12 @@ export const TagsFilter = ({ value, onChange }: TagsFilterProps) => {
             </div>
           ))
         )
+      )}
+      {isFetchingNextPage && (
+        <div className="flex items-center justify-center p-2">
+          <LoaderIcon className="size-3 animate-spin mr-2" />
+          <span className="text-sm">Loading more...</span>
+        </div>
       )}
       {hasNextPage && (
         <button

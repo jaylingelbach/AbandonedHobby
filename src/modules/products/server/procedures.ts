@@ -22,15 +22,15 @@ export const productsRouter = createTRPCRouter({
       let sort: Sort = '-createdAt';
 
       if (input.sort === 'curated') {
-        return (sort = '-createdAt');
+        sort = '-createdAt';
       }
 
       if (input.sort === 'hot_and_new') {
-        return (sort = '-createdAt');
+        sort = '+createdAt';
       }
 
       if (input.sort === 'trending') {
-        return (sort = '+createdAt');
+        sort = '-createdAt';
       }
 
       if (input.minPrice) {
