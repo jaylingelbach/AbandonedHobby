@@ -6,7 +6,6 @@ import debounce from 'lodash/debounce';
 
 import { Button } from '@/components/ui/button';
 import { SubcategoryMenu } from './subcategory-menu';
-import { useDropdownPosition } from './use-dropdown-position';
 import Link from 'next/link';
 import { CategoriesGetManyOutputSingle } from '@/modules/categories/types';
 
@@ -23,7 +22,6 @@ export const CategoryDropdown = ({
 }: Props) => {
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-  const { getDropdownPosition } = useDropdownPosition(dropdownRef);
 
   const debuncedClose = useCallback(
     debounce(() => setIsOpen(false), 150),
@@ -41,7 +39,7 @@ export const CategoryDropdown = ({
   };
 
   const toggleDropdown = () => {
-    if (category.subcategories?.docs?.length) {
+    if (category.subcategories?.length) {
       setIsOpen(!isOpen);
     }
   };
@@ -53,7 +51,7 @@ export const CategoryDropdown = ({
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
-      if (category.subcategories?.docs?.length) {
+      if (category.subcategories?.length) {
         setIsOpen(!isOpen);
         e.preventDefault();
       }
@@ -63,8 +61,6 @@ export const CategoryDropdown = ({
     }
   };
 
-  const dropdownPosition = isOpen ? getDropdownPosition() : { top: 0, left: 0 };
-  // outer div is the ref we are passing to the getDropdownPosition method in the custom hook.
   return (
     <div
       className="relative"
@@ -99,11 +95,7 @@ export const CategoryDropdown = ({
           />
         )}
       </div>
-      <SubcategoryMenu
-        category={category}
-        isOpen={isOpen}
-        position={dropdownPosition}
-      />
+      <SubcategoryMenu category={category} isOpen={isOpen} />
     </div>
   );
 };
