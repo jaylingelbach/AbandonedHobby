@@ -269,3 +269,66 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Code formatting and whitespace/style fixes; no logic changes.
 - tsconfig.json
   - Enabled noUncheckedIndexedAccess for stricter type checking; reformatted arrays for compactness.
+
+#
+
+# Sort filters 5/11/25
+
+### New Features
+
+- Added support for filtering products by tags and sorting by curated, trending, or hot & new.
+- Introduced a new Tags collection and tag management for products.
+- Added a UI component for tag-based filtering with infinite scroll.
+- Added a product sorting UI component.
+- Added a "Curated for you" header and enhanced product filters with a clear button.
+
+### Bug Fixes
+
+- Fixed price filter input to correctly handle numeric values.
+
+### Chores
+
+- Improved server URL resolution for deployment environments.
+
+### Changes to files:
+
+- src/app/(app)/(home)/[category]/page.tsx
+  - Enhanced Page component to accept searchParams, load filters asynchronously, and add a header with sorting UI.
+- src/collections/Products.ts, src/collections/Tags.ts
+  - Added a new tags relationship field to products and introduced the Tags collection schema.
+- src/constants.ts
+  - Added DEFAULT_LIMIT constant.
+- src/modules/products/hooks/use-product-filters.ts
+
+  - Refactored filter hook to centralize parameter definitions and add a sort parameter.
+
+- src/modules/products/search-params.ts
+  - New module for defining and loading product search parameters, including sort, minPrice, maxPrice, and tags.
+- src/modules/products/server/procedures.ts
+  - Updated getMany procedure to support tag filtering and sorting logic.
+- src/modules/products/ui/components/price-filter.tsx
+
+  - Fixed regex in max price handler for correct numeric input extraction.
+
+- src/modules/products/ui/components/product-filters.tsx
+  - Added tags filter section, conditional "Clear" button, and reset logic for filters.
+- src/modules/products/ui/components/product-list.tsx
+  - Incorporated dynamic filters from useProductFilters into product query.
+- src/modules/products/ui/components/product-sort.tsx
+  - New component for product sorting UI.
+- src/modules/products/ui/components/tags-filter.tsx
+  - New component for displaying and selecting tags with infinite scrolling.
+- src/modules/tags/server/procedures.ts
+  - New tagsRouter with paginated tag fetching.
+- src/payload-types.ts
+  - Added Tag interface and integrated tags into products and config types.
+- src/payload.config.ts
+  - Registered the new Tags collection in Payload CMS config.
+- src/trpc/client.tsx
+  - Changed server-side base URL resolution logic for TRPC client.
+- src/trpc/routers/\_app.ts
+  - Added tagsRouter to the main TRPC app router.
+
+#
+
+# Product List - UI 5/12/25
