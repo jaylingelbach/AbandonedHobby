@@ -1,5 +1,8 @@
 import { getPayload } from 'payload';
+import dotenv from 'dotenv';
 import config from '@payload-config';
+
+dotenv.config();
 
 const categories = [
   // … your existing categories …
@@ -218,6 +221,30 @@ const categories = [
 const seed = async () => {
   const payload = await getPayload({ config });
 
+  const adminTenant = await payload.create({
+    collection: 'tenants',
+    data: {
+      name: 'admin',
+      slug: 'admin',
+      stripeAccountId: 'admin'
+    }
+  });
+  // create admin
+  await payload.create({
+    collection: 'users',
+    data: {
+      email: 'jay@demo.com',
+      password: 'xXGolden69420!xX',
+      roles: ['super-admin'],
+      username: 'admin',
+      tenants: [
+        {
+          tenant: adminTenant.id // or tenant._id, depending on your driver
+        }
+      ]
+    }
+  });
+
   for (const category of categories) {
     // Check if parent category already exists
     const existingParent = await payload.find({
@@ -261,7 +288,7 @@ const seed = async () => {
         data: {
           name: subCategory.name,
           slug: subCategory.slug,
-          parent: parentCategory.id
+          parent: parentCategory?.id
         }
       });
 
