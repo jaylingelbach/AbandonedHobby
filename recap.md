@@ -374,7 +374,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/[category]/[subcategory]/page.tsx
   - Simplified page components by delegating logic and UI to ProductListView, updated to accept and handle search parameters asynchronously.
 
-# Multi tenancy
+# Multi tenancy 5/14/25
 
 ### New Features
 
@@ -423,3 +423,5 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Added main SearchFilters and loading state components.
 - src/modules/home/ui/components/search-filters/category-dropdown.tsx
   - Reordered imports for clarity; no functional change.
+
+# Tenant Pages 5/14/25
