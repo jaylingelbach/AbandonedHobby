@@ -378,24 +378,28 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 ### New Features
 
-- Introduced multi-tenant support, allowing management of multiple stores or tenants within the application.
-- Added a Tenants collection with admin UI for managing tenant details and Stripe integration.
-- Enhanced user roles and permissions with support for "super-admin" and tenant associations.
-- Navigation bar and sidebar redesigned for improved usability and responsive design.
-- Added advanced category filtering with dropdowns, sidebars, and dynamic UI for product search.
+- Introduced multi-tenant support, enabling management of multiple stores or tenants.
+- Added a new Tenants admin interface with support for tenant details and Stripe integration.
+- Enhanced user roles and permissions, including "super-admin" and tenant associations.
 
 ### Improvements
 
-- Search and product listing now leverage server-side data fetching for faster, more efficient page loads.
-- Environment variable management improved for database seeding and configuration.
+- Home page now uses server-side data fetching for faster product search and listing.
+- Advanced category filtering with new dropdowns, sidebar, and dynamic UI components.
+- Improved environment variable handling for setup and seeding.
 
 ### Bug Fixes
 
-- Defensive checks added to prevent runtime errors during seeding operations.
+- Added defensive checks during data seeding to prevent runtime errors.
+
+### Style
+
+- Updated background color styling in loading components to use CSS classes.
+- Improved code comments for better clarity.
 
 ### Chores
 
-- Updated dependencies and scripts to support new features and environment management.
+- Updated and added dependencies and scripts to support multi-tenancy and environment management.
 
 ### File Changes:
 
