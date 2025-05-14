@@ -373,3 +373,49 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Added new ProductListView component to consolidate product list, filters, and sorting into a single view.
 - src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/[category]/[subcategory]/page.tsx
   - Simplified page components by delegating logic and UI to ProductListView, updated to accept and handle search parameters asynchronously.
+
+# Multi tenancy
+
+### New Features
+
+- Introduced multi-tenant support, allowing management of multiple stores or tenants within the application.
+- Added a Tenants collection with admin UI for managing tenant details and Stripe integration.
+- Enhanced user roles and permissions with support for "super-admin" and tenant associations.
+- Navigation bar and sidebar redesigned for improved usability and responsive design.
+- Added advanced category filtering with dropdowns, sidebars, and dynamic UI for product search.
+
+### Improvements
+
+- Search and product listing now leverage server-side data fetching for faster, more efficient page loads.
+- Environment variable management improved for database seeding and configuration.
+
+### Bug Fixes
+
+- Defensive checks added to prevent runtime errors during seeding operations.
+
+### Chores
+
+- Updated dependencies and scripts to support new features and environment management.
+
+### File Changes:
+
+- package.json, src/app/(payload)/admin/importMap.js
+  - Added multi-tenant plugin and dotenv dependencies/scripts. Extended import map for tenant components.
+- src/collections/Tenants.ts, src/collections/Users.ts
+  - Added new Tenants collection; enhanced Users with roles and tenant association fields.
+- src/payload.config.ts
+  - Integrated multi-tenant plugin, Tenants collection, and custom access control for super-admins.
+- src/payload-types.ts
+  - Introduced Tenant type; updated User, Product, and selection interfaces for tenant support.
+- src/lib/seed.ts, src/modules/auth/server/procedures.ts
+  - Seed and registration now create tenants and associate users with them.
+- src/app/(app)/(home)/footer.tsx, navbar.tsx, navbar-sidebar.tsx
+  - Added new Footer and responsive Navbar components with sidebar support.
+- src/app/(app)/(home)/page.tsx
+  - Converted home page to a server component with server-side data prefetching and hydration.
+- src/app/(app)/(home)/search-filters/\*
+  - Introduced a suite of search filter components: Categories, Sidebar, Dropdown, Subcategory menu, utility hook, and SearchInput.
+- src/app/(app)/(home)/search-filters/index.tsx
+  - Added main SearchFilters and loading state components.
+- src/modules/home/ui/components/search-filters/category-dropdown.tsx
+  - Reordered imports for clarity; no functional change.
