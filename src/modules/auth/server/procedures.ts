@@ -32,15 +32,37 @@ export const authRouter = createTRPCRouter({
           message: 'Username already taken, please try another.'
         });
       }
+      try {
+        const tenant = await ctx.db.create({
+          collection: 'tenants',
+          data: {
+            name: input.username,
+            slug: input.username.toLowerCase().replace(/[^a-z0-9]/g, '-'),
+            stripeAccountId: 'test',
+            stripeDetailsSubmitted: false
+          }
+        });
 
-      await ctx.db.create({
-        collection: 'users',
-        data: {
-          email: input.email,
-          username: input.username,
-          password: input.password // will be hashed
-        }
-      });
+        await ctx.db.create({
+          collection: 'users',
+          data: {
+            email: input.email,
+            username: input.username,
+            password: input.password, // will be hashed,
+            tenants: [
+              {
+                tenant: tenant.id
+              }
+            ]
+          }
+        });
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to create tenant or user'
+        });
+      }
+
       const data = await ctx.db.login({
         collection: 'users',
         data: {

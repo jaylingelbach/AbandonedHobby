@@ -1,12 +1,13 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import debounce from 'lodash/debounce';
+import Link from 'next/link';
+
+import { cn } from '@/lib/utils';
 
 import { Button } from '@/components/ui/button';
 import { SubcategoryMenu } from './subcategory-menu';
-import Link from 'next/link';
 import { CategoriesGetManyOutputSingle } from '@/modules/categories/types';
 
 interface Props {
