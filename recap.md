@@ -423,3 +423,53 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Added main SearchFilters and loading state components.
 - src/modules/home/ui/components/search-filters/category-dropdown.tsx
   - Reordered imports for clarity; no functional change.
+
+# Tenant Pages 5/15/25
+
+### New Features
+
+- Introduced tenant-specific pages with dedicated layouts, navigation bars, and footers.
+- Added the ability to filter and display products by tenant.
+- Enabled interactive navigation to tenant pages from product cards.
+
+# Enhancements
+
+- Improved product list and card components to display tenant information and support dynamic grid layouts.
+- Implemented client-side hydration and state management for tenant and product data.
+
+### Bug Fixes
+
+- Ensured consistent and accurate data fetching and hydration across tenant and product views.
+
+### Chores
+
+- Standardized code formatting and import statements for better maintainability.
+
+### File Changes:
+
+- src/app/(app)/(home)/clientProviders.tsx
+  - Added new ClientProviders React component for React Query client-side hydration.
+- src/app/(app)/(home)/layout.tsx
+  - Refactored layout to use named async function, await data prefetch, and wrap content with ClientProviders instead of HydrationBoundary.
+- src/app/(app)/(tenants)/tenants/[slug]/(home)/layout.tsx
+  - Added new tenant-specific layout component with server-side data prefetch, hydration, navbar, and footer.
+- src/app/(app)/(tenants)/tenants/[slug]/(home)/page.tsx
+  - Added new tenant-specific page component fetching and displaying filtered products with hydration.
+- src/lib/utils.ts
+  - Standardized imports, reformatted cn, and added generateTenantURL utility function.
+- src/modules/products/server/procedures.ts
+  - Extended getMany procedure to support filtering by tenantSlug and include tenant data in product results.
+- src/modules/products/ui/components/product-card.tsx
+  - Updated to use tenant info (tenantSlug, tenantImageURL), added click handler for tenant navigation, and adjusted skeleton text.
+- src/modules/products/ui/components/product-list.tsx
+  - Extended props to accept tenantSlug and narrowView, updated query and grid logic, and passed tenant info to product cards.
+- src/modules/products/ui/components/views/product-list-view.tsx
+  - Updated props to include tenantSlug and narrowView, passing them to child components.
+- src/modules/tenants/server/procedures.ts
+  - Added new tenantsRouter with getOne procedure for fetching tenant by slug, including image.
+- src/modules/tenants/ui/components/footer.tsx
+  - Added new Footer component with branding and styling.
+- src/modules/tenants/ui/components/navbar.tsx
+  - Added new Navbar and NavbarSkeleton components for tenant navigation and loading state.
+- src/trpc/routers/\_app.ts
+  - Registered tenantsRouter in the main application router.

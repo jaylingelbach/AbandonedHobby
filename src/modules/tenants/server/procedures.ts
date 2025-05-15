@@ -29,7 +29,7 @@ export const tenantsRouter = createTRPCRouter({
       if (!tenant) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Tenant not found '
+          message: 'Tenant not found'
         });
       }
 

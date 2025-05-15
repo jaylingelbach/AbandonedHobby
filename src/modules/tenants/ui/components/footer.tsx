@@ -12,7 +12,7 @@ export const Footer = () => {
     <footer className="border-t  font-medium bg-white">
       <div className="max-w-(--breakpoint-xl) mx-auto flex items-center h-full px-4 p y-6 lg:px-12 gap-2 ">
         <p>Powered by:</p>
-        <Link href="/">
+        <Link href="/" aria-label="Go to Abandoned Hobbies homepage">
           <span className={cn('text-2xl font-semibold', poppins.className)}>
             abandoned hobbies
           </span>

@@ -85,7 +85,10 @@ export const ProductCard = ({
 
 export const ProductCardSkeleton = () => {
   return (
-    <div className="w-full aspect-3/4 bg-neutral-200 rounded-lg animate-pulse">
+    <div
+      className="w-full aspect-3/4 bg-neutral-200 rounded-lg animate-pulse"
+      aria-label="Loading product information"
+    >
       Loading...
     </div>
   );
