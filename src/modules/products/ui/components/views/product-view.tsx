@@ -16,6 +16,24 @@ import StarRating from '@/components/star-rating';
 import { Fragment } from 'react';
 import { Progress } from '@/components/ui/progress';
 
+interface ProductRatingsBreakdownProps {
+  ratings: Array<{ stars: number; percentage: number }>;
+}
+
+const ProductRatingsBreakdown = ({ ratings }: ProductRatingsBreakdownProps) => (
+  <div className="grid grid-cols-[auto_1fr_auto] gap-3 mt-4">
+    {ratings.map(({ stars, percentage }) => (
+      <Fragment key={stars}>
+        <div className="font-medium">
+          {stars} {stars === 1 ? 'star' : 'stars'}
+        </div>
+        <Progress value={percentage} className="h-[1lh]" />
+        <div className="font-medium">{percentage}%</div>
+      </Fragment>
+    ))}
+  </div>
+);
+
 interface ProductViewProps {
   productId: string;
   tenantSlug: string;
@@ -135,17 +153,12 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   </div>
                 </div>
                 {/* % of customers that give specific rating via progress bar */}
-                <div className="grid grid-cols-[auto_1fr_auto] gap-3 mt-4">
-                  {[5, 4, 3, 2, 1].map((stars) => (
-                    <Fragment key={stars}>
-                      <div className="font-medium">
-                        {stars} {stars === 1 ? 'star' : 'stars'}
-                      </div>
-                      <Progress value={25} className="h-[1lh]" />
-                      <div className="font-medium">{25}%</div>
-                    </Fragment>
-                  ))}
-                </div>
+                <ProductRatingsBreakdown
+                  ratings={[5, 4, 3, 2, 1].map((stars) => ({
+                    stars,
+                    percentage: 25
+                  }))}
+                />
               </div>
             </div>
           </div>

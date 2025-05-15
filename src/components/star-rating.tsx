@@ -10,16 +10,24 @@ interface StarRatingProps {
   className?: string;
   iconClassName?: string;
   text?: string;
+  ariaLabel?: string;
 }
 export const StarRating = ({
   rating,
   className,
   iconClassName,
-  text
+  text,
+  ariaLabel
 }: StarRatingProps) => {
   const safeRating = Math.max(MIN_RATING, Math.min(rating, MAX_RATING));
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    <div
+      className={cn('flex items-center gap-1', className)}
+      role="img"
+      aria-label={
+        ariaLabel || `Rating: ${safeRating} out of ${MAX_RATING} stars`
+      }
+    >
       {Array.from({ length: MAX_RATING }).map((_, index) => (
         <StarIcon
           key={index}
@@ -28,6 +36,7 @@ export const StarRating = ({
             index < safeRating ? 'fill-black' : '',
             iconClassName
           )}
+          aria-hidden="true"
         />
       ))}
       {text && <p>{text}</p>}
