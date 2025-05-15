@@ -5,8 +5,35 @@ import { Category, Media, Tenant } from '@/payload-types';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { sortValues } from '../search-params';
 import { DEFAULT_LIMIT } from '@/constants';
+import { TRPCError } from '@trpc/server';
 
 export const productsRouter = createTRPCRouter({
+  getOne: baseProcedure
+    .input(
+      z.object({
+        id: z.string()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const product = await ctx.db.findByID({
+        collection: 'products',
+        depth: 2, // Load product.image, product.cover, product.tenant & product.tenant.image
+        id: input.id
+      });
+
+      if (!product) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `ProductID with ID: ${input.id} not found`
+        });
+      }
+      return {
+        ...product,
+        image: (product.image as Media) || null,
+        cover: (product.cover as Media) || null,
+        tenant: product.tenant as Tenant & { image: Media | null }
+      };
+    }),
   getMany: baseProcedure
     .input(
       z.object({

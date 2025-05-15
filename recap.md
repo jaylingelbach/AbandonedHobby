@@ -473,3 +473,44 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Added new Navbar and NavbarSkeleton components for tenant navigation and loading state.
 - src/trpc/routers/\_app.ts
   - Registered tenantsRouter in the main application router.
+
+# Product Page 5/15/25
+
+### Walkthrough:
+
+- This update introduces a server-rendered product detail page that fetches tenant and product data using tRPC and React Query.
+- It adds a ProductView component for detailed product display, a reusable StarRating component, and a currency formatting utility.
+- Product data structures and API procedures are extended to support a new cover image and refined refund policy options.
+
+### New Features
+
+- Introduced a detailed product view page with server-side data fetching and hydration, displaying product image, name, price, tenant info, star ratings, refund policy, and ratings summary.
+- Added a star rating UI component for displaying product ratings.
+- Implemented a utility for formatting prices as US dollars.
+- Added support for a product cover image.
+
+### Enhancements
+
+- Product links now dynamically include the tenant’s URL.
+- Product prices are now formatted using the new currency utility.
+
+### Updates
+
+- Changed refund policy options from plural to singular day forms (e.g., "30 days" → "30 day").
+
+### File Changes:
+
+- src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/page.tsx
+  -Added a new server-side React page component that prefetches tenant and product data, hydrates client cache, and renders the product view.
+- src/modules/products/ui/components/views/product-view.tsx
+  - Introduced a new ProductView component to display detailed product information, including ratings, pricing, and refund policy.
+- src/components/star-rating.tsx
+  - Added a new StarRating React component for rendering star-based ratings with optional text.
+- src/lib/utils.ts
+  - Added a formatCurrency utility function for formatting values as USD currency strings.
+- src/modules/products/server/procedures.ts
+  - Added a getOne procedure to the products router for fetching a single product with related entities by ID.
+- src/modules/products/ui/components/product-card.tsx
+  - Updated to use formatCurrency for price formatting and dynamic tenant-based product URLs.
+- src/collections/Products.ts src/payload-types.ts
+  - Added a cover field to products, updated refund policy options from plural to singular day forms, and updated type definitions accordingly.
