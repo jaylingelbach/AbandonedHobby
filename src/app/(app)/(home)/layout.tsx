@@ -1,8 +1,6 @@
 import { Suspense } from 'react';
-import { dehydrate } from '@tanstack/react-query';
+import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient, trpc } from '@/trpc/server';
-
-import ClientProviders from './clientProviders';
 
 import { Footer } from '@/modules/home/ui/components/footer';
 import { Navbar } from '@/modules/home/ui/components/navbar';
@@ -21,17 +19,14 @@ export default async function Layout({ children }: Props) {
   // pre-warm the cache so the first paint is instant
   await queryClient.prefetchQuery(trpc.categories.getMany.queryOptions());
 
-  // one dehydrated snapshot — created ONCE on the server
-  const dehydratedState = dehydrate(queryClient);
-
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <ClientProviders dehydratedState={dehydratedState}>
+      <HydrationBoundary state={dehydrate(queryClient)}>
         <Suspense fallback={<SearchFiltersLoading />}>
           <SearchFilters />
         </Suspense>
-      </ClientProviders>
+      </HydrationBoundary>
 
       <div className="flex-1 bg-[#F4F4F0]">{children}</div>
 
