@@ -1,7 +1,7 @@
 'use client';
 
 // TODO: add real ratings
-
+import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -15,6 +15,18 @@ import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment } from 'react';
 import { Progress } from '@/components/ui/progress';
+
+const CartButton = dynamic(
+  () => import('../cart-button').then((mod) => ({ default: mod.CartButton })),
+  {
+    ssr: false,
+    loading: () => (
+      <Button disabled className="flex-1 bg-pink-400">
+        Add to cart
+      </Button>
+    )
+  }
+); // doing this to solve hydration errors.while using local storage.
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
@@ -124,9 +136,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
-                  <Button variant="elevated" className="flex-1 bg-pink-400">
-                    Add to cart
-                  </Button>
+                  <CartButton tenantSlug={tenantSlug} productId={productId} />
                   <Button
                     className="size-12"
                     variant="elevated"
