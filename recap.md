@@ -514,3 +514,47 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Updated to use formatCurrency for price formatting and dynamic tenant-based product URLs.
 - src/collections/Products.ts src/payload-types.ts
   - Added a cover field to products, updated refund policy options from plural to singular day forms, and updated type definitions accordingly.
+
+# Cart (F.E. only) 5/16/25
+
+- Walkthrough
+  - This update introduces a multi-tenant shopping cart system using Zustand for state management and localStorage for persistence. It adds new cart management hooks, store, and UI components for cart and checkout actions. The hydration logic for React Query is simplified by removing a custom provider and using the official HydrationBoundary component. Several components are now dynamically imported to address hydration issues related to localStorage.
+
+### New Features
+
+- Introduced cart functionality supporting multiple tenants, allowing users to add or remove products and view cart contents.
+- Added a checkout button that displays the cart item count and links to the tenant-specific checkout page.
+- Added a cart button to product views for easy product addition or removal.
+
+### Improvements
+
+- Enhanced reliability of cart and checkout buttons by loading them dynamically on the client, resolving hydration issues.
+
+### Chores
+
+- Added the "zustand" dependency for state management.
+
+### Refactor
+
+- Simplified client hydration by replacing a custom provider with the official React Query hydration boundary.
+
+### File changes:
+
+- package.json Added zustand dependency.
+- src/app/(app)/(home)/clientProviders.tsx
+  - Deleted custom ClientProviders React component for React Query hydration.
+- src/app/(app)/(home)/layout.tsx
+  src/app/(app)/(tenants)/tenants/[slug]/(home)/layout.tsx src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/page.tsx
+  - Replaced custom ClientProviders with official HydrationBoundary for React Query hydration; removed related imports and variables.
+- src/modules/checkout/hooks/use-cart.ts
+  - Added new useCart hook for tenant-scoped cart management.
+- src/modules/checkout/store/use-cart-store.ts
+  - Added Zustand store useCartStore for multi-tenant cart state, persisted in localStorage.
+- src/modules/checkout/ui/components/checkout-button.tsx
+  - Added new CheckoutButton component for cart access and checkout navigation.
+- src/modules/products/ui/components/cart-button.tsx
+  - Added new CartButton component for adding/removing products from the cart.
+- src/modules/products/ui/components/views/product-view.tsx
+  - Replaced static "Add to cart" button with dynamically imported CartButton to avoid hydration errors.
+- src/modules/tenants/ui/components/navbar.tsx
+  - Dynamically imported CheckoutButton in Navbar and NavbarSkeleton; added loading state button.

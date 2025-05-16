@@ -26,7 +26,7 @@ const CartButton = dynamic(
       </Button>
     )
   }
-); // doing this to solve hydration errors.while using local storage.
+); // doing this to solve hydration errors while using local storage.
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
