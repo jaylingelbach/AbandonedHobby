@@ -558,3 +558,48 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Replaced static "Add to cart" button with dynamically imported CartButton to avoid hydration errors.
 - src/modules/tenants/ui/components/navbar.tsx
   - Dynamically imported CheckoutButton in Navbar and NavbarSkeleton; added loading state button.
+
+# Checkout - 5/19/25
+
+### Walkthrough
+
+- The changes introduce a dynamic, tenant-specific checkout feature in a React/Next.js application.
+- This includes new server and UI components for the checkout flow, a dedicated router and procedure for fetching products and calculating totals, UI components for checkout items and sidebar, and integration of the checkout router into the main API router.
+- A bug in the cart hook is also fixed.
+
+### New Features
+
+- Introduced a dynamic, tenant-specific checkout page with a dedicated layout, including consistent navigation and footer.
+- Added a checkout view displaying cart items, product details, and total price.
+- Implemented sidebar for checkout actions and error handling.
+- Added components for individual checkout items and navigation bar with "Continue Shopping" option.
+
+### Bug Fixes
+
+- Fixed an issue where removing a product from the cart would incorrectly add it instead.
+
+### Backend
+
+- Enabled backend support for fetching checkout products and calculating total price.
+  Integrated checkout API endpoints into the main application router.
+
+### File changes:
+
+- src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/page.tsx
+- Added a dynamic async server page component for tenant-specific checkout, extracting slug from params and rendering CheckoutView.
+- src/app/(app)/(tenants)/tenants/[slug]/(checkout)/layout.tsx
+  - Introduced a layout component for checkout pages, wrapping content with a Navbar (using slug), main area, and Footer, ensuring consistent structure for tenant checkout routes.
+- src/modules/checkout/hooks/use-cart.ts
+  - Fixed a bug in the removeProduct function of the useCart hook, ensuring it calls the correct removal logic instead of adding products.
+- src/modules/checkout/server/procedures.ts
+  - Added a new checkoutRouter with a getProducts procedure: fetches products by IDs, validates existence, populates relations, and computes total price.
+- src/modules/checkout/ui/components/checkout-item.tsx
+  - Added a CheckoutItem React component for displaying individual checkout items with image, name, tenant, price, and remove button.
+- src/modules/checkout/ui/components/checkout-sidebar.tsx
+  - Added a CheckoutSidebar React component to display the total price, checkout button, and error message on failure.
+- src/modules/checkout/ui/components/navbar.tsx
+  - Added a Navbar component for the checkout flow, showing the page title and a "Continue Shopping" link back to the tenant's main page.
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Added a CheckoutView component that orchestrates the checkout UI: fetches cart products, handles loading/error/empty states, and renders the checkout grid and sidebar.
+- src/trpc/routers/\_app.ts
+  - Integrated the new checkoutRouter into the main appRouter, enabling checkout-related API endpoints.
