@@ -16,20 +16,19 @@ interface CheckoutViewProps {
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
-  const { productIds, removeProduct, clearAllCarts } = useCart(tenantSlug);
+  const { productIds, removeProduct, clearCart } = useCart(tenantSlug);
   const trpc = useTRPC();
   const { data, error, isLoading } = useQuery(
     // useQuery bc no prefetching no hydration no suspense. All localstorage.
     trpc.checkout.getProducts.queryOptions({ ids: productIds })
   );
 
-  //  instead of clearing all carts maybe clear the specific product from the cart?
   useEffect(() => {
     if (error?.data?.code === 'NOT_FOUND') {
-      clearAllCarts();
+      clearCart();
       toast.warning('Invalid products found, your cart has been cleared');
     }
-  }, [error, clearAllCarts]);
+  }, [error, clearCart]);
 
   if (isLoading) {
     return (
