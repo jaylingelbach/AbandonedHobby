@@ -23,6 +23,7 @@ export const CheckoutSidebar = ({
       </div>
       <div className="p-4 items-center justify-center">
         <Button
+          aria-label="Complete checkout process"
           className="text-base w-full text-white bg-primary hover:bg-pink-400 hover:text-primary"
           disabled={isPending}
           onClick={onCheckout}
@@ -34,7 +35,11 @@ export const CheckoutSidebar = ({
       </div>
       {isCanceled && (
         <div className="p-4 flex justify-center items-center border-t">
-          <div className="bg-red-100 border border-red-400 font-medium px-4 py-3 rounded flex items-center w-full">
+          <div
+            className="bg-red-100 border border-red-400 font-medium px-4 py-3 rounded flex items-center w-full"
+            role="alert"
+            aria-live="assertive"
+          >
             <div className="flex items-center">
               <CircleXIcon className="size-6 mr-2 fill-red-500 text-red-100" />
               <span>Checkout failed, please try again. </span>

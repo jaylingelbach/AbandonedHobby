@@ -8,8 +8,8 @@ import { useQuery } from '@tanstack/react-query';
 import { generateTenantURL } from '@/lib/utils';
 
 import { CheckoutItem } from '../components/checkout-item';
+import { CheckoutSidebar } from '../components/checkout-sidebar';
 import { useCart } from '../../hooks/use-cart';
-import CheckoutSidebar from '../components/checkout-sidebar';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -62,7 +62,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
                 imageURL={product.image?.url}
                 name={product.name}
                 productURL={`${generateTenantURL(product.tenant.slug)}/products/${product.id}`}
-                tenantURL={`${generateTenantURL(product.tenant.slug)} `}
+                tenantURL={`${generateTenantURL(product.tenant.slug)}`}
                 tenantName={product.tenant.name}
                 price={product.price}
                 onRemove={() => removeProduct(product.id)}

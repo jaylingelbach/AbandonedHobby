@@ -3,7 +3,7 @@ import Image from 'next/image';
 
 import { cn, formatCurrency } from '@/lib/utils';
 
-interface CheckoutItemsProps {
+interface CheckoutItemProps {
   isLast?: boolean;
   imageURL?: string | null;
   name: string;
@@ -23,7 +23,7 @@ export const CheckoutItem = ({
   tenantName,
   price,
   onRemove
-}: CheckoutItemsProps) => {
+}: CheckoutItemProps) => {
   return (
     <div
       className={cn(
@@ -35,7 +35,7 @@ export const CheckoutItem = ({
         <div className="relative aspect-square h-full">
           <Image
             src={imageURL || '/placeholder.png'}
-            alt={name}
+            alt={`Product: ${name} from ${tenantName}`}
             fill
             className="object-cover "
           />
@@ -54,6 +54,7 @@ export const CheckoutItem = ({
       <div className="py-4 flex flex-col justify-between">
         <h4 className="font-medium">{formatCurrency(price)}</h4>
         <button
+          aria-label={`Remove ${name} from cart`}
           className="underline font-medium cursor-pointer"
           onClick={onRemove}
           type="button"

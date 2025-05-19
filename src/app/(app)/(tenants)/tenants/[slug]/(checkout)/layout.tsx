@@ -6,8 +6,8 @@ interface LayoutProps {
   params: { slug: string };
 }
 
-export default async function Layout({ children, params }: LayoutProps) {
-  const { slug } = await params;
+export default function Layout({ children, params }: LayoutProps) {
+  const { slug } = params;
 
   return (
     <div className="min-h-screen bg-[#F4F4F0] flex flex-col">
