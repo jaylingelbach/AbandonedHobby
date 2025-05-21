@@ -14,6 +14,12 @@ pnpm dev
 bun dev
 ```
 
+If testing stripe you need to start up webhooks by running in a terminal
+
+```
+stripe listen --forward-to localhost:3000/api/stripe/webhooks
+```
+
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.

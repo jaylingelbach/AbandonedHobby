@@ -603,3 +603,59 @@ This update introduces a new "Products" collection to the CMS schema, complete w
   - Added a CheckoutView component that orchestrates the checkout UI: fetches cart products, handles loading/error/empty states, and renders the checkout grid and sidebar.
 - src/trpc/routers/\_app.ts
   - Integrated the new checkoutRouter into the main appRouter, enabling checkout-related API endpoints.
+
+# Stripe integration 5/21/25
+
+### Walkthrough
+
+This update introduces Stripe integration for checkout and order processing. It adds a Stripe webhook handler, a centralized Stripe client, and a new Orders collection in the CMS. Checkout logic is enhanced with a protected purchase mutation, new types, and state management hooks. Several interfaces and prop names are updated for clarity and consistency.
+
+### New Features
+
+- Introduced Stripe integration for handling payments and webhooks.
+- Added order management, allowing orders to be tracked and associated with users and products.
+- Implemented a purchase flow with checkout session creation and redirection.
+- Added a protected procedure for authenticated server-side operations.
+
+### Enhancements
+
+- Improved admin interface display for products and orders.
+- Checkout sidebar and view updated for clearer purchase status and actions.
+
+### Bug Fixes
+
+- Ensured robust error handling for unauthorized access and missing data during checkout.
+
+### Developer Experience
+
+- Centralized Stripe client configuration.
+- Added new hooks and types for managing checkout state and metadata.
+
+### File changes:
+
+- package.json
+  - Added Stripe dependency (stripe@^18.1.1).
+- src/app/(app)/(tenants)/tenants/[slug]/(checkout)/layout.tsx
+  - Changed params type to a Promise; made Layout async to await params.
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Added new API route for handling Stripe webhook events and order creation.
+- src/collections/Orders.ts
+  - Introduced new Orders collection schema for Payload CMS.
+    src/collections/Products.ts Added admin.useAsTitle config to use product name as admin title.
+    src/lib/stripe.ts New module exporting a configured Stripe client using env secret and API version.
+- src/modules/checkout/hooks/use-checkout-states.ts
+  - Added useCheckoutState hook for managing checkout query parameters.
+- src/modules/checkout/server/procedures.ts
+  - Added protected purchase mutation to checkoutRouter for Stripe checkout session creation.
+- src/modules/checkout/types.ts
+  - Added types: ProductMetadata, CheckoutMetadata, ExpandedLineItem for checkout.
+- src/modules/checkout/ui/components/checkout-sidebar.tsx
+  - Renamed props: onCheckout → onPurchase, isPending → disabled. Updated usages accordingly.
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Integrated purchase mutation, checkout state management, and updated sidebar props/logic.
+- src/payload-types.ts
+  - Added orders collection/types, reordered interfaces, updated select interfaces and relations.
+- src/payload.config.ts
+  - Reordered and updated collection imports; added Orders to Payload config.
+- src/trpc/init.ts
+  - Added protectedProcedure for authentication in TRPC; updated imports.
