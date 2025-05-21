@@ -3,11 +3,11 @@ import { Navbar } from '@/modules/checkout/ui/components/navbar';
 
 interface LayoutProps {
   children: React.ReactNode;
-  params: { slug: string };
+  params: Promise<{ slug: string }>;
 }
 
-export default function Layout({ children, params }: LayoutProps) {
-  const { slug } = params;
+export default async function Layout({ children, params }: LayoutProps) {
+  const { slug } = await params;
 
   return (
     <div className="min-h-screen bg-[#F4F4F0] flex flex-col">

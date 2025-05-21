@@ -1,27 +1,59 @@
 'use client';
 import { toast } from 'sonner';
 import { useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { useTRPC } from '@/trpc/client';
-import { useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { generateTenantURL } from '@/lib/utils';
 
 import { CheckoutItem } from '../components/checkout-item';
-import { CheckoutSidebar } from '../components/checkout-sidebar';
 import { useCart } from '../../hooks/use-cart';
+import { useCheckoutState } from '../../hooks/use-checkout-states';
+import CheckoutSidebar from '../components/checkout-sidebar';
 
 interface CheckoutViewProps {
   tenantSlug: string;
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
+  const [states, setStates] = useCheckoutState();
+  const router = useRouter();
   const { productIds, removeProduct, clearCart } = useCart(tenantSlug);
   const trpc = useTRPC();
   const { data, error, isLoading } = useQuery(
     // useQuery bc no prefetching no hydration no suspense. All localstorage.
     trpc.checkout.getProducts.queryOptions({ ids: productIds })
   );
+
+  const purchase = useMutation(
+    trpc.checkout.purchase.mutationOptions({
+      onMutate: () => {
+        setStates({ success: false, cancel: false });
+      },
+      // not a purchase, but the checkout link was successfully created.
+      onSuccess: (data) => {
+        window.location.href = data.url;
+      },
+      onError: (error) => {
+        if (error.data?.code === 'UNAUTHORIZED') {
+          // TODO: refactor when subdomains are enabled.
+          router.push('/sign-in');
+          toast.error(error.message);
+        }
+      }
+    })
+  );
+
+  useEffect(() => {
+    if (states.success) {
+      setStates({ success: false, cancel: false });
+      clearCart();
+      // TODO: invalidate library
+      router.push('/products');
+    }
+  }, [states.success, clearCart, router, setStates]);
 
   useEffect(() => {
     if (error?.data?.code === 'NOT_FOUND') {
@@ -74,9 +106,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         <div className="lg:col-span-3">
           <CheckoutSidebar
             total={data?.totalPrice || 0}
-            onCheckout={() => {}}
-            isCanceled={false}
-            isPending={false}
+            onPurchase={() => purchase.mutate({ tenantSlug, productIds })}
+            isCanceled={states.cancel}
+            disabled={purchase.isPending}
           />
         </div>
       </div>
