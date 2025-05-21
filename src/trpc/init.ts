@@ -1,8 +1,9 @@
-import { initTRPC } from '@trpc/server';
+import { initTRPC, TRPCError } from '@trpc/server';
 import { cache } from 'react';
 
 import config from '@payload-config';
 import { getPayload } from 'payload';
+import { headers as getHeaders } from 'next/headers';
 export const createTRPCContext = cache(async () => {
   /**
    * @see: https://trpc.io/docs/server/context
@@ -27,4 +28,26 @@ export const baseProcedure = t.procedure.use(async ({ next }) => {
   const payload = await getPayload({ config });
   // extend context alias as db for readability. We pass the payload cms to authenticate with this as well...
   return next({ ctx: { db: payload } });
+});
+
+export const protectedProcedure = baseProcedure.use(async ({ ctx, next }) => {
+  const headers = await getHeaders();
+  const session = await ctx.db.auth({ headers });
+
+  if (!session.user) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Must be logged in.'
+    });
+  }
+  // spreading to ensure proper types
+  return next({
+    ctx: {
+      ...ctx,
+      session: {
+        ...session,
+        user: session.user
+      }
+    }
+  });
 });
