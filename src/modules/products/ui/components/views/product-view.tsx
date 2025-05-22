@@ -26,7 +26,7 @@ const CartButton = dynamic(
       </Button>
     )
   }
-); // doing this to solve hydration errors while using local storage.
+); // doing this to solve hydration errors   while using local storage.
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
@@ -136,7 +136,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
-                  <CartButton tenantSlug={tenantSlug} productId={productId} />
+                  <CartButton
+                    isPurchased={data.isPurchased}
+                    tenantSlug={tenantSlug}
+                    productId={productId}
+                  />
                   <Button
                     className="size-12"
                     variant="elevated"

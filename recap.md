@@ -1,4 +1,4 @@
-# Categories finalization branch
+# Categories finalization
 
 ### New Features
 
@@ -659,3 +659,56 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Reordered and updated collection imports; added Orders to Payload config.
 - src/trpc/init.ts
   - Added protectedProcedure for authentication in TRPC; updated imports.
+
+# Library 5/22/25
+
+### Walkthrough
+
+- This update introduces a complete "Library" feature, including backend procedures, API routing, server/client data fetching, and UI components for displaying a user's purchased products. It also enhances product detail and cart button components to reflect purchase status, optimizes cart state management, and updates API routers to integrate the new library module.
+
+### New Features
+
+- Introduced a personal library page displaying your purchased products and reviews.
+- Added product cards and a responsive product list with infinite scrolling in the library.
+- Added skeleton loaders for product cards and lists to improve loading experience.
+- Added a "View in library" button for purchased products, allowing quick access from product pages.
+
+### Enhancements
+
+- Improved cart button behavior to show library access for purchased items.
+- Enhanced product detail view to indicate purchase status.
+
+### Bug Fixes
+
+- Optimized cart state handling for better performance and reduced unnecessary re-renders.
+
+### Chores
+
+- Updated internal API routing to support new library features.
+
+### File changes:
+
+- src/app/(app)/(library)/library/page.tsx
+  - Added a new server-side React page component that prefetches library data using React Query and tRPC, hydrates it for the client, and renders the LibraryView.
+- src/modules/library/server/procedures.ts
+  - Introduced libraryRouter with a protected getMany procedure to fetch a user's purchased products, supporting pagination and detailed product/tenant typing.
+- src/modules/library/ui/components/product-card.tsx
+  - Added ProductCard component for displaying product info in card format and ProductCardSkeleton for loading states.
+- src/modules/library/ui/components/product-list.tsx
+  - Added ProductList component for paginated, infinite-scroll display of products using React Query, and ProductListSkeleton for loading placeholders.
+- src/modules/library/ui/views/library-view.tsx
+  - Added LibraryView component to render the library page layout, including navigation, headers, and a suspense-wrapped product list.
+- src/modules/checkout/hooks/use-cart.ts
+  - Refactored useCart hook for improved memoization and shallow state selection, replacing direct store calls with selectors and useCallback for handlers.
+- src/modules/checkout/store/use-cart-store.ts
+  - Removed getCartByTenant method from CartState and its implementation; store initializer updated accordingly.
+- src/modules/products/server/procedures.ts
+  - Enhanced getOne product procedure to check user authentication and purchase status, returning an isPurchased flag in the product response.
+- src/modules/products/ui/components/cart-button.tsx
+  - Added isPurchased prop to CartButton; renders a "View in library" button linking to the product in the library if purchased, otherwise retains original cart toggle behavior.
+- src/modules/products/ui/components/views/product-view.tsx
+  - Updated ProductView to pass the new isPurchased prop from product data to the CartButton component.
+- src/modules/home/ui/components/search-filters/search-input.tsx
+  - Reordered some JSX props and added prefetch to a Link component; no logic or control flow changes.
+- src/trpc/routers/\_app.ts
+  - Added libraryRouter to the main appRouter, fixed router ordering, and removed duplicate checkoutRouter entry.
