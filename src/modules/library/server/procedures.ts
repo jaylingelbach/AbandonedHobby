@@ -2,6 +2,7 @@ import z from 'zod';
 import { Media, Tenant } from '@/payload-types';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { DEFAULT_LIMIT } from '@/constants';
+import { TRPCError } from '@trpc/server';
 
 export const libraryRouter = createTRPCRouter({
   getMany: protectedProcedure
@@ -31,20 +32,28 @@ export const libraryRouter = createTRPCRouter({
       }
 
       /* ── 3. fetch the products themselves ───────────────────────── */
-      const products = await ctx.db.find({
-        collection: 'products',
-        pagination: false,
-        where: { id: { in: productIds } }
-      });
+      try {
+        const products = await ctx.db.find({
+          collection: 'products',
+          pagination: false,
+          where: { id: { in: productIds } }
+        });
 
-      /* ── 4. return the response as before ─────────────────────── */
-      return {
-        ...products,
-        docs: products.docs.map((d) => ({
-          ...d,
-          image: d.image as Media | null,
-          tenant: d.tenant as Tenant & { image: Media | null }
-        }))
-      };
+        /* ── 4. return the response as before ─────────────────────── */
+        return {
+          ...products,
+          docs: products.docs.map((d) => ({
+            ...d,
+            image: d.image as Media | null,
+            tenant: d.tenant as Tenant & { image: Media | null }
+          }))
+        };
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch library products',
+          cause: error
+        });
+      }
     })
 });
