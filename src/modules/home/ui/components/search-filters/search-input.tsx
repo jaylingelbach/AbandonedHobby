@@ -29,20 +29,20 @@ export const SearchInput = ({ disabled }: Props) => {
         <SearchIcon className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-neutral-500" />
         <Input
           className="pl-8"
-          placeholder="Search Products"
           disabled={disabled}
+          placeholder="Search Products"
         />
       </div>
       <Button
-        variant="elevated"
         className="size-12 shrink-0 flex lg:hidden"
         onClick={() => setIsSidebarOpen(true)}
+        variant="elevated"
       >
         <ListFilterIcon />
       </Button>
       {session.data?.user && (
-        <Button variant="elevated" asChild>
-          <Link href="/library">
+        <Button asChild variant="elevated">
+          <Link prefetch href="/library">
             <BookmarkCheckIcon />
             Library
           </Link>

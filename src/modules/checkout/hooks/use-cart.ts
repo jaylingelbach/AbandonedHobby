@@ -3,6 +3,7 @@ import { useCartStore } from '../store/use-cart-store';
 import { useShallow } from 'zustand/react/shallow';
 
 export const useCart = (tenantSlug: string) => {
+  // automatically memoized via zustand.
   const addProduct = useCartStore((state) => state.addProduct);
   const clearCart = useCartStore((state) => state.clearCart);
   const clearAllCarts = useCartStore((state) => state.clearAllCarts);

@@ -47,13 +47,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   );
 
   useEffect(() => {
-    // http://localhost:3000/tenants/jay2/checkout?success=true
-    console.log('triggered!');
     if (states.success) {
-      // setStates({ success: false, cancel: false });
+      setStates({ success: false, cancel: false });
       clearCart();
       // TODO: invalidate library
-      //  router.push('/products');
+      router.push('/products');
     }
   }, [states.success, clearCart, router, setStates]);
 
