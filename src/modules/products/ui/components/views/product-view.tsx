@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
-import { Fragment, useState } from 'react';
+import { Fragment, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 
 const CartButton = dynamic(
@@ -60,6 +60,16 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   );
 
   const [isCopied, setIsCopied] = useState(false);
+
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
+    };
+  }, []);
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
@@ -151,12 +161,21 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <Button
                     className="size-12"
                     variant="elevated"
-                    onClick={() => {
-                      setIsCopied(true);
-                      navigator.clipboard.writeText(window.location.href);
-                      toast.success('URL copied to clipboard');
-
-                      setTimeout(() => setIsCopied(false), 1000);
+                    onClick={async () => {
+                      try {
+                        setIsCopied(true);
+                        await navigator.clipboard.writeText(
+                          window.location.href
+                        );
+                        toast.success('URL copied to clipboard');
+                        timeoutRef.current = setTimeout(
+                          () => setIsCopied(false),
+                          1000
+                        );
+                      } catch (error) {
+                        setIsCopied(false);
+                        toast.error('Failed to copy URL to clipboard');
+                      }
                     }}
                     disabled={isCopied}
                   >
