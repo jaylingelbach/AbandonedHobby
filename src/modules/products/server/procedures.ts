@@ -87,14 +87,13 @@ export const productsRouter = createTRPCRouter({
           if (rating >= 1 && rating <= 5) {
             ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
           }
+        });
 
-          // counts to percentages for the rating bars
-          Object.keys(ratingDistribution).forEach((key) => {
-            const rating = Number(key);
-            const count = ratingDistribution[rating] || 0;
-            ratingDistribution[rating] =
-              Math.round(count / reviews.totalDocs) * 100;
-          });
+        // Convert counts to percentages after all reviews are processed
+        Object.keys(ratingDistribution).forEach((key) => {
+          const rating = Number(key);
+          const count = ratingDistribution[rating] || 0;
+          ratingDistribution[rating] = Math.round((count / reviews.totalDocs) * 100);
         });
       }
       return {
