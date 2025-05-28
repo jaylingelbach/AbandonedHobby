@@ -1,11 +1,11 @@
 'use client';
 
-// TODO: add real ratings
+import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { LinkIcon, StarIcon } from 'lucide-react';
+import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
 import { useTRPC } from '@/trpc/client';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
-import { Fragment } from 'react';
+import { Fragment, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 
 const CartButton = dynamic(
@@ -26,7 +26,7 @@ const CartButton = dynamic(
       </Button>
     )
   }
-); // doing this to solve hydration errors   while using local storage.
+); // doing this to solve hydration errors while using local storage.
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
@@ -58,6 +58,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       id: productId
     })
   );
+
+  const [isCopied, setIsCopied] = useState(false);
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
@@ -107,16 +109,21 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
               {/* Shop Rating? */}
               <div className="hidden lg:flex px-6 py-4 items-center justify-center">
-                <div className="flex items-center gap-1">
-                  <StarRating rating={4} />
+                <div className="flex items-center gap-2">
+                  <StarRating rating={data.reviewRating} />
+                  <p className="text-base font-medium">
+                    {data.reviewCount} ratings
+                  </p>
                 </div>
               </div>
             </div>
             {/* Mobile hidden on desktop */}
             <div className="block lg:hidden px-6 py-4 items-center">
-              <div className="flex items-center gap-1">
-                <StarRating rating={4} iconClassName="size-4" />
-                <p className="text-base font-medium">{5} ratings</p>
+              <div className="flex items-center gap-2 ">
+                <StarRating rating={data.reviewRating} iconClassName="size-4" />
+                <p className="text-base font-medium">
+                  {data.reviewCount} ratings
+                </p>
               </div>
             </div>
             {/* Product Description */}
@@ -144,10 +151,16 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <Button
                     className="size-12"
                     variant="elevated"
-                    onClick={() => {}}
-                    disabled={false}
+                    onClick={() => {
+                      setIsCopied(true);
+                      navigator.clipboard.writeText(window.location.href);
+                      toast.success('URL copied to clipboard');
+
+                      setTimeout(() => setIsCopied(false), 1000);
+                    }}
+                    disabled={isCopied}
                   >
-                    <LinkIcon />
+                    {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
                   </Button>
                 </div>
                 <p className="text-center font-medium">
@@ -162,15 +175,15 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <h3 className="text-xl font-medium">Ratings</h3>
                   <div className="flex items-center gap-x-1 font-medium">
                     <StarIcon className="size-4 fill-black" />
-                    <p>({5})</p>
-                    <p className="text-based">{5} ratings</p>
+                    <p>({data.reviewRating})</p>
+                    <p className="text-based">{data.reviewCount} ratings</p>
                   </div>
                 </div>
                 {/* % of customers that give specific rating via progress bar */}
                 <ProductRatingsBreakdown
                   ratings={[5, 4, 3, 2, 1].map((stars) => ({
                     stars,
-                    percentage: 25
+                    percentage: Number(data.ratingDistribution[stars])
                   }))}
                 />
               </div>
