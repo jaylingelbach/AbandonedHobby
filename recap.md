@@ -762,3 +762,35 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Enhanced checkout flow to invalidate library queries and route to /library after purchase.
 - src/modules/auth/ui/views/sign-up-view.tsx
   - Removed an extraneous whitespace literal in the store URL preview.
+
+# Review aggregation 5/28/25
+
+### Walkthrough
+
+- The changes enrich product and library server procedures to include review summary data—average rating, review count, and rating distribution—when fetching products. UI components are updated to display these dynamic review metrics instead of static placeholders. Additionally, a clipboard copy feature with user feedback is added to the product view page.
+
+### New Features
+
+- Added a clipboard copy button for product URLs with user feedback, including a success notification and visual indicator.
+
+### Enhancements
+
+- Product cards and lists now display real review ratings and counts based on actual data instead of static values.
+- Product detail views show accurate average ratings and review counts, along with a dynamic ratings breakdown reflecting real review distribution.
+
+### Style
+
+- Removed outdated comment lines regarding ratings from product card components.
+
+### File changes:
+
+- src/modules/library/server/procedures.ts
+  - Enriches product data in getOne and getMany with review count and average rating from reviews.
+- src/modules/products/server/procedures.ts
+  - Adds review summary (average, count, distribution) to getOne and getMany product procedures.
+- src/modules/library/ui/components/product-card.tsx src/modules/products/ui/components/product-card.tsx
+  - Removes placeholder comment about adding real ratings.
+- src/modules/library/ui/components/product-list.tsx src/modules/products/ui/components/product-list.tsx
+  - Updates ProductCard props to use actual review data instead of hardcoded values.
+- src/modules/products/ui/components/views/product-view.tsx
+  - Adds clipboard copy button with toast feedback; displays dynamic review data and rating distribution.
