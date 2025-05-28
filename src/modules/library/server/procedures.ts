@@ -55,7 +55,7 @@ export const libraryRouter = createTRPCRouter({
 
         if (!product) {
           throw new TRPCError({
-            code: 'NOT_FO UND',
+            code: 'NOT_FOUND',
             message: 'Product not found'
           });
         }
