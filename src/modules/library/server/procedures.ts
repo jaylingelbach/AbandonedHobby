@@ -1,10 +1,75 @@
 import z from 'zod';
 import { Media, Tenant } from '@/payload-types';
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure
+} from '@/trpc/init';
 import { DEFAULT_LIMIT } from '@/constants';
 import { TRPCError } from '@trpc/server';
 
 export const libraryRouter = createTRPCRouter({
+  getOne: protectedProcedure
+    .input(
+      z.object({
+        productId: z.string()
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      /* ── 1. grab this user’s orders ─────────────────────────────── */
+      const ordersData = await ctx.db.find({
+        collection: 'orders',
+        limit: 1,
+        pagination: false,
+        where: {
+          and: [
+            {
+              product: {
+                equals: input.productId
+              }
+            },
+            {
+              user: {
+                equals: ctx.session.user.id
+              }
+            }
+          ]
+        }
+      });
+
+      /* ── 2. extract order ───────────────────────── */
+      const order = ordersData.docs[0];
+      if (!order) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No order found'
+        });
+      }
+
+      /* ── 3. fetch the product  ───────────────────────── */
+      try {
+        const product = await ctx.db.findByID({
+          collection: 'products',
+          id: input.productId
+        });
+
+        if (!product) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: 'Product not found'
+          });
+        }
+
+        /* ── 4. return the product ─────────────────────── */
+        return product;
+      } catch (error) {
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Failed to fetch library products',
+          cause: error
+        });
+      }
+    }),
   getMany: protectedProcedure
     .input(
       z.object({
