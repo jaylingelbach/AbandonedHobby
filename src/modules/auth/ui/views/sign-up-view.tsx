@@ -107,7 +107,6 @@ function SignUpView() {
                   <FormDescription
                     className={cn('hidden', showPreview && 'block')}
                   >
-                    {' '}
                     Your store will be available at&nbsp;
                     {/* TODO:  Use method to generate preview url */}
                     <strong>{username}</strong>.shop.com
