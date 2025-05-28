@@ -716,3 +716,49 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Reordered some JSX props and added prefetch to a Link component; no logic or control flow changes.
 - src/trpc/routers/\_app.ts
   - Added libraryRouter to the main appRouter, fixed router ordering, and removed duplicate checkoutRouter entry.
+
+# Reviews - 5/28/25
+
+### Walkthrough
+
+- This change introduces a complete user review system for products, including backend collections, API procedures, type definitions, and frontend components for submitting, editing, and displaying reviews. It also adds a product detail page in the library section with server-side data prefetching, hydration, and integration of the new review sidebar and form.
+
+### New Features
+
+- Introduced product review functionality, allowing users to submit, edit, and view reviews with ratings for products in their library.
+- Added interactive star rating picker for submitting product ratings.
+- Product pages now display user reviews and provide a sidebar for review management.
+- Enhanced product page navigation with server-side data fetching and improved prefetching for faster loading.
+
+### Bug Fixes
+
+- Minor whitespace cleanup in the sign-up view for improved UI consistency.
+
+### Chores
+
+- Integrated the new reviews collection into the backend configuration and type system.
+
+### Files changes:
+
+- src/collections/Reviews.ts, src/payload.config.ts, src/payload-types.ts
+  - Added Reviews collection to CMS config and type system, defining review fields and relationships.
+- src/modules/reviews/server/procedures.ts, src/modules/reviews/types.ts
+  - Introduced reviewsRouter with getOne, create, and update procedures and corresponding output type.
+- src/trpc/routers/\_app.ts
+  - Registered reviewsRouter in the main TRPC app router.
+- src/components/star-picker.tsx
+  - Added StarPicker component for interactive star-based rating input.
+- src/modules/library/ui/components/review-form.tsx, src/modules/library/ui/components/review-sidebar.tsx
+  - Added ReviewForm and ReviewSidebar components for review creation, editing, and display.
+- src/modules/library/ui/views/product-view.tsx
+  - Added ProductView component with product info and integrated review sidebar.
+- src/app/(app)/(library)/library/[productId]/page.tsx
+  - Added server component page for product detail with server-side data prefetch and hydration.
+- src/modules/library/server/procedures.ts
+  - Added getOne protected procedure for fetching a user's product in the library.
+- src/modules/library/ui/components/product-card.tsx
+  - Enabled prefetching on product card links for smoother navigation.
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Enhanced checkout flow to invalidate library queries and route to /library after purchase.
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Removed an extraneous whitespace literal in the store URL preview.
