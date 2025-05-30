@@ -1,9 +1,17 @@
+import { isSuperAdmin } from '@/lib/access';
 import type { CollectionConfig } from 'payload';
 
 export const Tags: CollectionConfig = {
   slug: 'tags',
+  access: {
+    read: () => true,
+    create: ({ req: { user } }) => isSuperAdmin(user),
+    update: ({ req: { user } }) => isSuperAdmin(user),
+    delete: ({ req: { user } }) => isSuperAdmin(user)
+  },
   admin: {
-    useAsTitle: 'name'
+    useAsTitle: 'name',
+    hidden: ({ user }) => !isSuperAdmin(user)
   },
   fields: [
     {

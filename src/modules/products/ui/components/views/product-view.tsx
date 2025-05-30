@@ -92,17 +92,12 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Price */}
               <div className="px-6 py-4 flex items-center justify-center border-r">
                 <div className="px-2 py-1 border bg-pink-400 w-fit">
-                  <p className="text-base font-medium">
-                    {formatCurrency(data.price)}
-                  </p>
+                  <p className="text-base font-medium">{formatCurrency(data.price)}</p>
                 </div>
               </div>
               {/* Shop name */}
               <div className="px-6 py-4 flex items-center justify-center lg:border-r">
-                <Link
-                  href={generateTenantURL(tenantSlug)}
-                  className="flex items-center gap-2"
-                >
+                <Link href={generateTenantURL(tenantSlug)} className="flex items-center gap-2">
                   {data.tenant.image?.url && (
                     <Image
                       src={data.tenant.image?.url}
@@ -112,18 +107,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       className="rounded-full border shrink-0 size-[20px]"
                     />
                   )}
-                  <p className="text-base underline font-medium">
-                    {data.tenant.name}
-                  </p>
+                  <p className="text-base underline font-medium">{data.tenant.name}</p>
                 </Link>
               </div>
               {/* Shop Rating? */}
               <div className="hidden lg:flex px-6 py-4 items-center justify-center">
                 <div className="flex items-center gap-2">
                   <StarRating rating={data.reviewRating} />
-                  <p className="text-base font-medium">
-                    {data.reviewCount} ratings
-                  </p>
+                  <p className="text-base font-medium">{data.reviewCount} ratings</p>
                 </div>
               </div>
             </div>
@@ -131,9 +122,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
             <div className="block lg:hidden px-6 py-4 items-center">
               <div className="flex items-center gap-2 ">
                 <StarRating rating={data.reviewRating} iconClassName="size-4" />
-                <p className="text-base font-medium">
-                  {data.reviewCount} ratings
-                </p>
+                <p className="text-base font-medium">{data.reviewCount} ratings</p>
               </div>
             </div>
             {/* Product Description */}
@@ -141,9 +130,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {data.description ? (
                 <p>{data.description}</p>
               ) : (
-                <p className="font-medium text-muted-foreground italic">
-                  No description provided
-                </p>
+                <p className="font-medium text-muted-foreground italic">No description provided</p>
               )}
             </div>
           </div>
@@ -164,14 +151,9 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     onClick={async () => {
                       try {
                         setIsCopied(true);
-                        await navigator.clipboard.writeText(
-                          window.location.href
-                        );
+                        await navigator.clipboard.writeText(window.location.href);
                         toast.success('URL copied to clipboard');
-                        timeoutRef.current = setTimeout(
-                          () => setIsCopied(false),
-                          1000
-                        );
+                        timeoutRef.current = setTimeout(() => setIsCopied(false), 1000);
                       } catch (error) {
                         setIsCopied(false);
                         toast.error('Failed to copy URL to clipboard');

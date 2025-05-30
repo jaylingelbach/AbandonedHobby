@@ -794,3 +794,58 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Updates ProductCard props to use actual review data instead of hardcoded values.
 - src/modules/products/ui/components/views/product-view.tsx
   - Adds clipboard copy button with toast feedback; displays dynamic review data and rating distribution.
+
+# Access Control 5/29/25
+
+### Walkthrough
+
+- This update introduces granular access control across multiple collection configurations, primarily restricting create, update, and delete operations to super administrators. A utility function isSuperAdmin is added to centralize role checks. Additional improvements include new fields, admin UI visibility controls, dependency updates, editor formatting settings, and enhanced type documentation.
+
+### New Features
+
+- Introduced stricter access controls across collections, restricting create, update, and delete operations to super admins in most cases.
+- Added conditional admin UI visibility for several collections, hiding them from non-super-admin users.
+- Added a protected "content" field to products, visible only after purchase.
+
+### Improvements
+
+- Enhanced admin UI descriptions for various fields to provide clearer guidance.
+- Product view now conditionally displays special content if available.
+
+### Documentation
+
+- Improved type documentation and comments for better clarity in code interfaces.
+
+### File Changes:
+
+- package.json
+- Updated eslint-config-next version range
+- added eslint-config-prettier and eslint-plugin-import to devDependencies.
+- src/lib/access.ts
+  - Added isSuperAdmin utility function for role checking.
+- src/payload.config.ts
+  - Refactored imports, applied isSuperAdmin in multi-tenant config, and added a clarifying comment.
+- src/payload-types.ts
+  - Added/expanded documentation comments; added optional content field to Product and related types.
+- src/collections/Categories.ts src/collections/Tags.ts
+  - Added access controls: only super admins can create, update, delete; admin UI hidden for non-super admins.
+- src/collections/Media.ts
+  - Restricted delete access to super admins; admin UI hidden for non-super admins.
+- src/collections/Orders.ts
+  - Restricted all CRUD operations to super admins; added admin description to Stripe session field.
+- src/collections/Products.ts
+  - Added access controls; new content textarea field; TODO for RichText; conditional create based on tenant status.
+- src/collections/Reviews.ts
+  - Restricted all CRUD operations to super admins.
+- src/collections/Tenants.ts
+  - Restricted create/delete to super admins; field-level update restrictions; updated admin descriptions.
+- src/collections/Users.ts
+  - Tightened access to super admins for most actions; updated roles and tenant array field access; admin UI hidden for non-super admins.
+- src/modules/checkout/server/procedures.ts
+  -     Refactored import statements and array mapping formatting; no logic changes.
+- src/modules/library/ui/views/product-view.tsx
+  - Now conditionally renders product content if available; otherwise shows fallback message.
+- src/modules/products/server/procedures.ts
+  - Excluded content field from product queries; compacted formatting.
+- src/modules/products/ui/components/views/product-view.tsx
+  - Reformatted JSX and logic for brevity; no functional changes.

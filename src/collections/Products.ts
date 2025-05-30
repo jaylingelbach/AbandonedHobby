@@ -1,7 +1,21 @@
 import { CollectionConfig } from 'payload';
 
+import { isSuperAdmin } from '@/lib/access';
+import { Tenant } from '@/payload-types';
+
 export const Products: CollectionConfig = {
   slug: 'products',
+  access: {
+    // do not need other rules here because products are connected to tenants and those rules are handled seperately.
+    create: ({ req: { user } }) => {
+      // can only post products if their stripe details are submitted. Will I need to refactor if they only want to trade (list as $0)?
+      if (isSuperAdmin(user)) return true;
+      const tenant = user?.tenants?.[0]?.tenant as Tenant;
+      return Boolean(tenant?.stripeDetailsSubmitted);
+    },
+    delete: ({ req: { user } }) => isSuperAdmin(user),
+    update: ({ req: { user } }) => isSuperAdmin(user)
+  },
   admin: {
     useAsTitle: 'name'
   },
@@ -11,6 +25,7 @@ export const Products: CollectionConfig = {
       type: 'text',
       required: true
     },
+    // TODO: change to RichText
     {
       name: 'description',
       type: 'text'
@@ -55,6 +70,16 @@ export const Products: CollectionConfig = {
       type: 'select',
       options: ['30 day', '14 day', '7 day', '1 day', 'no refunds'],
       defaultValue: '30 day'
+    },
+    {
+      name: 'content',
+      // TODO: change to RichText
+      type: 'textarea',
+      // Don't think i'll need this text area below.
+      admin: {
+        description:
+          'Protected content only visible to customers after purchase. If there are downloadable assets can be added here. '
+      }
     }
   ]
 };
