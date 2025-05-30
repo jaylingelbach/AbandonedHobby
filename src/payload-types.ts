@@ -175,6 +175,9 @@ export interface Order {
   name: string;
   user: string | User;
   product: string | Product;
+  /**
+   * The Stripe checkout session associated with the order.
+   */
   stripeCheckoutSessionId: string;
   updatedAt: string;
   createdAt: string;
@@ -215,10 +218,13 @@ export interface Tenant {
    */
   name: string;
   /**
-   * This is the subdomain of the store (e.g. [slug].abandonedhobby.com)
+   * This is the subdomain of the store (e.g. [slug].abandonedhobby.com), if you would like to update this please contact us.
    */
   slug: string;
   image?: (string | null) | Media;
+  /**
+   * Stripe Account ID associated with your shop
+   */
   stripeAccountId: string;
   /**
    * You can not sell products until you have submitted your Stripe details.
@@ -245,6 +251,10 @@ export interface Product {
   image?: (string | null) | Media;
   cover?: (string | null) | Media;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
+  /**
+   * Protected content only visible to customers after purchase. If there are downloadable assessts can be added here.
+   */
+  content?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -410,6 +420,7 @@ export interface ProductsSelect<T extends boolean = true> {
   image?: T;
   cover?: T;
   refundPolicy?: T;
+  content?: T;
   updatedAt?: T;
   createdAt?: T;
 }

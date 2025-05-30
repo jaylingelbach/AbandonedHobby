@@ -22,7 +22,10 @@ export const productsRouter = createTRPCRouter({
       const product = await ctx.db.findByID({
         collection: 'products',
         depth: 2, // Load product.image, product.cover, product.tenant & product.tenant.image
-        id: input.id
+        id: input.id,
+        select: {
+          content: false
+        }
       });
 
       let isPurchased = false;
@@ -68,8 +71,7 @@ export const productsRouter = createTRPCRouter({
 
       const reviewRating =
         reviews.docs.length > 0
-          ? reviews.docs.reduce((acc, review) => acc + review.rating, 0) /
-            reviews.totalDocs
+          ? reviews.docs.reduce((acc, review) => acc + review.rating, 0) / reviews.totalDocs
           : 0;
 
       const ratingDistribution: Record<number, number> = {
@@ -179,9 +181,7 @@ export const productsRouter = createTRPCRouter({
 
         if (parentCategory) {
           subcategorieSlugs.push(
-            ...parentCategory.subcategories.map(
-              (subcategory) => subcategory.slug
-            )
+            ...parentCategory.subcategories.map((subcategory) => subcategory.slug)
           );
           where['category.slug'] = {
             in: [parentCategory.slug, ...subcategorieSlugs]
@@ -201,7 +201,10 @@ export const productsRouter = createTRPCRouter({
         where,
         sort,
         page: input.cursor,
-        limit: input.limit
+        limit: input.limit,
+        select: {
+          content: false
+        }
       });
 
       const dataWithSummaizedReviews = await Promise.all(
@@ -221,10 +224,8 @@ export const productsRouter = createTRPCRouter({
             reviewRating:
               reviewsData.docs.length === 0
                 ? 0
-                : reviewsData.docs.reduce(
-                    (acc, review) => acc + review.rating,
-                    0
-                  ) / reviewsData.totalDocs
+                : reviewsData.docs.reduce((acc, review) => acc + review.rating, 0) /
+                  reviewsData.totalDocs
           };
         })
       );

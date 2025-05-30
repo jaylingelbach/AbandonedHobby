@@ -2,11 +2,7 @@ import { Media, Tenant } from '@/payload-types';
 import Stripe from 'stripe';
 import z from 'zod';
 
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
+import { baseProcedure, createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
@@ -65,8 +61,8 @@ export const checkoutRouter = createTRPCRouter({
       }
       // TODO:  Throw error if stripe details not submitted
 
-      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        products.docs.map((product) => ({
+      const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = products.docs.map(
+        (product) => ({
           quantity: 1,
           price_data: {
             unit_amount: product.price * 100, // stripe calculates prices in cents
@@ -80,7 +76,8 @@ export const checkoutRouter = createTRPCRouter({
               } as ProductMetadata
             }
           }
-        }));
+        })
+      );
 
       const checkout = await stripe.checkout.sessions.create({
         customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
