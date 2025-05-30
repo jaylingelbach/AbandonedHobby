@@ -78,7 +78,7 @@ export const libraryRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      /* ── 1. grab this user’s orders ─────────────────────────────── */
+      /* ── Grab this user’s orders ─────────────────────────────── */
       const orders = await ctx.db.find({
         collection: 'orders',
         depth: 0,
@@ -87,7 +87,7 @@ export const libraryRouter = createTRPCRouter({
         where: { user: { equals: ctx.session.user.id } }
       });
 
-      /* ── 2. extract purchased product IDs ───────────────────────── */
+      /* ── Extract purchased product IDs ───────────────────────── */
       const productIds = orders.docs
         .map((o) => o.product) // adjust if your schema uses items[]
         .filter(Boolean);
@@ -96,7 +96,7 @@ export const libraryRouter = createTRPCRouter({
         return { docs: [], nextPage: null, totalDocs: 0, totalPages: 0 };
       }
 
-      /* ── 3. fetch the products themselves ───────────────────────── */
+      /* ── Fetch the products themselves ───────────────────────── */
       try {
         const products = await ctx.db.find({
           collection: 'products',
@@ -104,35 +104,55 @@ export const libraryRouter = createTRPCRouter({
           where: { id: { in: productIds } }
         });
 
-        const dataWithSummaizedReviews = await Promise.all(
-          products.docs.map(async (doc) => {
-            const reviewsData = await ctx.db.find({
-              collection: 'reviews',
-              pagination: false, // load all
-              where: {
-                product: {
-                  equals: doc.id
-                }
-              }
-            });
-            return {
-              ...doc,
-              reviewCount: reviewsData.totalDocs,
-              reviewRating:
-                reviewsData.docs.length === 0
-                  ? 0
-                  : reviewsData.docs.reduce(
-                      (acc, review) => acc + review.rating,
-                      0
-                    ) / reviewsData.totalDocs
-            };
-          })
-        );
+        // Fetch all reviews for these product IDs in a single query
+        const allReviews = await ctx.db.find({
+          collection: 'reviews',
+          pagination: false,
+          depth: 0,
+          where: {
+            product: { in: productIds }
+          }
+        });
 
-        /* ── 4. return the response as before ─────────────────────── */
+        // Group reviews by product ID
+        const reviewsByProduct = new Map<
+          string,
+          { count: number; totalRating: number }
+        >();
+
+        for (const review of allReviews.docs) {
+          const productId =
+            typeof review.product === 'string'
+              ? review.product
+              : review.product.id;
+          if (!reviewsByProduct.has(productId)) {
+            reviewsByProduct.set(productId, { count: 0, totalRating: 0 });
+          }
+          const entry = reviewsByProduct.get(productId)!;
+          entry.count += 1;
+          entry.totalRating += review.rating;
+        }
+
+        // Merge data into product docs
+        const dataWithSummarizedReviews = products.docs.map((doc) => {
+          const reviewStats = reviewsByProduct.get(doc.id) ?? {
+            count: 0,
+            totalRating: 0
+          };
+          return {
+            ...doc,
+            reviewCount: reviewStats.count,
+            reviewRating:
+              reviewStats.count === 0
+                ? 0
+                : reviewStats.totalRating / reviewStats.count
+          };
+        });
+
+        /* ── Return the response ─────────────────────── */
         return {
           ...products,
-          docs: dataWithSummaizedReviews.map((doc) => ({
+          docs: dataWithSummarizedReviews.map((doc) => ({
             ...doc,
             image: doc.image as Media | null,
             tenant: doc.tenant as Tenant & { image: Media | null }
