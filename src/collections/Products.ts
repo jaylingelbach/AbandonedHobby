@@ -78,7 +78,7 @@ export const Products: CollectionConfig = {
       // Don't think i'll need this text area below.
       admin: {
         description:
-          'Protected content only visible to customers after purchase. If there are downloadable assessts can be added here. '
+          'Protected content only visible to customers after purchase. If there are downloadable assets can be added here. '
       }
     }
   ]

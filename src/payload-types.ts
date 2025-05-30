@@ -252,7 +252,7 @@ export interface Product {
   cover?: (string | null) | Media;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
   /**
-   * Protected content only visible to customers after purchase. If there are downloadable assessts can be added here.
+   * Protected content only visible to customers after purchase. If there are downloadable assets can be added here.
    */
   content?: string | null;
   updatedAt: string;
