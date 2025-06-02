@@ -1,6 +1,13 @@
 import { headers as getHeaders } from 'next/headers';
-import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure
+} from '@/trpc/init';
+import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
+
 import { loginSchema, registerSchema } from '../schemas';
 import { generateAuthCookie } from '../utils';
 
@@ -33,12 +40,39 @@ export const authRouter = createTRPCRouter({
         });
       }
       try {
+        const account = await stripe.accounts.create({});
+        if (!account) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'Failed to create Stripe account. '
+          });
+        }
+        const slug = input.username
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/(^-|-$)/g, '');
+
+        const existingTenant = await ctx.db.find({
+          collection: 'tenants',
+          where: {
+            slug: { equals: slug }
+          },
+          limit: 1
+        });
+
+        if (existingTenant.totalDocs > 0) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: `A tenant with the slug "${slug}" already exists. Please choose a different username.`
+          });
+        }
         const tenant = await ctx.db.create({
           collection: 'tenants',
           data: {
             name: input.username,
-            slug: input.username.toLowerCase().replace(/[^a-z0-9]/g, '-'),
-            stripeAccountId: 'test',
+            slug: input.username,
+            stripeAccountId: account.id,
             stripeDetailsSubmitted: false
           }
         });

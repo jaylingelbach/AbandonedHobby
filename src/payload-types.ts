@@ -176,9 +176,13 @@ export interface Order {
   user: string | User;
   product: string | Product;
   /**
+   * The Stripe account associated with the order.
+   */
+  stripeAccountId: string;
+  /**
    * The Stripe checkout session associated with the order.
    */
-  stripeCheckoutSessionId: string;
+  stripeCheckoutSessionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -234,6 +238,8 @@ export interface Tenant {
   createdAt: string;
 }
 /**
+ * You must verify your account before listing products
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
  */
@@ -402,6 +408,7 @@ export interface OrdersSelect<T extends boolean = true> {
   name?: T;
   user?: T;
   product?: T;
+  stripeAccountId?: T;
   stripeCheckoutSessionId?: T;
   updatedAt?: T;
   createdAt?: T;
