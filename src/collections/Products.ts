@@ -17,7 +17,8 @@ export const Products: CollectionConfig = {
     update: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
-    useAsTitle: 'name'
+    useAsTitle: 'name',
+    description: 'You must verify your account before listing products'
   },
   fields: [
     {

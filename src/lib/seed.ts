@@ -1,6 +1,7 @@
 import { getPayload } from 'payload';
 import dotenv from 'dotenv';
 import config from '@payload-config';
+import { stripe } from './stripe';
 
 dotenv.config();
 
@@ -220,13 +221,14 @@ const categories = [
 
 const seed = async () => {
   const payload = await getPayload({ config });
+  const adminAccount = await stripe.accounts.create({});
 
   const adminTenant = await payload.create({
     collection: 'tenants',
     data: {
       name: 'admin',
       slug: 'admin',
-      stripeAccountId: 'admin'
+      stripeAccountId: adminAccount.id
     }
   });
   // create admin
@@ -302,6 +304,7 @@ try {
   console.log('Seeding completed.');
   process.exit(0);
 } catch (error) {
+  console.error('Error during seed: ', JSON.stringify(error, null, 2));
   console.error('Error during seed: ', error);
   process.exit(1);
 }

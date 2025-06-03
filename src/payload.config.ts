@@ -17,6 +17,7 @@ import { Reviews } from './collections/Reviews';
 import { Tags } from './collections/Tags';
 import { Tenants } from './collections/Tenants';
 import { Users } from './collections/Users';
+import { StripeVerify } from './components/stripe-verify';
 
 import type { Config } from './payload-types';
 
@@ -28,9 +29,21 @@ export default buildConfig({
     user: Users.slug,
     importMap: {
       baseDir: path.resolve(dirname)
+    },
+    components: {
+      beforeNavLinks: ['@/components/stripe-verify.tsx#StripeVerify'] // to use a named export hashbrown plus the name of the named export.
     }
   },
-  collections: [Categories, Media, Orders, Products, Reviews, Tags, Tenants, Users],
+  collections: [
+    Categories,
+    Media,
+    Orders,
+    Products,
+    Reviews,
+    Tags,
+    Tenants,
+    Users
+  ],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {
