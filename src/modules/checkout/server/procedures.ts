@@ -90,6 +90,11 @@ export const checkoutRouter = createTRPCRouter({
               'tenant.slug': {
                 equals: input.tenantSlug
               }
+            },
+            {
+              isArchived: {
+                not_equals: true
+              }
             }
           ]
         }
@@ -97,7 +102,7 @@ export const checkoutRouter = createTRPCRouter({
       if (products.totalDocs !== input.productIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: 'Products not found'
+          message: 'Product not found'
         });
       }
 
@@ -192,9 +197,18 @@ export const checkoutRouter = createTRPCRouter({
         collection: 'products',
         depth: 2, // populate category, image, and tenant & tenant.image
         where: {
-          id: {
-            in: input.ids
-          }
+          and: [
+            {
+              id: {
+                in: input.ids
+              }
+            },
+            {
+              isArchived: {
+                not_equals: true
+              }
+            }
+          ]
         }
       });
       if (data.totalDocs !== input.ids.length) {

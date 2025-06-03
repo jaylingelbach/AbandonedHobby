@@ -261,6 +261,10 @@ export interface Product {
    * Protected content only visible to customers after purchase. If there are downloadable assets can be added here.
    */
   content?: string | null;
+  /**
+   * Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.
+   */
+  isArchived?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -428,6 +432,7 @@ export interface ProductsSelect<T extends boolean = true> {
   cover?: T;
   refundPolicy?: T;
   content?: T;
+  isArchived?: T;
   updatedAt?: T;
   createdAt?: T;
 }

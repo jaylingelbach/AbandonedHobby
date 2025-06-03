@@ -13,8 +13,7 @@ export const Products: CollectionConfig = {
       const tenant = user?.tenants?.[0]?.tenant as Tenant;
       return Boolean(tenant?.stripeDetailsSubmitted);
     },
-    delete: ({ req: { user } }) => isSuperAdmin(user),
-    update: ({ req: { user } }) => isSuperAdmin(user)
+    delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
     useAsTitle: 'name',
@@ -80,6 +79,16 @@ export const Products: CollectionConfig = {
       admin: {
         description:
           'Protected content only visible to customers after purchase. If there are downloadable assets can be added here. '
+      }
+    },
+    {
+      name: 'isArchived',
+      label: 'Archive',
+      defaultValue: false,
+      type: 'checkbox',
+      admin: {
+        description:
+          'Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.'
       }
     }
   ]
