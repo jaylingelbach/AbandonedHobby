@@ -40,6 +40,12 @@ export const checkoutRouter = createTRPCRouter({
           message: `Could not find tenant with the id of ${tenantId}.`
         });
       }
+      if (!tenant.stripeAccountId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Tenant does not have a Stripe account configured.'
+        });
+      }
       // account verification process
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
@@ -55,7 +61,11 @@ export const checkoutRouter = createTRPCRouter({
       }
       return { url: accountLink.url };
     } catch (error) {
-      console.error('Error');
+      console.error('Error creating Stripe account link:', error);
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'Failed to create account verification link.'
+      });
     }
   }),
   purchase: protectedProcedure

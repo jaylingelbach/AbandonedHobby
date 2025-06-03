@@ -9,14 +9,16 @@ export const StripeVerify = () => {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const tenant = user?.tenants?.[0]?.tenant;
-
-    const stripeDetailsSubmitted =
-      typeof tenant === 'object' ? tenant.stripeDetailsSubmitted : false;
-
-    if (!stripeDetailsSubmitted) {
-      setShow(true);
+    if (!user?.tenants?.length) {
+      return; // No tenants available
     }
+    const tenant = user.tenants[0].tenant;
+    // Handle both string ID and populated object cases
+    const stripeDetailsSubmitted =
+      typeof tenant === 'object' && tenant !== null
+        ? tenant.stripeDetailsSubmitted
+        : false;
+    setShow(!stripeDetailsSubmitted);
   }, [user]);
 
   if (!show) return null;

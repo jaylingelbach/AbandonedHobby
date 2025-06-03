@@ -53,6 +53,9 @@ export async function POST(req: Request) {
           if (!user) {
             throw new Error('User is required');
           }
+          if (!event.account) {
+            throw new Error('Stripe account ID is required for order creation');
+          }
           const expandedSession = await stripe.checkout.sessions.retrieve(
             data.id,
             {
@@ -77,7 +80,7 @@ export async function POST(req: Request) {
               collection: 'orders',
               data: {
                 stripeCheckoutSessionId: data.id,
-                stripeAccountId: event.account ?? '',
+                stripeAccountId: event.account,
                 user: user.id,
                 product: item.price.product.metadata.id,
                 name: item.price.product.name

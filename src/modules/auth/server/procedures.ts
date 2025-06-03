@@ -71,7 +71,7 @@ export const authRouter = createTRPCRouter({
           collection: 'tenants',
           data: {
             name: input.username,
-            slug: input.username,
+            slug: slug,
             stripeAccountId: account.id,
             stripeDetailsSubmitted: false
           }
