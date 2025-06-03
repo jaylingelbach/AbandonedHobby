@@ -265,6 +265,10 @@ export interface Product {
    * Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.
    */
   isArchived?: boolean | null;
+  /**
+   * Check this box if you want to hide this item from the marketplace and only show in your personal store front.
+   */
+  isPrivate?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -433,6 +437,7 @@ export interface ProductsSelect<T extends boolean = true> {
   refundPolicy?: T;
   content?: T;
   isArchived?: T;
+  isPrivate?: T;
   updatedAt?: T;
   createdAt?: T;
 }

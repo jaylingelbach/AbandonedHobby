@@ -90,6 +90,16 @@ export const Products: CollectionConfig = {
         description:
           'Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.'
       }
+    },
+    {
+      name: 'isPrivate',
+      label: 'Private',
+      defaultValue: false,
+      type: 'checkbox',
+      admin: {
+        description:
+          'Check this box if you want to hide this item from the marketplace and only show in your personal store front.'
+      }
     }
   ]
 };

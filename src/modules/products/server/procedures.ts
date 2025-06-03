@@ -138,7 +138,7 @@ export const productsRouter = createTRPCRouter({
         isArchived: {
           not_equals: true
         }
-      }; // default is empty obj
+      };
 
       let sort: Sort = '-createdAt';
 
@@ -165,9 +165,16 @@ export const productsRouter = createTRPCRouter({
           less_than_equal: input.maxPrice
         };
       }
+      // Loads products for a specific shop (tenant).
       if (input.tenantSlug) {
         where['tenant.slug'] = {
           equals: input.tenantSlug
+        };
+      } else {
+        // Filters products for the main marketplace. Filters out private products.
+        where['isPrivate'] = {
+          // Filters for marketplace
+          not_equals: true
         };
       }
 
