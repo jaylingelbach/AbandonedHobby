@@ -11,7 +11,7 @@ const Page = () => {
   const { mutate: verify } = useMutation(
     trpc.checkout.verify.mutationOptions({
       onSuccess: (data) => {
-        if (data && data.url) {
+        if (data?.url) {
           window.location.href = data.url;
         }
       },

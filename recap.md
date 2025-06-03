@@ -849,3 +849,53 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Excluded content field from product queries; compacted formatting.
 - src/modules/products/ui/components/views/product-view.tsx
   - Reformatted JSX and logic for brevity; no functional changes.
+
+# Stripe connect 6/2/25
+
+### Walkthrough
+
+- This update introduces a Stripe account verification flow for tenants, including a new React page and component for initiating verification, backend mutations to generate onboarding links, and webhook handling for Stripe account updates. The Orders schema is updated to track Stripe account IDs, and platform fee calculations are added to checkout. Admin UI and seed scripts are also adjusted for Stripe integration.
+
+### New Features
+
+- Added Stripe account verification flow, including onboarding and status checks for tenants.
+- Introduced a UI component prompting users to verify their account for payouts.
+- Verification status is now shown in the admin interface before navigation links.
+
+### Enhancements
+
+- Platform fee percentage is now configurable.
+- Orders now explicitly track both the Stripe account ID and checkout session ID.
+- Product listings require account verification, with clear admin descriptions.
+
+### Bug Fixes
+
+- Improved error logging and handling in the seeding script and during registration.
+
+### Other
+
+- Updated webhook handling to support additional Stripe events and synchronize verification status.
+- Improved admin UI configuration and collection field organization.
+
+### File changes:
+
+- src/app/(app)/(tenants)/stripe-verify/page.tsx
+  - New client page triggers Stripe verification on mount via TRPC mutation; redirects based on result; shows loader during process.
+- src/components/stripe-verify.tsx
+  - New StripeVerify React component displays a prompt and button for account verification if Stripe details are missing; exported as named and default export.
+- src/app/(payload)/admin/importMap.js, src/payload.config.ts
+  - Admin UI updated: imports and registers StripeVerify before nav links; import map and config formatting improved.
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Webhook now handles account.updated events to update tenant Stripe verification status; checkout.session.completed event updated to include stripeAccountId in orders and uses stripeAccount option.
+- src/collections/Orders.ts, src/payload-types.ts
+  - Orders schema: splits stripeCheckoutSessionId (now optional) from new required stripeAccountId; types updated accordingly.
+- src/collections/Products.ts, src/payload-types.ts
+  - Products collection and Tenant type: admin description/comment added requiring account verification before listing products.
+- src/constants.ts
+  - Adds PLATFORM_FEE_PERCENTAGE constant (10).
+- src/lib/seed.ts
+  - Seed script now creates a Stripe account for the admin tenant and logs errors in more detail.
+- src/modules/auth/server/procedures.ts
+  - During registration, creates a Stripe account for the new tenant and normalizes tenant slug; stores Stripe account ID.
+- src/modules/checkout/server/procedures.ts
+  - Adds verify mutation for onboarding link; purchase mutation now checks Stripe verification, calculates platform fee, and passes relevant Stripe account/session info.
