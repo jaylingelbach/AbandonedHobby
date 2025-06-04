@@ -31,7 +31,7 @@ export const Tenants: CollectionConfig = {
         update: ({ req: { user } }) => isSuperAdmin(user)
       },
       admin: {
-        description: `This is the subdomain of the store (e.g. [slug].abandonedhobby.com), if you would like to update this please contact us.`
+        description: `This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.`
       }
     },
     {
@@ -58,7 +58,8 @@ export const Tenants: CollectionConfig = {
       },
       admin: {
         readOnly: true,
-        description: 'You can not sell products until you have submitted your Stripe details. '
+        description:
+          'You can not sell products until you have submitted your Stripe details. '
       }
     }
   ]

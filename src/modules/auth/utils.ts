@@ -14,5 +14,8 @@ export const generateAuthCookie = async ({ prefix, value }: Props) => {
     path: '/',
     maxAge: 60 * 60 * 24 * 7
     // TODO: ensure cross domain cookie sharing.
+    // sameSite: 'none',
+    // domain: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+    // secure: process.env.NODE_ENV === 'production'
   });
 };

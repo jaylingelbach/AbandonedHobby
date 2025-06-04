@@ -1,6 +1,7 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient, trpc } from '@/trpc/server';
-import ProductView, {
+import {
+  ProductView,
   ProductViewSkeleton
 } from '@/modules/library/ui/views/product-view';
 import { Suspense } from 'react';

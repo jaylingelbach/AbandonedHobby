@@ -12,6 +12,7 @@ interface LayoutProps {
 
 export default async function Layout({ children, params }: LayoutProps) {
   const { slug } = await params;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
   const queryClient = getQueryClient();
@@ -30,7 +31,7 @@ export default async function Layout({ children, params }: LayoutProps) {
         <div className="max-w-(--breakpoint-xl) mx-auto">{children}</div>
       </div>
 
-      <Footer />
+      <Footer appUrl={appUrl ?? ''} />
     </div>
   );
 }
