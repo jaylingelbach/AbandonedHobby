@@ -11,13 +11,18 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 
+import { RichText } from '@payloadcms/richtext-lexical/react';
+
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 
 const CartButton = dynamic(
-  () => import('../cart-button').then((mod) => ({ default: mod.CartButton })),
+  () =>
+    import('../components/cart-button').then((mod) => ({
+      default: mod.CartButton
+    })),
   {
     ssr: false,
     loading: () => (
@@ -75,8 +80,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       <div className="border rounded-sm bg-white overflow-hidden">
         <div className="relative aspect-[3.9] border-b">
           <Image
-            src={data.cover?.url || '/placeholder.png'}
-            alt={data.name}
+            src={data?.cover?.url || '/placeholder.png'}
+            alt={data?.name || 'Product image'}
             fill
             className="object-cover"
           />
@@ -92,12 +97,17 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Price */}
               <div className="px-6 py-4 flex items-center justify-center border-r">
                 <div className="px-2 py-1 border bg-pink-400 w-fit">
-                  <p className="text-base font-medium">{formatCurrency(data.price)}</p>
+                  <p className="text-base font-medium">
+                    {formatCurrency(data.price)}
+                  </p>
                 </div>
               </div>
               {/* Shop name */}
               <div className="px-6 py-4 flex items-center justify-center lg:border-r">
-                <Link href={generateTenantURL(tenantSlug)} className="flex items-center gap-2">
+                <Link
+                  href={generateTenantURL(tenantSlug)}
+                  className="flex items-center gap-2"
+                >
                   {data.tenant.image?.url && (
                     <Image
                       src={data.tenant.image?.url}
@@ -107,14 +117,18 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       className="rounded-full border shrink-0 size-[20px]"
                     />
                   )}
-                  <p className="text-base underline font-medium">{data.tenant.name}</p>
+                  <p className="text-base underline font-medium">
+                    {data.tenant.name}
+                  </p>
                 </Link>
               </div>
               {/* Shop Rating? */}
               <div className="hidden lg:flex px-6 py-4 items-center justify-center">
                 <div className="flex items-center gap-2">
                   <StarRating rating={data.reviewRating} />
-                  <p className="text-base font-medium">{data.reviewCount} ratings</p>
+                  <p className="text-base font-medium">
+                    {data.reviewCount} ratings
+                  </p>
                 </div>
               </div>
             </div>
@@ -122,15 +136,19 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
             <div className="block lg:hidden px-6 py-4 items-center">
               <div className="flex items-center gap-2 ">
                 <StarRating rating={data.reviewRating} iconClassName="size-4" />
-                <p className="text-base font-medium">{data.reviewCount} ratings</p>
+                <p className="text-base font-medium">
+                  {data.reviewCount} ratings
+                </p>
               </div>
             </div>
             {/* Product Description */}
             <div className="p-6">
               {data.description ? (
-                <p>{data.description}</p>
+                <RichText data={data.description} />
               ) : (
-                <p className="font-medium text-muted-foreground italic">No description provided</p>
+                <p className="font-medium text-muted-foreground italic">
+                  No description provided
+                </p>
               )}
             </div>
           </div>
@@ -151,9 +169,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     onClick={async () => {
                       try {
                         setIsCopied(true);
-                        await navigator.clipboard.writeText(window.location.href);
+                        await navigator.clipboard.writeText(
+                          window.location.href
+                        );
                         toast.success('URL copied to clipboard');
-                        timeoutRef.current = setTimeout(() => setIsCopied(false), 1000);
+                        timeoutRef.current = setTimeout(
+                          () => setIsCopied(false),
+                          1000
+                        );
                       } catch (error) {
                         setIsCopied(false);
                         toast.error('Failed to copy URL to clipboard');
@@ -190,6 +213,23 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ProductViewSkeleton = () => {
+  return (
+    <div className="px-4 lg:px-12 py-10">
+      <div className="border rounded-sm bg-white overflow-hidden">
+        <div className="relative aspect-[3.9] border-b">
+          <Image
+            src={'/placeholder.png'}
+            alt="Placeholder"
+            fill
+            className="object-cover"
+          />
         </div>
       </div>
     </div>

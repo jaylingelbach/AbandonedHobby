@@ -238,8 +238,6 @@ export interface Tenant {
   createdAt: string;
 }
 /**
- * You must verify your account before listing products
- *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
  */
@@ -247,7 +245,21 @@ export interface Product {
   id: string;
   tenant?: (string | null) | Tenant;
   name: string;
-  description?: string | null;
+  description?: {
+    root: {
+      type: string;
+      children: {
+        type: string;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
   /**
    * In USD
    */
@@ -260,7 +272,29 @@ export interface Product {
   /**
    * Protected content only visible to customers after purchase. If there are downloadable assets can be added here.
    */
-  content?: string | null;
+  content?: {
+    root: {
+      type: string;
+      children: {
+        type: string;
+        version: number;
+        [k: string]: unknown;
+      }[];
+      direction: ('ltr' | 'rtl') | null;
+      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
+      indent: number;
+      version: number;
+    };
+    [k: string]: unknown;
+  } | null;
+  /**
+   * Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.
+   */
+  isArchived?: boolean | null;
+  /**
+   * Check this box if you want to hide this item from the marketplace and only show in your personal store front.
+   */
+  isPrivate?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -428,6 +462,8 @@ export interface ProductsSelect<T extends boolean = true> {
   cover?: T;
   refundPolicy?: T;
   content?: T;
+  isArchived?: T;
+  isPrivate?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -899,3 +899,75 @@ This update introduces Stripe integration for checkout and order processing. It 
   - During registration, creates a Stripe account for the new tenant and normalizes tenant slug; stores Stripe account ID.
 - src/modules/checkout/server/procedures.ts
   - Adds verify mutation for onboarding link; purchase mutation now checks Stripe verification, calculates platform fee, and passes relevant Stripe account/session info.
+
+# 6/4/25
+
+### Walkthrough
+
+- This update introduces rich text support for product descriptions and content, adds isArchived and isPrivate fields to products, and refines access control. Product and review views now use React Suspense with skeleton fallbacks for loading states. Several import paths are updated, and dependencies are upgraded or added.
+
+### New Features
+
+- Added skeleton loading states for product and review views, improving user experience during data loading.
+- Introduced a dedicated error page for product errors.
+- Enhanced product descriptions and content with rich text formatting.
+- Added options to archive or make products private, allowing greater control over product visibility.
+
+### Improvements
+
+- Product views and sidebars now use suspense boundaries for smoother loading transitions.
+- Product filtering now excludes archived and private products where appropriate.
+- Richer content display for product details using enhanced rich text rendering.
+
+### Dependency Updates
+
+- Updated rich text editor dependency and added a new error boundary dependency.
+
+### Admin Enhancements
+
+- Expanded admin import map with new rich text and multi-tenant features.
+
+### Other
+
+- Minor UI and text adjustments for clarity and consistency.
+
+### File changes:
+
+- package.json
+  - Upgraded @payloadcms/richtext-lexical to ^3.40.0, added react-error-boundary dependency.
+- src/app/(app)/(home)/[category]/[subcategory]/page.tsx, src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/page.tsx
+  - Updated import paths for ProductListView.
+- src/app/(app)/(library)/library/[productId]/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/page.tsx
+  - Wrapped ProductView in React Suspense with ProductViewSkeleton as fallback.
+- src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/error.tsx
+  - Added new ErrorPage component for error handling UI.
+- src/app/(payload)/admin/importMap.js
+  - Added multiple new import mappings for @payloadcms/richtext-lexical features and multi-tenant plugin.
+- src/collections/Products.ts
+  - Switched description and content to rich text, added isArchived and isPrivate fields, removed update access rule.
+- src/components/stripe-verify.tsx
+  - Simplified early return and added inline styles to the returned element.
+- src/modules/auth/server/procedures.ts
+  - Enhanced Stripe account creation with detailed parameters and improved logging/error handling in register.
+- src/modules/checkout/server/procedures.ts
+  - Filtered out archived products in queries and updated error message wording.
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Removed a trailing space in a "No products found" message.
+- src/modules/library/ui/components/product-card.tsx
+  - Removed a trailing blank line.
+- src/modules/library/ui/components/review-form.tsx
+  - Removed default export, added ReviewFormSkeleton named export.
+- src/modules/library/ui/components/review-sidebar.tsx
+  - Changed ReviewForm import from default to named import.
+- src/modules/library/ui/views/product-view.tsx
+  - Wrapped ReviewSidebar in Suspense with ReviewFormSkeleton fallback, used RichText for content, added ProductViewSkeleton.
+- src/modules/products/server/procedures.ts
+  - Excluded archived and private products in queries, added archived check in getOne, minor formatting.
+- src/modules/products/ui/views/product-list-view.tsx
+  - Updated imports for child components to use components subdirectory.
+- src/modules/products/ui/views/product-view.tsx
+  - Used RichText for description, fixed import paths, added optional chaining, introduced ProductViewSkeleton.
+- src/payload-types.ts
+  - Updated Product and ProductsSelect interfaces for rich text fields and new boolean flags.
+- src/payload.config.ts
+  - Removed import for StripeVerify, minor comment punctuation fix.

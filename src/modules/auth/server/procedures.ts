@@ -40,7 +40,13 @@ export const authRouter = createTRPCRouter({
         });
       }
       try {
-        const account = await stripe.accounts.create({});
+        const account = await stripe.accounts.create({
+          type: 'standard',
+          business_type: 'individual',
+          business_profile: {
+            url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://abandonedhobby.com'}/tenants/${input.username}`
+          }
+        });
         if (!account) {
           throw new TRPCError({
             code: 'BAD_REQUEST',

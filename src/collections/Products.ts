@@ -13,12 +13,10 @@ export const Products: CollectionConfig = {
       const tenant = user?.tenants?.[0]?.tenant as Tenant;
       return Boolean(tenant?.stripeDetailsSubmitted);
     },
-    delete: ({ req: { user } }) => isSuperAdmin(user),
-    update: ({ req: { user } }) => isSuperAdmin(user)
+    delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
-    useAsTitle: 'name',
-    description: 'You must verify your account before listing products'
+    useAsTitle: 'name'
   },
   fields: [
     {
@@ -26,10 +24,9 @@ export const Products: CollectionConfig = {
       type: 'text',
       required: true
     },
-    // TODO: change to RichText
     {
       name: 'description',
-      type: 'text'
+      type: 'richText'
     },
     {
       name: 'price',
@@ -74,12 +71,31 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'content',
-      // TODO: change to RichText
-      type: 'textarea',
+      type: 'richText',
       // Don't think i'll need this text area below.
       admin: {
         description:
           'Protected content only visible to customers after purchase. If there are downloadable assets can be added here. '
+      }
+    },
+    {
+      name: 'isArchived',
+      label: 'Archive',
+      defaultValue: false,
+      type: 'checkbox',
+      admin: {
+        description:
+          'Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.'
+      }
+    },
+    {
+      name: 'isPrivate',
+      label: 'Private',
+      defaultValue: false,
+      type: 'checkbox',
+      admin: {
+        description:
+          'Check this box if you want to hide this item from the marketplace and only show in your personal store front.'
       }
     }
   ]

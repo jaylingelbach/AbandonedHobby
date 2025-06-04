@@ -1,12 +1,13 @@
-import z from 'zod';
 import type { Sort, Where } from 'payload';
-import { Category, Media, Tenant } from '@/payload-types';
 import { headers as getHeaders } from 'next/headers';
+import z from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { sortValues } from '../search-params';
-import { DEFAULT_LIMIT } from '@/constants';
+import { Category, Media, Tenant } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
+
+import { DEFAULT_LIMIT } from '@/constants';
+import { sortValues } from '@/modules/products/search-params';
 
 export const productsRouter = createTRPCRouter({
   getOne: baseProcedure
@@ -27,6 +28,13 @@ export const productsRouter = createTRPCRouter({
           content: false
         }
       });
+
+      if (product.isArchived) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Product has been archived'
+        });
+      }
 
       let isPurchased = false;
 
@@ -71,7 +79,8 @@ export const productsRouter = createTRPCRouter({
 
       const reviewRating =
         reviews.docs.length > 0
-          ? reviews.docs.reduce((acc, review) => acc + review.rating, 0) / reviews.totalDocs
+          ? reviews.docs.reduce((acc, review) => acc + review.rating, 0) /
+            reviews.totalDocs
           : 0;
 
       const ratingDistribution: Record<number, number> = {
@@ -95,7 +104,9 @@ export const productsRouter = createTRPCRouter({
         Object.keys(ratingDistribution).forEach((key) => {
           const rating = Number(key);
           const count = ratingDistribution[rating] || 0;
-          ratingDistribution[rating] = Math.round((count / reviews.totalDocs) * 100);
+          ratingDistribution[rating] = Math.round(
+            (count / reviews.totalDocs) * 100
+          );
         });
       }
       return {
@@ -123,7 +134,11 @@ export const productsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Where = {}; // default is empty obj
+      const where: Where = {
+        isArchived: {
+          not_equals: true
+        }
+      };
 
       let sort: Sort = '-createdAt';
 
@@ -150,9 +165,16 @@ export const productsRouter = createTRPCRouter({
           less_than_equal: input.maxPrice
         };
       }
+      // Loads products for a specific shop (tenant).
       if (input.tenantSlug) {
         where['tenant.slug'] = {
           equals: input.tenantSlug
+        };
+      } else {
+        // Filters products for the main marketplace. Filters out private products.
+        where['isPrivate'] = {
+          // Filters for marketplace
+          not_equals: true
         };
       }
 
@@ -181,7 +203,9 @@ export const productsRouter = createTRPCRouter({
 
         if (parentCategory) {
           subcategorieSlugs.push(
-            ...parentCategory.subcategories.map((subcategory) => subcategory.slug)
+            ...parentCategory.subcategories.map(
+              (subcategory) => subcategory.slug
+            )
           );
           where['category.slug'] = {
             in: [parentCategory.slug, ...subcategorieSlugs]
@@ -224,8 +248,10 @@ export const productsRouter = createTRPCRouter({
             reviewRating:
               reviewsData.docs.length === 0
                 ? 0
-                : reviewsData.docs.reduce((acc, review) => acc + review.rating, 0) /
-                  reviewsData.totalDocs
+                : reviewsData.docs.reduce(
+                    (acc, review) => acc + review.rating,
+                    0
+                  ) / reviewsData.totalDocs
           };
         })
       );
