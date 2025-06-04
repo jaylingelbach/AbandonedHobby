@@ -6,7 +6,14 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function generateTenantURL(tenantSlug: string) {
-  return `/tenants/${tenantSlug}`;
+  const isDev = process.env.NODE_ENV === 'development';
+  const protocol = isDev ? 'http' : 'https';
+  let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN!;
+
+  // Remove protocol if it accidentally exists in domain
+  domain = domain.replace(/^https?:\/\//, '');
+
+  return `${protocol}://${tenantSlug}.${domain}`;
 }
 
 export function formatCurrency(value: number | string) {

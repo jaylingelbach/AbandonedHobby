@@ -1,15 +1,12 @@
 import { headers as getHeaders } from 'next/headers';
 
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
+import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
 import { loginSchema, registerSchema } from '../schemas';
 import { generateAuthCookie } from '../utils';
+import { generateTenantURL } from '@/lib/utils';
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
@@ -44,7 +41,7 @@ export const authRouter = createTRPCRouter({
           type: 'standard',
           business_type: 'individual',
           business_profile: {
-            url: `${process.env.NEXT_PUBLIC_APP_URL || 'https://abandonedhobby.com'}/tenants/${input.username}`
+            url: generateTenantURL(input.username)
           }
         });
         if (!account) {

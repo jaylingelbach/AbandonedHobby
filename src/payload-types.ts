@@ -222,7 +222,7 @@ export interface Tenant {
    */
   name: string;
   /**
-   * This is the subdomain of the store (e.g. [slug].abandonedhobby.com), if you would like to update this please contact us.
+   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
    */
   slug: string;
   image?: (string | null) | Media;

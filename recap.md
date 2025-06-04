@@ -1,6 +1,7 @@
 # Changes I may want to make:
 
 - Checkout-view.tsx on success where do I want to route? Currently routing to library.
+- prevent user from buying their own products.
 
 # Categories finalization
 

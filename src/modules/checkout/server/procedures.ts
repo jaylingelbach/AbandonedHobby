@@ -13,6 +13,7 @@ import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
+import { generateTenantURL } from '@/lib/utils';
 
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
@@ -158,11 +159,13 @@ export const checkoutRouter = createTRPCRouter({
         totalAmount * (PLATFORM_FEE_PERCENTAGE / 100)
       );
 
+      const domain = generateTenantURL(input.tenantSlug);
+
       const checkout = await stripe.checkout.sessions.create(
         {
           customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
-          success_url: `${process.env.NEXT_PUBLIC_APP_URL}/tenants/${input.tenantSlug}/checkout?success=true`,
-          cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/tenants/${input.tenantSlug}/checkout?cancel=true`,
+          success_url: `${domain}/checkout?success=true`,
+          cancel_url: `${domain}/checkout?cancel=true`,
           mode: 'payment',
           line_items: lineItems,
           invoice_creation: {

@@ -109,7 +109,7 @@ function SignUpView() {
                   >
                     Your store will be available at&nbsp;
                     {/* TODO:  Use method to generate preview url */}
-                    <strong>{username}</strong>.shop.com
+                    <strong>{username}</strong>.abandonedhobby.com
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
