@@ -972,3 +972,52 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Updated Product and ProductsSelect interfaces for rich text fields and new boolean flags.
 - src/payload.config.ts
   - Removed import for StripeVerify, minor comment punctuation fix.
+
+# Subdomains 6/4/25
+
+### Walkthrough
+
+- This update introduces middleware for tenant-based routing by rewriting URLs based on subdomains, integrates a utility for generating tenant-specific URLs, and applies this utility across authentication and checkout modules. It also updates footer components and domain references for consistency, and includes minor documentation and import adjustments.
+
+### New Features
+
+- Introduced middleware to enable tenant-specific routing based on subdomains.
+
+# Improvements
+
+- Tenant URLs are now dynamically generated for more accurate domain handling.
+- Footer links and text updated to reflect consistent branding ("abandoned hobbies, inc").
+- Username preview and documentation updated to use ".abandonedhobby.com" for clarity.
+
+### Bug Fixes
+
+- Minor typo corrected in footer component styling.
+
+### Documentation
+
+- Updated descriptions and examples to improve clarity regarding tenant subdomains and features.
+
+### File changes:
+
+- src/middleware.ts
+  - Added middleware for subdomain-based tenant routing with path exclusions and debug logging.
+- src/lib/utils.ts
+  - Updated generateTenantURL to construct full URLs based on environment and tenant slug.
+- src/modules/auth/server/procedures.ts, src/modules/checkout/server/procedures.ts
+  - Replaced static URL construction with generateTenantURL for Stripe and registration flows.
+- src/app/(app)/(tenants)/tenants/[slug]/(checkout)/layout.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/layout.tsx
+  - Read and log NEXT_PUBLIC_APP_URL; pass as prop to Footer.
+- src/modules/tenants/ui/components/footer.tsx
+  - Footer now accepts appUrl prop, updates link and text, and fixes className typo.
+- src/modules/home/ui/components/footer.tsx
+  - Changed footer text capitalization ("Inc" to "inc").
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Updated domain suffix in username preview from ".shop.com" to ".abandonedhobby.com".
+- src/collections/Tenants.ts, src/payload-types.ts
+  - Updated example subdomain references from "[slug]" to "[username]".
+- src/modules/auth/utils.ts
+  - Added commented-out cookie options for future cross-domain support.
+- src/app/(app)/(library)/library/[productId]/page.tsx
+  - Changed import style for ProductView and ProductViewSkeleton.
+- recap.md
+  - Added improvement note to prevent users from buying their own products.

@@ -8,7 +8,11 @@ export function cn(...inputs: ClassValue[]) {
 export function generateTenantURL(tenantSlug: string) {
   const isDev = process.env.NODE_ENV === 'development';
   const protocol = isDev ? 'http' : 'https';
-  let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN!;
+  let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+
+  if (!domain) {
+    throw new Error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
+  }
 
   // Remove protocol if it accidentally exists in domain
   domain = domain.replace(/^https?:\/\//, '');

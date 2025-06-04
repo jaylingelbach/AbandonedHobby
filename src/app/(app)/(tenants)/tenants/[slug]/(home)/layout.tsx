@@ -13,7 +13,6 @@ interface LayoutProps {
 export default async function Layout({ children, params }: LayoutProps) {
   const { slug } = await params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  console.log('💡 appUrl from layout:', appUrl); // add this to debug
 
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
   const queryClient = getQueryClient();

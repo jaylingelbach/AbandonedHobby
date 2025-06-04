@@ -9,7 +9,6 @@ interface LayoutProps {
 export default async function Layout({ children, params }: LayoutProps) {
   const { slug } = await params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  console.log('💡 appUrl from layout!:', appUrl); // add this to debug
 
   return (
     <div className="min-h-screen bg-[#F4F4F0] flex flex-col">

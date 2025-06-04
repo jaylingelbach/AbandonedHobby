@@ -1,50 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 export const config = {
-  matcher: [
-    /*
-     * Match all paths except for:
-     * 1. /api/routes
-     * 2. /_next (Nextjs internals)
-     * 3. /_static (inside /public)
-     * 4. all root files inside /public (eg. /favicon)
-     */
-    '/((?!api/|_next/|_static/|_vercel|media/|[\w-]+\.\w+).*)'
-    // '/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)'
-  ]
+  matcher: ['/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)']
 };
-
-// export default async function middleware(req: NextRequest) {
-//   const url = req.nextUrl;
-//   // extract hostname (e.g. jay.abandonedhobbies.com || john.localhost:3000)
-//   const hostname = req.headers.get('host') || '';
-//   const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || '';
-
-//   // rootDomain is abandonedhobbies.com - in prod
-//   if (hostname.endsWith(`.${rootDomain}`)) {
-//     const tenantSlug = hostname.replace(`.${rootDomain}`, '');
-//     return NextResponse.rewrite(
-//       new URL(`/tenants/${tenantSlug}${url.pathname}`, req.url)
-//     );
-//   }
-//   return NextResponse.next();
-// }
 
 export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
-  const hostname = req.headers.get('host') || '';
-  const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || '';
+  const hostHeader = req.headers.get('host') || '';
+  let rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || '';
+  if (!rootDomain) {
+    console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
+    return NextResponse.next();
+  }
+  // Strip any protocol or leading dots:
+  rootDomain = rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '');
 
-  console.log('→ Incoming host:', hostname);
-  console.log('→ Incoming path:', url.pathname);
-
-  if (hostname.endsWith(`.${rootDomain}`)) {
-    const tenantSlug = hostname.replace(`.${rootDomain}`, '');
-    const newUrl = new URL(`/tenants/${tenantSlug}${url.pathname}`, req.url);
-    console.log('→ Rewriting to:', newUrl.toString());
-
-    return NextResponse.rewrite(newUrl);
+  // If host doesn’t end with “.${rootDomain}”, skip rewriting:
+  if (!hostHeader.toLowerCase().endsWith(`.${rootDomain}`)) {
+    return NextResponse.next();
   }
 
-  return NextResponse.next();
+  // Extract and normalize slug:
+  const rawSlug = hostHeader.slice(
+    0,
+    hostHeader.length - `.${rootDomain}`.length
+  );
+  const tenantSlug = rawSlug.toLowerCase();
+
+  // Validate slug strict‐regex (only lowercase letters, numbers, hyphens):
+  if (!/^[a-z0-9-]+$/.test(tenantSlug)) {
+    console.warn(`Invalid tenant slug detected: ${rawSlug}`);
+    return NextResponse.next();
+  }
+
+  try {
+    const destination = new URL(
+      `/tenants/${tenantSlug}${url.pathname}`,
+      req.url
+    );
+    return NextResponse.rewrite(destination);
+  } catch (err) {
+    console.error('Failed to rewrite URL in middleware:', err);
+    return NextResponse.next();
+  }
 }
