@@ -16,8 +16,7 @@ export const Products: CollectionConfig = {
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
-    useAsTitle: 'name',
-    description: 'You must verify your account before listing products'
+    useAsTitle: 'name'
   },
   fields: [
     {
@@ -25,10 +24,9 @@ export const Products: CollectionConfig = {
       type: 'text',
       required: true
     },
-    // TODO: change to RichText
     {
       name: 'description',
-      type: 'text'
+      type: 'richText'
     },
     {
       name: 'price',
@@ -73,8 +71,7 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'content',
-      // TODO: change to RichText
-      type: 'textarea',
+      type: 'richText',
       // Don't think i'll need this text area below.
       admin: {
         description:

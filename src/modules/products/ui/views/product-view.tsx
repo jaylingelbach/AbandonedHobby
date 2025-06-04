@@ -11,6 +11,8 @@ import { useSuspenseQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 
+import { RichText } from '@payloadcms/richtext-lexical/react';
+
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -142,7 +144,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
             {/* Product Description */}
             <div className="p-6">
               {data.description ? (
-                <p>{data.description}</p>
+                <RichText data={data.description} />
               ) : (
                 <p className="font-medium text-muted-foreground italic">
                   No description provided

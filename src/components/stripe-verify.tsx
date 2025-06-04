@@ -10,7 +10,7 @@ export const StripeVerify = () => {
 
   useEffect(() => {
     if (!user?.tenants?.length) {
-      return; // No tenants available
+      return;
     }
     const tenant = user.tenants[0].tenant;
     // Handle both string ID and populated object cases
@@ -23,7 +23,7 @@ export const StripeVerify = () => {
 
   if (!show) return null;
   return (
-    <div>
+    <div style={{ color: 'yellow', fontWeight: 'bold', padding: '1rem' }}>
       <p>
         Your account is not verified for payouts. To begin selling verify your
         account below.

@@ -22,6 +22,7 @@ export const authRouter = createTRPCRouter({
   register: baseProcedure
     .input(registerSchema)
     .mutation(async ({ input, ctx }) => {
+      console.log('Register hit with', input);
       const existingData = await ctx.db.find({
         collection: 'users',
         limit: 1,
@@ -40,7 +41,13 @@ export const authRouter = createTRPCRouter({
         });
       }
       try {
-        const account = await stripe.accounts.create({});
+        const account = await stripe.accounts.create({
+          type: 'standard',
+          business_type: 'individual',
+          business_profile: {
+            url: `https://abandonedhobby.com/tenants/${input.username}`
+          }
+        });
         if (!account) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
@@ -91,6 +98,7 @@ export const authRouter = createTRPCRouter({
           }
         });
       } catch (error) {
+        console.error('Register error:', error); // ✅ add this
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create tenant or user'
