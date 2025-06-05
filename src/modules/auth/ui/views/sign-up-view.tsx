@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import z from 'zod';
+import { z } from 'zod';
 import { Poppins } from 'next/font/google';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
