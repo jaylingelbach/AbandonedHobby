@@ -1021,3 +1021,46 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Changed import style for ProductView and ProductViewSkeleton.
 - recap.md
   - Added improvement note to prevent users from buying their own products.
+
+# Deployment to Vercel 6/4/25
+
+### Walkthrough
+
+- This update introduces dynamic rendering to several Next.js page modules by exporting a dynamic constant. It updates the Stripe API version in the Stripe client initialization, refines type definitions and prop interfaces, improves debounce logic and state updates in a dropdown component, and makes minor import and configuration adjustments for ESLint and TRPC.
+
+### New Features
+
+- Improved dynamic rendering for sign-in, sign-up, and library pages, ensuring they are always rendered dynamically.
+
+### Improvements
+
+- Updated Stripe integration to use the latest API version.
+- Enhanced stability and correctness of dropdown filter interactions for a smoother user experience.
+- The product filter component now allows the className property to be optional, making it easier to use.
+
+### Bug Fixes
+
+- Corrected product type definitions to better match the data structure.
+
+### Chores
+
+- Updated internal configuration and cleaned up unused imports.
+
+### File changes:
+
+- src/app/(app)/(auth)/sign-in/page.tsx src/app/(app)/(auth)/sign-up/page.tsx src/app/(app)/(library)/library/[productId]/page.tsx src/app/(app)/(library)/library/page.tsx
+  - Added export const dynamic = 'force-dynamic'; to explicitly set dynamic rendering for pages.
+- src/lib/stripe.ts
+  - Updated Stripe API version from '2025-04-30.basil' to '2025-05-28.basil'.
+- src/modules/products/types.ts
+  - Changed type alias: ProductsGetManyOutputSingle now references docs[0] instead of [0].
+- src/modules/products/ui/components/product-filters.tsx
+  - Made className prop in ProductFilterProps optional.
+- src/modules/home/ui/components/search-filters/category-dropdown.tsx
+  - Switched from useCallback to useMemo for debounce, improved state update logic and cleanup.
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Added import for z from zod.
+- src/modules/library/server/procedures.ts
+  - Removed unused baseProcedure import.
+- eslint.config.mjs
+  - Replaced compat.extends with compat.config for configuration style.
