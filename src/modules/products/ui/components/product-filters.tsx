@@ -9,7 +9,7 @@ import { useProductFilters } from '../../hooks/use-product-filters';
 
 interface ProductFilterProps {
   title: string;
-  className: string;
+  className?: string;
   children: React.ReactNode;
 }
 
