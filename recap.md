@@ -2,6 +2,7 @@
 
 - Checkout-view.tsx on success where do I want to route? Currently routing to library.
 - prevent user from buying their own products.
+- referral codes for influencers to give out. they get a % and the user a reduced fee?
 
 # Categories finalization
 
@@ -1063,4 +1064,10 @@ This update introduces Stripe integration for checkout and order processing. It 
 - src/modules/library/server/procedures.ts
   - Removed unused baseProcedure import.
 - eslint.config.mjs
+
   - Replaced compat.extends with compat.config for configuration style.
+
+  ### Vercel deployment lesson learned:
+
+  - When setting env vars for public domain or root url DO NOT INCLUDE A TRAILING /
+    - it will ruin your day.

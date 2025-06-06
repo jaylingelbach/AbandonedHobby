@@ -7,7 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function generateTenantURL(tenantSlug: string) {
   const isDev = process.env.NODE_ENV === 'development';
-  const protocol = isDev ? 'http' : 'https';
+  const isSubdomainRoutingEnabled = Boolean(
+    process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING
+  );
+  const protocol = isDev || isSubdomainRoutingEnabled ? 'http' : 'https';
   let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
   if (!domain) {
