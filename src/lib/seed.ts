@@ -1,7 +1,6 @@
 // src/lib/seed.ts
 import dotenv from 'dotenv';
 import { getPayload } from 'payload';
-import type { PayloadRequest } from 'payload/dist/types';
 import config from '@payload-config'; // Adjust this path if your payload config is located elsewhere
 import { stripe } from './stripe'; // Adjust this path if your stripe helper is elsewhere
 
@@ -14,7 +13,8 @@ interface Category {
   subcategories?: Array<{
     name: string;
     slug: string;
-    subcategories?: Array<{ name: string; slug: string }>;
+    color?: string;
+    subcategories?: Array<{ name: string; slug: string; color?: string }>;
   }>;
 }
 
@@ -25,39 +25,86 @@ const categories: Category[] = [
     color: '#CCCCCC'
   },
   {
-    name: 'Writing & Publishing',
-    color: '#D8B5FF',
-    slug: 'writing-publishing',
+    name: 'Books & Literature',
+    slug: 'books-literature',
+    color: '#AEDFF7',
     subcategories: [
-      { name: 'Notebooks', slug: 'notebooks' },
-      { name: 'Writing devices', slug: 'writing-devices' },
-      { name: 'Calligraphy', slug: 'calligraphy' },
-      { name: 'Planners & Bullet Journals', slug: 'planners-bullet-journals' },
-      { name: 'Book restoration', slug: 'book-restoration' }
+      { name: 'Book restoration', slug: 'book-restoration' },
+      { name: 'Fiction', slug: 'fiction' },
+      { name: 'Graphic Novels', slug: 'graphic-novels' },
+      { name: 'Manga & Comics', slug: 'manga-comics' },
+      { name: 'Non-Fiction', slug: 'non-fiction' }
     ]
   },
   {
-    name: 'Fitness & Health',
-    color: '#FF9AA2',
-    slug: 'fitness-health',
+    name: 'Collecting',
+    slug: 'collecting',
+    color: '#C3F584',
     subcategories: [
-      { name: 'Workout Equipment', slug: 'workout-equipment' },
-      { name: 'Yoga & Mindfulness', slug: 'yoga-mindfulness' },
-      { name: 'Wearable Trackers', slug: 'wearable-trackers' }
+      { name: 'Action Figures', slug: 'action-figures' },
+      { name: 'Button Collecting', slug: 'button-collecting' },
+      { name: 'Coins', slug: 'coins' },
+      { name: 'Stamps', slug: 'stamps' },
+      { name: 'Trading Cards', slug: 'trading-cards' }
+    ]
+  },
+  {
+    name: 'Cooking & Baking',
+    slug: 'cooking-baking',
+    color: '#FFDAC1',
+    subcategories: [
+      { name: 'Baking', slug: 'baking' },
+      { name: 'Bread Making', slug: 'bread-making' },
+      { name: 'Cake Decorating', slug: 'cake-decorating' },
+      { name: 'Homebrewing', slug: 'homebrewing' },
+      { name: 'Meal Prep', slug: 'meal-prep' }
+    ]
+  },
+  {
+    name: 'Crafts & Hobbies',
+    slug: 'crafts-hobbies',
+    color: '#B5B9FF',
+    subcategories: [
+      { name: 'Astrology', slug: 'astrology' },
+      { name: 'Astronomy', slug: 'astronomy' },
+      { name: 'Candle making', slug: 'candle-making' },
+      { name: 'Crocheting', slug: 'crocheting' },
+      { name: 'Homebrewing', slug: 'homebrewing' },
+      { name: 'Homebrewing & Fermentation', slug: 'homebrewing-fermentation' },
+      { name: 'Knitting', slug: 'knitting' },
+      { name: 'LEGO & Building Blocks', slug: 'lego-building-blocks' },
+      { name: 'Model Building', slug: 'model-building' },
+      { name: 'Pottery', slug: 'pottery' },
+      { name: 'Scrapbooking', slug: 'scrapbooking' },
+      { name: 'Woodworking', slug: 'woodworking' }
+    ]
+  },
+  {
+    name: 'Drawing & Painting',
+    slug: 'drawing-painting',
+    color: '#FFB347',
+    subcategories: [
+      { name: 'Acrylic', slug: 'acrylic' },
+      { name: 'Charcoal', slug: 'charcoal' },
+      { name: 'Completed Artwork', slug: 'completed-artwork' },
+      { name: 'Oil', slug: 'oil' },
+      { name: 'Other Supplies', slug: 'other-supplies' },
+      { name: 'Pastel', slug: 'pastel' },
+      { name: 'Watercolor', slug: 'watercolor' }
     ]
   },
   {
     name: 'Electronics',
-    color: '#96E6B3',
     slug: 'electronics',
+    color: '#96E6B3',
     subcategories: [
       {
         name: 'Computers',
         slug: 'computers',
         subcategories: [
           { name: 'Audiophile', slug: 'audiophile' },
-          { name: 'Single Board Computers', slug: 'single-board-computers' },
           { name: 'Drones & RC', slug: 'drones-rc' },
+          { name: 'Single Board Computers', slug: 'single-board-computers' },
           { name: 'VR & Wearables', slug: 'vr-wearables' }
         ]
       },
@@ -65,181 +112,134 @@ const categories: Category[] = [
     ]
   },
   {
-    name: 'Music',
-    color: '#FFD700',
-    slug: 'music',
+    name: 'Fitness & Health',
+    slug: 'fitness-health',
+    color: '#FF9AA2',
     subcategories: [
-      { name: 'Musical Instruments', slug: 'musical-instruments' },
-      { name: 'Compact Discs', slug: 'compact-discs' },
-      { name: 'Records', slug: 'records' },
+      { name: 'Wearable Trackers', slug: 'wearable-trackers' },
+      { name: 'Workout Equipment', slug: 'workout-equipment' },
+      { name: 'Yoga & Mindfulness', slug: 'yoga-mindfulness' }
+    ]
+  },
+  {
+    name: 'Gaming',
+    slug: 'gaming',
+    color: '#8BD3DD',
+    subcategories: [
+      { name: 'Board Games', slug: 'board-games' },
+      { name: 'Card Games', slug: 'card-games' },
+      { name: 'Tabletop RPGs', slug: 'tabletop-rpgs' },
+      { name: 'Video Games', slug: 'video-games' }
+    ]
+  },
+  {
+    name: 'Language Learning',
+    slug: 'language-learning',
+    color: '#D3F7AE',
+    subcategories: [
+      { name: 'Audio Courses', slug: 'audio-courses' },
+      { name: 'Flashcards', slug: 'flashcards' },
+      { name: 'Textbooks', slug: 'textbooks' }
+    ]
+  },
+  {
+    name: 'Mind Games & Puzzles',
+    slug: 'mind-games-puzzles',
+    color: '#FF6F91',
+    subcategories: [
+      { name: 'Crossword Puzzles', slug: 'crossword-puzzles' },
+      { name: "Rubik's Cubes", slug: 'rubiks-cubes' },
+      { name: 'Sudoku', slug: 'sudoku' },
+      { name: 'Jigsaw Puzzles', slug: 'jigsaw-puzzles' }
+    ]
+  },
+  {
+    name: 'Movies & TV',
+    slug: 'movies-tv',
+    color: '#F7E9AE',
+    subcategories: [
+      { name: 'Blu-ray & DVD', slug: 'blu-ray-dvd' },
+      { name: 'Posters & Merch', slug: 'posters-merch' },
+      { name: 'Streaming Gear', slug: 'streaming-gear' }
+    ]
+  },
+  {
+    name: 'Music',
+    slug: 'music',
+    color: '#FFD700',
+    subcategories: [
       { name: 'Casette Tapes', slug: 'cassette-tapes' },
+      { name: 'Compact Discs', slug: 'compact-discs' },
+      { name: 'Digital Audio Workstations', slug: 'daws' },
+      { name: 'Musical Instruments', slug: 'musical-instruments' },
       { name: 'Other', slug: 'other' },
-      { name: 'Synthesizers & MIDI', slug: 'synthesizers-midi' },
       { name: 'Pedals & Effects', slug: 'pedals-effects' },
-      { name: 'Digital Audio Workstations', slug: 'daws' }
+      { name: 'Records', slug: 'records' },
+      { name: 'Synthesizers & MIDI', slug: 'synthesizers-midi' }
+    ]
+  },
+  {
+    name: 'Outdoors & Adventure',
+    slug: 'outdoors-adventure',
+    color: '#B5FFB8',
+    subcategories: [
+      { name: 'Airsoft', slug: 'airsoft' },
+      { name: 'Archery', slug: 'archery' },
+      { name: 'Backpacking', slug: 'backpacking' },
+      { name: 'Beekeeping', slug: 'beekeeping' },
+      { name: 'Bicycling', slug: 'bicycling' },
+      { name: 'Bird Watching', slug: 'birding' },
+      { name: 'Camping', slug: 'camping' },
+      { name: 'Caving', slug: 'caving' },
+      { name: 'Gardening', slug: 'gardening' },
+      { name: 'Hiking', slug: 'hiking' },
+      { name: 'Rock Climbing', slug: 'rock-climbing' }
     ]
   },
   {
     name: 'Photography',
-    color: '#FF6B6B',
     slug: 'photography',
+    color: '#FF6B6B',
     subcategories: [
-      { name: 'Cameras', slug: 'cameras' },
       { name: 'Camera Equipment', slug: 'camera-equipment' },
+      { name: 'Cameras', slug: 'cameras' },
       { name: 'Film Photography', slug: 'film-photography' },
       { name: 'Instant Cameras & Film', slug: 'instant-cameras-film' }
     ]
   },
   {
-    name: 'Crafts & Hobbies',
-    color: '#B5B9FF',
-    slug: 'crafts-hobbies',
+    name: 'Sports and sporting goods',
+    slug: 'sporting-goods',
+    color: '#FFC09F',
     subcategories: [
-      { name: 'Astrology', slug: 'astrology' },
-      { name: 'Astronomy', slug: 'astronomy' },
-      { name: 'Knitting', slug: 'knitting' },
-      { name: 'Candle making', slug: 'candle-making' },
-      { name: 'Crocheting', slug: 'crocheting' },
-      { name: 'Homebrewing', slug: 'homebrewing' },
-      { name: 'Scrapbooking', slug: 'scrapbooking' },
-      { name: 'Pottery', slug: 'pottery' },
-      { name: 'Woodworking', slug: 'woodworking' },
-      { name: 'Model Building', slug: 'model-building' },
-      { name: 'LEGO & Building Blocks', slug: 'lego-building-blocks' },
-      { name: 'Homebrewing & Fermentation', slug: 'homebrewing-fermentation' }
-    ]
-  },
-  {
-    name: 'Drawing & Painting',
-    color: '#FFB347',
-    slug: 'drawing-painting',
-    subcategories: [
-      { name: 'Charcoal', slug: 'charcoal' },
-      { name: 'Pastel', slug: 'pastel' },
-      { name: 'Oil', slug: 'oil' },
-      { name: 'Acrylic', slug: 'acrylic' },
-      { name: 'Watercolor', slug: 'watercolor' },
-      { name: 'Other Supplies', slug: 'other-supplies' },
-      { name: 'Completed Artwork', slug: 'completed-artwork' }
-    ]
-  },
-  {
-    name: 'Gaming',
-    color: '#8BD3DD',
-    slug: 'gaming',
-    subcategories: [
-      { name: 'Board Games', slug: 'board-games' },
-      { name: 'Video Games', slug: 'video-games' },
-      { name: 'Tabletop RPGs', slug: 'tabletop-rpgs' },
-      { name: 'Card Games', slug: 'card-games' }
-    ]
-  },
-  {
-    name: 'Mind Games & Puzzles',
-    color: '#FF6F91',
-    slug: 'mind-games-puzzles',
-    subcategories: [
-      { name: 'Jigsaw Puzzles', slug: 'jigsaw-puzzles' },
-      { name: 'Crossword Puzzles', slug: 'crossword-puzzles' },
-      { name: 'Sudoku', slug: 'sudoku' },
-      { name: "Rubik's Cubes", slug: 'rubiks-cubes' }
-    ]
-  },
-  {
-    name: 'Collecting',
-    color: '#C3F584',
-    slug: 'collecting',
-    subcategories: [
-      { name: 'Coins', slug: 'coins' },
-      { name: 'Stamps', slug: 'stamps' },
-      { name: 'Action Figures', slug: 'action-figures' },
-      { name: 'Trading Cards', slug: 'trading-cards' },
-      { name: 'Button Collecting', slug: 'button-collecting' }
+      { name: 'Airsoft', slug: 'airsoft' },
+      { name: 'Billiards', slug: 'billiards' },
+      { name: 'Bicycling', slug: 'bicycling' },
+      { name: 'Board sports', slug: 'board-sports' },
+      { name: 'Body Building', slug: 'body-building' }
     ]
   },
   {
     name: 'Tech & DIY',
-    color: '#A0E7E5',
     slug: 'tech-diy',
+    color: '#A0E7E5',
     subcategories: [
       { name: '3D Printing', slug: '3d-printing' },
       { name: 'Arduino Projects', slug: 'arduino-projects' },
-      { name: 'Raspberry Pi', slug: 'raspberry-pi' },
-      { name: 'Electronics Kits', slug: 'electronics-kits' }
+      { name: 'Electronics Kits', slug: 'electronics-kits' },
+      { name: 'Raspberry Pi', slug: 'raspberry-pi' }
     ]
   },
   {
-    name: 'Cooking & Baking',
-    color: '#FFDAC1',
-    slug: 'cooking-baking',
+    name: 'Writing & Publishing',
+    slug: 'writing-publishing',
+    color: '#D8B5FF',
     subcategories: [
-      { name: 'Baking', slug: 'baking' },
-      { name: 'Meal Prep', slug: 'meal-prep' },
-      { name: 'Cake Decorating', slug: 'cake-decorating' },
-      { name: 'Bread Making', slug: 'bread-making' },
-      { name: 'Homebrewing', slug: 'homebrewing' }
-    ]
-  },
-  {
-    name: 'Outdoors & Adventure',
-    color: '#B5FFB8',
-    slug: 'outdoors-adventure',
-    subcategories: [
-      { name: 'Airsoft', slug: 'airsoft' },
-      { name: 'Archery', slug: 'archery' },
-      { name: 'Bicycling', slug: 'bicycling' },
-      { name: 'Bird Watching', slug: 'birding' },
-      { name: 'Beekeeping', slug: 'beekeeping' },
-      { name: 'Backpacking', slug: 'backpacking' },
-      { name: 'Camping', slug: 'camping' },
-      { name: 'Caving', slug: 'caving' },
-      { name: 'Hiking', slug: 'hiking' },
-      { name: 'Gardening', slug: 'gardening' },
-      { name: 'Rock Climbing', slug: 'rock-climbing' }
-    ]
-  },
-  {
-    name: 'Books & Literature',
-    color: '#AEDFF7',
-    slug: 'books-literature',
-    subcategories: [
-      { name: 'Fiction', slug: 'fiction' },
-      { name: 'Non-Fiction', slug: 'non-fiction' },
-      { name: 'Graphic Novels', slug: 'graphic-novels' },
-      { name: 'Manga & Comics', slug: 'manga-comics' },
-      { name: 'Book restoration', slug: 'book-restoration' }
-    ]
-  },
-  {
-    name: 'Movies & TV',
-    color: '#F7E9AE',
-    slug: 'movies-tv',
-    subcategories: [
-      { name: 'Blu-ray & DVD', slug: 'blu-ray-dvd' },
-      { name: 'Streaming Gear', slug: 'streaming-gear' },
-      { name: 'Posters & Merch', slug: 'posters-merch' }
-    ]
-  },
-  {
-    name: 'Language Learning',
-    color: '#D3F7AE',
-    slug: 'language-learning',
-    subcategories: [
-      { name: 'Textbooks', slug: 'textbooks' },
-      { name: 'Audio Courses', slug: 'audio-courses' },
-      { name: 'Flashcards', slug: 'flashcards' }
-    ]
-  },
-  {
-    name: 'Sports and sporting goods',
-    color: '#FFD1DC',
-    slug: 'sporting-goods',
-    subcategories: [
-      { name: 'Billiards', slug: 'billiards' },
-      { name: 'Bicycling', slug: 'bicycling' },
-      { name: 'Airsoft', slug: 'airsoft' },
-      { name: 'Board sports', slug: 'board-sports' },
-      { name: 'Body Building', slug: 'body-building' }
+      { name: 'Book restoration', slug: 'book-restoration' },
+      { name: 'Calligraphy', slug: 'calligraphy' },
+      { name: 'Notebooks', slug: 'notebooks' },
+      { name: 'Planners & Bullet Journals', slug: 'planners-bullet-journals' },
+      { name: 'Writing devices', slug: 'writing-devices' }
     ]
   }
 ];
@@ -260,7 +260,7 @@ async function seed() {
     });
     let adminTenantId: string;
 
-    if (existingTenantResult.docs.length > 0) {
+    if (existingTenantResult.docs.length > 0 && existingTenantResult.docs[0]) {
       adminTenantId = existingTenantResult.docs[0].id;
       console.log(
         `⚡️ "admin" tenant already exists (ID: ${adminTenantId}). Skipping creation.`
@@ -326,7 +326,10 @@ async function seed() {
       });
 
       let parentCategoryId: string;
-      if (existingParentResult.docs.length > 0) {
+      if (
+        existingParentResult.docs.length > 0 &&
+        existingParentResult.docs[0]
+      ) {
         parentCategoryId = existingParentResult.docs[0].id;
         console.log(`⚡️ Skipping existing category: ${category.slug}`);
       } else {
@@ -355,7 +358,7 @@ async function seed() {
           });
 
           let currentParentId: string;
-          if (existingSubResult.docs.length > 0) {
+          if (existingSubResult.docs.length > 0 && existingSubResult.docs[0]) {
             currentParentId = existingSubResult.docs[0].id;
             console.log(
               `⚡️ Skipping existing subcategory: ${subCategory.slug}`
