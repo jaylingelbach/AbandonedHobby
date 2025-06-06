@@ -1,15 +1,28 @@
-import { getPayload } from 'payload';
+// src/lib/seed.ts
 import dotenv from 'dotenv';
-import config from '@payload-config';
-import { stripe } from './stripe';
+import { getPayload } from 'payload';
+import type { PayloadRequest } from 'payload/dist/types';
+import config from '@payload-config'; // Adjust this path if your payload config is located elsewhere
+import { stripe } from './stripe'; // Adjust this path if your stripe helper is elsewhere
 
 dotenv.config();
 
-const categories = [
-  // … your existing categories …
+interface Category {
+  name: string;
+  slug: string;
+  color?: string;
+  subcategories?: Array<{
+    name: string;
+    slug: string;
+    subcategories?: Array<{ name: string; slug: string }>;
+  }>;
+}
+
+const categories: Category[] = [
   {
     name: 'All',
-    slug: 'all'
+    slug: 'all',
+    color: '#CCCCCC'
   },
   {
     name: 'Writing & Publishing',
@@ -19,10 +32,10 @@ const categories = [
       { name: 'Notebooks', slug: 'notebooks' },
       { name: 'Writing devices', slug: 'writing-devices' },
       { name: 'Calligraphy', slug: 'calligraphy' },
-      { name: 'Planners & Bullet Journals', slug: 'planners-bullet-journals' }
+      { name: 'Planners & Bullet Journals', slug: 'planners-bullet-journals' },
+      { name: 'Book restoration', slug: 'book-restoration' }
     ]
   },
-
   {
     name: 'Fitness & Health',
     color: '#FF9AA2',
@@ -42,6 +55,7 @@ const categories = [
         name: 'Computers',
         slug: 'computers',
         subcategories: [
+          { name: 'Audiophile', slug: 'audiophile' },
           { name: 'Single Board Computers', slug: 'single-board-computers' },
           { name: 'Drones & RC', slug: 'drones-rc' },
           { name: 'VR & Wearables', slug: 'vr-wearables' }
@@ -59,7 +73,7 @@ const categories = [
       { name: 'Compact Discs', slug: 'compact-discs' },
       { name: 'Records', slug: 'records' },
       { name: 'Casette Tapes', slug: 'cassette-tapes' },
-      { name: 'Other', slug: 'Other' },
+      { name: 'Other', slug: 'other' },
       { name: 'Synthesizers & MIDI', slug: 'synthesizers-midi' },
       { name: 'Pedals & Effects', slug: 'pedals-effects' },
       { name: 'Digital Audio Workstations', slug: 'daws' }
@@ -72,20 +86,21 @@ const categories = [
     subcategories: [
       { name: 'Cameras', slug: 'cameras' },
       { name: 'Camera Equipment', slug: 'camera-equipment' },
-      // inside Photography subcategories
       { name: 'Film Photography', slug: 'film-photography' },
       { name: 'Instant Cameras & Film', slug: 'instant-cameras-film' }
     ]
   },
-
-  // Revamp the Crafts & Hobbies group:
   {
     name: 'Crafts & Hobbies',
     color: '#B5B9FF',
     slug: 'crafts-hobbies',
     subcategories: [
+      { name: 'Astrology', slug: 'astrology' },
+      { name: 'Astronomy', slug: 'astronomy' },
       { name: 'Knitting', slug: 'knitting' },
+      { name: 'Candle making', slug: 'candle-making' },
       { name: 'Crocheting', slug: 'crocheting' },
+      { name: 'Homebrewing', slug: 'homebrewing' },
       { name: 'Scrapbooking', slug: 'scrapbooking' },
       { name: 'Pottery', slug: 'pottery' },
       { name: 'Woodworking', slug: 'woodworking' },
@@ -108,8 +123,6 @@ const categories = [
       { name: 'Completed Artwork', slug: 'completed-artwork' }
     ]
   },
-
-  // Gaming:
   {
     name: 'Gaming',
     color: '#8BD3DD',
@@ -121,8 +134,6 @@ const categories = [
       { name: 'Card Games', slug: 'card-games' }
     ]
   },
-
-  // Mind Games & Puzzles:
   {
     name: 'Mind Games & Puzzles',
     color: '#FF6F91',
@@ -134,8 +145,6 @@ const categories = [
       { name: "Rubik's Cubes", slug: 'rubiks-cubes' }
     ]
   },
-
-  // Collecting:
   {
     name: 'Collecting',
     color: '#C3F584',
@@ -144,11 +153,10 @@ const categories = [
       { name: 'Coins', slug: 'coins' },
       { name: 'Stamps', slug: 'stamps' },
       { name: 'Action Figures', slug: 'action-figures' },
-      { name: 'Trading Cards', slug: 'trading-cards' }
+      { name: 'Trading Cards', slug: 'trading-cards' },
+      { name: 'Button Collecting', slug: 'button-collecting' }
     ]
   },
-
-  // Tech & DIY:
   {
     name: 'Tech & DIY',
     color: '#A0E7E5',
@@ -160,8 +168,6 @@ const categories = [
       { name: 'Electronics Kits', slug: 'electronics-kits' }
     ]
   },
-
-  // Cooking & Baking:
   {
     name: 'Cooking & Baking',
     color: '#FFDAC1',
@@ -170,19 +176,25 @@ const categories = [
       { name: 'Baking', slug: 'baking' },
       { name: 'Meal Prep', slug: 'meal-prep' },
       { name: 'Cake Decorating', slug: 'cake-decorating' },
-      { name: 'Bread Making', slug: 'bread-making' }
+      { name: 'Bread Making', slug: 'bread-making' },
+      { name: 'Homebrewing', slug: 'homebrewing' }
     ]
   },
-
-  // Outdoors & Adventure:
   {
     name: 'Outdoors & Adventure',
     color: '#B5FFB8',
     slug: 'outdoors-adventure',
     subcategories: [
+      { name: 'Airsoft', slug: 'airsoft' },
+      { name: 'Archery', slug: 'archery' },
+      { name: 'Bicycling', slug: 'bicycling' },
+      { name: 'Bird Watching', slug: 'birding' },
+      { name: 'Beekeeping', slug: 'beekeeping' },
+      { name: 'Backpacking', slug: 'backpacking' },
+      { name: 'Camping', slug: 'camping' },
+      { name: 'Caving', slug: 'caving' },
       { name: 'Hiking', slug: 'hiking' },
       { name: 'Gardening', slug: 'gardening' },
-      { name: 'Camping', slug: 'camping' },
       { name: 'Rock Climbing', slug: 'rock-climbing' }
     ]
   },
@@ -192,9 +204,10 @@ const categories = [
     slug: 'books-literature',
     subcategories: [
       { name: 'Fiction', slug: 'fiction' },
-      { name: 'Non‑Fiction', slug: 'non-fiction' },
+      { name: 'Non-Fiction', slug: 'non-fiction' },
       { name: 'Graphic Novels', slug: 'graphic-novels' },
-      { name: 'Manga & Comics', slug: 'manga-comics' }
+      { name: 'Manga & Comics', slug: 'manga-comics' },
+      { name: 'Book restoration', slug: 'book-restoration' }
     ]
   },
   {
@@ -202,7 +215,7 @@ const categories = [
     color: '#F7E9AE',
     slug: 'movies-tv',
     subcategories: [
-      { name: 'Blu‑ray & DVD', slug: 'blu-ray-dvd' },
+      { name: 'Blu-ray & DVD', slug: 'blu-ray-dvd' },
       { name: 'Streaming Gear', slug: 'streaming-gear' },
       { name: 'Posters & Merch', slug: 'posters-merch' }
     ]
@@ -216,95 +229,197 @@ const categories = [
       { name: 'Audio Courses', slug: 'audio-courses' },
       { name: 'Flashcards', slug: 'flashcards' }
     ]
+  },
+  {
+    name: 'Sports and sporting goods',
+    color: '#FFD1DC',
+    slug: 'sporting-goods',
+    subcategories: [
+      { name: 'Billiards', slug: 'billiards' },
+      { name: 'Bicycling', slug: 'bicycling' },
+      { name: 'Airsoft', slug: 'airsoft' },
+      { name: 'Board sports', slug: 'board-sports' },
+      { name: 'Body Building', slug: 'body-building' }
+    ]
   }
 ];
 
-const seed = async () => {
+async function seed() {
+  // 1) Initialize Payload + Mongo
   const payload = await getPayload({ config });
-  const adminAccount = await stripe.accounts.create({});
 
-  const adminTenant = await payload.create({
-    collection: 'tenants',
-    data: {
-      name: 'admin',
-      slug: 'admin',
-      stripeAccountId: adminAccount.id
-    }
-  });
-  // create admin
-  await payload.create({
-    collection: 'users',
-    data: {
-      email: 'jay@demo.com',
-      password: 'xXGolden69420!xX',
-      roles: ['super-admin'],
-      username: 'admin',
-      tenants: [
-        {
-          tenant: adminTenant.id // or tenant._id, depending on your driver
+  // ───────────────────────────────────────────────────────
+  // 2) Seed an "admin" tenant and user (skip if they already exist)
+  // ───────────────────────────────────────────────────────
+  try {
+    // 2a) Check if the "admin" tenant already exists
+    const existingTenantResult = await payload.find({
+      collection: 'tenants',
+      where: { slug: { equals: 'admin' } },
+      limit: 1
+    });
+    let adminTenantId: string;
+
+    if (existingTenantResult.docs.length > 0) {
+      adminTenantId = existingTenantResult.docs[0].id;
+      console.log(
+        `⚡️ "admin" tenant already exists (ID: ${adminTenantId}). Skipping creation.`
+      );
+    } else {
+      // 2b) Create the "admin" tenant
+      const adminAccount = await stripe.accounts.create({
+        type: 'standard',
+        business_type: 'individual',
+        business_profile: { url: 'https://your-domain.com' }
+      });
+      const createdTenant = await payload.create({
+        collection: 'tenants',
+        data: {
+          name: 'admin',
+          slug: 'admin',
+          stripeAccountId: adminAccount.id
         }
-      ]
+      });
+      adminTenantId = createdTenant.id;
+      console.log(`✅ Created "admin" tenant (ID: ${adminTenantId}).`);
     }
-  });
 
-  for (const category of categories) {
-    // Check if parent category already exists
-    const existingParent = await payload.find({
-      collection: 'categories',
-      where: { slug: { equals: category.slug } },
+    // 2c) Check if the admin user already exists
+    const existingUserResult = await payload.find({
+      collection: 'users',
+      where: { email: { equals: 'jay@demo.com' } },
       limit: 1
     });
 
-    let parentCategory;
-
-    if (existingParent.docs.length > 0) {
-      console.log(`Skipping existing category: ${category.slug}`);
-      parentCategory = existingParent.docs[0];
+    if (existingUserResult.docs.length > 0) {
+      console.log(
+        `⚡️ Admin user "jay@demo.com" already exists. Skipping creation.`
+      );
     } else {
-      parentCategory = await payload.create({
-        collection: 'categories',
+      // 2d) Create the "admin" user
+      await payload.create({
+        collection: 'users',
         data: {
-          name: category.name,
-          slug: category.slug,
-          color: category.color,
-          parent: null
+          email: 'jay@demo.com',
+          password: 'xXGolden69420%21xX', // Ensure this matches your ENV or is hashed as needed
+          roles: ['super-admin'],
+          username: 'admin',
+          tenants: [{ tenant: adminTenantId }]
         }
       });
-      console.log(`Created category: ${category.slug}`);
+      console.log('✅ Created admin user jay@demo.com.');
     }
+  } catch (error) {
+    console.error('Error seeding admin tenant/user:', error);
+  }
 
-    for (const subCategory of category.subcategories || []) {
-      const existingSub = await payload.find({
+  // ───────────────────────────────────────────────────────
+  // 3) Seed categories & subcategories (idempotent)
+  // ───────────────────────────────────────────────────────
+  for (const category of categories) {
+    try {
+      // 3a) Check if the parent category already exists
+      const existingParentResult = await payload.find({
         collection: 'categories',
-        where: { slug: { equals: subCategory.slug } },
+        where: { slug: { equals: category.slug } },
         limit: 1
       });
 
-      if (existingSub.docs.length > 0) {
-        console.log(`Skipping existing subcategory: ${subCategory.slug}`);
-        continue;
+      let parentCategoryId: string;
+      if (existingParentResult.docs.length > 0) {
+        parentCategoryId = existingParentResult.docs[0].id;
+        console.log(`⚡️ Skipping existing category: ${category.slug}`);
+      } else {
+        // 3b) Create the parent category
+        const createdParent = await payload.create({
+          collection: 'categories',
+          data: {
+            name: category.name,
+            slug: category.slug,
+            color: category.color || null,
+            parent: null
+          }
+        });
+        parentCategoryId = createdParent.id;
+        console.log(`✅ Created category: ${category.slug}`);
       }
 
-      await payload.create({
-        collection: 'categories',
-        data: {
-          name: subCategory.name,
-          slug: subCategory.slug,
-          parent: parentCategory?.id
-        }
-      });
+      // 3c) For each subcategory, repeat the pattern
+      if (category.subcategories && category.subcategories.length > 0) {
+        for (const subCategory of category.subcategories) {
+          // Check if subcategory exists
+          const existingSubResult = await payload.find({
+            collection: 'categories',
+            where: { slug: { equals: subCategory.slug } },
+            limit: 1
+          });
 
-      console.log(`Created subcategory: ${subCategory.slug}`);
+          let currentParentId: string;
+          if (existingSubResult.docs.length > 0) {
+            currentParentId = existingSubResult.docs[0].id;
+            console.log(
+              `⚡️ Skipping existing subcategory: ${subCategory.slug}`
+            );
+          } else {
+            // Create subcategory with parent = parentCategoryId
+            const createdSub = await payload.create({
+              collection: 'categories',
+              data: {
+                name: subCategory.name,
+                slug: subCategory.slug,
+                color: subCategory.color || null,
+                parent: parentCategoryId
+              }
+            });
+            currentParentId = createdSub.id;
+            console.log(`✅ Created subcategory: ${subCategory.slug}`);
+          }
+
+          // 3d) If there are nested sub-subcategories, repeat again
+          if (
+            subCategory.subcategories &&
+            subCategory.subcategories.length > 0
+          ) {
+            for (const nested of subCategory.subcategories) {
+              // Check if nested category exists
+              const existingNestedResult = await payload.find({
+                collection: 'categories',
+                where: { slug: { equals: nested.slug } },
+                limit: 1
+              });
+
+              if (existingNestedResult.docs.length > 0) {
+                console.log(
+                  `⚡️ Skipping existing nested category: ${nested.slug}`
+                );
+              } else {
+                // Create nested category with parent = currentParentId
+                await payload.create({
+                  collection: 'categories',
+                  data: {
+                    name: nested.name,
+                    slug: nested.slug,
+                    color: null,
+                    parent: currentParentId
+                  }
+                });
+                console.log(`✅ Created nested category: ${nested.slug}`);
+              }
+            }
+          }
+        }
+      }
+    } catch (error) {
+      console.error(`Error seeding category "${category.slug}":`, error);
     }
   }
-};
+}
 
 try {
   await seed();
-  console.log('Seeding completed.');
+  console.log('🌱 Seeding completed.');
   process.exit(0);
-} catch (error) {
-  console.error('Error during seed: ', JSON.stringify(error, null, 2));
-  console.error('Error during seed: ', error);
+} catch (err) {
+  console.error('🌱 Seed script caught error:', err);
   process.exit(1);
 }
