@@ -1,17 +1,38 @@
 import { CollectionConfig } from 'payload';
-
 import { isSuperAdmin } from '@/lib/access';
-import { Tenant } from '@/payload-types';
+import { getPayload } from 'payload';
+import config from '@payload-config';
+import type { Tenant } from '@/payload-types';
 
 export const Products: CollectionConfig = {
   slug: 'products',
   access: {
-    // do not need other rules here because products are connected to tenants and those rules are handled seperately.
-    create: ({ req: { user } }) => {
-      // can only post products if their stripe details are submitted. Will I need to refactor if they only want to trade (list as $0)?
+    create: async ({ req: { user } }) => {
+      // 1) Super-admins can always create
       if (isSuperAdmin(user)) return true;
-      const tenant = user?.tenants?.[0]?.tenant as Tenant;
-      return Boolean(tenant?.stripeDetailsSubmitted);
+
+      // 2) Pull out the raw `tenant` field from the user session
+      const tenantRel = user?.tenants?.[0]?.tenant;
+      if (!tenantRel) return false;
+
+      // 3) If it's a string, fetch the full Tenant doc; otherwise assume it's already populated
+      let tenantObj: Tenant | null = null;
+      if (typeof tenantRel === 'string') {
+        const payload = await getPayload({ config });
+        tenantObj = await payload.findByID({
+          collection: 'tenants',
+          id: tenantRel
+        });
+      } else {
+        tenantObj = tenantRel;
+      }
+
+      if (!tenantObj) return false;
+
+      // 4) Finally, check for a Stripe account ID (or stripeDetailsSubmitted)
+      return Boolean(tenantObj.stripeAccountId);
+      // or if you really want the checkbox flag:
+      // return Boolean(tenantObj.stripeDetailsSubmitted);
     },
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
