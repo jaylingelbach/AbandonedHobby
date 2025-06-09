@@ -4,6 +4,8 @@ import { Button, Link } from '@payloadcms/ui';
 import { useAuth } from '@payloadcms/ui';
 import { useEffect, useState } from 'react';
 
+export const dynamic = 'force-dynamic';
+
 export const StripeVerify = () => {
   const { user } = useAuth();
   const [show, setShow] = useState(false);
