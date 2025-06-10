@@ -125,7 +125,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
       // TODO:  Throw error if stripe details not submitted -- remove if verification not needed
-      if (!tenant.stripeDetailsSubmitted) {
+      if (!tenant.stripeAccountId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message:
