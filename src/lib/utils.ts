@@ -10,7 +10,7 @@ export function generateTenantURL(tenantSlug: string) {
   const isSubdomainRoutingEnabled =
     process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
 
-  const protocol = isDev || isSubdomainRoutingEnabled ? 'http' : 'https';
+  const protocol = isDev || !isSubdomainRoutingEnabled ? 'http' : 'https';
   let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
   if (!domain) {
