@@ -20,6 +20,10 @@ export function generateTenantURL(tenantSlug: string) {
   // Remove protocol if it accidentally exists in domain
   domain = domain.replace(/^https?:\/\//, '');
 
+  if (protocol === 'http') {
+    return `${process.env.NEXT_PUBLIC_APP_URL}/tenants/${tenantSlug}`;
+  }
+
   return `${protocol}://${tenantSlug}.${domain}`;
 }
 
