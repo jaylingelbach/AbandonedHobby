@@ -6,35 +6,41 @@ import { useEffect, useState } from 'react';
 
 export const dynamic = 'force-dynamic';
 
-export const StripeVerify = () => {
+export function StripeVerify() {
   const { user } = useAuth();
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    if (!user?.tenants?.length) {
+    // 1) Grab the tenant relationship (might be a string ID or populated object)
+    const tenantRel = user?.tenants?.[0]?.tenant;
+    if (!tenantRel) {
+      setShow(false);
       return;
     }
-    const tenant = user.tenants[0].tenant;
-    // Handle both string ID and populated object cases
-    const stripeDetailsSubmitted =
-      typeof tenant === 'object' && tenant !== null
-        ? tenant.stripeDetailsSubmitted
-        : false;
-    setShow(!stripeDetailsSubmitted);
+
+    // 2) Extract the stripeAccountId if we have a full object
+    const stripeAccountId =
+      typeof tenantRel === 'object' && tenantRel !== null
+        ? tenantRel.stripeAccountId
+        : undefined;
+
+    // 3) Show the verification UI only if stripeAccountId is missing
+    setShow(!stripeAccountId);
   }, [user]);
 
   if (!show) return null;
+
   return (
     <div style={{ color: 'yellow', fontWeight: 'bold', padding: '1rem' }}>
       <p>
-        Your account is not verified for payouts. To begin selling verify your
-        account below.
+        Your account is not connected to Stripe yet. To begin selling, please
+        verify your account below.
       </p>
       <Link href="/stripe-verify">
         <Button>Verify Account</Button>
       </Link>
     </div>
   );
-};
+}
 
 export default StripeVerify;
