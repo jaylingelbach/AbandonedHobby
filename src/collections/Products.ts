@@ -18,11 +18,16 @@ export const Products: CollectionConfig = {
       // 3) If it's a string, fetch the full Tenant doc; otherwise assume it's already populated
       let tenantObj: Tenant | null = null;
       if (typeof tenantRel === 'string') {
-        const payload = await getPayload({ config });
-        tenantObj = await payload.findByID({
-          collection: 'tenants',
-          id: tenantRel
-        });
+        try {
+          const payload = await getPayload({ config });
+          tenantObj = await payload.findByID({
+            collection: 'tenants',
+            id: tenantRel
+          });
+        } catch (error) {
+          console.error('Failed to fetch tenant:', error);
+          return false;
+        }
       } else {
         tenantObj = tenantRel;
       }
