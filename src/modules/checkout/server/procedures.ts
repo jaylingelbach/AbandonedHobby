@@ -77,6 +77,13 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      console.log('→ entering checkout.purchase');
+      console.log(
+        '→ STRIPE_SECRET_KEY present?',
+        !!process.env.STRIPE_SECRET_KEY,
+        'NODE_ENV',
+        process.env.NODE_ENV
+      );
       const products = await ctx.db.find({
         collection: 'products',
         depth: 2,
@@ -124,7 +131,7 @@ export const checkoutRouter = createTRPCRouter({
           message: 'Shop (Tenant) not found'
         });
       }
-      // TODO:  Throw error if stripe details not submitted -- remove if verification not needed
+      // TODO:  Throw error if stripe details not submitted -- remove if verification not needed (changed to account id)
       if (!tenant.stripeAccountId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
