@@ -15,6 +15,8 @@ import { TRPCError } from '@trpc/server';
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL } from '@/lib/utils';
 
+export const runtime = 'nodejs';
+
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
