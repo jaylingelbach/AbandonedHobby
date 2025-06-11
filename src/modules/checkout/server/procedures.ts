@@ -189,28 +189,26 @@ export const checkoutRouter = createTRPCRouter({
           },
           { stripeAccount: tenant.stripeAccountId }
         );
-      } catch (error: unknown) {
-        if (error && typeof error === 'object') {
+      } catch (err: unknown) {
+        // Narrow to Stripe’s own error class at runtime:
+        if (err instanceof Stripe.errors.StripeError) {
           console.error('🔥 stripe checkout error:', {
-            message: (error as any).message,
-            code: (error as any).code,
-            request: {
-              id: (error as any).requestId,
-              path: (error as any).request?.path,
-              method: (error as any).request?.method
-            }
+            message: err.message,
+            code: err.code,
+            requestId: err.requestId
           });
           throw new TRPCError({
             code: 'INTERNAL_SERVER_ERROR',
-            message: `Stripe error: ${(error as any).message}`
-          });
-        } else {
-          console.error('🔥 stripe checkout error:', error);
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Stripe error: Unknown error'
+            message: `Stripe error: ${err.message}`
           });
         }
+
+        // Fallback for other thrown values
+        console.error('🔥 unknown error in checkout:', err);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An unknown error occurred.'
+        });
       }
       if (!checkout.url) {
         throw new TRPCError({
