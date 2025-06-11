@@ -168,26 +168,42 @@ export const checkoutRouter = createTRPCRouter({
 
       const domain = generateTenantURL(input.tenantSlug);
 
-      const checkout = await stripe.checkout.sessions.create(
-        {
-          customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
-          success_url: `${domain}/checkout?success=true`,
-          cancel_url: `${domain}/checkout?cancel=true`,
-          mode: 'payment',
-          line_items: lineItems,
-          invoice_creation: {
-            enabled: true
+      let checkout;
+      try {
+        checkout = await stripe.checkout.sessions.create(
+          {
+            customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
+            success_url: `${domain}/checkout?success=true`,
+            cancel_url: `${domain}/checkout?cancel=true`,
+            mode: 'payment',
+            line_items: lineItems,
+            invoice_creation: {
+              enabled: true
+            },
+            metadata: {
+              userId: ctx.session.user.id
+            } as CheckoutMetadata,
+            payment_intent_data: {
+              application_fee_amount: platformFeeAmount
+            }
           },
-          metadata: {
-            userId: ctx.session.user.id
-          } as CheckoutMetadata,
-          payment_intent_data: {
-            application_fee_amount: platformFeeAmount
+          { stripeAccount: tenant.stripeAccountId }
+        );
+      } catch (err: any) {
+        console.error('🔥 stripe checkout error:', {
+          message: err.message,
+          code: err.code,
+          request: {
+            id: err.requestId,
+            path: err.request?.path,
+            method: err.request?.method
           }
-        },
-        { stripeAccount: tenant.stripeAccountId }
-      );
-
+        });
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: `Stripe error: ${err.message}`
+        });
+      }
       if (!checkout.url) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
