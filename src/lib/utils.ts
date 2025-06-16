@@ -7,7 +7,10 @@ export function cn(...inputs: ClassValue[]) {
 
 export function generateTenantURL(tenantSlug: string) {
   const isDev = process.env.NODE_ENV === 'development';
-  const protocol = isDev ? 'http' : 'https';
+  const isSubdomainRoutingEnabled =
+    process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
+
+  const protocol = isDev || !isSubdomainRoutingEnabled ? 'http' : 'https';
   let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
 
   if (!domain) {
@@ -16,6 +19,10 @@ export function generateTenantURL(tenantSlug: string) {
 
   // Remove protocol if it accidentally exists in domain
   domain = domain.replace(/^https?:\/\//, '');
+
+  if (protocol === 'http') {
+    return `${process.env.NEXT_PUBLIC_APP_URL}/tenants/${tenantSlug}`;
+  }
 
   return `${protocol}://${tenantSlug}.${domain}`;
 }
