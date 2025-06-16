@@ -26,7 +26,7 @@ export const CategoryDropdown = ({
 
   const debuncedClose = useCallback(
     debounce(() => setIsOpen(false), 150),
-    []
+    [setIsOpen]
   );
 
   const onMouseEnter = () => {
