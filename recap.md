@@ -4,6 +4,10 @@
 - prevent user from buying their own products.
 - referral codes for influencers to give out. they get a % and the user a reduced fee?
 
+# BUGS:
+
+- If an admin puts a product in a cart it is seen sitewide.
+
 # Categories finalization
 
 ### New Features
