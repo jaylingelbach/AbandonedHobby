@@ -180,6 +180,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       } catch (error) {
                         setIsCopied(false);
                         toast.error('Failed to copy URL to clipboard');
+                        console.log(error);
+                        console.error(error);
                       }
                     }}
                     disabled={isCopied}
