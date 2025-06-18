@@ -95,6 +95,7 @@ export const authRouter = createTRPCRouter({
         });
       } catch (error) {
         console.error('Error during registration:', error); // Log full error details
+        console.log('Error during registration:', error); // Log full error details to the console
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create tenant or user'
