@@ -1,11 +1,10 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import debounce from 'lodash/debounce';
 import Link from 'next/link';
 
 import { cn } from '@/lib/utils';
-
 import { Button } from '@/components/ui/button';
 import { SubcategoryMenu } from './subcategory-menu';
 import { CategoriesGetManyOutputSingle } from '@/modules/categories/types';
@@ -24,9 +23,13 @@ export const CategoryDropdown = ({
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const debuncedClose = useCallback(
-    debounce(() => setIsOpen(false), 150),
-    [setIsOpen]
+  // Create the debounced “close” function once.
+  const debouncedClose = useMemo(
+    () =>
+      debounce(() => {
+        setIsOpen(false);
+      }, 150),
+    []
   );
 
   const onMouseEnter = () => {
@@ -36,24 +39,26 @@ export const CategoryDropdown = ({
   };
 
   const onMouseLeave = () => {
-    debuncedClose();
+    debouncedClose();
   };
 
   const toggleDropdown = () => {
     if (category.subcategories?.length) {
-      setIsOpen(!isOpen);
+      setIsOpen((prev) => !prev);
     }
   };
+
   useEffect(() => {
+    // On unmount, cancel the pending debounced call
     return () => {
-      debuncedClose.cancel();
+      debouncedClose.cancel();
     };
-  }, [debuncedClose]);
+  }, [debouncedClose]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' || e.key === ' ') {
       if (category.subcategories?.length) {
-        setIsOpen(!isOpen);
+        setIsOpen((prev) => !prev);
         e.preventDefault();
       }
     } else if (e.key === 'Escape' && isOpen) {

@@ -15,6 +15,8 @@ import { TRPCError } from '@trpc/server';
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL } from '@/lib/utils';
 
+export const runtime = 'nodejs';
+
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -77,6 +79,13 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      console.log('→ entering checkout.purchase');
+      console.log(
+        '→ STRIPE_SECRET_KEY present?',
+        !!process.env.STRIPE_SECRET_KEY,
+        'NODE_ENV',
+        process.env.NODE_ENV
+      );
       const products = await ctx.db.find({
         collection: 'products',
         depth: 2,
@@ -124,8 +133,8 @@ export const checkoutRouter = createTRPCRouter({
           message: 'Shop (Tenant) not found'
         });
       }
-      // TODO:  Throw error if stripe details not submitted -- remove if verification not needed
-      if (!tenant.stripeDetailsSubmitted) {
+      // TODO:  Throw error if stripe details not submitted -- remove if verification not needed (changed to account id)
+      if (!tenant.stripeAccountId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message:
@@ -161,26 +170,48 @@ export const checkoutRouter = createTRPCRouter({
 
       const domain = generateTenantURL(input.tenantSlug);
 
-      const checkout = await stripe.checkout.sessions.create(
-        {
-          customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
-          success_url: `${domain}/checkout?success=true`,
-          cancel_url: `${domain}/checkout?cancel=true`,
-          mode: 'payment',
-          line_items: lineItems,
-          invoice_creation: {
-            enabled: true
+      let checkout;
+      try {
+        checkout = await stripe.checkout.sessions.create(
+          {
+            customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
+            success_url: `${domain}/checkout?success=true`,
+            cancel_url: `${domain}/checkout?cancel=true`,
+            mode: 'payment',
+            line_items: lineItems,
+            invoice_creation: {
+              enabled: true
+            },
+            metadata: {
+              userId: ctx.session.user.id
+            } as CheckoutMetadata,
+            payment_intent_data: {
+              application_fee_amount: platformFeeAmount
+            }
           },
-          metadata: {
-            userId: ctx.session.user.id
-          } as CheckoutMetadata,
-          payment_intent_data: {
-            application_fee_amount: platformFeeAmount
-          }
-        },
-        { stripeAccount: tenant.stripeAccountId }
-      );
+          { stripeAccount: tenant.stripeAccountId }
+        );
+      } catch (err: unknown) {
+        // Narrow to Stripe’s own error class at runtime:
+        if (err instanceof Stripe.errors.StripeError) {
+          console.error('🔥 stripe checkout error:', {
+            message: err.message,
+            code: err.code,
+            requestId: err.requestId
+          });
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: `Stripe error: ${err.message}`
+          });
+        }
 
+        // Fallback for other thrown values
+        console.error('🔥 unknown error in checkout:', err);
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An unknown error occurred.'
+        });
+      }
       if (!checkout.url) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
