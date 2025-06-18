@@ -3,6 +3,10 @@
 - Checkout-view.tsx on success where do I want to route? Currently routing to library.
 - prevent user from buying their own products.
 
+# BUGS:
+
+- If an admin puts a product in a cart it is seen sitewide.
+
 # Categories finalization
 
 ### New Features
@@ -1021,5 +1025,3 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Changed import style for ProductView and ProductViewSkeleton.
 - recap.md
   - Added improvement note to prevent users from buying their own products.
-
-# start
