@@ -38,10 +38,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         window.location.href = data.url;
       },
       onError: (error) => {
-        if (error.data?.code === 'UNAUTHORIZED') {
-          // TODO: refactor when subdomains are enabled.
+        console.error('Error: ', error);
+        const host = window.location.hostname;
+        const parts = host.split('.');
+        const rootDomain = parts.length > 2 ? parts.slice(-2).join('.') : host;
+        if (rootDomain === 'localhost') {
           router.push('/sign-in');
-          toast.error(error.message);
+        } else {
+          window.location.href = `https://${rootDomain}/sign-in`;
         }
       }
     })
