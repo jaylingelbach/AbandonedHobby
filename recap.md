@@ -3,10 +3,13 @@
 - Checkout-view.tsx on success where do I want to route? Currently routing to library.
 - prevent user from buying their own products.
 - referral codes for influencers to give out. they get a % and the user a reduced fee?
+- a good way to navigate home in the header in a store or product/checkout flow.
 
 # BUGS:
 
 - If an admin puts a product in a cart it is seen sitewide.
+- If session expires while product in cart and you go to checkout. with subdomain routing enabled, you redirect to tenant.abandonedhobby.com/sign-in (404), instead of abandonedhobby.com/sign-in.
+- no good error when I get a "Application error: a client-side exception has occurred while loading abandonedhobby.com (see the browser console for more information)." when a users session expires and they try to refresh a page (library). Just a blank page that says that instead of redirecting to sign in.
 
 # Categories finalization
 
