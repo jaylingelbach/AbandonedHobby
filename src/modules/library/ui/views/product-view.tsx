@@ -26,7 +26,7 @@ export const ProductView = ({ productId }: Props) => {
       <nav className="p-4 bg-[#F4F4F0] w-full border-b">
         <Link prefetch href="/library" className="flex items-center gap-2">
           <ArrowLeftIcon className="size-4" />
-          <span className="text font-medium ">Back to Library </span>
+          <span className="text font-medium ">Back to Purchases </span>
         </Link>
       </nav>
       <header className="bg-[#F4F4F0] py-8 border-b">

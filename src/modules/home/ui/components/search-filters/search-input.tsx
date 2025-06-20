@@ -44,7 +44,7 @@ export const SearchInput = ({ disabled }: Props) => {
         <Button asChild variant="elevated">
           <Link prefetch href="/library">
             <BookmarkCheckIcon />
-            Library
+            Purchases
           </Link>
         </Button>
       )}

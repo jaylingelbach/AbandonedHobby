@@ -20,7 +20,17 @@ const defaultTenantArrayField = tenantsArrayField({
 
 export const Users: CollectionConfig = {
   slug: 'users',
-  auth: true,
+  auth: {
+    cookies: {
+      ...(process.env.NODE_ENV !== 'development' && {
+        sameSite: 'None',
+        maxAge: 60 * 60 * 24 * 7,
+        // TODO: ensure cross domain cookie sharing.
+        domain: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
+        secure: true
+      })
+    }
+  },
   access: {
     read: () => true,
     create: ({ req: { user } }) => isSuperAdmin(user),

@@ -69,12 +69,14 @@ const categories: Category[] = [
       { name: 'Astronomy', slug: 'astronomy' },
       { name: 'Candle making', slug: 'candle-making' },
       { name: 'Crocheting', slug: 'crocheting' },
+      { name: 'Cross Stich', slug: 'cross-stitch' },
       { name: 'Homebrewing', slug: 'homebrewing' },
       { name: 'Homebrewing & Fermentation', slug: 'homebrewing-fermentation' },
       { name: 'Knitting', slug: 'knitting' },
       { name: 'LEGO & Building Blocks', slug: 'lego-building-blocks' },
       { name: 'Model Building', slug: 'model-building' },
       { name: 'Pottery', slug: 'pottery' },
+      { name: 'Quilting', slug: 'quilting' },
       { name: 'Scrapbooking', slug: 'scrapbooking' },
       { name: 'Woodworking', slug: 'woodworking' }
     ]
