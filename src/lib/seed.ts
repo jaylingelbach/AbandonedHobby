@@ -20,7 +20,7 @@ interface Category {
 
 const categories: Category[] = [
   {
-    name: 'All',
+    name: 'Clear all category filters',
     slug: 'all',
     color: '#CCCCCC'
   },

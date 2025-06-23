@@ -80,7 +80,7 @@ function SignUpView() {
                 <span
                   className={cn('text-2xl font-semibold', poppins.className)}
                 >
-                  Abandoned Hobbies
+                  Abandoned Hobby
                 </span>
               </Link>
               <Button

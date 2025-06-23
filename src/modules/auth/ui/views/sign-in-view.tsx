@@ -73,7 +73,7 @@ function SignInView() {
                 <span
                   className={cn('text-2xl font-semibold', poppins.className)}
                 >
-                  Abandoned Hobbies
+                  Abandoned Hobby
                 </span>
               </Link>
               <Button
@@ -88,7 +88,7 @@ function SignInView() {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Welcome back to Abandoned Hobbies!
+              Welcome back to Abandoned Hobby!
             </h1>
             <FormField
               name="email"
