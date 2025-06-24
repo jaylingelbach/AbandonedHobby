@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner';
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 import './globals.css';
+import { LiveblocksWrapper } from '@/components/providers/liveblocks-provider';
 
 const dmSans = DM_Sans({
   subsets: ['latin']
@@ -29,7 +30,7 @@ export default function RootLayout({
       <body className={`${dmSans.className} antialiased`}>
         <NuqsAdapter>
           <TRPCReactProvider>
-            {children}
+            <LiveblocksWrapper>{children}</LiveblocksWrapper>
             <Toaster />
           </TRPCReactProvider>
         </NuqsAdapter>

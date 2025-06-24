@@ -69,6 +69,7 @@ export interface Config {
   collections: {
     categories: Category;
     media: Media;
+    messages: Message;
     orders: Order;
     products: Product;
     reviews: Review;
@@ -87,6 +88,7 @@ export interface Config {
   collectionsSelect: {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    messages: MessagesSelect<false> | MessagesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     reviews: ReviewsSelect<false> | ReviewsSelect<true>;
@@ -168,21 +170,16 @@ export interface Media {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "orders".
+ * via the `definition` "messages".
  */
-export interface Order {
+export interface Message {
   id: string;
-  name: string;
-  user: string | User;
-  product: string | Product;
-  /**
-   * The Stripe account associated with the order.
-   */
-  stripeAccountId: string;
-  /**
-   * The Stripe checkout session associated with the order.
-   */
-  stripeCheckoutSessionId?: string | null;
+  conversationId: string;
+  sender: string | User;
+  receiver: string | User;
+  content: string;
+  product?: (string | null) | Product;
+  read?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -311,6 +308,26 @@ export interface Tag {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: string;
+  name: string;
+  user: string | User;
+  product: string | Product;
+  /**
+   * The Stripe account associated with the order.
+   */
+  stripeAccountId: string;
+  /**
+   * The Stripe checkout session associated with the order.
+   */
+  stripeCheckoutSessionId?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "reviews".
  */
 export interface Review {
@@ -336,6 +353,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'messages';
+        value: string | Message;
       } | null)
     | ({
         relationTo: 'orders';
@@ -433,6 +454,20 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages_select".
+ */
+export interface MessagesSelect<T extends boolean = true> {
+  conversationId?: T;
+  sender?: T;
+  receiver?: T;
+  content?: T;
+  product?: T;
+  read?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
