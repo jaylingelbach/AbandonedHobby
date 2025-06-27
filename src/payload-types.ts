@@ -68,7 +68,9 @@ export interface Config {
   blocks: {};
   collections: {
     categories: Category;
+    conversations: Conversation;
     media: Media;
+    messages: Message;
     orders: Order;
     products: Product;
     reviews: Review;
@@ -86,7 +88,9 @@ export interface Config {
   };
   collectionsSelect: {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    conversations: ConversationsSelect<false> | ConversationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
+    messages: MessagesSelect<false> | MessagesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     reviews: ReviewsSelect<false> | ReviewsSelect<true>;
@@ -149,91 +153,14 @@ export interface Category {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "conversations".
  */
-export interface Media {
+export interface Conversation {
   id: string;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "orders".
- */
-export interface Order {
-  id: string;
-  name: string;
-  user: string | User;
   product: string | Product;
-  /**
-   * The Stripe account associated with the order.
-   */
-  stripeAccountId: string;
-  /**
-   * The Stripe checkout session associated with the order.
-   */
-  stripeCheckoutSessionId?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: string;
-  username: string;
-  roles?: ('super-admin' | 'user')[] | null;
-  tenants?:
-    | {
-        tenant: string | Tenant;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tenants".
- */
-export interface Tenant {
-  id: string;
-  /**
-   * This is the name of the store (e.g. Jay's store)
-   */
-  name: string;
-  /**
-   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
-   */
-  slug: string;
-  image?: (string | null) | Media;
-  /**
-   * Stripe Account ID associated with your shop
-   */
-  stripeAccountId: string;
-  /**
-   * You can not sell products until you have submitted your Stripe details.
-   */
-  stripeDetailsSubmitted?: boolean | null;
+  buyer: string | User;
+  seller: string | User;
+  roomId: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -300,12 +227,117 @@ export interface Product {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants".
+ */
+export interface Tenant {
+  id: string;
+  /**
+   * This is the name of the store (e.g. Jay's store)
+   */
+  name: string;
+  /**
+   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
+   */
+  slug: string;
+  image?: (string | null) | Media;
+  /**
+   * Stripe Account ID associated with your shop
+   */
+  stripeAccountId: string;
+  /**
+   * You can not sell products until you have submitted your Stripe details.
+   */
+  stripeDetailsSubmitted?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: string;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "tags".
  */
 export interface Tag {
   id: string;
   name: string;
   products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: string;
+  username: string;
+  roles?: ('super-admin' | 'user')[] | null;
+  tenants?:
+    | {
+        tenant: string | Tenant;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages".
+ */
+export interface Message {
+  id: string;
+  conversationId: string;
+  sender: string | User;
+  receiver: string | User;
+  content: string;
+  product?: (string | null) | Product;
+  read?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "orders".
+ */
+export interface Order {
+  id: string;
+  name: string;
+  user: string | User;
+  product: string | Product;
+  /**
+   * The Stripe account associated with the order.
+   */
+  stripeAccountId: string;
+  /**
+   * The Stripe checkout session associated with the order.
+   */
+  stripeCheckoutSessionId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -334,8 +366,16 @@ export interface PayloadLockedDocument {
         value: string | Category;
       } | null)
     | ({
+        relationTo: 'conversations';
+        value: string | Conversation;
+      } | null)
+    | ({
         relationTo: 'media';
         value: string | Media;
+      } | null)
+    | ({
+        relationTo: 'messages';
+        value: string | Message;
       } | null)
     | ({
         relationTo: 'orders';
@@ -418,6 +458,18 @@ export interface CategoriesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversations_select".
+ */
+export interface ConversationsSelect<T extends boolean = true> {
+  product?: T;
+  buyer?: T;
+  seller?: T;
+  roomId?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "media_select".
  */
 export interface MediaSelect<T extends boolean = true> {
@@ -433,6 +485,20 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages_select".
+ */
+export interface MessagesSelect<T extends boolean = true> {
+  conversationId?: T;
+  sender?: T;
+  receiver?: T;
+  content?: T;
+  product?: T;
+  read?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
