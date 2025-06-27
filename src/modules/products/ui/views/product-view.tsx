@@ -7,16 +7,19 @@ import Link from 'next/link';
 
 import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
 import { useTRPC } from '@/trpc/client';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useMutation, useSuspenseQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
 
+import { ChatRoom } from '@/modules/messages/ui/chat-room';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { useRouter } from 'next/navigation';
+import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
 const CartButton = dynamic(
   () =>
@@ -58,11 +61,46 @@ interface ProductViewProps {
 
 export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   const trpc = useTRPC();
+  const router = useRouter();
   const { data } = useSuspenseQuery(
     trpc.products.getOne.queryOptions({
       id: productId
     })
   );
+  const [chatState, setChatState] = useState<{
+    conversationId: string;
+    roomId: string;
+  } | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatInfo, setChatInfo] = useState<{
+    conversationId: string;
+    roomId: string;
+  } | null>(null);
+
+  const getConversation = useMutation(
+    trpc.conversations.getOrCreate.mutationOptions({
+      onSuccess: ({ id, roomId }) => {
+        setChatInfo({ conversationId: id, roomId });
+        setChatOpen(true);
+      },
+      onError: (err) => {
+        if (err.message === 'Must be logged in.') {
+          toast.error('Please sign in to message the seller');
+          router.push('/sign-in');
+        } else {
+          toast.error('Failed to start conversation');
+          console.error(err);
+        }
+      }
+    })
+  );
+
+  const handleMessageSeller = () => {
+    getConversation.mutate({
+      productId,
+      sellerId: data.tenant.id // make sure this is the actual seller ID
+    });
+  };
 
   const [isCopied, setIsCopied] = useState(false);
 
@@ -75,6 +113,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       }
     };
   }, []);
+
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
@@ -180,7 +219,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       } catch (error) {
                         setIsCopied(false);
                         toast.error('Failed to copy URL to clipboard');
-                        console.log(error);
                         console.error(error);
                       }
                     }}
@@ -189,6 +227,12 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
                   </Button>
                 </div>
+
+                <ChatButtonWithModal
+                  productId={productId}
+                  sellerId={data.tenant.id}
+                />
+
                 <p className="text-center font-medium">
                   {data.refundPolicy === 'no refunds'
                     ? 'No refunds'
@@ -212,6 +256,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     percentage: Number(data.ratingDistribution[stars])
                   }))}
                 />
+                {chatState && (
+                  <div className="mt-6">
+                    <ChatRoom
+                      roomId={chatState.roomId}
+                      conversationId={chatState.conversationId}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>

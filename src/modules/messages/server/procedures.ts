@@ -1,5 +1,6 @@
 import z from 'zod';
 import { TRPCError } from '@trpc/server';
+import { GetMessagesDTO, SendMessageDTO } from './schemas';
 
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
@@ -16,7 +17,6 @@ export const messagesRouter = createTRPCRouter({
       const { buyerId, sellerId, productId } = input;
       const currentUserId = ctx.session.user.id;
 
-      // Validate current user is involved
       if (currentUserId !== buyerId && currentUserId !== sellerId) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -24,8 +24,23 @@ export const messagesRouter = createTRPCRouter({
         });
       }
 
-      // Try to find a message to infer if conversation has history
-      const conversationMessages = await ctx.db.find({
+      // used to get the other persons profile (if buyer, the sellers and vice versa)
+      const otherUserId = currentUserId === buyerId ? sellerId : buyerId;
+
+      const otherUser = await ctx.db.findByID({
+        collection: 'users',
+        id: otherUserId,
+        depth: 1
+      });
+
+      if (!otherUser) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Other user not found'
+        });
+      }
+
+      const messages = await ctx.db.find({
         collection: 'messages',
         limit: 1,
         sort: '-createdAt',
@@ -37,51 +52,65 @@ export const messagesRouter = createTRPCRouter({
       });
 
       return {
-        exists: conversationMessages.totalDocs > 0,
-        conversationId: `chat-${buyerId}-${sellerId}-${productId}`
+        conversationId: `chat-${buyerId}-${sellerId}-${productId}`,
+        otherUser,
+        lastMessage: messages.docs[0] ?? null
       };
     }),
   sendMessage: protectedProcedure
     .input(
       z.object({
-        conversationId: z.string(),
+        conversationId: z.string(), // <-- this is still your Conversations record ID
         content: z.string()
       })
     )
+    .output(SendMessageDTO)
     .mutation(async ({ ctx, input }) => {
-      const { conversationId, content } = input;
       const senderId = ctx.session.user.id;
 
-      // Validate and extract parts from conversationId
-      const match = conversationId.match(/^chat-([\w-]+)-([\w-]+)-([\w-]+)$/);
+      // 1) load the conversation document
+      const conversation = await ctx.db.findByID({
+        collection: 'conversations',
+        id: input.conversationId,
+        depth: 0
+      });
+      if (!conversation) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Conversation not found'
+        });
+      }
 
+      // 2) validate its roomId (chat-buyer-seller-product)
+      const match = conversation.roomId.match(
+        /^chat-([\w-]+)-([\w-]+)-([\w-]+)$/
+      );
       if (!match) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'Invalid conversationId format.'
+          message: 'Invalid room format'
         });
       }
-
       const [, buyerId, sellerId, productId] = match;
 
-      // Check that the sender is either the buyer or seller
+      // 3) ensure the user is a participant
       if (senderId !== buyerId && senderId !== sellerId) {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'You are not a participant in this conversation.'
+          message: 'You are not a participant in this conversation'
         });
       }
 
-      // Infer the receiver
       const receiverId = senderId === buyerId ? sellerId : buyerId;
 
+      // 4) create the message, still referencing the conversation's DB ID
       const message = await ctx.db.create({
         collection: 'messages',
         data: {
-          conversationId,
+          conversationId: conversation.id, // DB record ID
           sender: senderId,
           receiver: receiverId!,
-          content,
+          content: input.content,
           product: productId
         }
       });
@@ -97,6 +126,7 @@ export const messagesRouter = createTRPCRouter({
         limit: z.number().default(20)
       })
     )
+    .output(GetMessagesDTO)
     .query(async ({ ctx, input }) => {
       const { conversationId, page, limit } = input;
 

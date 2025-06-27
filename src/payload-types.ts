@@ -68,6 +68,7 @@ export interface Config {
   blocks: {};
   collections: {
     categories: Category;
+    conversations: Conversation;
     media: Media;
     messages: Message;
     orders: Order;
@@ -87,6 +88,7 @@ export interface Config {
   };
   collectionsSelect: {
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
+    conversations: ConversationsSelect<false> | ConversationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
@@ -151,86 +153,14 @@ export interface Category {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
+ * via the `definition` "conversations".
  */
-export interface Media {
+export interface Conversation {
   id: string;
-  alt: string;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "messages".
- */
-export interface Message {
-  id: string;
-  conversationId: string;
-  sender: string | User;
-  receiver: string | User;
-  content: string;
-  product?: (string | null) | Product;
-  read?: boolean | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: string;
-  username: string;
-  roles?: ('super-admin' | 'user')[] | null;
-  tenants?:
-    | {
-        tenant: string | Tenant;
-        id?: string | null;
-      }[]
-    | null;
-  updatedAt: string;
-  createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  password?: string | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tenants".
- */
-export interface Tenant {
-  id: string;
-  /**
-   * This is the name of the store (e.g. Jay's store)
-   */
-  name: string;
-  /**
-   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
-   */
-  slug: string;
-  image?: (string | null) | Media;
-  /**
-   * Stripe Account ID associated with your shop
-   */
-  stripeAccountId: string;
-  /**
-   * You can not sell products until you have submitted your Stripe details.
-   */
-  stripeDetailsSubmitted?: boolean | null;
+  product: string | Product;
+  buyer: string | User;
+  seller: string | User;
+  roomId: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -297,12 +227,97 @@ export interface Product {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants".
+ */
+export interface Tenant {
+  id: string;
+  /**
+   * This is the name of the store (e.g. Jay's store)
+   */
+  name: string;
+  /**
+   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
+   */
+  slug: string;
+  image?: (string | null) | Media;
+  /**
+   * Stripe Account ID associated with your shop
+   */
+  stripeAccountId: string;
+  /**
+   * You can not sell products until you have submitted your Stripe details.
+   */
+  stripeDetailsSubmitted?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: string;
+  alt: string;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "tags".
  */
 export interface Tag {
   id: string;
   name: string;
   products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "users".
+ */
+export interface User {
+  id: string;
+  username: string;
+  roles?: ('super-admin' | 'user')[] | null;
+  tenants?:
+    | {
+        tenant: string | Tenant;
+        id?: string | null;
+      }[]
+    | null;
+  updatedAt: string;
+  createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "messages".
+ */
+export interface Message {
+  id: string;
+  conversationId: string;
+  sender: string | User;
+  receiver: string | User;
+  content: string;
+  product?: (string | null) | Product;
+  read?: boolean | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -349,6 +364,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'categories';
         value: string | Category;
+      } | null)
+    | ({
+        relationTo: 'conversations';
+        value: string | Conversation;
       } | null)
     | ({
         relationTo: 'media';
@@ -434,6 +453,18 @@ export interface CategoriesSelect<T extends boolean = true> {
   color?: T;
   parent?: T;
   subcategories?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversations_select".
+ */
+export interface ConversationsSelect<T extends boolean = true> {
+  product?: T;
+  buyer?: T;
+  seller?: T;
+  roomId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

@@ -1,8 +1,5 @@
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
-import { getPayload } from 'payload';
-import config from '@payload-config';
-import type { Tenant } from '@/payload-types';
 
 export const Messages: CollectionConfig = {
   slug: 'messages',

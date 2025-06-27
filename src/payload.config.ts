@@ -21,6 +21,7 @@ import { vercelBlobStorage } from '@payloadcms/storage-vercel-blob';
 
 import type { Config } from './payload-types';
 import { Messages } from './collections/Messages';
+import { Conversations } from './collections/Conversations';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -37,6 +38,7 @@ export default buildConfig({
   },
   collections: [
     Categories,
+    Conversations,
     Media,
     Messages,
     Orders,
