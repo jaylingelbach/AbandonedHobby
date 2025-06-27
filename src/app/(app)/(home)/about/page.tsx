@@ -9,9 +9,9 @@ function Page() {
         <p className="text-muted-foreground">
           Abandoned Hobby is a safe, judgment-free space where neurodivergent
           (ADHD, ASD, and others!) people can buy, sell, or trade hobby supplies
-          they've outgrown or left behind. Whether you're passing on an old
-          passion or picking up a new one, this is the place to do it — with
-          understanding and without pressure.
+          they&apos;ve outgrown or left behind. Whether you&apos;re passing on
+          an old passion or picking up a new one, this is the place to do it —
+          with understanding and without pressure.
         </p>
       </section>
 

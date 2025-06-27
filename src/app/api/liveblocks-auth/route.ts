@@ -1,19 +1,19 @@
-// app/api/liveblocks-auth/route.ts
+// src/app/api/liveblocks-auth/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Liveblocks } from '@liveblocks/node';
-import { getAuthUser } from '@/lib/get-auth-user';
+import { getAuthUser } from '@/lib/get-auth-user'; // see note below
 import { isSuperAdmin } from '@/lib/access';
 
 const liveblocks = new Liveblocks({
   secret: process.env.LIVEBLOCKS_SECRET_KEY!
 });
 
-export async function POST(req: NextRequest, res: NextResponse) {
+export async function POST(req: NextRequest) {
   try {
     const { room } = (await req.json()) as { room: string };
 
     // authenticate your user however you already do…
-    const user = await getAuthUser(req, res);
+    const user = await getAuthUser(req);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -41,11 +41,8 @@ export async function POST(req: NextRequest, res: NextResponse) {
 
     // authorize gives you a JSON string in `body`
     const { status, body } = await session.authorize();
-
-    // parse it into an object
     const parsed = JSON.parse(body);
 
-    // return a _real_ object
     return NextResponse.json(parsed, { status });
   } catch (err) {
     console.error('Liveblocks auth error:', err);

@@ -1,12 +1,9 @@
 // src/trpc/server-context.ts
-import type { NextApiRequest, NextApiResponse } from 'next';
+import type { NextApiRequest } from 'next';
 import { getPayload } from 'payload';
 import config from '@payload-config';
 
-export async function getServerTRPCContext(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
+export async function getServerTRPCContext(req: NextApiRequest) {
   // 1) Initialize Payload (only needs your config)
   const payload = await getPayload({ config });
 

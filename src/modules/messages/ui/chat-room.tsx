@@ -62,7 +62,7 @@ export function ChatRoom({
       initialPresence={{}}
     >
       <Suspense fallback={<ChatViewSkeleton />}>
-        <ChatView conversationId={conversationId} roomId={roomId} />
+        <ChatView conversationId={conversationId} />
       </Suspense>
     </RoomProvider>
   );
@@ -89,13 +89,7 @@ function ChatViewSkeleton() {
   );
 }
 
-function ChatView({
-  conversationId,
-  roomId
-}: {
-  conversationId: string;
-  roomId: string;
-}) {
+function ChatView({ conversationId }: { conversationId: string }) {
   const { user } = useUser();
   const ref = useRef<HTMLInputElement>(null);
   const trpc = useTRPC();

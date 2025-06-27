@@ -6,9 +6,7 @@ import {
   DialogDescription
 } from '@/components/ui/dialog';
 import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
-import { useRouter } from 'next/navigation';
 import { ChatRoom } from '@/modules/messages/ui/chat-room';
-import { Button } from '@/components/ui/button';
 
 interface ChatModalProps {
   open: boolean;
@@ -23,8 +21,6 @@ export function ChatModal({
   conversationId,
   roomId
 }: ChatModalProps) {
-  const router = useRouter();
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[70vh]">
