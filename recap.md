@@ -6,6 +6,7 @@
 - a good way to navigate home in the header in a store or product/checkout flow.
 - rethink all button. (possibly confusing with view all.) Currently all just redirects from whatever category is selected to abandonedhobby.com/ instead of /${category}/${slug}. I think the slug for all is all
 - View all should possibly open on hover instead of just on click? But if hover, it pops up to the left and might be annoying if you move mouse off of the button. so I think it uses state to change to open, maybe there is a non annoying way to do that... dunno. Jess was confused by it.
+- Message notifications. Email? Just an inbox symbol with the number of messages?
 
 # BUGS:
 

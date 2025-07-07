@@ -17,7 +17,6 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
-import { username } from 'payload/shared';
 
 export function ChatRoom({
   conversationId, // DB record ID
