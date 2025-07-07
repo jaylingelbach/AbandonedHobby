@@ -11,7 +11,8 @@ export const Messages: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'content',
-    defaultColumns: ['conversationId', 'sender', 'createdAt']
+    defaultColumns: ['conversationId', 'sender', 'createdAt'],
+    hidden: ({ user }) => !isSuperAdmin(user)
   },
   fields: [
     {

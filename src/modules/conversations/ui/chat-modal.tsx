@@ -13,19 +13,21 @@ interface ChatModalProps {
   onOpenChange: (val: boolean) => void;
   conversationId: string;
   roomId: string;
+  username: string;
 }
 
 export function ChatModal({
   open,
   onOpenChange,
   conversationId,
-  roomId
+  roomId,
+  username
 }: ChatModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-2xl h-[70vh]">
         <DialogHeader className="flex justify-between items-center mb-2">
-          <DialogTitle>Chat with Seller</DialogTitle>
+          <DialogTitle>Chat with {username}</DialogTitle>
           <VisuallyHidden>
             {/* Hidden but accessible title */}
             <DialogTitle>Chat dialog for conversation with seller</DialogTitle>

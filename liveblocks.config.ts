@@ -7,7 +7,7 @@ import { LiveList } from '@liveblocks/node';
 type Message = {
   id: string;
   userId: string;
-  username?: string;
+  name?: string;
   image?: string;
   content: string;
   createdAt: number;

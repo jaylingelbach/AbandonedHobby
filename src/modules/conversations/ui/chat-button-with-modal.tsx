@@ -11,10 +11,12 @@ import { toast } from 'sonner';
 interface Props {
   productId: string;
   sellerId: string;
+  username: string;
 }
 
-export function ChatButtonWithModal({ productId, sellerId }: Props) {
-  const { user } = useUser(); // 1) grab current user
+export function ChatButtonWithModal({ productId, sellerId, username }: Props) {
+  const { user } = useUser();
+
   const trpc = useTRPC();
   const [open, setOpen] = useState(false);
   const [chatInfo, setChatInfo] = useState<{
@@ -31,7 +33,6 @@ export function ChatButtonWithModal({ productId, sellerId }: Props) {
       onError: (err) => {
         if (err.data?.code === 'UNAUTHORIZED') {
           toast.error('Please sign in to start a chat.');
-          window.location.href = '/sign-in';
         } else {
           toast.error(err.message);
         }
@@ -42,11 +43,12 @@ export function ChatButtonWithModal({ productId, sellerId }: Props) {
   const handleClick = () => {
     if (!user) {
       toast.error('Please sign in to start a chat.');
+      window.location.href = '/sign-in';
       return;
     }
 
     startChat({
-      buyerId: user.id, // 2) pass buyerId
+      buyerId: user.id,
       sellerId,
       productId
     });
@@ -54,7 +56,7 @@ export function ChatButtonWithModal({ productId, sellerId }: Props) {
 
   return (
     <>
-      <Button variant="outline" onClick={handleClick}>
+      <Button variant="elevated" onClick={handleClick}>
         Message Seller
       </Button>
 
@@ -64,6 +66,7 @@ export function ChatButtonWithModal({ productId, sellerId }: Props) {
           onOpenChange={setOpen}
           conversationId={chatInfo.conversationId} // DB ID
           roomId={chatInfo.roomId} // Liveblocks key
+          username={username}
         />
       )}
     </>

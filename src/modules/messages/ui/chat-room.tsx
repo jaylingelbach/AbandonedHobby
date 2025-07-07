@@ -17,6 +17,7 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { username } from 'payload/shared';
 
 export function ChatRoom({
   conversationId, // DB record ID
@@ -26,6 +27,8 @@ export function ChatRoom({
   roomId: string;
 }) {
   const trpc = useTRPC();
+  const { user } = useUser();
+  const username = user?.username;
   const { data } = useQuery(
     trpc.messages.getMessage.queryOptions({
       conversationId,
@@ -46,10 +49,7 @@ export function ChatRoom({
               typeof message.sender === 'string'
                 ? message.sender
                 : message.sender.id,
-            name:
-              typeof message.sender === 'string'
-                ? undefined
-                : message.sender.name,
+            name: typeof message.sender === 'string' ? undefined : username,
             image:
               typeof message.sender === 'string'
                 ? undefined
@@ -71,9 +71,11 @@ export function ChatRoom({
 function ChatViewSkeleton() {
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto" />
+      <div className="flex-1 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
+        Loading ..
+      </div>
       <input
-        className="border px-3 py-2 rounded"
+        className="border px-3 py-2 rounded mt-4"
         placeholder="Type a message…"
         disabled
       />
@@ -118,6 +120,7 @@ function ChatView({ conversationId }: { conversationId: string }) {
     ctx.storage.get('messages').push({
       id: crypto.randomUUID(),
       userId: user?.id ?? 'anonymous',
+      name: user?.username,
       content,
       createdAt: Date.now()
     });
@@ -146,14 +149,17 @@ function ChatView({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto space-y-2">
+      {/* Boxed message area */}
+      <div className="flex-1 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
         {messages.map((message) => (
-          <div key={message.id}>{message.content}</div>
+          <div key={message.id} className="px-3 py-2 rounded-md bg-pink-400">
+            <strong>{message.name ?? 'Anonymous'}:</strong> {message.content}
+          </div>
         ))}
       </div>
       <input
         ref={ref}
-        className="border px-3 py-2 rounded"
+        className="border px-3 py-2 rounded mt-4"
         placeholder="Type a message…"
         onKeyDown={(e) => e.key === 'Enter' && send()}
       />

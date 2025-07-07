@@ -200,6 +200,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 <ChatButtonWithModal
                   productId={productId}
                   sellerId={data.tenant.id}
+                  username={data.tenant.name}
                 />
 
                 <p className="text-center font-medium">

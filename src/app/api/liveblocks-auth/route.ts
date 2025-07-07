@@ -14,6 +14,7 @@ export async function POST(req: NextRequest) {
 
     // authenticate your user however you already do…
     const user = await getAuthUser(req);
+    console.log('USER: ', user);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

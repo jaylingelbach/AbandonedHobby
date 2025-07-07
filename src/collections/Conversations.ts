@@ -1,4 +1,5 @@
 // collections/Conversations.ts
+import { isSuperAdmin } from '@/lib/access';
 import { CollectionConfig } from 'payload';
 
 export const Conversations: CollectionConfig = {
@@ -11,7 +12,8 @@ export const Conversations: CollectionConfig = {
   },
   admin: {
     useAsTitle: 'id',
-    defaultColumns: ['product', 'buyer', 'seller']
+    defaultColumns: ['product', 'buyer', 'seller'],
+    hidden: ({ user }) => !isSuperAdmin(user)
   },
   fields: [
     {
