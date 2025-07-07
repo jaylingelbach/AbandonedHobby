@@ -18,7 +18,7 @@ export const Footer = ({ appUrl }: FooterProps) => {
         <p>Powered by:</p>
         <Link href={appUrl} aria-label="Go to Abandoned Hobbies homepage">
           <span className={cn('text-2xl font-semibold', poppins.className)}>
-            abandoned hobbies, inc
+            abandoned hobby, inc
           </span>
         </Link>
       </div>

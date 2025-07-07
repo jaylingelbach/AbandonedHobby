@@ -13,10 +13,12 @@ import { Button } from '@/components/ui/button';
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
 
+import { ChatRoom } from '@/modules/messages/ui/chat-room';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
+import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
 const CartButton = dynamic(
   () =>
@@ -63,6 +65,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       id: productId
     })
   );
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const [chatState, setChatState] = useState<{
+    conversationId: string;
+    roomId: string;
+  } | null>(null);
 
   const [isCopied, setIsCopied] = useState(false);
 
@@ -75,6 +82,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       }
     };
   }, []);
+
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
@@ -180,7 +188,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       } catch (error) {
                         setIsCopied(false);
                         toast.error('Failed to copy URL to clipboard');
-                        console.log(error);
                         console.error(error);
                       }
                     }}
@@ -189,6 +196,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
                   </Button>
                 </div>
+
+                <ChatButtonWithModal
+                  productId={productId}
+                  sellerId={data.tenant.id}
+                  username={data.tenant.name}
+                />
+
                 <p className="text-center font-medium">
                   {data.refundPolicy === 'no refunds'
                     ? 'No refunds'
@@ -212,6 +226,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     percentage: Number(data.ratingDistribution[stars])
                   }))}
                 />
+                {chatState && (
+                  <div className="mt-6">
+                    <ChatRoom
+                      roomId={chatState.roomId}
+                      conversationId={chatState.conversationId}
+                    />
+                  </div>
+                )}
               </div>
             </div>
           </div>
