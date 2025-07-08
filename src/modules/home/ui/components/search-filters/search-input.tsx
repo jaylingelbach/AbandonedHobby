@@ -29,6 +29,7 @@ export const SearchInput = ({ disabled, defaultValue, onChange }: Props) => {
     }, 500);
     return () => clearTimeout(timeoutId);
   }, [searchValue, onChange]);
+
   return (
     <div className="flex items-center gap-2 w-full">
       <CategoriesSidebar open={isSidebarOpen} onOpenChange={setIsSidebarOpen} />

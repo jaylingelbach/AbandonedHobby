@@ -1081,3 +1081,35 @@ This update introduces Stripe integration for checkout and order processing. It 
 
   - When setting env vars for public domain or root url DO NOT INCLUDE A TRAILING /
     - it will ruin your day.
+
+# Messaging 7/6/25
+
+# Search Filters 7/8/25
+
+### Walkthrough
+
+- A debounced search filter was added to the product filtering system. The SearchInput component is now controlled and updates the global filter state with a debounce. The search parameter is propagated through hooks, query parameters, and server logic, allowing product filtering by name. The SearchInput is wrapped in a React Suspense boundary.
+
+### New features
+
+- Added the ability to filter products by a search term, allowing users to find products by name.
+- Introduced a search input in the product filters with improved responsiveness through debounced updates.
+
+### Improvements
+
+- Enhanced the loading experience of the search input with asynchronous handling for smoother interactions.
+
+### File changes:
+
+- src/modules/home/ui/components/search-filters/index.tsx
+  - Wrapped SearchInput with React Suspense; integrated useProductFilters hook to manage filter state and pass search props.
+- src/modules/home/ui/components/search-filters/search-input.tsx
+  - Made SearchInput controlled with defaultValue and onChange props; added debounce effect for onChange calls; removed default export and 'use client';.
+- src/modules/products/hooks/use-product-filters.ts
+  - Added search string parameter to filter state with default and clear-on-default options.
+- src/modules/products/search-params.ts
+  - Added search string parameter to product filter query params; formatting update for tags.
+- src/modules/products/server/procedures.ts
+  - Extended getMany input schema and query logic to support filtering products by search (partial name match).
+- src/modules/products/ui/components/product-filters.tsx
+  - Changed import path of useProductFilters hook to absolute import; no functional changes.
