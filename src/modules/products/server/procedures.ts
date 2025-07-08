@@ -130,7 +130,8 @@ export const productsRouter = createTRPCRouter({
         maxPrice: z.string().nullable().optional(),
         tags: z.array(z.string()).nullable().optional(),
         sort: z.enum(sortValues).nullable().optional(),
-        tenantSlug: z.string().nullable().optional() // sort by tenant (shop)
+        tenantSlug: z.string().nullable().optional(), // sort by tenant (shop)
+        search: z.string().nullable().optional()
       })
     )
     .query(async ({ ctx, input }) => {
@@ -175,6 +176,12 @@ export const productsRouter = createTRPCRouter({
         where['isPrivate'] = {
           // Filters for marketplace
           not_equals: true
+        };
+      }
+
+      if (input.search) {
+        where['name'] = {
+          like: input.search
         };
       }
 
