@@ -1084,6 +1084,87 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Messaging 7/6/25
 
+### Walkthrough
+
+- This update introduces a complete real-time messaging system with conversations and messages, integrating Liveblocks for collaborative chat, Payload CMS for data persistence, and tRPC for API routing. New UI components and hooks enable chat initiation, modal chat windows, and a full chat page. Supporting schemas, access control, and type definitions are added throughout the backend and frontend.
+
+### New Features
+
+- Introduced real-time chat functionality, allowing users to initiate and participate in conversations about products.
+- Added chat modals and chat room components for seamless in-app messaging between buyers and sellers.
+- Integrated Liveblocks for real-time collaborative messaging with new React hooks and context providers.
+  Added new collections for Conversations and Messages in the admin interface.
+- Implemented user authentication and authorization for chat sessions.
+- Added user and message management APIs with secure access controls.
+- Introduced React hooks for user session management and conversation handling.
+
+### Improvements
+
+- Enhanced About page with detailed information and improved layout.
+- Updated branding and site text to consistently use "Abandoned Hobby".
+
+### Bug Fixes
+
+- Minor text corrections in navigation, footer, and authentication views.
+
+### Chores
+
+- Added and configured new dependencies for Liveblocks and Radix UI.
+- Updated and documented future UI/UX improvements in recap notes.
+
+### Style
+
+- Standardized code formatting and style in sidebar components.
+
+### File changes:
+
+- src/collections/Conversations.ts, src/collections/Messages.ts, src/payload.config.ts
+  - Introduced new Payload CMS collections for conversations and messages; registered them in CMS config.
+- src/payload-types.ts
+  - Added type definitions and select interfaces for conversations and messages, integrating them into the Payload type system.
+- src/modules/conversations/server/procedures.ts
+  - Added tRPC router for conversations with a protected mutation to get or create a conversation by buyer, seller, and product.
+- src/modules/messages/server/procedures.ts, src/modules/messages/server/schemas.ts
+  - Added tRPC router and validation schemas for message operations: get conversation, send message, get paginated messages, mark messages as read.
+- src/trpc/routers/\_app.ts
+  - Registered new conversations, messages, and users routers in the main app router.
+- src/lib/get-auth-user.ts, src/trpc/server-context.ts
+  - Added server-side utilities for authenticating users and providing TRPC context, supporting header-based session retrieval.
+- src/app/api/liveblocks-auth/route.ts
+  - Added API route for authenticating and authorizing users for Liveblocks sessions, with access control based on room participants.
+- liveblocks.config.ts, src/lib/liveblocks-provider.tsx, src/components/providers/liveblocks-wrapper.tsx, src/lib/liveblocks.ts
+  - Added Liveblocks configuration, provider setup, and a wrapper component for enabling real-time collaboration in the app.
+- src/modules/messages/ui/chat-room.tsx
+  - Implemented a real-time chat room UI with Liveblocks for shared state, optimistic updates, and backend persistence.
+- src/modules/conversations/ui/chat-button-with-modal.tsx, src/modules/conversations/ui/chat-modal.tsx
+  - Added components for initiating chat, opening chat modals, and managing chat session state.
+- src/modules/products/ui/views/product-view.tsx
+  - Integrated chat initiation and chat room display into the product view, allowing users to start conversations with sellers.
+- src/app/(app)/chat/[conversationId]/page.tsx
+  - Added a full chat page rendering a chat room for a given conversation.
+- src/app/(app)/layout.tsx
+  - Wrapped app content in Liveblocks provider; updated metadata and favicon.
+- src/hooks/use-user.ts
+  - Added a hook for retrieving the current user session and login state.
+- package.json
+  - Added dependencies for Liveblocks and Radix UI visually hidden component.
+- src/app/api/layout.tsx
+  - Added a root layout for the API route segment.
+- src/app/(payload)/admin/importMap.js
+  - Added import mapping for a multi-tenant collection watcher.
+- recap.md
+  - Added notes for potential UI/UX improvements in navigation and button behavior.
+- src/lib/seed.ts
+  - Changed category name for clarity in filter UI.
+- src/collections/Products.ts
+  - Removed extraneous blank/comment lines.
+- src/components/ui/sidebar.tsx
+  - Reformatted code for stylistic consistency (single quotes, semicolons, spacing).
+- src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx, src/modules/home/ui/components/navbar.tsx, src/modules/home/ui/components/footer.tsx, src/modules/tenants/ui/components/footer.tsx
+  - Updated branding text from "Abandoned Hobbies" to "Abandoned Hobby" in various UI components.
+- src/modules/users/server/procedures.ts
+  - Added users router with a protected procedure to fetch user details by ID.
+
 # Search Filters 7/8/25
 
 ### Walkthrough
