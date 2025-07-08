@@ -79,13 +79,6 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      console.log('→ entering checkout.purchase');
-      console.log(
-        '→ STRIPE_SECRET_KEY present?',
-        !!process.env.STRIPE_SECRET_KEY,
-        'NODE_ENV',
-        process.env.NODE_ENV
-      );
       const products = await ctx.db.find({
         collection: 'products',
         depth: 2,
