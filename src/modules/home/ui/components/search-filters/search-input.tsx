@@ -61,5 +61,3 @@ export const SearchInput = ({ disabled }: Props) => {
     </div>
   );
 };
-
-export default SearchInput;

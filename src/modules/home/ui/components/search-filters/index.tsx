@@ -1,5 +1,6 @@
 'use client';
 
+import { Suspense } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { useParams } from 'next/navigation';
@@ -33,7 +34,9 @@ export const SearchFilters = () => {
       className="px-4 lg:px-12 py-8 border-b flex flex-col gap-4 w-full"
       style={{ backgroundColor: activeCategoryColor }}
     >
-      <SearchInput />
+      <Suspense>
+        <SearchInput />
+      </Suspense>
       <div className="hidden lg:block">
         <Categories data={data} />
       </div>

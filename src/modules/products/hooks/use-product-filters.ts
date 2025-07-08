@@ -1,4 +1,3 @@
-import { shallow } from '@liveblocks/client';
 import {
   useQueryStates,
   parseAsArrayOf,
@@ -33,5 +32,5 @@ const params = {
 };
 
 export const useProductFilters = () => {
-  return useQueryStates(params, { shallow: true, throttleMs: 500 });
+  return useQueryStates(params);
 };
