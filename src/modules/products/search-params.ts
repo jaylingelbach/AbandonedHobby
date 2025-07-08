@@ -23,7 +23,12 @@ const params = {
     .withOptions({
       clearOnDefault: true
     })
-    .withDefault([])
+    .withDefault([]),
+  search: parseAsString
+    .withOptions({
+      clearOnDefault: true
+    })
+    .withDefault('')
 };
 
 export const loadProductFilters = createLoader(params);

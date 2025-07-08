@@ -5,7 +5,7 @@ import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
 import { PriceFilter } from './price-filter';
 import { TagsFilter } from './tags-filter';
-import { useProductFilters } from '../../hooks/use-product-filters';
+import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
 
 interface ProductFilterProps {
   title: string;

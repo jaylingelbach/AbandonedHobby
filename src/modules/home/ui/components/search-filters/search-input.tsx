@@ -1,8 +1,6 @@
-'use client';
-
 import Link from 'next/link';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
 
@@ -12,15 +10,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { CategoriesSidebar } from './categoriesSidebar';
+
 interface Props {
   disabled?: boolean;
+  defaultValue?: string | undefined;
+  onChange?: (value: string) => void;
 }
 
-export const SearchInput = ({ disabled }: Props) => {
+export const SearchInput = ({ disabled, defaultValue, onChange }: Props) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-
+  const [searchValue, setSearchValue] = useState(defaultValue || '');
   const trpc = useTRPC();
   const session = useQuery(trpc.auth.session.queryOptions());
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      onChange?.(searchValue);
+    }, 500);
+    return () => clearTimeout(timeoutId);
+  }, [searchValue, onChange]);
 
   return (
     <div className="flex items-center gap-2 w-full">
@@ -30,6 +38,8 @@ export const SearchInput = ({ disabled }: Props) => {
         <Input
           className="pl-8"
           disabled={disabled}
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
           placeholder="Search Products"
         />
       </div>
@@ -51,5 +61,3 @@ export const SearchInput = ({ disabled }: Props) => {
     </div>
   );
 };
-
-export default SearchInput;
