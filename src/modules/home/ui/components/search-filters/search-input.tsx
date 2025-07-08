@@ -1,5 +1,3 @@
-'use client';
-
 import Link from 'next/link';
 
 import { useEffect, useState } from 'react';
@@ -12,24 +10,25 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 
 import { CategoriesSidebar } from './categoriesSidebar';
-import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
+
 interface Props {
   disabled?: boolean;
+  defaultValue?: string | undefined;
+  onChange?: (value: string) => void;
 }
 
-export const SearchInput = ({ disabled }: Props) => {
+export const SearchInput = ({ disabled, defaultValue, onChange }: Props) => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [filters, setFilters] = useProductFilters();
-  const [searchValue, setSearchValue] = useState(filters.search);
+  const [searchValue, setSearchValue] = useState(defaultValue || '');
   const trpc = useTRPC();
   const session = useQuery(trpc.auth.session.queryOptions());
 
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setFilters({ search: searchValue });
+      onChange?.(searchValue);
     }, 500);
     return () => clearTimeout(timeoutId);
-  }, [searchValue, setFilters]);
+  }, [searchValue, onChange]);
   return (
     <div className="flex items-center gap-2 w-full">
       <CategoriesSidebar open={isSidebarOpen} onOpenChange={setIsSidebarOpen} />
