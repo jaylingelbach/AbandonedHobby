@@ -1,5 +1,3 @@
-// src/server/routers/notifications.ts
-import { z } from 'zod';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 export const notificationsRouter = createTRPCRouter({

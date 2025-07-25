@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import Link from 'next/link';
-import { Bell, Inbox, MenuIcon } from 'lucide-react';
+import { Inbox, MenuIcon } from 'lucide-react';
 import { Poppins } from 'next/font/google';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
