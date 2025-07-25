@@ -1193,4 +1193,35 @@ This update introduces Stripe integration for checkout and order processing. It 
 - src/modules/products/server/procedures.ts
   - Extended getMany input schema and query logic to support filtering products by search (partial name match).
 - src/modules/products/ui/components/product-filters.tsx
+
   - Changed import path of useProductFilters hook to absolute import; no functional changes.
+
+  # Message Notifications 7/25/25
+
+  ### Walkthrough
+
+  - A notifications system was implemented across the application. This includes a new notifications collection with access control, automatic notification creation when messages are sent, unread notification counting via a tRPC endpoint, and a UI badge in the Navbar displaying unread message counts. Associated type definitions and collection registration updates were also made.
+
+  ### New features
+
+- Introduced in-app notifications for messages, automatically notifying users when they receive a new message.
+- Added a notifications collection with support for unread status and access control.
+- Displayed an unread message indicator with a badge in the navigation bar.
+- Provided an API endpoint to fetch the count of unread notifications for the current user.
+
+### File changes:
+
+- src/collections/Notifications.ts
+  - Added new Notifications collection with schema, access control, and admin UI config.
+- src/collections/Messages.ts
+  - Added afterChange hook to create notifications for message receivers on message creation.
+- src/modules/notifications/server/procedures.ts
+  - Introduced notificationsRouter with unreadCount procedure for current user's unread notifications.
+- src/modules/home/ui/components/navbar.tsx
+  - Enhanced Navbar to display unread notifications badge using unreadCount query.
+- src/payload-types.ts
+  - Added Notification interfaces, updated Config types, and extended PayloadLockedDocument.
+- src/payload.config.ts
+  - Registered Notifications collection in Payload CMS config.
+- src/trpc/routers/\_app.ts
+  - Integrated notificationsRouter into the main appRouter.
