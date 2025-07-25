@@ -10,7 +10,19 @@ export const Notifications: CollectionConfig = {
     description: 'In-app notifications for users'
   },
   access: {
-    // Only the target user (or admins) can read their own notifications:
+    // Only the target user (or admins) can read their own notifications: this may be incorrect.
+    /* from code rabbit : Critical issue: Incorrect access control logic for read permissions.
+    The current read access control is comparing the user's ID with the document ID instead of checking if the user is the notification recipient. This will always deny access since user IDs and notification document IDs are different entities.
+    Apply this fix to correctly check if the user is the notification recipient:
+    this doesn't quite work, investigate if it becomes an issue.
+
+    -    read: ({ req: { user }, id }) => {
+    +    read: ({ req: { user }, doc }) => {
+          if (!user) return false;
+    -      return user.id === id || isSuperAdmin(user);
+    +      return user.id === doc?.user || isSuperAdmin(user);
+        },
+    */
     read: ({ req: { user }, id }) => {
       if (!user) return false;
       return user.id === id || isSuperAdmin(user);
@@ -59,11 +71,18 @@ export const Notifications: CollectionConfig = {
         {
           name: 'excerpt',
           label: 'Excerpt',
+          admin: {
+            description: 'Brief preview of the message content'
+          },
           type: 'text'
         },
         {
           name: 'messageId',
           label: 'Message ID',
+          admin: {
+            description:
+              'Reference to the original message that triggered this notification'
+          },
           type: 'text'
         }
       ]

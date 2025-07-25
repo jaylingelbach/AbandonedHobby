@@ -369,7 +369,13 @@ export interface Notification {
   payload: {
     conversationId: string;
     sender: string | User;
+    /**
+     * Brief preview of the message content
+     */
     excerpt?: string | null;
+    /**
+     * Reference to the original message that triggered this notification
+     */
     messageId?: string | null;
   };
   read?: boolean | null;

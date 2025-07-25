@@ -91,32 +91,41 @@ export const Navbar = () => {
           </NavbarItem>
         ))}
       </div>
-      <div className="items-center gap-4 hidden lg:flex">
-        <Button asChild variant="outline" className="relative rounded-full p-2">
-          <Link href="/inbox">
-            <Inbox className="size-6" />
-            {unreadCount > 0 && (
-              <span
-                className={cn(
-                  'absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white',
-                  unreadCount > 9 ? 'text-[0.55rem]' : ''
-                )}
-              >
-                {unreadCount}
-              </span>
-            )}
-          </Link>
-        </Button>
-      </div>
+
       {session.data?.user ? (
         <div className="hidden lg:flex">
-          <Button
-            asChild
-            variant="secondary"
-            className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors text-lg"
-          >
-            <Link href="/admin">Dashboard</Link>
-          </Button>
+          <div className="items-center gap-4 hidden lg:flex">
+            <Button
+              asChild
+              variant="outline"
+              className="relative rounded-full p-2"
+              aria-label={`Inbox${unreadCount > 0 ? ` (${unreadCount} unread)` : ''}`}
+            >
+              <Link href="/inbox">
+                <Inbox className="size-6" />
+                {unreadCount > 0 && (
+                  <span
+                    aria-live="polite"
+                    aria-label={`${unreadCount} unread messages`}
+                    className={cn(
+                      'absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white',
+                      unreadCount > 9 ? 'text-[0.55rem]' : ''
+                    )}
+                  >
+                    {unreadCount}
+                  </span>
+                )}
+              </Link>
+            </Button>
+
+            <Button
+              asChild
+              variant="secondary"
+              className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors text-lg"
+            >
+              <Link href="/admin">Dashboard</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="hidden lg:flex">
