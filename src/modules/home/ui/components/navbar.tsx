@@ -3,7 +3,7 @@
 import { useState } from 'react';
 
 import Link from 'next/link';
-import { MenuIcon } from 'lucide-react';
+import { Bell, Inbox, MenuIcon } from 'lucide-react';
 import { Poppins } from 'next/font/google';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
@@ -53,6 +53,17 @@ export const Navbar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
   const session = useQuery(trpc.auth.session.queryOptions());
+
+  // Fetch unread message notifications
+  const notificationsQuery = useQuery(
+    trpc.notifications.unreadCount.queryOptions()
+  );
+
+  // normalize data to ensure number is returned and not totalDocs.
+  const rawCount = notificationsQuery.data;
+  const unreadCount =
+    typeof rawCount === 'number' ? rawCount : (rawCount?.totalDocs ?? 0);
+
   if (session.isLoading) return null;
 
   return (
@@ -79,6 +90,23 @@ export const Navbar = () => {
             {item.children}
           </NavbarItem>
         ))}
+      </div>
+      <div className="items-center gap-4 hidden lg:flex">
+        <Button asChild variant="outline" className="relative rounded-full p-2">
+          <Link href="/inbox">
+            <Inbox className="size-6" />
+            {unreadCount > 0 && (
+              <span
+                className={cn(
+                  'absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white',
+                  unreadCount > 9 ? 'text-[0.55rem]' : ''
+                )}
+              >
+                {unreadCount}
+              </span>
+            )}
+          </Link>
+        </Button>
       </div>
       {session.data?.user ? (
         <div className="hidden lg:flex">
