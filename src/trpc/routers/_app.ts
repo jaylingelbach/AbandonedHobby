@@ -6,6 +6,7 @@ import { checkoutRouter } from '@/modules/checkout/server/procedures';
 import { conversationsRouter } from '@/modules/conversations/server/procedures';
 import { libraryRouter } from '@/modules/library/server/procedures';
 import { messagesRouter } from '@/modules/messages/server/procedures';
+import { notificationsRouter } from '@/modules/notifications/server/procedures';
 import { productsRouter } from '@/modules/products/server/procedures';
 import { reviewsRouter } from '@/modules/reviews/server/procedures';
 import { tagsRouter } from '@/modules/tags/server/procedures';
@@ -19,6 +20,7 @@ export const appRouter = createTRPCRouter({
   conversations: conversationsRouter,
   library: libraryRouter,
   messages: messagesRouter,
+  notifications: notificationsRouter,
   products: productsRouter,
   reviews: reviewsRouter,
   tags: tagsRouter,
