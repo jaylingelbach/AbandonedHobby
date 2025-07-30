@@ -1225,3 +1225,38 @@ This update introduces Stripe integration for checkout and order processing. It 
   - Registered Notifications collection in Payload CMS config.
 - src/trpc/routers/\_app.ts
   - Integrated notificationsRouter into the main appRouter.
+
+# Home button in nav bar 7/30/25
+
+### Walkthrough
+
+- This update introduces a new ESLint configuration, enhances editor auto-fix settings, adds a lint fix script and updates a dependency version, refines a user-facing label in the sign-up view, and restructures the Navbar component to use a grid layout with a new home icon link and improved alignment.
+
+### New Features
+
+- Added a home icon link to the left side of the navigation bar for quick access to the homepage.
+- Introduced a new script to automatically fix linting issues in project files.
+
+### Improvements
+
+- Updated the navigation bar layout for better alignment and usability.
+- Enhanced the form description in the sign-up view to clarify account/store availability.
+- Improved import order and formatting consistency across the codebase.
+- Editor now applies all available source fixes automatically on save.
+
+### Chores
+
+- Upgraded a development dependency for improved linting support.
+
+### File changes:
+
+- ESLint Configuration
+  - .eslintrc.js Introduces a new ESLint configuration file with plugins, extended rulesets, and a detailed import order rule for code style enforcement.
+- Editor Settings
+  - .vscode/settings.json Adds "source.fixAll": "always" to enable all possible source code fixes on save, in addition to ESLint-specific fixes.
+- Linting Script & Dependency Update
+  - package.json Adds a "lint:fix" npm script for auto-fixing lint issues, updates eslint-plugin-import version, and adds a trailing comma to the scripts section.
+- Sign-Up View Label Update
+  - src/modules/auth/ui/views/sign-up-view.tsx Updates the form description label to "Your account/store will be available at" for improved clarity to users.
+- Navbar Layout Refactor
+  - src/modules/tenants/ui/components/navbar.tsx Refactors Navbar from flexbox to grid layout, introduces a home icon link, centers tenant info, right-aligns the checkout button, simplifies image source logic, and reorganizes imports.
