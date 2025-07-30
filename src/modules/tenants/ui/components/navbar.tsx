@@ -1,15 +1,15 @@
 'use client';
 
 import dynamic from 'next/dynamic';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
-
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { Button } from '@/components/ui/button';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { House, ShoppingCartIcon } from 'lucide-react';
+
+import { useTRPC } from '@/trpc/client';
 import { generateTenantURL } from '@/lib/utils';
-import { ShoppingCartIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const CheckoutButton = dynamic(
   () =>
@@ -40,27 +40,34 @@ export const Navbar = ({ slug }: Props) => {
 
   return (
     <nav className="h-20 border-b font-medium bg-white">
-      <div className="max-w-(--breakpoint-xl) mx-auto flex justify-between items-center h-full px-4 lg:px-12">
-        <Link
-          href={generateTenantURL(slug)}
-          className="flex items-center gap-2"
-        >
-          {data.image?.url && (
-            <Image
-              src={
-                typeof data.image === 'object' && data.image?.url
-                  ? data.image.url
-                  : ''
-              }
-              width={32}
-              height={32}
-              alt={slug}
-              className="rounded-full border shrink-0 size-[32px]"
-            />
-          )}
-        </Link>
-        <p className="text-xl">{data.name} </p>
-        <CheckoutButton tenantSlug={slug} />
+      <div className="max-w-(--breakpoint-xl) mx-auto grid grid-cols-3 items-center h-full px-4 lg:px-12">
+        <div className="flex items-center">
+          <Link href={'/'}>
+            <House />
+          </Link>
+        </div>
+
+        <div className="flex justify-center">
+          <Link
+            href={generateTenantURL(slug)}
+            className="flex items-center gap-2"
+          >
+            {data.image?.url && (
+              <Image
+                src={data.image.url}
+                width={32}
+                height={32}
+                alt={slug}
+                className="rounded-full border shrink-0 size-[32px]"
+              />
+            )}
+            <p className="text-xl">{data.name}</p>
+          </Link>
+        </div>
+
+        <div className="flex justify-end">
+          <CheckoutButton tenantSlug={slug} />
+        </div>
       </div>
     </nav>
   );

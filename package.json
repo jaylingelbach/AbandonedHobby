@@ -11,7 +11,8 @@
     "generate:types": "payload generate:types",
     "db:fresh": "payload migrate:fresh",
     "db:seed": "tsx -r dotenv/config src/lib/seed.ts",
-    "db:importmap": "payload generate:importmap"
+    "db:importmap": "payload generate:importmap",
+    "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.0.1",
@@ -97,7 +98,7 @@
     "eslint": "^9",
     "eslint-config-next": "^15.3.0",
     "eslint-config-prettier": "^10.1.5",
-    "eslint-plugin-import": "^2.31.0",
+    "eslint-plugin-import": "^2.32.0",
     "lightningcss-wasm": "^1.29.3",
     "tailwindcss": "^4",
     "typescript": "^5"
