@@ -108,7 +108,7 @@ function SignUpView() {
                   <FormDescription
                     className={cn('hidden', showPreview && 'block')}
                   >
-                    Your store will be available at&nbsp;
+                    Your account/store will be available at&nbsp;
                     {/* TODO:  Use method to generate preview url */}
                     <strong>{username}</strong>.abandonedhobby.com
                   </FormDescription>
