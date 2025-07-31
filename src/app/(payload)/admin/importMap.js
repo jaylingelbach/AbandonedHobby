@@ -23,7 +23,8 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
-import { StripeVerify as StripeVerify_fbbdb2d5a999d6ece58e1cf365bc9b7c } from '@/components/stripe-verify.tsx'
+import { StripeVerify as StripeVerify_875c5d8c802a1c0fcd8282c68d6d94a4 } from '@/components/custom-payload/stripe-verify.tsx'
+import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7 } from '@/components/custom-payload/abandoned-hobby-link.tsx'
 import { TenantSelector as TenantSelector_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
@@ -54,7 +55,8 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
-  "@/components/stripe-verify.tsx#StripeVerify": StripeVerify_fbbdb2d5a999d6ece58e1cf365bc9b7c,
+  "@/components/custom-payload/stripe-verify.tsx#StripeVerify": StripeVerify_875c5d8c802a1c0fcd8282c68d6d94a4,
+  "@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink": AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7,
   "@payloadcms/plugin-multi-tenant/client#TenantSelector": TenantSelector_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62
