@@ -1260,3 +1260,31 @@ This update introduces Stripe integration for checkout and order processing. It 
   - src/modules/auth/ui/views/sign-up-view.tsx Updates the form description label to "Your account/store will be available at" for improved clarity to users.
 - Navbar Layout Refactor
   - src/modules/tenants/ui/components/navbar.tsx Refactors Navbar from flexbox to grid layout, introduces a home icon link, centers tenant info, right-aligns the checkout button, simplifies image source logic, and reorganizes imports.
+
+# Fix read access for notifications and Home button in CMS 7/31/25
+
+### Walkthrough
+
+- This update introduces a new AbandonedHobbyLink React component, relocates the StripeVerify component to a custom directory, and updates import paths and admin configuration to register both components in the admin panel. Additionally, the access control logic for the Notifications collection is refined to correctly restrict read permissions based on user ownership.
+
+### New Features
+
+- Added a new "Abandoned Hobby Link" component, providing a prominent Home link in the interface.
+- Introduced a Stripe verification prompt that alerts users to verify their Stripe account if required.
+
+### Improvements
+
+- Updated admin navigation to display both the Stripe verification prompt and the new Home link.
+- Enhanced notification privacy by ensuring users can only view notifications relevant to them, with super admins retaining full access.
+
+### File changes:
+
+- Admin Import Map & Config Updates
+  - src/app/(payload)/admin/importMap.js, src/payload.config.ts
+    - Updated import paths for StripeVerify to its new location and added AbandonedHobbyLink to the import map and admin beforeNavLinks configuration, enabling both components in the admin UI.
+- New Custom Components
+  - src/components/custom-payload/abandoned-hobby-link.tsx, src/components/custom-payload/stripe-verify.tsx
+    - Introduced two new React components: AbandonedHobbyLink (renders a styled home link) and StripeVerify (prompts users to verify their Stripe account if missing), both exported with force-dynamic rendering.
+- Notifications Access Control
+  - src/collections/Notifications.ts
+    - Corrected the read access control logic to filter notifications by user ownership rather than comparing notification and user IDs. Super admins retain universal access. No changes to other access rules.
