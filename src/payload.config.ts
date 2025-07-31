@@ -34,9 +34,13 @@ export default buildConfig({
       baseDir: path.resolve(dirname)
     },
     components: {
-      beforeNavLinks: ['@/components/stripe-verify.tsx#StripeVerify'] // to use a named export - hashbrown plus the name of the named export.
+      beforeNavLinks: [
+        '@/components/custom-payload/stripe-verify.tsx#StripeVerify',
+        '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink'
+      ] // to use a named export - hashbrown plus the name of the named export.
     }
   },
+
   collections: [
     Categories,
     Conversations,
