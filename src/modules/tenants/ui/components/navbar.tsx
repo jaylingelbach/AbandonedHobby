@@ -5,11 +5,12 @@ import Image from 'next/image';
 import Link from 'next/link';
 
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { House, ShoppingCartIcon } from 'lucide-react';
+import { ShoppingCartIcon } from 'lucide-react';
 
 import { useTRPC } from '@/trpc/client';
 import { generateTenantURL } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import BackToRootLink from '@/components/back-to-root-link';
 
 const CheckoutButton = dynamic(
   () =>
@@ -42,9 +43,7 @@ export const Navbar = ({ slug }: Props) => {
     <nav className="h-20 border-b font-medium bg-white">
       <div className="max-w-(--breakpoint-xl) mx-auto grid grid-cols-3 items-center h-full px-4 lg:px-12">
         <div className="flex items-center">
-          <Link href={'/'}>
-            <House />
-          </Link>
+          <BackToRootLink />
         </div>
 
         <div className="flex justify-center">
