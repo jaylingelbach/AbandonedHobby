@@ -1,5 +1,4 @@
 import { isSuperAdmin } from '@/lib/access';
-import { sendOrderConfirmationEmail } from '@/lib/sendEmail';
 import type { CollectionConfig } from 'payload';
 
 export const Orders: CollectionConfig = {
@@ -56,36 +55,5 @@ export const Orders: CollectionConfig = {
         description: 'The total amount paid in cents (Stripe amount_total).'
       }
     }
-  ],
-  hooks: {
-    afterChange: [
-      async ({ doc, operation }) => {
-        console.log(`afterChange fired: ${operation}`);
-        console.log(`DOC: ${doc}`);
-        if (operation === 'create') {
-          await sendOrderConfirmationEmail({
-            to: 'jay@abandonedhobby.com',
-            name: doc.user.name,
-            creditCardStatement:
-              doc.paymentIntent.charges.data[0].statement_descriptor,
-            creditCardBrand:
-              doc.paymentIntent.charges.data[0].payment_method_details.card
-                .brand,
-            creditCardLast4:
-              doc.paymentIntent.charges.data[0].payment_method_details.card
-                .last4,
-            receiptId: doc.order.id,
-            orderDate: new Date().toLocaleDateString('en-US'),
-            lineItems: [
-              {
-                description: doc.product.name,
-                amount: `$${(doc.product.price / 100).toFixed(2)}`
-              }
-            ],
-            total: `$${(doc.amount_total / 100).toFixed(2)}`
-          });
-        }
-      }
-    ]
-  }
+  ]
 };
