@@ -9,12 +9,20 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 export async function POST(req: Request) {
   let event: Stripe.Event;
 
+  console.log('👀 Webhook route hit');
+
   try {
     event = stripe.webhooks.constructEvent(
       await (await req.blob()).text(),
       req.headers.get('stripe-signature') as string,
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
+    console.log('📬 Received event type:', event?.type);
+    console.log(
+      '📦 Event payload:',
+      JSON.stringify(event?.data?.object, null, 2)
+    );
+    console.log('🏦 Connected account ID:', event?.account);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
@@ -76,7 +84,7 @@ export async function POST(req: Request) {
             .data as ExpandedLineItem[];
 
           for (const item of lineItems) {
-            await payload.create({
+            const order = await payload.create({
               collection: 'orders',
               data: {
                 stripeCheckoutSessionId: data.id,
@@ -86,7 +94,9 @@ export async function POST(req: Request) {
                 name: item.price.product.name
               }
             });
+            console.log('✅ Created order:', order.id);
           }
+
           break;
         case 'account.updated':
           data = event.data.object as Stripe.Account;
