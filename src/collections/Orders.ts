@@ -1,5 +1,5 @@
 import { isSuperAdmin } from '@/lib/access';
-import { sendEmail } from '@/lib/sendEmail';
+import { sendOrderConfirmationEmail } from '@/lib/sendEmail';
 import type { CollectionConfig } from 'payload';
 
 export const Orders: CollectionConfig = {
@@ -47,23 +47,42 @@ export const Orders: CollectionConfig = {
       admin: {
         description: 'The Stripe checkout session associated with the order. '
       }
+    },
+    {
+      name: 'total',
+      type: 'number',
+      required: true,
+      admin: {
+        description: 'The total amount paid in cents (Stripe amount_total).'
+      }
     }
   ],
   hooks: {
     afterChange: [
       async ({ doc, operation }) => {
         console.log(`afterChange fired: ${operation}`);
+        console.log(`DOC: ${doc}`);
         if (operation === 'create') {
-          console.log('CREATE EMAIL');
-          await sendEmail({
-            // to: doc.buyerEmail,
+          await sendOrderConfirmationEmail({
             to: 'jay@abandonedhobby.com',
-            subject: 'Order Confirmation - Abandoned Hobbies',
-            html: `
-              <h2>Thanks for your purchase!</h2>
-              <p>You bought <strong>${doc.product.name}</strong> for $${doc.total}</p>
-              <p>We'll notify the seller and they'll follow up soon.</p>
-            `
+            name: doc.user.name,
+            creditCardStatement:
+              doc.paymentIntent.charges.data[0].statement_descriptor,
+            creditCardBrand:
+              doc.paymentIntent.charges.data[0].payment_method_details.card
+                .brand,
+            creditCardLast4:
+              doc.paymentIntent.charges.data[0].payment_method_details.card
+                .last4,
+            receiptId: doc.order.id,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: [
+              {
+                description: doc.product.name,
+                amount: `$${(doc.product.price / 100).toFixed(2)}`
+              }
+            ],
+            total: `$${(doc.amount_total / 100).toFixed(2)}`
           });
         }
       }

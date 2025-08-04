@@ -1288,3 +1288,51 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Notifications Access Control
   - src/collections/Notifications.ts
     - Corrected the read access control logic to filter notifications by user ownership rather than comparing notification and user IDs. Super admins retain universal access. No changes to other access rules.
+
+# Postmark Integration 08/04/25
+
+### Walkthrough
+
+- This update introduces email sending capabilities using Postmark, including new scripts and utilities for sending test and order confirmation emails. The TRPC context and middleware handling are refactored for unified context propagation and authentication. Additional logging is added to Stripe webhook handling, and minor admin UI and notification query adjustments are made.
+
+### New Features
+
+- Added email sending functionality, including a utility for sending transactional emails and an automated confirmation email when a new order is created.
+- Introduced a script to test email sending.
+
+### Improvements
+
+- Enhanced webhook logging for Stripe events to aid in monitoring and debugging.
+- Updated unread notification count logic for more accurate results.
+- Improved TRPC context handling for more robust authentication and context propagation.
+- Clarified notification data handling in the navbar component.
+
+### Admin UI
+
+- Notifications collection is now hidden from the admin interface.
+
+### Chores
+
+- Updated and added dependencies for email functionality and TypeScript tooling.
+- Minor code cleanup and comment removal.
+
+File Changes:
+
+- Email Sending Feature
+  - package.json, src/lib/sendEmail.ts, scripts/test-email.ts, src/collections/Orders.ts
+    - Adds Postmark dependency and TypeScript tooling; introduces a utility for sending emails; adds a test script; implements an order confirmation email sent after order creation.
+- TRPC Context Refactor
+- src/trpc/init.ts
+  - Refactors context creation to include db, headers, and session; updates TRPC initialization and middleware for unified context and authentication handling.
+- Stripe Webhook Logging
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Adds detailed console logging to webhook handler for event tracking and debugging.
+- Admin UI and Notification Query
+  - src/collections/Notifications.ts, src/modules/notifications/server/procedures.ts
+    - Hides Notifications collection in admin UI; updates unread notification count logic to use a find query with explicit filters.
+- UI Type Clarification
+  - src/modules/home/ui/components/navbar.tsx
+    - Adds explicit type assertion for notification count data to clarify expected data shape.
+- Minor Cleanup
+  - src/lib/get-auth-user.ts
+    - Removes a redundant comment line.

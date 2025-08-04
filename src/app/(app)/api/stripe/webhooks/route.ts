@@ -6,10 +6,9 @@ import { NextResponse } from 'next/server';
 import { stripe } from '@/lib/stripe';
 import { ExpandedLineItem } from '@/modules/checkout/types';
 
+// stripeAccountId is for the SELLER. The buyer does not need one.
 export async function POST(req: Request) {
   let event: Stripe.Event;
-
-  console.log('👀 Webhook route hit');
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -17,12 +16,6 @@ export async function POST(req: Request) {
       req.headers.get('stripe-signature') as string,
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
-    console.log('📬 Received event type:', event?.type);
-    console.log(
-      '📦 Event payload:',
-      JSON.stringify(event?.data?.object, null, 2)
-    );
-    console.log('🏦 Connected account ID:', event?.account);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
@@ -35,8 +28,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-
-  console.log('✅ Success: ', event.id);
 
   const permittedEvents: string[] = [
     'checkout.session.completed',
@@ -91,10 +82,11 @@ export async function POST(req: Request) {
                 stripeAccountId: event.account,
                 user: user.id,
                 product: item.price.product.metadata.id,
-                name: item.price.product.name
+                name: item.price.product.name,
+                total: data.amount_total ?? 0
               }
             });
-            console.log('✅ Created order:', order.id);
+            console.log('Created order:', order.id);
           }
 
           break;

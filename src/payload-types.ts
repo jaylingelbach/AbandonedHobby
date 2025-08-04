@@ -347,6 +347,10 @@ export interface Order {
    * The Stripe checkout session associated with the order.
    */
   stripeCheckoutSessionId?: string | null;
+  /**
+   * The total amount paid in cents (Stripe amount_total).
+   */
+  total: number;
   updatedAt: string;
   createdAt: string;
 }
@@ -549,6 +553,7 @@ export interface OrdersSelect<T extends boolean = true> {
   product?: T;
   stripeAccountId?: T;
   stripeCheckoutSessionId?: T;
+  total?: T;
   updatedAt?: T;
   createdAt?: T;
 }

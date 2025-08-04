@@ -4,18 +4,44 @@ const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
 type SendEmailOptions = {
   to: string;
-  subject: string;
-  html: string;
+  name: string;
+  creditCardStatement: string;
+  creditCardBrand: string;
+  creditCardLast4: string;
+  receiptId: string;
+  orderDate: string;
+  lineItems: { description: string; amount: string }[];
+  total: string;
 };
 
-export const sendEmail = async ({ to, subject, html }: SendEmailOptions) => {
+export const sendOrderConfirmationEmail = async ({
+  to,
+  name,
+  creditCardStatement,
+  creditCardBrand,
+  creditCardLast4,
+  receiptId,
+  orderDate,
+  lineItems,
+  total
+}: SendEmailOptions) => {
   try {
-    await postmark.sendEmail({
-      From: process.env.POSTMARK_FROM_EMAIL!,
+    await postmark.sendEmailWithTemplate({
+      From: 'jay@abandonedhobby.com',
       To: to,
-      Subject: subject,
-      HtmlBody: html,
-      MessageStream: 'outbound' // default stream for transactional
+      TemplateId: 4097571,
+      TemplateModel: {
+        name,
+        credit_card_statement_name: creditCardStatement,
+        credit_card_brand: creditCardBrand,
+        credit_card_last_four: creditCardLast4,
+        receipt_id: receiptId,
+        date: orderDate,
+        total,
+        receipt_details: lineItems,
+        support_url: 'https://abandonedhobby.com/support',
+        product_name: 'Abandoned Hobby'
+      }
     });
   } catch (error) {
     console.error('Failed to send email:', error);
