@@ -60,7 +60,7 @@ export const Navbar = () => {
   );
 
   // normalize data to ensure number is returned and not totalDocs.
-  const rawCount = notificationsQuery.data;
+  const rawCount = notificationsQuery.data as number | { totalDocs: number };
   const unreadCount =
     typeof rawCount === 'number' ? rawCount : (rawCount?.totalDocs ?? 0);
 

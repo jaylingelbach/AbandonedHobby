@@ -42,7 +42,7 @@ export const createTRPCRouter = t.router;
 export const createCallerFactory = t.createCallerFactory;
 export const baseProcedure = t.procedure.use(async ({ ctx, next }) => {
   // instead of making tons of calls to payload and repeating code. Add to context here. (instead of importing in all procedures.)
-  const payload = await getPayload({ config });
+  // const payload = await getPayload({ config });
   // extend context alias as db for readability. We pass the payload cms to authenticate with this as well...
   return next({
     ctx: {
