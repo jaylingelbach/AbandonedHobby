@@ -1,6 +1,6 @@
 import { Client } from 'postmark';
 
-const postmark = new Client(process.env.NEXT_PUBLIC_POSTMARK_SERVER_TOKEN!);
+const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
 type SendEmailOptions = {
   to: string;
@@ -9,11 +9,18 @@ type SendEmailOptions = {
 };
 
 export const sendEmail = async ({ to, subject, html }: SendEmailOptions) => {
-  await postmark.sendEmail({
-    From: 'jay@abandonedhobby.com',
-    To: to,
-    Subject: subject,
-    HtmlBody: html,
-    MessageStream: 'outbound' // default stream for transactional
-  });
+  try {
+    await postmark.sendEmail({
+      From: process.env.POSTMARK_FROM_EMAIL!,
+      To: to,
+      Subject: subject,
+      HtmlBody: html,
+      MessageStream: 'outbound' // default stream for transactional
+    });
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    throw new Error(
+      `Email sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
 };

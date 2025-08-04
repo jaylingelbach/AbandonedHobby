@@ -11,9 +11,7 @@ export const createTRPCContext = cache(async () => {
 
   const db = await getPayload({ config });
 
-  const payload = await getPayload({ config });
-
-  const session = await payload.auth({ headers });
+  const session = await db.auth({ headers });
   /**
    * @see: https://trpc.io/docs/server/context
    */
