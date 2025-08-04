@@ -7,7 +7,8 @@ export const Notifications: CollectionConfig = {
   admin: {
     useAsTitle: 'type',
     defaultColumns: ['user', 'type', 'createdAt', 'read'],
-    description: 'In-app notifications for users'
+    description: 'In-app notifications for users',
+    hidden: true
   },
   access: {
     read: ({ req: { user } }) => {

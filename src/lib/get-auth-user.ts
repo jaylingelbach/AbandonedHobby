@@ -1,4 +1,3 @@
-// src/lib/get-auth-user-app.ts
 import { getServerTRPCContext } from '@/trpc/server-context';
 import { NextRequest } from 'next/server';
 import { getPayload } from 'payload';

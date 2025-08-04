@@ -1,5 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
+export const dynamic = 'force-dynamic';
+
 function Page() {
   return (
     <div className="px-4 lg:px-12 py-8 flex flex-col gap-12 items-center">
