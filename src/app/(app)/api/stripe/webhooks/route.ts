@@ -129,7 +129,9 @@ export async function POST(req: Request) {
 
           // Send one email with all line items
           await sendOrderConfirmationEmail({
-            to: user.email,
+            // should be user.email in production, but for testing before postmark goes live must be same as from
+            // to: user.email,
+            to: 'jay@abandonedhobby.com',
             name: user.username,
             creditCardStatement:
               charge.statement_descriptor ?? 'ABANDONED HOBBY',
