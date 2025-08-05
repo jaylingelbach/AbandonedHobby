@@ -1,5 +1,4 @@
 import { isSuperAdmin } from '@/lib/access';
-import { sendEmail } from '@/lib/sendEmail';
 import type { CollectionConfig } from 'payload';
 
 export const Orders: CollectionConfig = {
@@ -47,26 +46,14 @@ export const Orders: CollectionConfig = {
       admin: {
         description: 'The Stripe checkout session associated with the order. '
       }
-    }
-  ],
-  hooks: {
-    afterChange: [
-      async ({ doc, operation }) => {
-        console.log(`afterChange fired: ${operation}`);
-        if (operation === 'create') {
-          console.log('CREATE EMAIL');
-          await sendEmail({
-            // to: doc.buyerEmail,
-            to: 'jay@abandonedhobby.com',
-            subject: 'Order Confirmation - Abandoned Hobbies',
-            html: `
-              <h2>Thanks for your purchase!</h2>
-              <p>You bought <strong>${doc.product.name}</strong> for $${doc.total}</p>
-              <p>We'll notify the seller and they'll follow up soon.</p>
-            `
-          });
-        }
+    },
+    {
+      name: 'total',
+      type: 'number',
+      required: true,
+      admin: {
+        description: 'The total amount paid in cents (Stripe amount_total).'
       }
-    ]
-  }
+    }
+  ]
 };

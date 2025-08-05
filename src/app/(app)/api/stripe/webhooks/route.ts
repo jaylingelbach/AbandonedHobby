@@ -5,11 +5,13 @@ import { NextResponse } from 'next/server';
 
 import { stripe } from '@/lib/stripe';
 import { ExpandedLineItem } from '@/modules/checkout/types';
+import { sendOrderConfirmationEmail } from '@/lib/sendEmail';
 
+import { Order } from '@/payload-types';
+
+// stripeAccountId is for the SELLER. The buyer does not need one.
 export async function POST(req: Request) {
   let event: Stripe.Event;
-
-  console.log('👀 Webhook route hit');
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -17,12 +19,6 @@ export async function POST(req: Request) {
       req.headers.get('stripe-signature') as string,
       process.env.STRIPE_WEBHOOK_SECRET as string
     );
-    console.log('📬 Received event type:', event?.type);
-    console.log(
-      '📦 Event payload:',
-      JSON.stringify(event?.data?.object, null, 2)
-    );
-    console.log('🏦 Connected account ID:', event?.account);
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
@@ -35,8 +31,6 @@ export async function POST(req: Request) {
       { status: 400 }
     );
   }
-
-  console.log('✅ Success: ', event.id);
 
   const permittedEvents: string[] = [
     'checkout.session.completed',
@@ -83,6 +77,11 @@ export async function POST(req: Request) {
           const lineItems = expandedSession.line_items
             .data as ExpandedLineItem[];
 
+          // Store created orders and line item details for the receipt
+          const createdOrders: Order[] = [];
+          const receiptLineItems: { description: string; amount: string }[] =
+            [];
+
           for (const item of lineItems) {
             const order = await payload.create({
               collection: 'orders',
@@ -91,11 +90,58 @@ export async function POST(req: Request) {
                 stripeAccountId: event.account,
                 user: user.id,
                 product: item.price.product.metadata.id,
-                name: item.price.product.name
+                name: item.price.product.name,
+                total: data.amount_total ?? 0
               }
             });
-            console.log('✅ Created order:', order.id);
+
+            createdOrders.push(order);
+
+            receiptLineItems.push({
+              description: item.price.product.name,
+              amount: `$${(item.amount_total / 100).toFixed(2)}`
+            });
           }
+
+          if (!createdOrders.length) {
+            throw new Error('No orders were created');
+          }
+
+          const order = createdOrders[0];
+
+          if (!order) {
+            throw new Error('Order is unexpectedly undefined');
+          }
+
+          // Fetch payment details once
+          const paymentIntent = await stripe.paymentIntents.retrieve(
+            data.payment_intent as string,
+            { expand: ['charges.data.payment_method_details'] },
+            { stripeAccount: event.account }
+          );
+
+          const chargeId = paymentIntent.latest_charge;
+          if (!chargeId) throw new Error('No charge found on paymentIntent');
+
+          const charge = await stripe.charges.retrieve(chargeId as string, {
+            stripeAccount: event.account
+          });
+
+          // Send one email with all line items
+          await sendOrderConfirmationEmail({
+            to: user.email,
+            name: user.username,
+            creditCardStatement:
+              charge.statement_descriptor ?? 'ABANDONED HOBBY',
+            creditCardBrand:
+              charge.payment_method_details?.card?.brand ?? 'N/A',
+            creditCardLast4:
+              charge.payment_method_details?.card?.last4 ?? '0000',
+            receiptId: order.id,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(data.amount_total! / 100).toFixed(2)}`
+          });
 
           break;
         case 'account.updated':
