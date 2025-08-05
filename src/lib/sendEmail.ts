@@ -29,7 +29,7 @@ export const sendOrderConfirmationEmail = async ({
     await postmark.sendEmailWithTemplate({
       From: 'jay@abandonedhobby.com',
       To: to,
-      TemplateId: 4097571,
+      TemplateId: 40975711,
       TemplateModel: {
         name,
         credit_card_statement_name: creditCardStatement,
