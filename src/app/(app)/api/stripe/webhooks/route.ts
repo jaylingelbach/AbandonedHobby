@@ -142,7 +142,10 @@ export async function POST(req: Request) {
             receiptId: order.id,
             orderDate: new Date().toLocaleDateString('en-US'),
             lineItems: receiptLineItems,
-            total: `$${(data.amount_total! / 100).toFixed(2)}`
+            total: `$${(data.amount_total! / 100).toFixed(2)}`,
+            item_summary: receiptLineItems
+              .map((item) => item.description)
+              .join(', ')
           });
 
           break;

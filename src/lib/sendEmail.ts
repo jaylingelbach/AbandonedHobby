@@ -2,7 +2,7 @@ import { Client } from 'postmark';
 
 const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
-type SendEmailOptions = {
+type SendOrderConfirmationOptions = {
   to: string;
   name: string;
   creditCardStatement: string;
@@ -12,6 +12,7 @@ type SendEmailOptions = {
   orderDate: string;
   lineItems: { description: string; amount: string }[];
   total: string;
+  item_summary: string;
 };
 
 export const sendOrderConfirmationEmail = async ({
@@ -23,8 +24,9 @@ export const sendOrderConfirmationEmail = async ({
   receiptId,
   orderDate,
   lineItems,
-  total
-}: SendEmailOptions) => {
+  total,
+  item_summary
+}: SendOrderConfirmationOptions) => {
   try {
     await postmark.sendEmailWithTemplate({
       From: 'jay@abandonedhobby.com',
@@ -40,7 +42,8 @@ export const sendOrderConfirmationEmail = async ({
         total,
         receipt_details: lineItems,
         support_url: 'https://abandonedhobby.com/support',
-        product_name: 'Abandoned Hobby'
+        product_name: 'Abandoned Hobby',
+        item_summary: item_summary
       }
     });
   } catch (error) {
