@@ -5,13 +5,18 @@ import { NextResponse } from 'next/server';
 
 import { stripe } from '@/lib/stripe';
 import { ExpandedLineItem } from '@/modules/checkout/types';
-import { sendOrderConfirmationEmail } from '@/lib/sendEmail';
+import {
+  sendOrderConfirmationEmail,
+  sendSaleNotificationEmail
+} from '@/lib/sendEmail';
 
 import { Order } from '@/payload-types';
 
 // stripeAccountId is for the SELLER. The buyer does not need one.
 export async function POST(req: Request) {
   let event: Stripe.Event;
+
+  console.log('🔥 Webhook endpoint hit');
 
   try {
     event = stripe.webhooks.constructEvent(
@@ -22,7 +27,9 @@ export async function POST(req: Request) {
   } catch (error) {
     const errorMessage =
       error instanceof Error ? error.message : 'Unknown Error';
-    if (error! instanceof Error) {
+    if (error instanceof Error) {
+      console.log(error.message);
+    } else {
       console.log(error);
     }
     console.log(`❌ Error message: ${errorMessage}`);
@@ -45,6 +52,9 @@ export async function POST(req: Request) {
       switch (event.type) {
         case 'checkout.session.completed':
           data = event.data.object as Stripe.Checkout.Session;
+          console.log(
+            `data obj from stripe checkout session on completed:  ${JSON.stringify(data, null, 2)}`
+          );
           if (!data.metadata?.userId) {
             throw new Error('User ID is required');
           }
@@ -127,26 +137,47 @@ export async function POST(req: Request) {
             stripeAccount: event.account
           });
 
-          // Send one email with all line items
-          await sendOrderConfirmationEmail({
-            // should be user.email in production, but for testing before postmark goes live must be same as from
-            // to: user.email,
-            to: 'jay@abandonedhobby.com',
-            name: user.username,
-            creditCardStatement:
-              charge.statement_descriptor ?? 'ABANDONED HOBBY',
-            creditCardBrand:
-              charge.payment_method_details?.card?.brand ?? 'N/A',
-            creditCardLast4:
-              charge.payment_method_details?.card?.last4 ?? '0000',
-            receiptId: order.id,
-            orderDate: new Date().toLocaleDateString('en-US'),
-            lineItems: receiptLineItems,
-            total: `$${(data.amount_total! / 100).toFixed(2)}`,
-            item_summary: receiptLineItems
-              .map((item) => item.description)
-              .join(', ')
-          });
+          // const summary = receiptLineItems
+          //   .map((item) => item.description)
+          //   .join(', ');
+
+          // // Send customer one order confirmation email
+          // await sendOrderConfirmationEmail({
+          //   to: 'jay@abandonedhobby.com',
+          //   name: user.username,
+          //   creditCardStatement:
+          //     charge.statement_descriptor ?? 'ABANDONED HOBBY',
+          //   creditCardBrand:
+          //     charge.payment_method_details?.card?.brand ?? 'N/A',
+          //   creditCardLast4:
+          //     charge.payment_method_details?.card?.last4 ?? '0000',
+          //   receiptId: order.id,
+          //   orderDate: new Date().toLocaleDateString('en-US'),
+          //   lineItems: receiptLineItems,
+          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
+          //   support_url:
+          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+          //   item_summary: summary
+          // });
+
+          // await sendSaleNotificationEmail({
+          //   to: 'jay@abandonedhobby.com',
+          //   name: user.username,
+          //   receiptId: order.id,
+          //   orderDate: new Date().toLocaleDateString('en-US'),
+          //   lineItems: receiptLineItems,
+          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
+          //   item_summary: summary,
+          //   shipping_name: user.shipping_name,
+          //   shipping_address_line1: user.shipping_address_line1,
+          //   shipping_address_line2: user.shipping_address_line2,
+          //   shipping_city: user.shipping_city,
+          //   shipping_state: user.shipping_state,
+          //   shipping_zip: user.shipping_zip,
+          //   shipping_country: user.shipping_country,
+          //   support_url:
+          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+          // });
 
           break;
         case 'account.updated':
