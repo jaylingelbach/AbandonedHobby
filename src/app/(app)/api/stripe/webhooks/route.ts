@@ -5,10 +5,10 @@ import { NextResponse } from 'next/server';
 
 import { stripe } from '@/lib/stripe';
 import { ExpandedLineItem } from '@/modules/checkout/types';
-import {
-  sendOrderConfirmationEmail,
-  sendSaleNotificationEmail
-} from '@/lib/sendEmail';
+// import {
+//   sendOrderConfirmationEmail,
+//   sendSaleNotificationEmail
+// } from '@/lib/sendEmail';
 
 import { Order } from '@/payload-types';
 
@@ -71,7 +71,11 @@ export async function POST(req: Request) {
           const expandedSession = await stripe.checkout.sessions.retrieve(
             data.id,
             {
-              expand: ['line_items.data.price.product']
+              expand: [
+                'line_items.data.price.product',
+                'shipping',
+                'customer_details'
+              ]
             },
             {
               stripeAccount: event.account
@@ -122,20 +126,21 @@ export async function POST(req: Request) {
           if (!order) {
             throw new Error('Order is unexpectedly undefined');
           }
+          console.log(`expanded session! ${expandedSession}`);
 
           // Fetch payment details once
-          const paymentIntent = await stripe.paymentIntents.retrieve(
-            data.payment_intent as string,
-            { expand: ['charges.data.payment_method_details'] },
-            { stripeAccount: event.account }
-          );
+          // const paymentIntent = await stripe.paymentIntents.retrieve(
+          //   data.payment_intent as string,
+          //   { expand: ['charges.data.payment_method_details'] },
+          //   { stripeAccount: event.account }
+          // );
 
-          const chargeId = paymentIntent.latest_charge;
-          if (!chargeId) throw new Error('No charge found on paymentIntent');
+          // const chargeId = paymentIntent.latest_charge;
+          // if (!chargeId) throw new Error('No charge found on paymentIntent');
 
-          const charge = await stripe.charges.retrieve(chargeId as string, {
-            stripeAccount: event.account
-          });
+          // const charge = await stripe.charges.retrieve(chargeId as string, {
+          //   stripeAccount: event.account
+          // });
 
           // const summary = receiptLineItems
           //   .map((item) => item.description)
@@ -168,9 +173,10 @@ export async function POST(req: Request) {
           //   lineItems: receiptLineItems,
           //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
           //   item_summary: summary,
-          //   shipping_name: user.shipping_name,
-          //   shipping_address_line1: user.shipping_address_line1,
-          //   shipping_address_line2: user.shipping_address_line2,
+          //   shipping_name: expandedSession.shipping?.name,
+          //   shipping_address_line1: expandedSession.shipping?.address.line1,
+          //   shipping_address_line2:
+          //     expandedSession.customer_details?.address?.line1,
           //   shipping_city: user.shipping_city,
           //   shipping_state: user.shipping_state,
           //   shipping_zip: user.shipping_zip,

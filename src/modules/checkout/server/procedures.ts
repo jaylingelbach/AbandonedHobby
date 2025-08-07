@@ -180,8 +180,13 @@ export const checkoutRouter = createTRPCRouter({
             } as CheckoutMetadata,
             payment_intent_data: {
               application_fee_amount: platformFeeAmount
-            }
+            },
+            shipping_address_collection: {
+              allowed_countries: ['US']
+            },
+            billing_address_collection: 'required' // or 'auto'
           },
+
           { stripeAccount: tenant.stripeAccountId }
         );
       } catch (err: unknown) {
