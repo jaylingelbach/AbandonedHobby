@@ -83,6 +83,8 @@ export const authRouter = createTRPCRouter({
         await ctx.db.create({
           collection: 'users',
           data: {
+            firstName: input.firstName,
+            lastName: input.lastName,
             email: input.email,
             username: input.username,
             password: input.password, // will be hashed,

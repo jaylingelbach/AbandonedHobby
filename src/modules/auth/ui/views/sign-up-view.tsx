@@ -51,6 +51,8 @@ function SignUpView() {
     mode: 'all',
     resolver: zodResolver(registerSchema),
     defaultValues: {
+      firstName: '',
+      lastName: '',
       email: '',
       password: '',
       username: ''
@@ -96,6 +98,32 @@ function SignUpView() {
               Join over 69 ADHDers buying selling and trading each others
               abandoned hobbies.
             </h1>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base">First Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="given-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel className="text-base">Last Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} autoComplete="family-name" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
             <FormField
               name="username"
               render={({ field }) => (
