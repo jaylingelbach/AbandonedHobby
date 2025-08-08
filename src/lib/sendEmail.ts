@@ -53,7 +53,6 @@ type sendWelcomeOptions = {
 export const sendWelcomeEmailTemplate = async ({
   to,
   name,
-  product_name,
   action_url,
   login_url,
   username,

@@ -31,5 +31,13 @@ export const registerSchema = z.object({
       (val) => !val.includes('--'),
       'Username can not use consecutive hyphens.'
     )
-    .transform((val) => val.toLowerCase())
+    .transform((val) => val.toLowerCase()),
+  firstName: z
+    .string()
+    .min(1, 'Must enter at least one character')
+    .max(63, 'Must be less than 63 characters long'),
+  lastName: z
+    .string()
+    .min(1, 'Must enter at least one character')
+    .max(63, 'Must be less than 63 characters long')
 });
