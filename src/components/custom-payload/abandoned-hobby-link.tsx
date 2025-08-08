@@ -15,7 +15,7 @@ export function AbandonedHobbyLink() {
             focusable="false"
             style={{ marginRight: '0.5rem' }}
           />
-          <span>Home</span>
+          <span>Abandoned Hobby</span>
         </span>
       </Link>
     </div>

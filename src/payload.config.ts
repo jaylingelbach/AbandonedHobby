@@ -37,7 +37,10 @@ export default buildConfig({
       beforeNavLinks: [
         '@/components/custom-payload/stripe-verify.tsx#StripeVerify',
         '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink'
-      ] // to use a named export - hashbrown plus the name of the named export.
+      ], // to use a named export - hashbrown plus the name of the named export.
+      beforeLogin: [
+        '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink'
+      ]
     }
   },
 
