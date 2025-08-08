@@ -5,10 +5,10 @@ import { NextResponse } from 'next/server';
 
 import { stripe } from '@/lib/stripe';
 import { ExpandedLineItem } from '@/modules/checkout/types';
-// import {
-//   sendOrderConfirmationEmail,
-//   sendSaleNotificationEmail
-// } from '@/lib/sendEmail';
+import {
+  sendOrderConfirmationEmail,
+  sendSaleNotificationEmail
+} from '@/lib/sendEmail';
 
 import { Order } from '@/payload-types';
 
@@ -91,6 +91,9 @@ export async function POST(req: Request) {
           const lineItems = expandedSession.line_items
             .data as ExpandedLineItem[];
 
+          const customer = expandedSession.customer_details;
+          if (!customer) throw new Error('Missing customer details');
+
           // Store created orders and line item details for the receipt
           const createdOrders: Order[] = [];
           const receiptLineItems: { description: string; amount: string }[] =
@@ -128,62 +131,90 @@ export async function POST(req: Request) {
           }
           console.log(`expanded session! ${expandedSession}`);
 
-          // Fetch payment details once
-          // const paymentIntent = await stripe.paymentIntents.retrieve(
-          //   data.payment_intent as string,
-          //   { expand: ['charges.data.payment_method_details'] },
-          //   { stripeAccount: event.account }
-          // );
+          // payment details
+          const paymentIntent = await stripe.paymentIntents.retrieve(
+            data.payment_intent as string,
+            { expand: ['charges.data.payment_method_details'] },
+            { stripeAccount: event.account }
+          );
 
-          // const chargeId = paymentIntent.latest_charge;
-          // if (!chargeId) throw new Error('No charge found on paymentIntent');
+          const chargeId = paymentIntent.latest_charge;
+          if (!chargeId) throw new Error('No charge found on paymentIntent');
 
-          // const charge = await stripe.charges.retrieve(chargeId as string, {
-          //   stripeAccount: event.account
-          // });
+          const charge = await stripe.charges.retrieve(chargeId as string, {
+            stripeAccount: event.account
+          });
 
-          // const summary = receiptLineItems
-          //   .map((item) => item.description)
-          //   .join(', ');
+          const summary = receiptLineItems
+            .map((item) => item.description)
+            .join(', ');
 
-          // // Send customer one order confirmation email
-          // await sendOrderConfirmationEmail({
-          //   to: 'jay@abandonedhobby.com',
-          //   name: user.username,
-          //   creditCardStatement:
-          //     charge.statement_descriptor ?? 'ABANDONED HOBBY',
-          //   creditCardBrand:
-          //     charge.payment_method_details?.card?.brand ?? 'N/A',
-          //   creditCardLast4:
-          //     charge.payment_method_details?.card?.last4 ?? '0000',
-          //   receiptId: order.id,
-          //   orderDate: new Date().toLocaleDateString('en-US'),
-          //   lineItems: receiptLineItems,
-          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
-          //   support_url:
-          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-          //   item_summary: summary
-          // });
+          // Early guards for email fields
+          const { name, address } = customer;
 
-          // await sendSaleNotificationEmail({
-          //   to: 'jay@abandonedhobby.com',
-          //   name: user.username,
-          //   receiptId: order.id,
-          //   orderDate: new Date().toLocaleDateString('en-US'),
-          //   lineItems: receiptLineItems,
-          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
-          //   item_summary: summary,
-          //   shipping_name: expandedSession.shipping?.name,
-          //   shipping_address_line1: expandedSession.shipping?.address.line1,
-          //   shipping_address_line2:
-          //     expandedSession.customer_details?.address?.line1,
-          //   shipping_city: user.shipping_city,
-          //   shipping_state: user.shipping_state,
-          //   shipping_zip: user.shipping_zip,
-          //   shipping_country: user.shipping_country,
-          //   support_url:
-          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
-          // });
+          if (!name)
+            throw new Error('Cannot send sale email: customer name is missing');
+          if (!address?.line1)
+            throw new Error(
+              'Cannot send sale email: address line 1 is missing'
+            );
+          if (!address?.city)
+            throw new Error('Cannot send sale email: shipping city is missing');
+          if (!address?.state)
+            throw new Error(
+              'Cannot send sale email: shipping state is missing'
+            );
+          if (!address.postal_code)
+            throw new Error(
+              'Cannot send sale email: shipping postal code is missing'
+            );
+          if (!address.country)
+            throw new Error(
+              'Cannot send sale email: shipping country is missing'
+            );
+
+          // ok to be undefined - might not have a line2
+          const shipping_address_line2 = address.line2 ?? undefined;
+
+          // Order confirmation email
+          await sendOrderConfirmationEmail({
+            // to: user.email,
+            to: 'jay@abandonedhobby.com',
+            name: user.username,
+            creditCardStatement:
+              charge.statement_descriptor ?? 'ABANDONED HOBBY',
+            creditCardBrand:
+              charge.payment_method_details?.card?.brand ?? 'N/A',
+            creditCardLast4:
+              charge.payment_method_details?.card?.last4 ?? '0000',
+            receiptId: order.id,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(data.amount_total! / 100).toFixed(2)}`,
+            support_url:
+              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+            item_summary: summary
+          });
+
+          await sendSaleNotificationEmail({
+            // to: grab from tenant (payload)
+            to: 'jay@abandonedhobby.com',
+            name: user.username,
+            receiptId: order.id,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(data.amount_total! / 100).toFixed(2)}`,
+            item_summary: summary,
+            shipping_name: name,
+            shipping_address_line1: address?.line1,
+            shipping_address_line2: shipping_address_line2,
+            shipping_city: address?.city,
+            shipping_state: address?.state,
+            shipping_zip: address?.postal_code,
+            shipping_country: address?.country,
+            support_url:
+              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+          });
 
           break;
         case 'account.updated':
