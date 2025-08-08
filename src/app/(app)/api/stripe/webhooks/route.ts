@@ -180,7 +180,7 @@ export async function POST(req: Request) {
           await sendOrderConfirmationEmail({
             // to: user.email,
             to: 'jay@abandonedhobby.com',
-            name: user.username,
+            name: name,
             creditCardStatement:
               charge.statement_descriptor ?? 'ABANDONED HOBBY',
             creditCardBrand:
@@ -215,8 +215,8 @@ export async function POST(req: Request) {
             support_url:
               process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
           });
-
           break;
+
         case 'account.updated':
           data = event.data.object as Stripe.Account;
           if (!data) {

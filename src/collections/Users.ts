@@ -1,6 +1,8 @@
 import type { CollectionConfig } from 'payload';
 import { tenantsArrayField } from '@payloadcms/plugin-multi-tenant/fields';
 import { isSuperAdmin } from '@/lib/access';
+import { boolean } from 'zod';
+import { sendWelcomeEmailTemplate } from '@/lib/sendEmail';
 
 const defaultTenantArrayField = tenantsArrayField({
   tenantsArrayFieldName: 'tenants',
@@ -45,6 +47,28 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     hidden: ({ user }) => !isSuperAdmin(user)
   },
+  hooks: {
+    afterChange: [
+      async ({ doc, operation }) => {
+        console.log(`DOC: ${doc} in AFTER CHANGE`);
+        if (operation === 'create') {
+          if (!doc.welcomeEmailSent) {
+            await sendWelcomeEmailTemplate({
+              to: 'jay@abandonedhobby.com',
+              // to: doc.email,
+              name: doc.name,
+              product_name: 'Abandoned Hobby',
+              action_url: 'https://www.abandonedhobby.com/sign-in',
+              login_url: 'https://www.abandonedhobby.com/sign-in',
+              username: doc.username,
+              sender_name: process.env.POSTMARK_FROM_EMAIL!,
+              support_url: process.env.SUPPORT_URL!
+            });
+          }
+        }
+      }
+    ]
+  },
   fields: [
     {
       name: 'username',
@@ -52,7 +76,12 @@ export const Users: CollectionConfig = {
       unique: true,
       type: 'text'
     },
-
+    {
+      name: 'welcomeEmailSent',
+      required: true,
+      type: 'checkbox',
+      defaultValue: false
+    },
     {
       admin: {
         position: 'sidebar'
