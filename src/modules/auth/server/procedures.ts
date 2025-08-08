@@ -86,6 +86,7 @@ export const authRouter = createTRPCRouter({
             email: input.email,
             username: input.username,
             password: input.password, // will be hashed,
+            welcomeEmailSent: false,
             tenants: [
               {
                 tenant: tenant.id

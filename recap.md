@@ -143,11 +143,9 @@
 ### Changes to files:
 
 - src/app/(app)/(auth)/sign-in/page.tsx,
-
   - Converted Page components to async arrow functions; added server-side session checks and conditional redirects for authenticated users.
 
 - src/app/(app)/(home)/navbar.tsx
-
   - Integrated session state via tRPC and React Query; updated conditional rendering of navigation buttons based on authentication status.
 
 - src/modules/auth/server/procedures.ts
@@ -313,7 +311,6 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/constants.ts
   - Added DEFAULT_LIMIT constant.
 - src/modules/products/hooks/use-product-filters.ts
-
   - Refactored filter hook to centralize parameter definitions and add a sort parameter.
 
 - src/modules/products/search-params.ts
@@ -321,7 +318,6 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/modules/products/server/procedures.ts
   - Updated getMany procedure to support tag filtering and sorting logic.
 - src/modules/products/ui/components/price-filter.tsx
-
   - Fixed regex in max price handler for correct numeric input extraction.
 
 - src/modules/products/ui/components/product-filters.tsx
@@ -377,7 +373,6 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/trpc/client.tsx
   - Improved TRPC client base URL resolution for deployment environments.
 - src/modules/products/hooks/use-product-filters.ts
-
   - Refactored hook to centralize parameters, include sorting, and support tag filtering.
 
 - src/modules/products/ui/components/product-card.tsx - Added new ProductCard and ProductCardSkeleton components for product display and loading states.
@@ -1074,11 +1069,9 @@ This update introduces Stripe integration for checkout and order processing. It 
 - src/modules/library/server/procedures.ts
   - Removed unused baseProcedure import.
 - eslint.config.mjs
-
   - Replaced compat.extends with compat.config for configuration style.
 
   ### Vercel deployment lesson learned:
-
   - When setting env vars for public domain or root url DO NOT INCLUDE A TRAILING /
     - it will ruin your day.
 
@@ -1193,13 +1186,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 - src/modules/products/server/procedures.ts
   - Extended getMany input schema and query logic to support filtering products by search (partial name match).
 - src/modules/products/ui/components/product-filters.tsx
-
   - Changed import path of useProductFilters hook to absolute import; no functional changes.
 
   # Message Notifications 7/25/25
 
   ### Walkthrough
-
   - A notifications system was implemented across the application. This includes a new notifications collection with access control, automatic notification creation when messages are sent, unread notification counting via a tRPC endpoint, and a UI badge in the Navbar displaying unread message counts. Associated type definitions and collection registration updates were also made.
 
   ### New features
@@ -1336,3 +1327,40 @@ File Changes:
 - Minor Cleanup
   - src/lib/get-auth-user.ts
     - Removes a redundant comment line.
+
+# Sale Confirmation email 08/07/25
+
+### Walkthrough
+
+- This update restores and enhances email notification logic in the Stripe webhook handler, adding validation for customer shipping details and improving payment information accuracy. Additional changes include reordering imports in an admin import map, updating a link label, and configuring a new admin UI component to render before the login screen.
+
+### New Features
+
+- New Features
+
+- Added a custom "Abandoned Hobby" link before the login screen in the admin interface. (Payload CMS).
+
+- Enhanced email notifications for order confirmations and sales with improved validation and detailed customer and payment information.
+
+# Style
+
+- Updated the home link label from "Home" to "Abandoned Hobby" in the interface.
+
+# Chores
+
+- Adjusted import order for consistency in admin import mapping.
+
+### File changes
+
+- Stripe Webhook Email Handling
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Restored and improved email sending logic for order confirmations and sale notifications, added validation for customer shipping fields, integrated payment intent and charge retrieval, and updated shipping/payment info in emails.
+- Admin Import Map Reordering
+  - src/app/(payload)/admin/importMap.js
+    - Reordered import and importMap entry for StripeVerify to follow AbandonedHobbyLink, with no functional or logic changes.
+- Custom Payload Link Label
+  - src/components/custom-payload/abandoned-hobby-link.tsx
+    - Changed visible link text from "Home" to "Abandoned Hobby"; all other aspects remain unchanged.
+- Admin UI Component Configuration
+- src/payload.config.ts
+  - Added beforeLogin array to admin UI components configuration, including the AbandonedHobbyLink component to be rendered before the login screen; minor formatting adjustment to beforeNavLinks.

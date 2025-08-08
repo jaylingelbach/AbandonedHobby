@@ -39,6 +39,47 @@ type SendOrderConfirmationOptions = {
   support_url: string;
 };
 
+type sendWelcomeOptions = {
+  to: string;
+  name: string;
+  product_name: string;
+  action_url: string;
+  login_url: string;
+  username: string;
+  sender_name: string;
+  support_url: string;
+};
+
+export const sendWelcomeEmailTemplate = async ({
+  to,
+  name,
+  product_name,
+  action_url,
+  login_url,
+  username,
+  sender_name,
+  support_url
+}: sendWelcomeOptions) => {
+  try {
+    await postmark.sendEmailWithTemplate({
+      From: process.env.POSTMARK_FROM_EMAIL!,
+      To: to,
+      TemplateId: Number(process.env.POSTMARK_WELCOME_TEMPLATEID!),
+      TemplateModel: {
+        name,
+        product_name: 'Abandoned Hobby',
+        action_url,
+        login_url,
+        username,
+        sender_name,
+        support_url
+      }
+    });
+  } catch (error) {
+    console.error('Failed to send email:', error);
+  }
+};
+
 export const sendOrderConfirmationEmail = async ({
   to,
   name,
@@ -53,7 +94,7 @@ export const sendOrderConfirmationEmail = async ({
 }: SendOrderConfirmationOptions) => {
   try {
     await postmark.sendEmailWithTemplate({
-      From: 'jay@abandonedhobby.com',
+      From: process.env.POSTMARK_FROM_EMAIL!,
       To: to,
       TemplateId: Number(process.env.POSTMARK_ORDER_CONFIRMATION_TEMPLATEID!),
       TemplateModel: {
@@ -96,7 +137,7 @@ export const sendSaleNotificationEmail = async ({
 }: SendSaleNotificationOptions) => {
   try {
     await postmark.sendEmailWithTemplate({
-      From: 'jay@abandonedhobby.com',
+      From: process.env.POSTMARK_FROM_EMAIL!,
       To: to,
       TemplateId: Number(process.env.POSTMARK_SALE_CONFIRMATION_TEMPLATEID!),
       TemplateModel: {

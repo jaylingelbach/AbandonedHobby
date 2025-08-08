@@ -290,6 +290,7 @@ export interface Tag {
 export interface User {
   id: string;
   username: string;
+  welcomeEmailSent: boolean;
   roles?: ('super-admin' | 'user')[] | null;
   tenants?:
     | {
@@ -618,6 +619,7 @@ export interface TenantsSelect<T extends boolean = true> {
  */
 export interface UsersSelect<T extends boolean = true> {
   username?: T;
+  welcomeEmailSent?: T;
   roles?: T;
   tenants?:
     | T
