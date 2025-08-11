@@ -9,6 +9,10 @@ export type ProductMetadata = {
 
 export type CheckoutMetadata = {
   userId: string;
+  tenantId: string;
+  tenantSlug: string;
+  sellerStripeAccountId: string;
+  productIds: string; // comma-separated list, as stored in Session.metadata
 };
 
 export type ExpandedLineItem = Stripe.LineItem & {

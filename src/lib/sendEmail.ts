@@ -39,7 +39,7 @@ type SendOrderConfirmationOptions = {
   support_url: string;
 };
 
-type sendWelcomeOptions = {
+type SendWelcomeOptions = {
   to: string;
   name: string;
   product_name: string;
@@ -58,7 +58,7 @@ export const sendWelcomeEmailTemplate = async ({
   username,
   sender_name,
   support_url
-}: sendWelcomeOptions) => {
+}: SendWelcomeOptions) => {
   try {
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
@@ -133,29 +133,29 @@ export const sendSaleNotificationEmail = async ({
   shipping_city,
   shipping_state,
   shipping_zip,
-  shipping_country
+  shipping_country,
+  support_url
 }: SendSaleNotificationOptions) => {
+  const model = {
+    sellerName,
+    name: sellerName,
+    receipt_id: receiptId,
+    date: orderDate,
+    total,
+    receipt_details: lineItems,
+    item_summary,
+    support_url,
+    product_name: 'Abandoned Hobby',
+    shipping_name,
+    shipping_address_line1,
+    shipping_address_line2,
+    shipping_city,
+    shipping_state,
+    shipping_zip,
+    shipping_country
+  };
+
   try {
-    const model = {
-      seller_name: sellerName,
-      receipt_id: receiptId,
-      date: orderDate,
-      total,
-      receipt_details: lineItems,
-      item_summary,
-      support_url: process.env.SUPPORT_URL,
-      product_name: 'Abandoned Hobby',
-      shipping_name,
-      shipping_address_line1,
-      shipping_address_line2,
-      shipping_city,
-      shipping_state,
-      shipping_zip,
-      shipping_country
-    };
-
-    console.log('[postmark model][seller]', JSON.stringify(model, null, 2)); // 👈 log it
-
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
       To: to,
