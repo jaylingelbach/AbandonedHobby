@@ -74,12 +74,12 @@ export const checkoutRouter = createTRPCRouter({
   purchase: protectedProcedure
     .input(
       z.object({
-        productIds: z.array(z.string()),
-        tenantSlug: z.string().min(1)
+        productIds: z.array(z.string())
+        //tenantSlug: z.string().min(1)
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const products = await ctx.db.find({
+      const productsRes = await ctx.db.find({
         collection: 'products',
         depth: 2,
         where: {
@@ -89,11 +89,11 @@ export const checkoutRouter = createTRPCRouter({
                 in: input.productIds
               }
             },
-            {
-              'tenant.slug': {
-                equals: input.tenantSlug
-              }
-            },
+            // {
+            //   'tenant.slug': {
+            //     equals: input.tenantSlug
+            //   }
+            // },
             {
               isArchived: {
                 not_equals: true
@@ -102,49 +102,110 @@ export const checkoutRouter = createTRPCRouter({
           ]
         }
       });
-      if (products.totalDocs !== input.productIds.length) {
+
+      if (productsRes.totalDocs !== input.productIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found'
         });
       }
 
-      const tenantsData = await ctx.db.find({
-        collection: 'tenants',
-        limit: 1,
-        pagination: false,
-        where: {
-          slug: {
-            equals: input.tenantSlug
-          }
-        }
-      });
-      const tenant = tenantsData.docs[0];
-      if (!tenant) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Shop (Tenant) not found'
-        });
-      }
-      // TODO:  Throw error if stripe details not submitted -- remove if verification not needed (changed to account id)
-      if (!tenant.stripeAccountId) {
+      const products = productsRes.docs;
+
+      // if (products.totalDocs !== input.productIds.length) {
+      //   throw new TRPCError({
+      //     code: 'NOT_FOUND',
+      //     message: 'Product not found'
+      //   });
+      // }
+
+      const tenantIds = new Set(
+        products.map((p) =>
+          typeof p.tenant === 'object'
+            ? (p.tenant as any).id
+            : (p.tenant as string)
+        )
+      );
+
+      if (tenantIds.size !== 1) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message:
-            'Stripe details not submitted, not allowed to sell products yet.'
+          message: 'All items in the cart must belong to the same seller.'
         });
       }
 
+      const sellerTenantId = Array.from(tenantIds)[0]!;
+      const sellerTenant = await ctx.db.findByID({
+        collection: 'tenants',
+        id: sellerTenantId
+      });
+
+      if (!sellerTenant) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Seller (Tenant) not found'
+        });
+      }
+      if (!sellerTenant.stripeAccountId) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Seller has no Stripe account configured.'
+        });
+      }
+
+      // const tenantsData = await ctx.db.find({
+      //   collection: 'tenants',
+      //   limit: 1,
+      //   pagination: false,
+      //   where: {
+      //     slug: {
+      //       equals: input.tenantSlug
+      //     }
+      //   }
+      // });
+      // const tenant = tenantsData.docs[0];
+      // if (!tenant) {
+      //   throw new TRPCError({
+      //     code: 'NOT_FOUND',
+      //     message: 'Shop (Tenant) not found'
+      //   });
+      // }
+      // // TODO:  Throw error if stripe details not submitted -- remove if verification not needed (changed to account id)
+      // if (!tenant.stripeAccountId) {
+      //   throw new TRPCError({
+      //     code: 'BAD_REQUEST',
+      //     message:
+      //       'Stripe details not submitted, not allowed to sell products yet.'
+      //   });
+      // }
+
+      // const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
+      //   products.docs.map((product) => ({
+      //     quantity: 1,
+      //     price_data: {
+      //       unit_amount: product.price * 100, // stripe calculates prices in cents
+      //       currency: 'usd',
+      //       product_data: {
+      //         name: product.name,
+      //         metadata: {
+      //           stripeAccountId: tenant.stripeAccountId,
+      //           id: product.id,
+      //           name: product.name
+      //         } as ProductMetadata
+      //       }
+      //     }
+      //   }));
+
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        products.docs.map((product) => ({
+        products.map((product) => ({
           quantity: 1,
           price_data: {
-            unit_amount: product.price * 100, // stripe calculates prices in cents
+            unit_amount: Math.round(Number(product.price) * 100),
             currency: 'usd',
             product_data: {
               name: product.name,
               metadata: {
-                stripeAccountId: tenant.stripeAccountId,
+                stripeAccountId: sellerTenant.stripeAccountId,
                 id: product.id,
                 name: product.name
               } as ProductMetadata
@@ -152,8 +213,13 @@ export const checkoutRouter = createTRPCRouter({
           }
         }));
 
-      const totalAmount = products.docs.reduce(
-        (acc, item) => acc + item.price * 100,
+      // const totalAmount = products.docs.reduce(
+      //   (acc, item) => acc + item.price * 100,
+      //   0
+      // );
+
+      const totalAmount = products.reduce(
+        (acc, item) => acc + Math.round(Number(item.price) * 100),
         0
       );
 
@@ -161,36 +227,162 @@ export const checkoutRouter = createTRPCRouter({
         totalAmount * (PLATFORM_FEE_PERCENTAGE / 100)
       );
 
-      const domain = generateTenantURL(input.tenantSlug);
+      // const domain = generateTenantURL(input.tenantSlug);
 
-      let checkout;
+      const domain = generateTenantURL(sellerTenant.slug);
+
+      // (Optional) sanity log — remove if noisy
+      console.log('[checkout sanity:create]', {
+        derivedTenantId: sellerTenantId,
+        derivedTenantSlug: sellerTenant.slug,
+        sellerStripeAccountId: sellerTenant.stripeAccountId,
+        productIds: input.productIds
+      });
+
+      // const productTenantSlugs = new Set(
+      //   products.docs.map((p) =>
+      //     typeof p.tenant === 'object' ? (p.tenant as any).slug : null
+      //   )
+      // );
+
+      // console.log('[checkout sanity:create]', {
+      //   fromUI: input.tenantSlug,
+      //   tenantFound: tenant.slug,
+      //   sellerStripeAccountId: tenant.stripeAccountId,
+      //   productTenantSlugs: Array.from(productTenantSlugs),
+      //   productIds: input.productIds
+      // });
+
+      //       let checkout;
+      //       try {
+      //         checkout = await stripe.checkout.sessions.create(
+      //           {
+      //             customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
+      //             success_url: `${domain}/checkout?success=true`,
+      //             cancel_url: `${domain}/checkout?cancel=true`,
+      //             mode: 'payment',
+      //             line_items: lineItems,
+      //             invoice_creation: {
+      //               enabled: true
+      //             },
+      //             metadata: {
+      //               userId: ctx.session.user.id
+      //             } as CheckoutMetadata,
+      //             payment_intent_data: {
+      //               application_fee_amount: platformFeeAmount
+      //             },
+      //             shipping_address_collection: {
+      //               allowed_countries: ['US']
+      //             },
+      //             billing_address_collection: 'required' // or 'auto'
+      //           },
+
+      //           { stripeAccount: tenant.stripeAccountId }
+      //         );
+      //       } catch (err: unknown) {
+      //         // Narrow to Stripe’s own error class at runtime:
+      //         if (err instanceof Stripe.errors.StripeError) {
+      //           console.error('🔥 stripe checkout error:', {
+      //             message: err.message,
+      //             code: err.code,
+      //             requestId: err.requestId
+      //           });
+      //           throw new TRPCError({
+      //             code: 'INTERNAL_SERVER_ERROR',
+      //             message: `Stripe error: ${err.message}`
+      //           });
+      //         }
+
+      //         // Fallback for other thrown values
+      //         console.error('🔥 unknown error in checkout:', err);
+      //         throw new TRPCError({
+      //           code: 'INTERNAL_SERVER_ERROR',
+      //           message: 'An unknown error occurred.'
+      //         });
+      //       }
+      //       if (!checkout.url) {
+      //         throw new TRPCError({
+      //           code: 'INTERNAL_SERVER_ERROR',
+      //           message: 'Failed to create checkout session'
+      //         });
+      //       }
+      //       return { url: checkout.url };
+      //     }),
+      //   getProducts: baseProcedure
+      //     .input(
+      //       z.object({
+      //         ids: z.array(z.string())
+      //       })
+      //     )
+      //     .query(async ({ ctx, input }) => {
+      //       const data = await ctx.db.find({
+      //         collection: 'products',
+      //         depth: 2, // populate category, image, and tenant & tenant.image
+      //         where: {
+      //           and: [
+      //             {
+      //               id: {
+      //                 in: input.ids
+      //               }
+      //             },
+      //             {
+      //               isArchived: {
+      //                 not_equals: true
+      //               }
+      //             }
+      //           ]
+      //         }
+      //       });
+      //       if (data.totalDocs !== input.ids.length) {
+      //         throw new TRPCError({
+      //           code: 'NOT_FOUND',
+      //           message: 'Products not found'
+      //         });
+      //       }
+      //       const totalPrice = data.docs.reduce((acc, product) => {
+      //         const price = Number(product.price);
+      //         return acc + (isNaN(price) ? 0 : price);
+      //       }, 0);
+      //       return {
+      //         ...data,
+      //         totalPrice: totalPrice,
+      //         docs: data.docs.map((doc) => ({
+      //           ...doc,
+      //           image: doc.image as Media | null, // settings types so we can get imageURL in product list
+      //           tenant: doc.tenant as Tenant & { image: Media | null } // no need for | null bc Tenant is required for all products
+      //         }))
+      //       };
+      //     })
+      let checkout: Stripe.Checkout.Session;
       try {
         checkout = await stripe.checkout.sessions.create(
           {
-            customer_email: ctx.session.user.email, // this is why in the procedures we spread everything out. Otherwise we get an error saying that the ctx.session.user is possibly null. Which is madness.
-            success_url: `${domain}/checkout?success=true`,
-            cancel_url: `${domain}/checkout?cancel=true`,
             mode: 'payment',
             line_items: lineItems,
             invoice_creation: {
               enabled: true
             },
+            customer_email: ctx.session.user.email ?? undefined,
+            success_url: `${domain}/checkout?success=true`,
+            cancel_url: `${domain}/checkout?cancel=true`,
             metadata: {
-              userId: ctx.session.user.id
-            } as CheckoutMetadata,
+              userId: ctx.session.user.id,
+              tenantId: String(sellerTenantId),
+              tenantSlug: String(sellerTenant.slug),
+              sellerStripeAccountId: String(sellerTenant.stripeAccountId),
+              productIds: input.productIds.join(',')
+            } as unknown as CheckoutMetadata,
+
             payment_intent_data: {
               application_fee_amount: platformFeeAmount
             },
-            shipping_address_collection: {
-              allowed_countries: ['US']
-            },
-            billing_address_collection: 'required' // or 'auto'
-          },
 
-          { stripeAccount: tenant.stripeAccountId }
+            shipping_address_collection: { allowed_countries: ['US'] },
+            billing_address_collection: 'required'
+          },
+          { stripeAccount: sellerTenant.stripeAccountId }
         );
       } catch (err: unknown) {
-        // Narrow to Stripe’s own error class at runtime:
         if (err instanceof Stripe.errors.StripeError) {
           console.error('🔥 stripe checkout error:', {
             message: err.message,
@@ -202,65 +394,55 @@ export const checkoutRouter = createTRPCRouter({
             message: `Stripe error: ${err.message}`
           });
         }
-
-        // Fallback for other thrown values
         console.error('🔥 unknown error in checkout:', err);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'An unknown error occurred.'
         });
       }
+
       if (!checkout.url) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Failed to create checkout session'
         });
       }
+
       return { url: checkout.url };
     }),
+
   getProducts: baseProcedure
-    .input(
-      z.object({
-        ids: z.array(z.string())
-      })
-    )
+    .input(z.object({ ids: z.array(z.string()) }))
     .query(async ({ ctx, input }) => {
       const data = await ctx.db.find({
         collection: 'products',
-        depth: 2, // populate category, image, and tenant & tenant.image
+        depth: 2,
         where: {
-          and: [
-            {
-              id: {
-                in: input.ids
-              }
-            },
-            {
-              isArchived: {
-                not_equals: true
-              }
-            }
-          ]
+          and: [{ id: { in: input.ids } }, { isArchived: { not_equals: true } }]
         }
       });
+
       if (data.totalDocs !== input.ids.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Products not found'
         });
       }
+
       const totalPrice = data.docs.reduce((acc, product) => {
         const price = Number(product.price);
         return acc + (isNaN(price) ? 0 : price);
       }, 0);
+
       return {
         ...data,
-        totalPrice: totalPrice,
+        totalPrice,
         docs: data.docs.map((doc) => ({
           ...doc,
-          image: doc.image as Media | null, // settings types so we can get imageURL in product list
-          tenant: doc.tenant as Tenant & { image: Media | null } // no need for | null bc Tenant is required for all products
+          image: doc.image as Media | null,
+          tenant: doc.tenant as Tenant & { image: Media | null }
         }))
       };
     })
 });
+// });

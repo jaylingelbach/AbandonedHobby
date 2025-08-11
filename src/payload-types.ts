@@ -250,6 +250,18 @@ export interface Tenant {
    * You can not sell products until you have submitted your Stripe details.
    */
   stripeDetailsSubmitted?: boolean | null;
+  /**
+   * Primary owner/admin for this shop
+   */
+  primaryContact: string | User;
+  /**
+   * Where operational emails (sales, alerts) are sent
+   */
+  notificationEmail: string;
+  /**
+   * Greeting/display name for notifications
+   */
+  notificationName?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -271,17 +283,6 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tags".
- */
-export interface Tag {
-  id: string;
-  name: string;
-  products?: (string | Product)[] | null;
-  updatedAt: string;
-  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -317,6 +318,17 @@ export interface User {
       }[]
     | null;
   password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tags".
+ */
+export interface Tag {
+  id: string;
+  name: string;
+  products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -612,6 +624,9 @@ export interface TenantsSelect<T extends boolean = true> {
   image?: T;
   stripeAccountId?: T;
   stripeDetailsSubmitted?: T;
+  primaryContact?: T;
+  notificationEmail?: T;
+  notificationName?: T;
   updatedAt?: T;
   createdAt?: T;
 }

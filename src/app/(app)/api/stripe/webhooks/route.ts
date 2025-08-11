@@ -52,9 +52,6 @@ export async function POST(req: Request) {
       switch (event.type) {
         case 'checkout.session.completed':
           data = event.data.object as Stripe.Checkout.Session;
-          console.log(
-            `data obj from stripe checkout session on completed:  ${JSON.stringify(data, null, 2)}`
-          );
           if (!data.metadata?.userId) {
             throw new Error('User ID is required');
           }
@@ -177,44 +174,170 @@ export async function POST(req: Request) {
           const shipping_address_line2 = address.line2 ?? undefined;
 
           // Order confirmation email
-          await sendOrderConfirmationEmail({
-            // to: user.email,
-            to: 'jay@abandonedhobby.com',
-            name: name,
-            creditCardStatement:
-              charge.statement_descriptor ?? 'ABANDONED HOBBY',
-            creditCardBrand:
-              charge.payment_method_details?.card?.brand ?? 'N/A',
-            creditCardLast4:
-              charge.payment_method_details?.card?.last4 ?? '0000',
-            receiptId: order.id,
-            orderDate: new Date().toLocaleDateString('en-US'),
-            lineItems: receiptLineItems,
-            total: `$${(data.amount_total! / 100).toFixed(2)}`,
-            support_url:
-              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-            item_summary: summary
-          });
+          // await sendOrderConfirmationEmail({
+          //   // to: user.email,
+          //   to: 'jay@abandonedhobby.com',
+          //   name: user.firstName,
+          //   creditCardStatement:
+          //     charge.statement_descriptor ?? 'ABANDONED HOBBY',
+          //   creditCardBrand:
+          //     charge.payment_method_details?.card?.brand ?? 'N/A',
+          //   creditCardLast4:
+          //     charge.payment_method_details?.card?.last4 ?? '0000',
+          //   receiptId: order.id,
+          //   orderDate: new Date().toLocaleDateString('en-US'),
+          //   lineItems: receiptLineItems,
+          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
+          //   support_url:
+          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+          //   item_summary: summary
+          // });
 
+          const meta = expandedSession.metadata || {};
+          const metaTenantId = meta.tenantId as string | undefined;
+          const metaTenantSlug = meta.tenantSlug as string | undefined;
+          const metaSellerAccount = meta.sellerStripeAccountId as
+            | string
+            | undefined;
+
+          // Prefer metadata (what you set in the purchase mutation). Fallback to event.account.
+          let tenantDoc: any | null = null;
+
+          if (metaTenantId) {
+            try {
+              tenantDoc = await payload.findByID({
+                collection: 'tenants',
+                id: metaTenantId,
+                depth: 1 // populate primaryContact
+              });
+            } catch (e) {
+              console.warn(
+                '[webhook] tenant findByID by metadata.tenantId failed',
+                e
+              );
+            }
+          }
+
+          if (!tenantDoc && event.account) {
+            const tRes = await payload.find({
+              collection: 'tenants',
+              where: { stripeAccountId: { equals: event.account as string } },
+              limit: 1,
+              depth: 1
+            });
+            tenantDoc = tRes.docs[0] ?? null;
+          }
+
+          if (!tenantDoc) {
+            throw new Error(
+              `No tenant resolved. meta.tenantId=${metaTenantId} meta.tenantSlug=${metaTenantSlug} event.account=${event.account}`
+            );
+          }
+
+          // Optional sanity warning if metadata and event disagree
+          if (
+            metaSellerAccount &&
+            event.account &&
+            metaSellerAccount !== event.account
+          ) {
+            console.warn(
+              '[webhook] MISMATCH: event.account != metadata.sellerStripeAccountId',
+              {
+                eventAccount: event.account,
+                metaSellerAccount
+              }
+            );
+          }
+
+          // Resolve seller email & name with robust fallbacks
+          let primaryContact = tenantDoc.primaryContact;
+          if (primaryContact && typeof primaryContact === 'string') {
+            // fetch the contact if not populated
+            try {
+              primaryContact = await payload.findByID({
+                collection: 'users',
+                id: primaryContact
+              });
+            } catch (e) {
+              console.warn('[webhook] failed to load primaryContact', {
+                tenantId: tenantDoc.id,
+                err: e instanceof Error ? e.message : String(e)
+              });
+              primaryContact = null; // ensure clean fallback path
+            }
+          }
+
+          const sellerEmail: string | null =
+            tenantDoc.notificationEmail ||
+            (primaryContact && typeof primaryContact === 'object'
+              ? primaryContact.email
+              : null);
+
+          let sellerName: string =
+            tenantDoc.notificationName ||
+            (primaryContact && typeof primaryContact === 'object'
+              ? primaryContact.firstName || primaryContact.username
+              : '') ||
+            tenantDoc.name ||
+            'Seller';
+
+          console.log(
+            '[seller email debug]',
+            JSON.stringify(
+              {
+                eventAccount: event.account,
+                metaTenantId,
+                metaTenantSlug,
+                metaSellerAccount,
+                resolvedTenantId: tenantDoc.id,
+                resolvedTenantSlug: tenantDoc.slug,
+                resolvedTenantName: tenantDoc.name,
+                notificationEmail: tenantDoc.notificationEmail,
+                notificationName: tenantDoc.notificationName,
+                primaryContactIsObject: typeof primaryContact === 'object',
+                primaryContactEmail:
+                  typeof primaryContact === 'object'
+                    ? primaryContact.email
+                    : null,
+                primaryContactFirstName:
+                  typeof primaryContact === 'object'
+                    ? primaryContact.firstName
+                    : null,
+                finalSellerEmail: sellerEmail,
+                finalSellerName: sellerName
+              },
+              null,
+              2
+            )
+          );
+
+          if (!sellerEmail) {
+            throw new Error(
+              `No seller notification email configured for tenant ${tenantDoc.id}`
+            );
+          }
+
+          // Now send to the SELLER with the SELLER name; keep buyer shipping info
           await sendSaleNotificationEmail({
-            // to: grab from tenant (payload)
+            // to: sellerEmail
             to: 'jay@abandonedhobby.com',
-            name: user.username,
+            sellerName: sellerName,
             receiptId: order.id,
             orderDate: new Date().toLocaleDateString('en-US'),
             lineItems: receiptLineItems,
             total: `$${(data.amount_total! / 100).toFixed(2)}`,
             item_summary: summary,
-            shipping_name: name,
-            shipping_address_line1: address?.line1,
-            shipping_address_line2: shipping_address_line2,
-            shipping_city: address?.city,
-            shipping_state: address?.state,
-            shipping_zip: address?.postal_code,
-            shipping_country: address?.country,
+            shipping_name: customer.name!, // buyer
+            shipping_address_line1: address.line1!,
+            shipping_address_line2: address.line2 ?? undefined,
+            shipping_city: address.city!,
+            shipping_state: address.state!,
+            shipping_zip: address.postal_code!,
+            shipping_country: address.country!,
             support_url:
               process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
           });
+
           break;
 
         case 'account.updated':

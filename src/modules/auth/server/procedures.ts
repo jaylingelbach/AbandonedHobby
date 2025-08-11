@@ -76,11 +76,14 @@ export const authRouter = createTRPCRouter({
             name: input.username,
             slug: slug,
             stripeAccountId: account.id,
-            stripeDetailsSubmitted: false
+            stripeDetailsSubmitted: false,
+            primaryContact: '',
+            notificationEmail: input.email,
+            notificationName: input.firstName || input.username
           }
         });
 
-        await ctx.db.create({
+        const newUser = await ctx.db.create({
           collection: 'users',
           data: {
             firstName: input.firstName,
@@ -94,6 +97,16 @@ export const authRouter = createTRPCRouter({
                 tenant: tenant.id
               }
             ]
+          }
+        });
+
+        await ctx.db.update({
+          collection: 'tenants',
+          id: tenant.id,
+          data: {
+            primaryContact: newUser.id,
+            notificationEmail: input.email,
+            notificationName: input.firstName || input.username
           }
         });
       } catch (error) {
