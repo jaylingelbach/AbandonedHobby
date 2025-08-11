@@ -4,16 +4,23 @@ import config from '@payload-config';
 import { NextResponse } from 'next/server';
 
 import { stripe } from '@/lib/stripe';
-import { ExpandedLineItem } from '@/modules/checkout/types';
+import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
 import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
 
+import type { Tenant, User } from '@/payload-types';
 import { Order } from '@/payload-types';
 
 // stripeAccountId is for the SELLER. The buyer does not need one.
 export async function POST(req: Request) {
+  type TenantWithContact = Tenant & {
+    notificationEmail?: string | null;
+    notificationName?: string | null;
+    primaryContact?: string | User | null; // id or populated
+  };
+
   let event: Stripe.Event;
 
   console.log('🔥 Webhook endpoint hit');
@@ -170,46 +177,50 @@ export async function POST(req: Request) {
               'Cannot send sale email: shipping country is missing'
             );
 
-          // ok to be undefined - might not have a line2
-          const shipping_address_line2 = address.line2 ?? undefined;
-
           // Order confirmation email
-          // await sendOrderConfirmationEmail({
-          //   // to: user.email,
-          //   to: 'jay@abandonedhobby.com',
-          //   name: user.firstName,
-          //   creditCardStatement:
-          //     charge.statement_descriptor ?? 'ABANDONED HOBBY',
-          //   creditCardBrand:
-          //     charge.payment_method_details?.card?.brand ?? 'N/A',
-          //   creditCardLast4:
-          //     charge.payment_method_details?.card?.last4 ?? '0000',
-          //   receiptId: order.id,
-          //   orderDate: new Date().toLocaleDateString('en-US'),
-          //   lineItems: receiptLineItems,
-          //   total: `$${(data.amount_total! / 100).toFixed(2)}`,
-          //   support_url:
-          //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-          //   item_summary: summary
-          // });
+          await sendOrderConfirmationEmail({
+            // to: user.email,
+            to: 'jay@abandonedhobby.com',
+            name: user.firstName,
+            creditCardStatement:
+              charge.statement_descriptor ?? 'ABANDONED HOBBY',
+            creditCardBrand:
+              charge.payment_method_details?.card?.brand ?? 'N/A',
+            creditCardLast4:
+              charge.payment_method_details?.card?.last4 ?? '0000',
+            receiptId: order.id,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(data.amount_total! / 100).toFixed(2)}`,
+            support_url:
+              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+            item_summary: summary
+          });
 
-          const meta = expandedSession.metadata || {};
-          const metaTenantId = meta.tenantId as string | undefined;
-          const metaTenantSlug = meta.tenantSlug as string | undefined;
-          const metaSellerAccount = meta.sellerStripeAccountId as
-            | string
-            | undefined;
+          const rawMeta = expandedSession.metadata ?? {};
+          const meta: Partial<CheckoutMetadata> = {
+            userId: rawMeta.userId,
+            tenantId: rawMeta.tenantId,
+            tenantSlug: rawMeta.tenantSlug,
+            sellerStripeAccountId: rawMeta.sellerStripeAccountId,
+            productIds: rawMeta.productIds
+          };
+
+          const metaTenantId = meta.tenantId;
+          const metaTenantSlug = meta.tenantSlug;
+          const metaSellerAccount = meta.sellerStripeAccountId;
 
           // Prefer metadata (what you set in the purchase mutation). Fallback to event.account.
-          let tenantDoc: any | null = null;
+          let tenantDoc: TenantWithContact | null = null;
 
           if (metaTenantId) {
             try {
-              tenantDoc = await payload.findByID({
+              tenantDoc = (await payload.findByID({
                 collection: 'tenants',
                 id: metaTenantId,
-                depth: 1 // populate primaryContact
-              });
+                depth: 1,
+                overrideAccess: true // avoid admin UI access rules during webhooks
+              })) as TenantWithContact;
             } catch (e) {
               console.warn(
                 '[webhook] tenant findByID by metadata.tenantId failed',
@@ -223,9 +234,10 @@ export async function POST(req: Request) {
               collection: 'tenants',
               where: { stripeAccountId: { equals: event.account as string } },
               limit: 1,
-              depth: 1
+              depth: 1,
+              overrideAccess: true
             });
-            tenantDoc = tRes.docs[0] ?? null;
+            tenantDoc = (tRes.docs[0] ?? null) as TenantWithContact | null;
           }
 
           if (!tenantDoc) {
@@ -234,7 +246,6 @@ export async function POST(req: Request) {
             );
           }
 
-          // Optional sanity warning if metadata and event disagree
           if (
             metaSellerAccount &&
             event.account &&
@@ -250,35 +261,36 @@ export async function POST(req: Request) {
           }
 
           // Resolve seller email & name with robust fallbacks
-          let primaryContact = tenantDoc.primaryContact;
-          if (primaryContact && typeof primaryContact === 'string') {
-            // fetch the contact if not populated
+          const primaryRef = tenantDoc.primaryContact;
+          let primaryContactUser: User | null = null;
+
+          if (typeof primaryRef === 'string') {
             try {
-              primaryContact = await payload.findByID({
+              primaryContactUser = (await payload.findByID({
                 collection: 'users',
-                id: primaryContact
-              });
+                id: primaryRef,
+                depth: 0,
+                overrideAccess: true
+              })) as User;
             } catch (e) {
               console.warn('[webhook] failed to load primaryContact', {
                 tenantId: tenantDoc.id,
                 err: e instanceof Error ? e.message : String(e)
               });
-              primaryContact = null; // ensure clean fallback path
             }
+          } else if (primaryRef && typeof primaryRef === 'object') {
+            primaryContactUser = primaryRef as User;
           }
 
+          // --- final seller email & name (typed) ---
           const sellerEmail: string | null =
-            tenantDoc.notificationEmail ||
-            (primaryContact && typeof primaryContact === 'object'
-              ? primaryContact.email
-              : null);
+            tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
 
-          let sellerName: string =
-            tenantDoc.notificationName ||
-            (primaryContact && typeof primaryContact === 'object'
-              ? primaryContact.firstName || primaryContact.username
-              : '') ||
-            tenantDoc.name ||
+          const sellerName: string =
+            tenantDoc.notificationName ??
+            primaryContactUser?.firstName ??
+            primaryContactUser?.username ??
+            tenantDoc.name ??
             'Seller';
 
           console.log(
@@ -294,15 +306,9 @@ export async function POST(req: Request) {
                 resolvedTenantName: tenantDoc.name,
                 notificationEmail: tenantDoc.notificationEmail,
                 notificationName: tenantDoc.notificationName,
-                primaryContactIsObject: typeof primaryContact === 'object',
-                primaryContactEmail:
-                  typeof primaryContact === 'object'
-                    ? primaryContact.email
-                    : null,
-                primaryContactFirstName:
-                  typeof primaryContact === 'object'
-                    ? primaryContact.firstName
-                    : null,
+                primaryContactIsObject: !!primaryContactUser,
+                primaryContactEmail: primaryContactUser?.email ?? null,
+                primaryContactFirstName: primaryContactUser?.firstName ?? null,
                 finalSellerEmail: sellerEmail,
                 finalSellerName: sellerName
               },
@@ -317,11 +323,10 @@ export async function POST(req: Request) {
             );
           }
 
-          // Now send to the SELLER with the SELLER name; keep buyer shipping info
           await sendSaleNotificationEmail({
-            // to: sellerEmail
+            // to: sellerEmail,
             to: 'jay@abandonedhobby.com',
-            sellerName: sellerName,
+            sellerName, // 👈 camelCase here
             receiptId: order.id,
             orderDate: new Date().toLocaleDateString('en-US'),
             lineItems: receiptLineItems,
@@ -369,6 +374,6 @@ export async function POST(req: Request) {
       );
     }
   }
-  // always have to return something for the webhook.
+
   return NextResponse.json({ message: 'Received' }, { status: 200 });
 }
