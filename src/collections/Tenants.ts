@@ -61,6 +61,32 @@ export const Tenants: CollectionConfig = {
         description:
           'You can not sell products until you have submitted your Stripe details. '
       }
+    },
+    {
+      name: 'primaryContact',
+      type: 'relationship',
+      relationTo: 'users',
+      required: true,
+      admin: { description: 'Primary owner/admin for this shop' },
+      access: {
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'notificationEmail',
+      type: 'email',
+      required: true,
+      admin: {
+        description: 'Where operational emails (sales, alerts) are sent'
+      },
+      access: { update: ({ req: { user } }) => isSuperAdmin(user) }
+    },
+    {
+      name: 'notificationName',
+      type: 'text',
+      required: false,
+      admin: { description: 'Greeting/display name for notifications' },
+      access: { update: ({ req: { user } }) => isSuperAdmin(user) }
     }
   ]
 };

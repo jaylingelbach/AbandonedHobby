@@ -9,7 +9,7 @@ type LineItem = {
 
 type SendSaleNotificationOptions = {
   to: string;
-  name: string;
+  sellerName: string;
   receiptId: string;
   orderDate: string;
   lineItems: LineItem[];
@@ -118,9 +118,10 @@ export const sendOrderConfirmationEmail = async ({
   }
 };
 
+// sendEmail.ts
 export const sendSaleNotificationEmail = async ({
   to,
-  name,
+  sellerName,
   receiptId,
   orderDate,
   lineItems,
@@ -135,27 +136,31 @@ export const sendSaleNotificationEmail = async ({
   shipping_country
 }: SendSaleNotificationOptions) => {
   try {
+    const model = {
+      seller_name: sellerName,
+      receipt_id: receiptId,
+      date: orderDate,
+      total,
+      receipt_details: lineItems,
+      item_summary,
+      support_url: process.env.SUPPORT_URL,
+      product_name: 'Abandoned Hobby',
+      shipping_name,
+      shipping_address_line1,
+      shipping_address_line2,
+      shipping_city,
+      shipping_state,
+      shipping_zip,
+      shipping_country
+    };
+
+    console.log('[postmark model][seller]', JSON.stringify(model, null, 2)); // 👈 log it
+
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
       To: to,
       TemplateId: Number(process.env.POSTMARK_SALE_CONFIRMATION_TEMPLATEID!),
-      TemplateModel: {
-        name,
-        receipt_id: receiptId,
-        date: orderDate,
-        total,
-        receipt_details: lineItems,
-        item_summary,
-        support_url: process.env.SUPPORT_URL,
-        product_name: 'Abandoned Hobby',
-        shipping_name,
-        shipping_address_line1,
-        shipping_address_line2,
-        shipping_city,
-        shipping_state,
-        shipping_zip,
-        shipping_country
-      }
+      TemplateModel: model
     });
   } catch (error) {
     console.error('Failed to send email:', error);
