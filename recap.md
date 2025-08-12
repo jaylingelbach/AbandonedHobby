@@ -1408,3 +1408,4 @@ File Changes:
 - Seed & admin linking
   - src/lib/seed.ts
     - Seed flow becomes admin-user–driven: ensure admin user exists (creates if missing), create/verify admin tenant with Stripe account, set primaryContact and notificationEmail, and link admin tenant to admin user; improved logging and password enforcement.
+
