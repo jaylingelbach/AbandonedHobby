@@ -1364,3 +1364,48 @@ File Changes:
 - Admin UI Component Configuration
 - src/payload.config.ts
   - Added beforeLogin array to admin UI components configuration, including the AbandonedHobbyLink component to be rendered before the login screen; minor formatting adjustment to beforeNavLinks.
+
+# Welcome email
+
+### New features
+
+- Seller sale notification emails and Postmark welcome emails; admin seeding ensures admin user/tenant.
+- Tenant-aware storefronts, per-tenant branding/navigation, and pre-login admin link.
+- Library for purchased products, in-app notifications, and chat.
+
+### Improvements
+
+- Checkout enforces single-seller carts and performs seller-specific checkout/redirects.
+- Dynamic rendering for sign-in, sign-up, and library pages.
+- Richer product pages, debounced search, tag filtering, and sorting.
+
+- Payments
+  - Tenant Stripe onboarding/verification, improved webhook validation, richer receipts/shipping details, and platform-fee support.
+
+- Access Control
+  - Stricter admin visibility and super-admin checks.
+
+### File changes:
+
+- Stripe webhooks & email helpers
+  - src/app/(app)/api/stripe/webhooks/route.ts, src/lib/sendEmail.ts
+    - Verify Stripe webhook signatures; resolve tenant/seller from session metadata or event.account; create Orders and extract payment/charge details; send seller sale notifications via Postmark; add sendWelcomeEmailTemplate; rename sale payload field to sellerName; unify From address; improve logging and error handling.
+- Tenants schema & payload types
+  - src/collections/Tenants.ts, src/payload-types.ts
+    - Add primaryContact (relationship to users), notificationEmail, notificationName to Tenants; restrict update access to super-admin; expose new Tenant fields/selectors in payload types.
+- Users schema, hook & types
+  - src/collections/Users.ts, src/payload-types.ts
+    - Add firstName, lastName, welcomeEmailSent; add afterChange hook to send welcome email on create and set welcomeEmailSent; update types/selectors.
+- Auth: validation, server, UI
+  - src/modules/auth/schemas.ts, src/modules/auth/server/procedures.ts, src/modules/auth/ui/views/sign-up-view.tsx
+    - Add required firstName/lastName to register schema and SignUp UI; persist names and welcomeEmailSent on user creation; create tenant with notification fields and patch primaryContact to new user to link tenant↔user.
+- Checkout flow, types & UI mutation
+  - src/modules/checkout/server/procedures.ts, src/modules/checkout/types.ts, src/modules/checkout/ui/views/checkout-view.tsx
+    - Remove tenantSlug from purchase input; derive seller from product tenant refs, enforce single-seller carts, require seller Stripe account; create Checkout Session on connected account with metadata (userId, tenantId, tenantSlug, sellerStripeAccountId, productIds); compute rounded pricing; frontend mutation drops tenantSlug.
+- Next.js dynamic pages
+  - src/app/(app)/(auth)/sign-in/page.tsx, src/app/(app)/(auth)/sign-up/page.tsx, src/app/(app)/(library)/library/page.tsx, src/app/(app)/(library)/library/[productId]/page.tsx
+    - Export export const dynamic = 'force-dynamic' on these pages to force dynamic rendering.
+- Seed & admin linking
+  - src/lib/seed.ts
+    - Seed flow becomes admin-user–driven: ensure admin user exists (creates if missing), create/verify admin tenant with Stripe account, set primaryContact and notificationEmail, and link admin tenant to admin user; improved logging and password enforcement.
+
