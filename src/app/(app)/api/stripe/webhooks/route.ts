@@ -75,19 +75,26 @@ export async function POST(req: Request) {
                 'Stripe account ID is required for order creation'
               );
             }
-            const expandedSession = await stripe.checkout.sessions.retrieve(
-              data.id,
-              {
-                expand: [
-                  'line_items.data.price.product',
-                  'shipping',
-                  'customer_details'
-                ]
-              },
-              {
-                stripeAccount: event.account
-              }
-            );
+            let expandedSession;
+            try {
+              expandedSession = await stripe.checkout.sessions.retrieve(
+                data.id,
+                {
+                  expand: [
+                    'line_items.data.price.product',
+                    'shipping',
+                    'customer_details'
+                  ]
+                },
+                {
+                  stripeAccount: event.account
+                }
+              );
+            } catch (error) {
+              throw new Error(
+                `Failed to retrieve Stripe session: ${error instanceof Error ? error.message : 'Unknown error'}`
+              );
+            }
             if (
               !expandedSession.line_items?.data ||
               !expandedSession.line_items?.data.length
@@ -107,24 +114,30 @@ export async function POST(req: Request) {
               [];
 
             for (const item of lineItems) {
-              const order = await payload.create({
-                collection: 'orders',
-                data: {
-                  stripeCheckoutSessionId: data.id,
-                  stripeAccountId: event.account,
-                  user: user.id,
-                  product: item.price.product.metadata.id,
-                  name: item.price.product.name,
-                  total: data.amount_total ?? 0
-                }
-              });
+              try {
+                const order = await payload.create({
+                  collection: 'orders',
+                  data: {
+                    stripeCheckoutSessionId: data.id,
+                    stripeAccountId: event.account,
+                    user: user.id,
+                    product: item.price.product.metadata.id,
+                    name: item.price.product.name,
+                    total: data.amount_total ?? 0
+                  }
+                });
 
-              createdOrders.push(order);
+                createdOrders.push(order);
 
-              receiptLineItems.push({
-                description: item.price.product.name,
-                amount: `$${(item.amount_total / 100).toFixed(2)}`
-              });
+                receiptLineItems.push({
+                  description: item.price.product.name,
+                  amount: `$${(item.amount_total / 100).toFixed(2)}`
+                });
+              } catch (error) {
+                throw new Error(
+                  `Failed to create order for product ${item.price.product.metadata.id}: ${error instanceof Error ? error.message : 'Unknown error'}`
+                );
+              }
             }
 
             if (!createdOrders.length) {
@@ -138,19 +151,28 @@ export async function POST(req: Request) {
             }
             console.log(`expanded session! ${expandedSession}`);
 
+            let paymentIntent, charge;
+
             // payment details
-            const paymentIntent = await stripe.paymentIntents.retrieve(
-              data.payment_intent as string,
-              { expand: ['charges.data.payment_method_details'] },
-              { stripeAccount: event.account }
-            );
+            try {
+              paymentIntent = await stripe.paymentIntents.retrieve(
+                data.payment_intent as string,
+                { expand: ['charges.data.payment_method_details'] },
+                { stripeAccount: event.account }
+              );
 
-            const chargeId = paymentIntent.latest_charge;
-            if (!chargeId) throw new Error('No charge found on paymentIntent');
+              const chargeId = paymentIntent.latest_charge;
+              if (!chargeId)
+                throw new Error('No charge found on paymentIntent');
 
-            const charge = await stripe.charges.retrieve(chargeId as string, {
-              stripeAccount: event.account
-            });
+              charge = await stripe.charges.retrieve(chargeId as string, {
+                stripeAccount: event.account
+              });
+            } catch (error) {
+              throw new Error(
+                `Failed to retrieve payment details: ${error instanceof Error ? error.message : 'Unknown error'}`
+              );
+            }
 
             const summary = receiptLineItems
               .map((item) => item.description)
