@@ -1365,7 +1365,7 @@ File Changes:
 - src/payload.config.ts
   - Added beforeLogin array to admin UI components configuration, including the AbandonedHobbyLink component to be rendered before the login screen; minor formatting adjustment to beforeNavLinks.
 
-# Welcome email
+# Welcome email 8/12/25
 
 ### New features
 
@@ -1408,4 +1408,3 @@ File Changes:
 - Seed & admin linking
   - src/lib/seed.ts
     - Seed flow becomes admin-user–driven: ensure admin user exists (creates if missing), create/verify admin tenant with Stripe account, set primaryContact and notificationEmail, and link admin tenant to admin user; improved logging and password enforcement.
-
