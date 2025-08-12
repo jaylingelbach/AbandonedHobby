@@ -1,4 +1,3 @@
-// src/collections/Notifications.ts
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 

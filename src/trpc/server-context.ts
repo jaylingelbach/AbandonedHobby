@@ -1,4 +1,3 @@
-// src/trpc/server-context.ts
 import type { NextApiRequest } from 'next';
 import { getPayload } from 'payload';
 import config from '@payload-config';
