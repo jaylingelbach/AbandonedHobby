@@ -255,7 +255,11 @@ async function seed() {
   // ───────────────────────────────────────────────────────
   try {
     // 2a) Ensure admin user exists (create if needed)
-    const adminEmail = 'jay@demo.com';
+    const adminEmail = process.env.ADMIN_SEED_EMAIL ?? 'admin@example.com';
+    const adminPassword = process.env.ADMIN_SEED_PASSWORD;
+    if (!adminPassword) {
+      throw new Error('Admin password needed to seed account');
+    }
     let adminUser = (
       await payload.find({
         collection: 'users',
@@ -270,17 +274,13 @@ async function seed() {
       adminUser = await payload.create({
         collection: 'users',
         data: {
-          email: 'jay@demo.com',
-          password: 'xXGolden69420%21xX',
+          email: adminEmail,
+          password: adminPassword,
           username: 'admin',
           roles: ['super-admin'],
-
-          // ✅ required by your schema
           firstName: 'Admin',
           lastName: 'User',
-          welcomeEmailSent: true, // set true if you want to avoid your welcome-email hook running during seed
-
-          // optional, can link tenant after you create it
+          welcomeEmailSent: true, // skip welcome email during seed.
           tenants: []
         },
         overrideAccess: true
@@ -304,7 +304,7 @@ async function seed() {
       const adminAccount = await stripe.accounts.create({
         type: 'standard',
         business_type: 'individual',
-        business_profile: { url: 'https://your-domain.com' }
+        business_profile: { url: process.env.APP_URL }
       });
 
       adminTenant = await payload.create({
@@ -313,11 +313,9 @@ async function seed() {
           name: 'admin',
           slug: 'admin',
           stripeAccountId: adminAccount.id,
-          // ⬇⬇ REQUIRED by your current Tenant type
           primaryContact: adminUser.id,
-          notificationEmail: adminUser.email
-          // if your schema requires stripeDetailsSubmitted, set it too:
-          // stripeDetailsSubmitted: false,
+          notificationEmail: adminUser.email,
+          stripeDetailsSubmitted: true
         },
         overrideAccess: true
       });
@@ -326,7 +324,7 @@ async function seed() {
       console.log('⚡️ "admin" tenant exists', adminTenant.id);
     }
 
-    // 2c) Make sure the user has the tenant added in their tenants array
+    // Make sure the user has the tenant added in their tenants array
     const hasTenant =
       Array.isArray(adminUser.tenants) &&
       adminUser.tenants.some(
