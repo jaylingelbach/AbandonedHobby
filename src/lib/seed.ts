@@ -254,62 +254,98 @@ async function seed() {
   // 2) Seed an "admin" tenant and user (skip if they already exist)
   // ───────────────────────────────────────────────────────
   try {
-    // 2a) Check if the "admin" tenant already exists
-    const existingTenantResult = await payload.find({
-      collection: 'tenants',
-      where: { slug: { equals: 'admin' } },
-      limit: 1
-    });
-    let adminTenantId: string;
+    // 2a) Ensure admin user exists (create if needed)
+    const adminEmail = 'jay@demo.com';
+    let adminUser = (
+      await payload.find({
+        collection: 'users',
+        where: { email: { equals: adminEmail } },
+        limit: 1,
+        overrideAccess: true,
+        depth: 0
+      })
+    ).docs[0];
 
-    if (existingTenantResult.docs.length > 0 && existingTenantResult.docs[0]) {
-      adminTenantId = existingTenantResult.docs[0].id;
-      console.log(
-        `⚡️ "admin" tenant already exists (ID: ${adminTenantId}). Skipping creation.`
-      );
+    if (!adminUser) {
+      adminUser = await payload.create({
+        collection: 'users',
+        data: {
+          email: 'jay@demo.com',
+          password: 'xXGolden69420%21xX',
+          username: 'admin',
+          roles: ['super-admin'],
+
+          // ✅ required by your schema
+          firstName: 'Admin',
+          lastName: 'User',
+          welcomeEmailSent: true, // set true if you want to avoid your welcome-email hook running during seed
+
+          // optional, can link tenant after you create it
+          tenants: []
+        },
+        overrideAccess: true
+      });
     } else {
-      // 2b) Create the "admin" tenant
+      console.log('⚡️ Admin user exists', adminEmail);
+    }
+
+    // 2b) Ensure admin tenant exists (create if needed)
+    let adminTenant = (
+      await payload.find({
+        collection: 'tenants',
+        where: { slug: { equals: 'admin' } },
+        limit: 1,
+        overrideAccess: true,
+        depth: 0
+      })
+    ).docs[0];
+
+    if (!adminTenant) {
       const adminAccount = await stripe.accounts.create({
         type: 'standard',
         business_type: 'individual',
         business_profile: { url: 'https://your-domain.com' }
       });
-      const createdTenant = await payload.create({
+
+      adminTenant = await payload.create({
         collection: 'tenants',
         data: {
           name: 'admin',
           slug: 'admin',
-          stripeAccountId: adminAccount.id
-        }
+          stripeAccountId: adminAccount.id,
+          // ⬇⬇ REQUIRED by your current Tenant type
+          primaryContact: adminUser.id,
+          notificationEmail: adminUser.email
+          // if your schema requires stripeDetailsSubmitted, set it too:
+          // stripeDetailsSubmitted: false,
+        },
+        overrideAccess: true
       });
-      adminTenantId = createdTenant.id;
-      console.log(`✅ Created "admin" tenant (ID: ${adminTenantId}).`);
+      console.log('✅ Created "admin" tenant', adminTenant.id);
+    } else {
+      console.log('⚡️ "admin" tenant exists', adminTenant.id);
     }
 
-    // 2c) Check if the admin user already exists
-    const existingUserResult = await payload.find({
-      collection: 'users',
-      where: { email: { equals: 'jay@demo.com' } },
-      limit: 1
-    });
-
-    if (existingUserResult.docs.length > 0) {
-      console.log(
-        `⚡️ Admin user "jay@demo.com" already exists. Skipping creation.`
+    // 2c) Make sure the user has the tenant added in their tenants array
+    const hasTenant =
+      Array.isArray(adminUser.tenants) &&
+      adminUser.tenants.some(
+        (t) => String(t?.tenant) === String(adminTenant!.id)
       );
-    } else {
-      // 2d) Create the "admin" user
-      await payload.create({
+
+    if (!hasTenant) {
+      await payload.update({
         collection: 'users',
+        id: adminUser.id,
         data: {
-          email: 'jay@demo.com',
-          password: 'xXGolden69420%21xX', // Ensure this matches your ENV or is hashed as needed
-          roles: ['super-admin'],
-          username: 'admin',
-          tenants: [{ tenant: adminTenantId }]
-        }
+          tenants: [
+            ...(Array.isArray(adminUser.tenants) ? adminUser.tenants : []),
+            { tenant: adminTenant.id }
+          ]
+        },
+        overrideAccess: true
       });
-      console.log('✅ Created admin user jay@demo.com.');
+      console.log('🔗 Linked admin user -> admin tenant');
     }
   } catch (error) {
     console.error('Error seeding admin tenant/user:', error);
