@@ -1441,3 +1441,4 @@ File Changes:
     - Added Poppins font import and cn utility; applied Poppins className to footer text for typography styling only.
 - Whitespace cleanup
   - src/modules/home/ui/components/search-filters/categories.tsx
+    - Removed two blank lines around a hidden measurement block; no functional changes.
