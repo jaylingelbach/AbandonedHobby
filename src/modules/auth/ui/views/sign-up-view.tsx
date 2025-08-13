@@ -24,6 +24,8 @@ import {
 import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import { registerSchema } from '../../schemas';
+import { useState } from 'react';
+import { Eye, EyeOff } from 'lucide-react';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -31,6 +33,8 @@ const poppins = Poppins({
 });
 
 function SignUpView() {
+  const [showPassword, setShowPassword] = useState(false);
+
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
@@ -131,7 +135,7 @@ function SignUpView() {
                   <FormLabel className="text-base">Username</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
-                    <Input {...field} />
+                    <Input {...field} autoComplete="username" />
                   </FormControl>
                   <FormDescription
                     className={cn('hidden', showPreview && 'block')}
@@ -163,11 +167,35 @@ function SignUpView() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-base">Password</FormLabel>
-                  <FormControl>
-                    {/* spreading the field ensures you have all the things like onChange onBlur and state */}
-                    <Input {...field} type="password" />
-                  </FormControl>
-
+                  <div className="relative">
+                    <FormControl>
+                      {/* spreading the field ensures you have all the things like onChange onBlur and state */}
+                      <Input
+                        {...field}
+                        type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        className="pr-12"
+                      />
+                    </FormControl>
+                    <button
+                      type="button"
+                      className="absolute inset-y-0 right-2 my-auto h-8 rounded px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                      onClick={() => setShowPassword((v) => !v)}
+                      onMouseDown={(e) =>
+                        e.preventDefault()
+                      } /* keep cursor focus in input */
+                      aria-label={
+                        showPassword ? 'Hide password' : 'Show password'
+                      }
+                      aria-pressed={showPassword}
+                    >
+                      {showPassword ? (
+                        <Eye className="cursor-pointer" />
+                      ) : (
+                        <EyeOff className="cursor-pointer" />
+                      )}
+                    </button>
+                  </div>
                   <FormMessage />
                 </FormItem>
               )}
