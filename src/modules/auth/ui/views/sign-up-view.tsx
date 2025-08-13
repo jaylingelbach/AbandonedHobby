@@ -135,7 +135,7 @@ function SignUpView() {
                   <FormLabel className="text-base">Username</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
-                    <Input {...field} />
+                    <Input {...field} autoComplete="username" />
                   </FormControl>
                   <FormDescription
                     className={cn('hidden', showPreview && 'block')}
@@ -173,10 +173,13 @@ function SignUpView() {
                       <Input
                         {...field}
                         type={showPassword ? 'text' : 'password'}
+                        autoComplete="new-password"
+                        className="pr-12"
                       />
                     </FormControl>
                     <button
                       type="button"
+                      className="absolute inset-y-0 right-2 my-auto h-8 rounded px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       onClick={() => setShowPassword((v) => !v)}
                       onMouseDown={(e) =>
                         e.preventDefault()
@@ -185,7 +188,6 @@ function SignUpView() {
                         showPassword ? 'Hide password' : 'Show password'
                       }
                       aria-pressed={showPassword}
-                      className="absolute inset-y-0 right-2 my-auto h-8 rounded px-2"
                     >
                       {showPassword ? (
                         <Eye className="cursor-pointer" />

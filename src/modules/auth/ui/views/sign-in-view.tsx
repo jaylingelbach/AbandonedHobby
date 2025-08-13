@@ -101,7 +101,7 @@ function SignInView() {
                   <FormLabel className="text-base">Email</FormLabel>
                   <FormControl>
                     {/* spreading the field ensures you have all the things like onChange onBlur and state */}
-                    <Input {...field} />
+                    <Input {...field} autoComplete="email" />
                   </FormControl>
 
                   <FormMessage />
