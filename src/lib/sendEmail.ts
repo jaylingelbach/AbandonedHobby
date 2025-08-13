@@ -48,6 +48,7 @@ type SendWelcomeOptions = {
   username: string;
   sender_name: string;
   support_url: string;
+  support_email: string;
 };
 
 export const sendWelcomeEmailTemplate = async ({
@@ -57,7 +58,8 @@ export const sendWelcomeEmailTemplate = async ({
   login_url,
   username,
   sender_name,
-  support_url
+  support_url,
+  support_email
 }: SendWelcomeOptions) => {
   try {
     await postmark.sendEmailWithTemplate({
@@ -71,7 +73,8 @@ export const sendWelcomeEmailTemplate = async ({
         login_url,
         username,
         sender_name,
-        support_url
+        support_url,
+        support_email
       }
     });
   } catch (error) {

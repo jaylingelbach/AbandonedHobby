@@ -59,8 +59,9 @@ export const Users: CollectionConfig = {
               action_url: 'https://www.abandonedhobby.com/sign-in',
               login_url: 'https://www.abandonedhobby.com/sign-in',
               username: doc.username,
-              sender_name: process.env.POSTMARK_FROM_EMAIL!,
-              support_url: process.env.SUPPORT_URL!
+              sender_name: 'Jay',
+              support_url: process.env.SUPPORT_URL!,
+              support_email: process.env.POSTMARK_SUPPORT_EMAIL!
             });
             await req.payload.update({
               collection: 'users',

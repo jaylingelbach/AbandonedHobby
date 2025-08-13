@@ -19,7 +19,7 @@ interface Category {
 
 const categories: Category[] = [
   {
-    name: 'Clear all category filters',
+    name: 'All categories',
     slug: 'all',
     color: '#CCCCCC'
   },
@@ -413,7 +413,7 @@ async function seed() {
             console.log(`✅ Created subcategory: ${subCategory.slug}`);
           }
 
-          // If there are nested sub-subcategories, repeat again
+          // If there are nested sub-subcategories, repeat the pattern.
           if (
             subCategory.subcategories &&
             subCategory.subcategories.length > 0
