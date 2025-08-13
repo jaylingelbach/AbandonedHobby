@@ -1,4 +1,3 @@
-// src/components/providers/LiveblocksWrapper.tsx
 'use client';
 
 import { LiveblocksProvider } from '@liveblocks/react';

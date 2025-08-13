@@ -1,4 +1,3 @@
-// src/app/(app)/layout.tsx
 import { DM_Sans } from 'next/font/google';
 import type { Metadata } from 'next';
 import { TRPCReactProvider } from '@/trpc/client';

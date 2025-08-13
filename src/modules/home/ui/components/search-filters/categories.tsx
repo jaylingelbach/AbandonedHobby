@@ -65,7 +65,6 @@ export const Categories = ({ data }: Props) => {
   return (
     <div className="relative w-full">
       <CategoriesSidebar open={isSidebarOpen} onOpenChange={setIsSidebarOpen} />
-
       {/* hidden to measure all items   */}
       <div
         ref={measurerRef}
@@ -82,7 +81,6 @@ export const Categories = ({ data }: Props) => {
           </div>
         ))}
       </div>
-
       {/* Visible items */}
       <div
         className="flex flex-nowrap items-center"

@@ -1,4 +1,3 @@
-// src/app/api/liveblocks-auth/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { Liveblocks } from '@liveblocks/node';
 import { getAuthUser } from '@/lib/get-auth-user'; // see note below

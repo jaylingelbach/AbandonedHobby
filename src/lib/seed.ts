@@ -1,4 +1,3 @@
-// src/lib/seed.ts
 import dotenv from 'dotenv';
 import { getPayload } from 'payload';
 import config from '@payload-config'; // Adjust this path if your payload config is located elsewhere
@@ -20,7 +19,7 @@ interface Category {
 
 const categories: Category[] = [
   {
-    name: 'Clear all category filters',
+    name: 'All categories',
     slug: 'all',
     color: '#CCCCCC'
   },
@@ -354,7 +353,7 @@ async function seed() {
   // ───────────────────────────────────────────────────────
   for (const category of categories) {
     try {
-      // 3a) Check if the parent category already exists
+      // Check if the parent category already exists
       const existingParentResult = await payload.find({
         collection: 'categories',
         where: { slug: { equals: category.slug } },
@@ -369,7 +368,7 @@ async function seed() {
         parentCategoryId = existingParentResult.docs[0].id;
         console.log(`⚡️ Skipping existing category: ${category.slug}`);
       } else {
-        // 3b) Create the parent category
+        // Create the parent category
         const createdParent = await payload.create({
           collection: 'categories',
           data: {
@@ -383,7 +382,7 @@ async function seed() {
         console.log(`✅ Created category: ${category.slug}`);
       }
 
-      // 3c) For each subcategory, repeat the pattern
+      // For each subcategory, repeat the pattern
       if (category.subcategories && category.subcategories.length > 0) {
         for (const subCategory of category.subcategories) {
           // Check if subcategory exists
@@ -414,7 +413,7 @@ async function seed() {
             console.log(`✅ Created subcategory: ${subCategory.slug}`);
           }
 
-          // 3d) If there are nested sub-subcategories, repeat again
+          // If there are nested sub-subcategories, repeat the pattern.
           if (
             subCategory.subcategories &&
             subCategory.subcategories.length > 0
