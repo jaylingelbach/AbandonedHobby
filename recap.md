@@ -1408,3 +1408,36 @@ File Changes:
 - Seed & admin linking
   - src/lib/seed.ts
     - Seed flow becomes admin-user–driven: ensure admin user exists (creates if missing), create/verify admin tenant with Stripe account, set primaryContact and notificationEmail, and link admin tenant to admin user; improved logging and password enforcement.
+
+# Small changes filed under bugs 8/13/25
+
+### Walkthrough
+
+- Removed header comment lines in several files, simplified inline comments and one seed category label, added a required support_email field to the welcome-email type and template payload, updated the users collection to pass support_email and a static sender_name to the welcome-email call, and applied a Poppins font styling to the footer.
+
+### New Features
+
+- Welcome emails now include a visible support email address.
+
+- Style
+  - Updated footer typography to use the Poppins font.
+  - Removed redundant header comments across multiple files.
+- Chores
+  - Simplified inline comments and updated a seed category label ("All categories"); no functional or API changes.
+
+### File changes:
+
+- Header comment cleanup
+  - src/app/(app)/layout.tsx, src/app/api/liveblocks-auth/route.ts, src/collections/Notifications.ts, src/components/providers/liveblocks-wrapper.tsx, src/lib/liveblocks.ts, src/trpc/server-context.ts
+    - Removed top-of-file header comment lines only; no code, API, or behavior changes.
+- Seed data & comments
+  - src/lib/seed.ts
+    - Removed header comment; changed first category name to "All categories"; simplified inline comment labels and adjusted one line of wording. No logic changes.
+- Email API and usage
+  - src/lib/sendEmail.ts, src/collections/Users.ts
+    - Added required support_email: string to SendWelcomeOptions and included it in the Postmark template model; updated users collection afterChange to pass sender_name: 'Jay', add support_email (from env), and keep support_url. Call site email recipient remains static.
+- UI styling
+  - src/modules/home/ui/components/footer.tsx
+    - Added Poppins font import and cn utility; applied Poppins className to footer text for typography styling only.
+- Whitespace cleanup
+  - src/modules/home/ui/components/search-filters/categories.tsx
