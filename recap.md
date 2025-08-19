@@ -1252,7 +1252,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Navbar Layout Refactor
   - src/modules/tenants/ui/components/navbar.tsx Refactors Navbar from flexbox to grid layout, introduces a home icon link, centers tenant info, right-aligns the checkout button, simplifies image source logic, and reorganizes imports.
 
-# Fix read access for notifications and Home button in CMS 7/31/25
+# Fix read access for notifications and Home button in CMS 7/31/25 bug/fix/update-notification
 
 ### Walkthrough
 
@@ -1442,3 +1442,26 @@ File Changes:
 - Whitespace cleanup
   - src/modules/home/ui/components/search-filters/categories.tsx
     - Removed two blank lines around a hidden measurement block; no functional changes.
+
+# Toggle password hidden
+
+### Walkthrough
+
+- Adds client-side password visibility toggles to SignInView and SignUpView (local showPassword state, toggle button, Eye/EyeOff icons, ARIA attributes, autoComplete tweaks). Also removes two blank lines in a home search-filters component; no functional change.
+
+### New features
+
+- Added a password visibility toggle to Sign In and Sign Up forms, preserving focus, updating accessible labels/pressed state, and switching between hidden and plain text without changing validation or submission. Inputs now include appropriate autocomplete hints (email, username, current/new password).
+  Style
+
+- Minor whitespace cleanup in UI code with no user-facing impact.
+
+### File changes:
+
+- Auth: Password visibility toggle
+  - src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx
+    - Introduce showPassword state, add a right-aligned toggle button that switches input type between password and text, render Eye/EyeOff icons, update aria-label/aria-pressed, add appropriate autoComplete attributes, preserve existing validation/submission logic.
+
+- Home: Whitespace cleanup
+  - src/modules/home/ui/components/search-filters/categories.tsx
+    - Remove two extra blank lines around a hidden measurement block; whitespace-only change, no functional impact.

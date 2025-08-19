@@ -56,12 +56,13 @@ export const Users: CollectionConfig = {
               // to: doc.email,
               name: doc.firstName,
               product_name: 'Abandoned Hobby',
-              action_url: 'https://www.abandonedhobby.com/sign-in',
-              login_url: 'https://www.abandonedhobby.com/sign-in',
+              action_url: process.env.ACTION_URL!,
+              login_url: process.env.SIGNIN_URL!,
               username: doc.username,
               sender_name: 'Jay',
               support_url: process.env.SUPPORT_URL!,
-              support_email: process.env.POSTMARK_SUPPORT_EMAIL!
+              support_email: process.env.POSTMARK_SUPPORT_EMAIL!,
+              verification_url: process.env.POSTMARK_VERIFICATION_URL!
             });
             await req.payload.update({
               collection: 'users',
@@ -101,6 +102,19 @@ export const Users: CollectionConfig = {
       defaultValue: false,
       access: {
         read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'emailVerified',
+      type: 'checkbox',
+      defaultValue: false,
+      access: {
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        readOnly: true,
+        description:
+          'You can not buy products until you have verified your emails. '
       }
     },
     {

@@ -378,6 +378,9 @@ export async function POST(req: Request) {
         case 'account.updated':
           {
             data = event.data.object as Stripe.Account;
+            console.log(
+              `data stripe verification been complete? ${data.details_submitted}`
+            );
             if (!data) {
               throw new Error('Account data is required');
             }
