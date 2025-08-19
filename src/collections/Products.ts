@@ -1,45 +1,9 @@
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { getPayload } from 'payload';
-import config from '@payload-config';
-import type { Tenant } from '@/payload-types';
+import { User } from '@/payload-types';
 
 export const Products: CollectionConfig = {
   slug: 'products',
-  //   create: async ({ req: { user } }) => {
-  //     // 1) Super-admins can always create
-  //     if (isSuperAdmin(user)) return true;
-
-  //     // 2) Pull out the raw `tenant` field from the user session
-  //     const tenantRel = user?.tenants?.[0]?.tenant;
-  //     if (!tenantRel) return false;
-
-  //     // 3) If it's a string, fetch the full Tenant doc; otherwise assume it's already populated
-  //     let tenantObj: Tenant | null = null;
-  //     if (typeof tenantRel === 'string') {
-  //       try {
-  //         const payload = await getPayload({ config });
-  //         tenantObj = await payload.findByID({
-  //           collection: 'tenants',
-  //           id: tenantRel
-  //         });
-  //       } catch (error) {
-  //         console.error('Failed to fetch tenant:', error);
-  //         return false;
-  //       }
-  //     } else {
-  //       tenantObj = tenantRel;
-  //     }
-
-  //     if (!tenantObj) return false;
-
-  //     // 4) Finally, check for a Stripe account ID (or stripeDetailsSubmitted)
-  //     return Boolean(tenantObj.stripeAccountId);
-  //     // or if you really want the checkbox flag:
-  //     // return Boolean(tenantObj.stripeDetailsSubmitted);
-  //   },
-  //   delete: ({ req: { user } }) => isSuperAdmin(user)
-  // },
   access: {
     create: mustBeStripeVerified,
     update: mustBeStripeVerified,
@@ -52,7 +16,7 @@ export const Products: CollectionConfig = {
     beforeChange: [
       async ({ req, operation, data }) => {
         if (operation === 'create' || operation === 'update') {
-          const user = req.user as any;
+          const user = req.user as User;
           if (user?.roles?.includes('super-admin')) return data;
 
           const rel = user?.tenants?.[0]?.tenant;

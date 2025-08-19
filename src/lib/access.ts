@@ -4,7 +4,7 @@ import type { Access } from 'payload';
 import type { User } from '@/payload-types';
 
 export const mustBeStripeVerified: Access = async ({ req }) => {
-  const user = req.user as any;
+  const user = req.user as User;
   if (!user) return false;
   if (user.roles?.includes('super-admin')) return true;
 
