@@ -1465,3 +1465,45 @@ File Changes:
 - Home: Whitespace cleanup
   - src/modules/home/ui/components/search-filters/categories.tsx
     - Remove two extra blank lines around a hidden measurement block; whitespace-only change, no functional impact.
+
+# Bug stripe verify 08/19/25
+
+### Walkthrough
+
+- Refactors Product create/update access to use a new mustBeStripeVerified check and adds a beforeChange hook enforcing tenant Stripe verification. Updates StripeVerify components to consider details_submitted. Adds emailVerified to Users and passes verification_url in welcome emails. Tweaks env-driven URLs, minor Tenants description cleanup, and adds Stripe webhook logging.
+
+### New Features
+
+- Added show/hide password toggle on sign-in and sign-up with accessible controls.
+- Welcome emails now include a verification link; accounts track “Email Verified.”
+- Improved seller verification banner messaging; creating/updating products now requires full Stripe verification.
+
+### Bug Fixes
+
+- Corrected CMS recap heading/tagging slug update notification.
+
+### Documentation
+
+- Added documentation for the password visibility toggle and minor cleanup notes for search filters.
+
+### File changes:
+
+- Docs recap
+  - recap.md
+    - Updated recap notes; added auth password-toggle doc; noted whitespace cleanup.
+
+- Stripe webhook logging
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Logged account.details_submitted in account.updated branch; no control-flow changes.
+- Access control + Products enforcement
+  - src/lib/access.ts, src/collections/Products.ts
+    - Added mustBeStripeVerified Access; Products create/update now use it; new beforeChange hook loads tenant and enforces stripeAccountId + detailsSubmitted; delete remains super-admin only.
+- User model + email flow
+  - src/collections/Users.ts, src/lib/sendEmail.ts, src/payload-types.ts
+    - Added Users.emailVerified field; welcome email now uses env-based URLs and includes verification_url; types updated to include emailVerified; removed support_email from payload.
+- Stripe verification banner components
+  - src/components/stripe-verify.tsx, src/components/custom-payload/stripe-verify.tsx
+    - Verification now requires both stripeAccountId and detailsSubmitted; show inverted accordingly; removed default exports and dynamic flag; consolidated imports; message text updated.
+- Tenants admin text
+  - src/collections/Tenants.ts
+    - Removed trailing space in admin.description; no functional changes.
