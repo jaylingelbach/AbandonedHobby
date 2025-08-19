@@ -1252,7 +1252,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Navbar Layout Refactor
   - src/modules/tenants/ui/components/navbar.tsx Refactors Navbar from flexbox to grid layout, introduces a home icon link, centers tenant info, right-aligns the checkout button, simplifies image source logic, and reorganizes imports.
 
-# Fix read access for notifications and Home button in CMS 7/31/25
+# Fix read access for notifications and Home button in CMS 7/31/25 bug/fix/update-notification
 
 ### Walkthrough
 
@@ -1442,3 +1442,68 @@ File Changes:
 - Whitespace cleanup
   - src/modules/home/ui/components/search-filters/categories.tsx
     - Removed two blank lines around a hidden measurement block; no functional changes.
+
+# Toggle password hidden
+
+### Walkthrough
+
+- Adds client-side password visibility toggles to SignInView and SignUpView (local showPassword state, toggle button, Eye/EyeOff icons, ARIA attributes, autoComplete tweaks). Also removes two blank lines in a home search-filters component; no functional change.
+
+### New features
+
+- Added a password visibility toggle to Sign In and Sign Up forms, preserving focus, updating accessible labels/pressed state, and switching between hidden and plain text without changing validation or submission. Inputs now include appropriate autocomplete hints (email, username, current/new password).
+  Style
+
+- Minor whitespace cleanup in UI code with no user-facing impact.
+
+### File changes:
+
+- Auth: Password visibility toggle
+  - src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx
+    - Introduce showPassword state, add a right-aligned toggle button that switches input type between password and text, render Eye/EyeOff icons, update aria-label/aria-pressed, add appropriate autoComplete attributes, preserve existing validation/submission logic.
+
+- Home: Whitespace cleanup
+  - src/modules/home/ui/components/search-filters/categories.tsx
+    - Remove two extra blank lines around a hidden measurement block; whitespace-only change, no functional impact.
+
+# Bug stripe verify 08/19/25
+
+### Walkthrough
+
+- Refactors Product create/update access to use a new mustBeStripeVerified check and adds a beforeChange hook enforcing tenant Stripe verification. Updates StripeVerify components to consider details_submitted. Adds emailVerified to Users and passes verification_url in welcome emails. Tweaks env-driven URLs, minor Tenants description cleanup, and adds Stripe webhook logging.
+
+### New Features
+
+- Added show/hide password toggle on sign-in and sign-up with accessible controls.
+- Welcome emails now include a verification link; accounts track “Email Verified.”
+- Improved seller verification banner messaging; creating/updating products now requires full Stripe verification.
+
+### Bug Fixes
+
+- Corrected CMS recap heading/tagging slug update notification.
+
+### Documentation
+
+- Added documentation for the password visibility toggle and minor cleanup notes for search filters.
+
+### File changes:
+
+- Docs recap
+  - recap.md
+    - Updated recap notes; added auth password-toggle doc; noted whitespace cleanup.
+
+- Stripe webhook logging
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Logged account.details_submitted in account.updated branch; no control-flow changes.
+- Access control + Products enforcement
+  - src/lib/access.ts, src/collections/Products.ts
+    - Added mustBeStripeVerified Access; Products create/update now use it; new beforeChange hook loads tenant and enforces stripeAccountId + detailsSubmitted; delete remains super-admin only.
+- User model + email flow
+  - src/collections/Users.ts, src/lib/sendEmail.ts, src/payload-types.ts
+    - Added Users.emailVerified field; welcome email now uses env-based URLs and includes verification_url; types updated to include emailVerified; removed support_email from payload.
+- Stripe verification banner components
+  - src/components/stripe-verify.tsx, src/components/custom-payload/stripe-verify.tsx
+    - Verification now requires both stripeAccountId and detailsSubmitted; show inverted accordingly; removed default exports and dynamic flag; consolidated imports; message text updated.
+- Tenants admin text
+  - src/collections/Tenants.ts
+    - Removed trailing space in admin.description; no functional changes.

@@ -59,7 +59,7 @@ export const Tenants: CollectionConfig = {
       admin: {
         readOnly: true,
         description:
-          'You can not sell products until you have submitted your Stripe details. '
+          'You can not sell products until you have submitted your Stripe details.'
       }
     },
     {

@@ -178,14 +178,6 @@ export const checkoutRouter = createTRPCRouter({
 
       const domain = generateTenantURL(sellerTenant.slug);
 
-      // TODO: REMOVE sanity log
-      console.log('[checkout sanity:create]', {
-        derivedTenantId: sellerTenantId,
-        derivedTenantSlug: sellerTenant.slug,
-        sellerStripeAccountId: sellerTenant.stripeAccountId,
-        productIds: input.productIds
-      });
-
       let checkout: Stripe.Checkout.Session;
       try {
         checkout = await stripe.checkout.sessions.create(
