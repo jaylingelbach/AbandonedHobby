@@ -1,8 +1,6 @@
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { getPayload } from 'payload';
-import config from '@payload-config';
-import type { Tenant } from '@/payload-types';
+import { User } from '@/payload-types';
 
 export const Products: CollectionConfig = {
   slug: 'products',
@@ -52,7 +50,7 @@ export const Products: CollectionConfig = {
     beforeChange: [
       async ({ req, operation, data }) => {
         if (operation === 'create' || operation === 'update') {
-          const user = req.user as any;
+          const user = req.user as User;
           if (user?.roles?.includes('super-admin')) return data;
 
           const rel = user?.tenants?.[0]?.tenant;
