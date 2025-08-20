@@ -245,23 +245,9 @@ export default function SupportPage() {
   }, [buyerFaqs, sellerFaqs]);
 
   return (
-    <main className="min-h-[100svh] bg-[#F7F5EF]">
-      {/* Status banner */}
-      <div className="sticky top-0 z-30 border-b-4 border-black bg-lime-200 px-4 py-2 text-sm shadow-[6px_6px_0_#000]">
-        <div className="mx-auto flex max-w-6xl items-center gap-2">
-          <Shield className="h-4 w-4" aria-hidden />
-          <span>
-            All systems normal. For ongoing incidents, see our{' '}
-            <Link href="/status" className="underline">
-              status page
-            </Link>
-            .
-          </span>
-        </div>
-      </div>
-
+    <main className="min-h-[100svh] bg-[#F4F4F0]">
       {/* Hero */}
-      <section className="border-b-4 border-black bg-gradient-to-br from-yellow-200 via-white to-cyan-200">
+      <section className="border-b-4 border-black">
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-12">
           <div className="nb-card rounded-3xl border-4 border-black bg-white p-6 shadow-[12px_12px_0_#000]">
             <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">

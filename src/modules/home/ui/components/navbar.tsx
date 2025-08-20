@@ -1,5 +1,3 @@
-'use client';
-
 import { useState } from 'react';
 import Link from 'next/link';
 import { Inbox, MenuIcon } from 'lucide-react';
@@ -26,7 +24,7 @@ export const Navbar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
 
-  // Only run queries in the browser
+  // only run queries in
   const isClient = typeof window !== 'undefined';
 
   // Gate the session query to client only

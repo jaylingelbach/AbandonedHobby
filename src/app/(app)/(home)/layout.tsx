@@ -3,12 +3,20 @@ import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient, trpc } from '@/trpc/server';
 
 import { Footer } from '@/modules/home/ui/components/footer';
-import { Navbar } from '@/modules/home/ui/components/navbar';
+
 import {
   SearchFilters,
   SearchFiltersLoading
 } from '@/modules/home/ui/components/search-filters';
 
+import dynamic from 'next/dynamic';
+
+const Navbar = dynamic(
+  () => import('@/modules/home/ui/components/navbar').then((m) => m.Navbar),
+  {
+    ssr: false
+  }
+);
 interface Props {
   children: React.ReactNode;
 }
