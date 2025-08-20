@@ -1596,3 +1596,4 @@ File Changes:
 - Feature recap
   - recap.md
     - Documents new Postmark email transport, verification workflow, API route, and type-level migrations.
+
