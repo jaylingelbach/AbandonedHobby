@@ -34,6 +34,8 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
+export const dynamic = 'force-dynamic';
+
 export default function SupportPage() {
   const actions = useMemo(
     () => [
