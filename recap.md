@@ -1544,3 +1544,4 @@ File Changes:
 - Types update
   - src/payload-types.ts
     - Moves public emailVerified to internal \_verified and \_verificationToken on User and UsersSelect.
+  
