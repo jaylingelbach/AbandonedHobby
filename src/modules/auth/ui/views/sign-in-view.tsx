@@ -155,6 +155,16 @@ function SignInView() {
             >
               Login
             </Button>
+            <Button
+              asChild
+              variant="link"
+              size="sm"
+              className="text-base border-none underline justify-end w-full"
+            >
+              <Link href="https://abandonedhobby.com/admin/forgot">
+                forgot password?
+              </Link>
+            </Button>
           </form>
         </Form>
       </div>

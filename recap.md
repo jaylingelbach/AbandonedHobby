@@ -1512,16 +1512,19 @@ File Changes:
 
 ### Walkthrough
 
-- Adds email verification via Payload’s built-in auth.verify: configures Nodemailer with Postmark, introduces a verification email template, adds a /api/verify GET route to handle tokens, updates Users schema/hooks to use verification flow, adjusts Product hooks to enforce tenant Stripe checks, updates types, and tightens access typing. Also adds Postmark transport dependency.
+- Adds Postmark-backed email transport to Payload, introduces a verification email flow using auth.verify, creates a Next.js /api/verify route to process tokens, updates Users collection to use verification templates, adjusts Product hooks to enforce tenant Stripe verification, updates user types for internal verification fields, and removes legacy code.
 
 ### New Features
 
-- Email verification is now supported: users receive a verification email and are redirected after verification with clear status messaging.
+- Email verification flow: users receive verification emails and can confirm via a new verification endpoint.
+- Outgoing transactional emails enabled via Postmark, improving deliverability.
+- Product creation and editing now require completed Stripe verification for the tenant, with clearer error messages when not verified.
+
 - Outgoing transactional emails are enabled via Postmark.
 
 ### Changes
 
-- Product creation and editing now require completed Stripe verification for your account, with clearer error messages if not verified.
+- Added Postmark transport dependency to support email delivery.
 
 ### Chores
 
