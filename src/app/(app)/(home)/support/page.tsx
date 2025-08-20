@@ -34,13 +34,9 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
-/**
- * Abandoned Hobbies — Support Page
- * Neo‑brutalism aesthetic: heavy borders, chunky shadows, bold color chips
- * Paste into app route: src/app/support/page.tsx
- */
+export const dynamic = 'force-dynamic';
+
 export default function SupportPage() {
-  // --- Quick actions config
   const actions = useMemo(
     () => [
       {
