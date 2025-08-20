@@ -52,12 +52,27 @@ export const Navbar = () => {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
-  const session = useQuery(trpc.auth.session.queryOptions());
+  // ---- key line: only run queries in the browser
+  const isClient = typeof window !== 'undefined';
 
-  // Fetch unread message notifications
-  const notificationsQuery = useQuery(
-    trpc.notifications.unreadCount.queryOptions()
-  );
+  // Gate the session query to client only
+  const session = useQuery({
+    ...trpc.auth.session.queryOptions(),
+    enabled: isClient,
+    // optional hardening:
+    retry: 0,
+    staleTime: 30_000
+  });
+
+  const isAuthed = !!session.data?.user;
+
+  // Gate unreadCount to client AND only when authenticated
+  const notificationsQuery = useQuery({
+    ...trpc.notifications.unreadCount.queryOptions(),
+    enabled: isClient && isAuthed,
+    retry: 0,
+    staleTime: 30_000
+  });
 
   // normalize data to ensure number is returned and not totalDocs.
   const rawCount = notificationsQuery.data as number | { totalDocs: number };

@@ -34,8 +34,6 @@ import {
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
 
-export const revalidate = 0;
-
 export default function SupportPage() {
   const actions = useMemo(
     () => [
