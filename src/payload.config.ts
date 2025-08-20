@@ -48,7 +48,7 @@ export default buildConfig({
   email: nodemailerAdapter({
     defaultFromAddress: 'jay@abandonedhobby.com',
     defaultFromName: 'Jay from abandoned hobby',
-    transport: postmarkTransport({
+    transportOptions: postmarkTransport({
       auth: { apiKey: process.env.POSTMARK_SERVER_TOKEN! }
     })
   }),
