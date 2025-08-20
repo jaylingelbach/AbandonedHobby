@@ -45,8 +45,10 @@ function SignUpView() {
       },
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
-        toast.success('Account created successfully!');
-        router.push('/');
+        toast.success(
+          'Account created. Check your email to verify, then sign in.'
+        );
+        router.push('/sign-in');
       }
     })
   );
@@ -99,8 +101,8 @@ function SignUpView() {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Join over 69 ADHDers buying selling and trading each others
-              abandoned hobbies.
+              {`Join other ADHDers and neurodivergents buying selling and trading
+              each other's abandoned hobbies.`}
             </h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
