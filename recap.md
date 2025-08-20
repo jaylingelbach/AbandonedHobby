@@ -1507,3 +1507,41 @@ File Changes:
 - Tenants admin text
   - src/collections/Tenants.ts
     - Removed trailing space in admin.description; no functional changes.
+
+# Feature email verification 08/19/25
+
+### Walkthrough
+
+- Adds email verification via Payload’s built-in auth.verify: configures Nodemailer with Postmark, introduces a verification email template, adds a /api/verify GET route to handle tokens, updates Users schema/hooks to use verification flow, adjusts Product hooks to enforce tenant Stripe checks, updates types, and tightens access typing. Also adds Postmark transport dependency.
+
+### New Features
+
+- Email verification is now supported: users receive a verification email and are redirected after verification with clear status messaging.
+- Outgoing transactional emails are enabled via Postmark.
+
+### Changes
+
+- Product creation and editing now require completed Stripe verification for your account, with clearer error messages if not verified.
+
+### Chores
+
+- Added a dependency to support Postmark email transport.
+
+### File changes:
+
+- Email transport config & dependency
+  - package.json, src/payload.config.ts
+    - Adds nodemailer-postmark-transport dependency. Configures Payload email with Nodemailer + Postmark using POSTMARK_SERVER_TOKEN, default from name/address.
+- Users verification flow
+  - src/collections/Users.ts, src/lib/email/welcome-verify.ts
+    - Replaces afterChange welcome email with auth.verify. Adds subject/HTML builders for verification emails. Removes emailVerified field and custom hook.
+- Verification API route
+  - src/app/api/verify/route.ts
+    - New GET endpoint reads token, calls payload.verifyEmail for users, redirects to /sign-in with success/failure query. Exports runtime='nodejs'.
+- Products tenant/Stripe checks
+  - src/collections/Products.ts, src/lib/access.ts
+    - Refactors beforeChange to fetch tenant via req.payload, require stripeAccountId and stripeDetailsSubmitted; casts req.user to User. Cleans legacy commented code. Tightens typing in mustBeStripeVerified.
+- Types update
+  - src/payload-types.ts
+    - Moves public emailVerified to internal \_verified and \_verificationToken on User and UsersSelect.
+  

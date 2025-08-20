@@ -294,10 +294,6 @@ export interface User {
   lastName: string;
   username: string;
   welcomeEmailSent: boolean;
-  /**
-   * You can not buy products until you have verified your emails.
-   */
-  emailVerified?: boolean | null;
   roles?: ('super-admin' | 'user')[] | null;
   tenants?:
     | {
@@ -312,6 +308,8 @@ export interface User {
   resetPasswordExpiration?: string | null;
   salt?: string | null;
   hash?: string | null;
+  _verified?: boolean | null;
+  _verificationToken?: string | null;
   loginAttempts?: number | null;
   lockUntil?: string | null;
   sessions?:
@@ -643,7 +641,6 @@ export interface UsersSelect<T extends boolean = true> {
   lastName?: T;
   username?: T;
   welcomeEmailSent?: T;
-  emailVerified?: T;
   roles?: T;
   tenants?:
     | T
@@ -658,6 +655,8 @@ export interface UsersSelect<T extends boolean = true> {
   resetPasswordExpiration?: T;
   salt?: T;
   hash?: T;
+  _verified?: T;
+  _verificationToken?: T;
   loginAttempts?: T;
   lockUntil?: T;
   sessions?:

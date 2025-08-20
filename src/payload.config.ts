@@ -23,6 +23,8 @@ import type { Config } from './payload-types';
 import { Messages } from './collections/Messages';
 import { Conversations } from './collections/Conversations';
 import { Notifications } from './collections/Notifications';
+import { nodemailerAdapter } from '@payloadcms/email-nodemailer';
+import postmarkTransport from 'nodemailer-postmark-transport';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -43,7 +45,13 @@ export default buildConfig({
       ]
     }
   },
-
+  email: nodemailerAdapter({
+    defaultFromAddress: 'jay@abandonedhobby.com',
+    defaultFromName: 'Jay from abandoned hobby',
+    transportOptions: postmarkTransport({
+      auth: { apiKey: process.env.POSTMARK_SERVER_TOKEN! }
+    })
+  }),
   collections: [
     Categories,
     Conversations,
