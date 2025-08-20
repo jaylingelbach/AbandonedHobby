@@ -101,8 +101,8 @@ function SignUpView() {
               </Button>
             </div>
             <h1 className="text-4xl font-medium">
-              Join other ADHDers and neurodivergents buying selling and trading
-              each other's abandoned hobbies.
+              {`Join other ADHDers and neurodivergents buying selling and trading
+              each other's abandoned hobbies.`}
             </h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
