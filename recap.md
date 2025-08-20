@@ -1547,4 +1547,52 @@ File Changes:
 - Types update
   - src/payload-types.ts
     - Moves public emailVerified to internal \_verified and \_verificationToken on User and UsersSelect.
-  
+
+# Feature small fixes 08/20/25
+
+### Walkthrough
+
+- Introduces an email verification workflow (Postmark transport, internal verification fields, and a /api/verify route), updates user types to internalize verification state, enforces tenant Stripe verification for product operations, disables post-signup auto-login, adjusts sign-up redirect and copy, and removes debug logs in Stripe webhook and checkout procedures.
+
+### New Features
+
+- Email verification added; users receive verification emails and can complete verification to activate accounts.
+- “Forgot password?” link added to the sign-in screen.
+
+### Refactor
+
+- Streamlined verification flow and removed legacy paths to improve reliability.
+
+### Behavior Changes
+
+- After sign-up, users are redirected to the sign-in page.
+- Product creation/edit now requires a verified Stripe account, with clearer error messages when not verified.
+- Updated sign-up heading copy.
+
+### Chores
+
+- Added email service dependency and removed debug logs.
+
+### File changes:
+
+- Verification types and schema
+  - src/payload-types.ts
+    - Moves public emailVerified to internal fields (\_verified, \_verificationToken); updates UsersSelect accordingly.
+- Auth server flow
+  - src/modules/auth/server/procedures.ts
+    - Disables post-registration auto-login and cookie set; login mutation unchanged.
+- Auth UI
+  - src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx
+    - Adds “forgot password?” link on sign-in; changes sign-up heading text and redirects to /sign-in on success.
+- Stripe verification access control
+  - src/lib/access.ts
+    - Wraps mustBeStripeVerified tenant fetch in try/catch; returns false on error; condition unchanged.
+- Stripe webhook cleanup
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Removes console.log from account.updated handler; logic unchanged.
+- Checkout server cleanup
+  - src/modules/checkout/server/procedures.ts
+    - Removes a debug log before Stripe Checkout session creation; behavior unchanged.
+- Feature recap
+  - recap.md
+    - Documents new Postmark email transport, verification workflow, API route, and type-level migrations.

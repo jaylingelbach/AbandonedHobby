@@ -45,7 +45,9 @@ function SignUpView() {
       },
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
-        toast.success('Account created successfully!');
+        toast.success(
+          'Account created. Check your email to verify, then sign in.'
+        );
         router.push('/sign-in');
       }
     })
@@ -100,7 +102,7 @@ function SignUpView() {
             </div>
             <h1 className="text-4xl font-medium">
               Join other ADHDers and neurodivergents buying selling and trading
-              each others abandoned hobbies.
+              each other's abandoned hobbies.
             </h1>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
