@@ -11,6 +11,8 @@ export const reviewsRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const product = await ctx.db.findByID({
         collection: 'products',
         id: input.productId
@@ -34,7 +36,7 @@ export const reviewsRouter = createTRPCRouter({
             },
             {
               user: {
-                equals: ctx.session.user.id
+                equals: user.id
               }
             }
           ]
@@ -57,6 +59,8 @@ export const reviewsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const product = await ctx.db.findByID({
         collection: 'products',
         id: input.productId
@@ -80,7 +84,7 @@ export const reviewsRouter = createTRPCRouter({
             },
             {
               user: {
-                equals: ctx.session.user.id
+                equals: user.id
               }
             }
           ]
@@ -94,10 +98,11 @@ export const reviewsRouter = createTRPCRouter({
           message: 'You have already left a review for this product'
         });
       }
+
       const review = ctx.db.create({
         collection: 'reviews',
         data: {
-          user: ctx.session.user.id,
+          user: user.id,
           product: product.id,
           rating: input.rating,
           description: input.description
@@ -114,6 +119,8 @@ export const reviewsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const existingReview = await ctx.db.findByID({
         collection: 'reviews',
         depth: 0, // existingReview.user === id
@@ -126,7 +133,7 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      if (existingReview.user !== ctx.session.user.id) {
+      if (existingReview.user !== user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You are not allowed to update this review'

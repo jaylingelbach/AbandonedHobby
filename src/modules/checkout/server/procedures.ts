@@ -20,12 +20,14 @@ export const runtime = 'nodejs';
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
-      const user = await ctx.db.findByID({
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      const dbUser = await ctx.db.findByID({
         collection: 'users',
-        id: ctx.session.user.id,
+        id: user.id,
         depth: 0 // user.tenants[0].tenant will be a string (tenant id)
       });
-      if (!user) {
+      if (!dbUser) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'User not found.'
@@ -78,6 +80,8 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       function getTenantId(tenant: Tenant | string | null | undefined): string {
         if (typeof tenant === 'string') return tenant;
         if (
@@ -187,11 +191,11 @@ export const checkoutRouter = createTRPCRouter({
             invoice_creation: {
               enabled: true
             },
-            customer_email: ctx.session.user.email ?? undefined,
+            customer_email: user.email ?? undefined,
             success_url: `${domain}/checkout?success=true`,
             cancel_url: `${domain}/checkout?cancel=true`,
             metadata: {
-              userId: ctx.session.user.id,
+              userId: user.id,
               tenantId: String(sellerTenantId),
               tenantSlug: String(sellerTenant.slug),
               sellerStripeAccountId: String(sellerTenant.stripeAccountId),

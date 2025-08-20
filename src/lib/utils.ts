@@ -6,27 +6,34 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export function generateTenantURL(tenantSlug: string) {
-  const isDev = process.env.NODE_ENV === 'development';
-  const isSubdomainRoutingEnabled =
+  const isProd = process.env.NODE_ENV === 'production';
+  const subdomainsEnabled =
     process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
 
-  const shouldUseSubdomain = isSubdomainRoutingEnabled && !isDev;
-  const protocol = shouldUseSubdomain ? 'https' : 'http';
+  // Dev or subdomains disabled → path-based URL using APP_URL
+  if (!isProd || !subdomainsEnabled) {
+    const appUrl = (process.env.NEXT_PUBLIC_APP_URL || '').replace(/\/$/, '');
+    if (!appUrl) {
+      throw new Error(
+        'NEXT_PUBLIC_APP_URL must be set when subdomain routing is disabled or in development'
+      );
+    }
+    return `${appUrl}/tenants/${tenantSlug}`;
+  }
 
-  let domain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+  // Prod with subdomains → require apex domain
+  const domain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || '')
+    .replace(/^https?:\/\//, '')
+    .replace(/^www\./, '')
+    .replace(/:\d+$/, '');
 
   if (!domain) {
-    throw new Error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
+    throw new Error(
+      'NEXT_PUBLIC_ROOT_DOMAIN must be set to your apex domain (e.g., abandonedhobby.com) when subdomain routing is enabled in production'
+    );
   }
 
-  // Remove protocol if it accidentally exists in domain
-  domain = domain.replace(/^https?:\/\//, '');
-
-  if (protocol === 'http') {
-    return `${process.env.NEXT_PUBLIC_APP_URL}/tenants/${tenantSlug}`;
-  }
-
-  return `${protocol}://${tenantSlug}.${domain}`;
+  return `https://${tenantSlug}.${domain}`;
 }
 
 export function formatCurrency(value: number | string) {

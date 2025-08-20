@@ -14,8 +14,10 @@ export const messagesRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const { buyerId, sellerId, productId } = input;
-      const currentUserId = ctx.session.user.id;
+      const currentUserId = user.id;
 
       if (currentUserId !== buyerId && currentUserId !== sellerId) {
         throw new TRPCError({
@@ -66,7 +68,9 @@ export const messagesRouter = createTRPCRouter({
     )
     .output(SendMessageDTO)
     .mutation(async ({ ctx, input }) => {
-      const senderId = ctx.session.user.id;
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      const senderId = user.id;
 
       // 1) load the conversation document
       const conversation = await ctx.db.findByID({
@@ -155,7 +159,9 @@ export const messagesRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const userId = ctx.session.user.id;
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      const userId = user.id;
 
       if (!userId) {
         throw new TRPCError({

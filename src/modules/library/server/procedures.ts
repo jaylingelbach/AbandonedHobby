@@ -12,6 +12,8 @@ export const libraryRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       /* ── 1. grab this user’s orders ─────────────────────────────── */
       const ordersData = await ctx.db.find({
         collection: 'orders',
@@ -26,7 +28,7 @@ export const libraryRouter = createTRPCRouter({
             },
             {
               user: {
-                equals: ctx.session.user.id
+                equals: user.id
               }
             }
           ]
@@ -74,13 +76,15 @@ export const libraryRouter = createTRPCRouter({
       })
     )
     .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       /* ── Grab this user’s orders ─────────────────────────────── */
       const orders = await ctx.db.find({
         collection: 'orders',
         depth: 0,
         page: input.cursor,
         limit: input.limit,
-        where: { user: { equals: ctx.session.user.id } }
+        where: { user: { equals: user.id } }
       });
 
       /* ── Extract purchased product IDs ───────────────────────── */

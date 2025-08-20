@@ -39,7 +39,7 @@ import { Badge } from '@/components/ui/badge';
  * Neo‑brutalism aesthetic: heavy borders, chunky shadows, bold color chips
  * Paste into app route: src/app/support/page.tsx
  */
-export default function Page() {
+export default function SupportPage() {
   // --- Quick actions config
   const actions = useMemo(
     () => [
@@ -102,106 +102,112 @@ export default function Page() {
   );
 
   // --- FAQs (copy-ready defaults)
-  const buyerFaqs = [
-    {
-      q: 'How do I track my order?',
-      a: (
-        <>
-          Go to <strong>Orders → Order details → Tracking</strong>. If there’s
-          no tracking after <strong>3 business days</strong>, message the
-          seller. No reply after <strong>48 hours</strong>? Escalate from the
-          order page.
-        </>
-      )
-    },
-    {
-      q: 'Returns & refunds',
-      a: (
-        <>
-          Sellers must accept returns for damaged or not-as-described items.
-          Start a return within <strong>7 days of delivery</strong> from your
-          order page.
-        </>
-      )
-    },
-    {
-      q: 'Contacting the seller',
-      a: (
-        <>
-          Use <strong>Orders → Message seller</strong>. Keep chats on-platform
-          so you’re covered by Buyer Protection.
-        </>
-      )
-    },
-    {
-      q: 'Buyer Protection basics',
-      a: (
-        <>
-          You’re covered when you pay on-platform and keep messages in-app. We
-          can refund when there’s no tracking in 3 business days, SNAD on
-          arrival, or seller no-response for 48+ hours.
-        </>
-      )
-    },
-    {
-      q: 'Canceling an order',
-      a: (
-        <>
-          Request cancellation before the seller ships. After tracking exists,
-          use the return/refund flow.
-        </>
-      )
-    }
-  ];
-
-  const sellerFaqs = [
-    {
-      q: 'Get verified to sell (payouts)',
-      a: (
-        <>
-          Complete verification with Stripe in{' '}
-          <strong>Dashboard → Payouts</strong>. You can’t list for sale until
-          this is done.
-        </>
-      )
-    },
-    {
-      q: 'When do I get paid?',
-      a: (
-        <>
-          Payouts are handled by Stripe to your linked bank account. See
-          <strong> Dashboard → Payouts</strong> for schedule and any holds.
-        </>
-      )
-    },
-    {
-      q: 'Shipping & handling expectations',
-      a: (
-        <>
-          Add tracking within <strong>3 business days</strong>. Pack securely
-          and photograph condition before shipping.
-        </>
-      )
-    },
-    {
-      q: 'Refunds & returns',
-      a: (
-        <>
-          Cooperate on returns or partial refunds for damaged / not-as-described
-          items. Issue refunds via <strong>Orders → Refund</strong>.
-        </>
-      )
-    },
-    {
-      q: 'Fees',
-      a: (
-        <>
-          Platform + processing fees are withheld before payout. See
-          <strong> Dashboard → Payouts → Fees</strong>.
-        </>
-      )
-    }
-  ];
+  const buyerFaqs = useMemo(
+    () => [
+      {
+        q: 'How do I track my order?',
+        a: (
+          <>
+            Go to <strong>Orders → Order details → Tracking</strong>. If there’s
+            no tracking after <strong>3 business days</strong>, message the
+            seller. No reply after <strong>48 hours</strong>? Escalate from the
+            order page.
+          </>
+        )
+      },
+      {
+        q: 'Returns & refunds',
+        a: (
+          <>
+            Sellers must accept returns for damaged or not-as-described items.
+            Start a return within <strong>7 days of delivery</strong> from your
+            order page.
+          </>
+        )
+      },
+      {
+        q: 'Contacting the seller',
+        a: (
+          <>
+            Use <strong>Orders → Message seller</strong>. Keep chats on-platform
+            so you’re covered by Buyer Protection.
+          </>
+        )
+      },
+      {
+        q: 'Buyer Protection basics',
+        a: (
+          <>
+            You’re covered when you pay on-platform and keep messages in-app. We
+            can refund when there’s no tracking in 3 business days, SNAD on
+            arrival, or seller no-response for 48+ hours.
+          </>
+        )
+      },
+      {
+        q: 'Canceling an order',
+        a: (
+          <>
+            Request cancellation before the seller ships. After tracking exists,
+            use the return/refund flow.
+          </>
+        )
+      }
+    ],
+    []
+  );
+  const sellerFaqs = useMemo(
+    () => [
+      {
+        q: 'Get verified to sell (payouts)',
+        a: (
+          <>
+            Complete verification with Stripe in{' '}
+            <strong>Dashboard → Payouts</strong>. You can’t list for sale until
+            this is done.
+          </>
+        )
+      },
+      {
+        q: 'When do I get paid?',
+        a: (
+          <>
+            Payouts are handled by Stripe to your linked bank account. See
+            <strong> Dashboard → Payouts</strong> for schedule and any holds.
+          </>
+        )
+      },
+      {
+        q: 'Shipping & handling expectations',
+        a: (
+          <>
+            Add tracking within <strong>3 business days</strong>. Pack securely
+            and photograph condition before shipping.
+          </>
+        )
+      },
+      {
+        q: 'Refunds & returns',
+        a: (
+          <>
+            Cooperate on returns or partial refunds for damaged /
+            not-as-described items. Issue refunds via{' '}
+            <strong>Orders → Refund</strong>.
+          </>
+        )
+      },
+      {
+        q: 'Fees',
+        a: (
+          <>
+            Platform + processing fees are withheld before payout. See
+            <strong> Dashboard → Payouts → Fees</strong>.
+          </>
+        )
+      }
+    ],
+    []
+  );
 
   // --- Simple local search (filters FAQs + actions by title)
   const [query, setQuery] = useState('');
@@ -243,9 +249,23 @@ export default function Page() {
   }, [buyerFaqs, sellerFaqs]);
 
   return (
-    <main className="min-h-[100svh] bg-[#F4F4F0]">
+    <main className="min-h-[100svh] bg-[#F7F5EF]">
+      {/* Status banner */}
+      <div className="sticky top-0 z-30 border-b-4 border-black bg-lime-200 px-4 py-2 text-sm shadow-[6px_6px_0_#000]">
+        <div className="mx-auto flex max-w-6xl items-center gap-2">
+          <Shield className="h-4 w-4" aria-hidden />
+          <span>
+            All systems normal. For ongoing incidents, see our{' '}
+            <Link href="/status" className="underline">
+              status page
+            </Link>
+            .
+          </span>
+        </div>
+      </div>
+
       {/* Hero */}
-      <section className="border-b-4 border-black">
+      <section className="border-b-4 border-black bg-gradient-to-br from-yellow-200 via-white to-cyan-200">
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-12">
           <div className="nb-card rounded-3xl border-4 border-black bg-white p-6 shadow-[12px_12px_0_#000]">
             <div className="flex flex-col items-start gap-4 md:flex-row md:items-center md:justify-between">
@@ -672,8 +692,8 @@ function renderToText(node: React.ReactNode): string {
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(renderToText).join(' ');
   if (React.isValidElement(node)) {
-    // @ts-ignore
-    return renderToText(node.props.children);
+    const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+    return renderToText(el.props.children);
   }
   return '';
 }

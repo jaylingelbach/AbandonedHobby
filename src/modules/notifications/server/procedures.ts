@@ -1,9 +1,12 @@
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import { TRPCError } from '@trpc/server';
 
 export const notificationsRouter = createTRPCRouter({
   // returns how many unread message notifications this user has
   unreadCount: protectedProcedure.query(async ({ ctx }) => {
-    const userId = ctx.session.user.id;
+    const user = ctx.session.user;
+    if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+    const userId = user.id;
 
     const { totalDocs } = await ctx.db.find({
       collection: 'notifications',
