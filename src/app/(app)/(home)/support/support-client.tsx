@@ -14,24 +14,19 @@ import {
   CheckCircle2,
   DollarSign,
   Wallet,
-  HelpCircle,
   Bell
 } from 'lucide-react';
 
-// shadcn/ui
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent
-} from '@/components/ui/accordion';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
+import FaqCard from './components/faq-card';
+import PolicyCard from './components/policy-card';
+import SellerTipsCard from './components/seller-tips-card';
+import SupportContactForm from './components/support-contact-form';
+import { renderToText } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 
@@ -97,7 +92,7 @@ export default function SupportClient() {
     []
   );
 
-  // --- FAQs (copy-ready defaults)
+  // --- FAQs
   const buyerFaqs = useMemo(
     () => [
       {
@@ -375,7 +370,7 @@ export default function SupportClient() {
               <CardTitle className="text-xl font-black">Contact us</CardTitle>
             </CardHeader>
             <CardContent>
-              <ContactForm />
+              <SupportContactForm />
             </CardContent>
           </Card>
 
@@ -422,264 +417,4 @@ export default function SupportClient() {
       />
     </main>
   );
-}
-
-// --- Components -----------------------------------------------------------
-
-type QA = { q: string; a: React.ReactNode };
-
-function FaqCard({
-  title,
-  faqs,
-  hue = 'yellow'
-}: {
-  title: string;
-  faqs: QA[];
-  hue?: 'yellow' | 'cyan';
-}) {
-  const chip = hue === 'yellow' ? 'bg-yellow-200' : 'bg-cyan-200';
-  return (
-    <Card className="rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-xl font-black">
-          <HelpCircle className="h-5 w-5" aria-hidden /> {title}
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Accordion type="single" collapsible className="w-full">
-          {faqs.map((f, i) => (
-            <AccordionItem
-              key={i}
-              value={`item-${i}`}
-              className="rounded-xl border-4 border-black px-3 py-2 shadow-[6px_6px_0_#000] not-first:mt-3"
-            >
-              <AccordionTrigger className="text-left">
-                <span
-                  className={`mr-2 rounded-md border-2 border-black ${chip} px-1 text-[10px] font-black`}
-                >
-                  FAQ
-                </span>
-                {f.q}
-              </AccordionTrigger>
-              <AccordionContent className="text-sm leading-relaxed">
-                {f.a}
-              </AccordionContent>
-            </AccordionItem>
-          ))}
-        </Accordion>
-      </CardContent>
-    </Card>
-  );
-}
-
-function PolicyCard() {
-  return (
-    <Card
-      id="policies"
-      className="rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]"
-    >
-      <CardHeader>
-        <CardTitle className="text-xl font-black">Policies & Safety</CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-3 text-sm">
-        <div className="rounded-xl border-4 border-black bg-yellow-100 p-3 shadow-[6px_6px_0_#000]">
-          <h3 className="font-extrabold">Ship-by window</h3>
-          <p>
-            Tracking must be provided within <strong>3 business days</strong>.
-          </p>
-        </div>
-        <div className="rounded-xl border-4 border-black bg-cyan-100 p-3 shadow-[6px_6px_0_#000]">
-          <h3 className="font-extrabold">Buyer escalation</h3>
-          <p>
-            Allowed after <strong>48 hours</strong> of seller no-response.
-          </p>
-        </div>
-        <div className="rounded-xl border-4 border-black bg-emerald-100 p-3 shadow-[6px_6px_0_#000]">
-          <h3 className="font-extrabold">Return window</h3>
-          <p>
-            Claims for damaged/SNAD within <strong>7 days</strong> of delivery.
-          </p>
-        </div>
-        <div className="rounded-xl border-4 border-black bg-rose-100 p-3 shadow-[6px_6px_0_#000]">
-          <h3 className="font-extrabold">Counterfeits & safety</h3>
-          <p>Zero tolerance; listings removed, accounts reviewed.</p>
-        </div>
-        <p className="text-xs text-muted-foreground">
-          These are platform-wide minimums—sellers may offer better terms but
-          not worse.
-        </p>
-      </CardContent>
-    </Card>
-  );
-}
-
-function SellerTipsCard() {
-  return (
-    <Card className="rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]">
-      <CardHeader>
-        <CardTitle className="text-xl font-black">
-          Shipping & Returns tips
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-2 text-sm">
-        <ul className="list-disc pl-5">
-          <li>Use sturdy boxes; pad corners for heavier gear.</li>
-          <li>Always photograph item condition & packing before sealing.</li>
-          <li>Add tracking within 3 business days to avoid penalties.</li>
-          <li>
-            Process refunds within the order page to keep records aligned.
-          </li>
-        </ul>
-      </CardContent>
-    </Card>
-  );
-}
-
-function ContactForm() {
-  const [submitting, setSubmitting] = useState(false);
-  const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
-  const [topic, setTopic] = useState('Order');
-
-  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setSubmitting(true);
-    const form = new FormData(e.currentTarget);
-    // TODO: Wire this to your endpoint (e.g., /api/support). This is a friendly stub.
-    try {
-      const payload = Object.fromEntries(form.entries());
-      console.log('Support form payload', payload);
-      alert("Thanks! We've received your message and will reply by email.");
-      (e.currentTarget as HTMLFormElement).reset();
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
-  return (
-    <form onSubmit={onSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="mb-1 block text-sm font-bold">I am a</label>
-          <div className="flex gap-2">
-            <Button
-              type="button"
-              onClick={() => setRole('buyer')}
-              variant={role === 'buyer' ? 'default' : 'secondary'}
-              className={`rounded-xl border-4 border-black shadow-[4px_4px_0_#000] ${role === 'buyer' ? 'bg-yellow-300' : 'bg-white'}`}
-              aria-pressed={role === 'buyer'}
-            >
-              Buyer
-            </Button>
-            <Button
-              type="button"
-              onClick={() => setRole('seller')}
-              variant={role === 'seller' ? 'default' : 'secondary'}
-              className={`rounded-xl border-4 border-black shadow-[4px_4px_0_#000] ${role === 'seller' ? 'bg-cyan-300' : 'bg-white'}`}
-              aria-pressed={role === 'seller'}
-            >
-              Seller
-            </Button>
-          </div>
-          <input type="hidden" name="role" value={role} />
-        </div>
-
-        <div>
-          <label className="mb-1 block text-sm font-bold" htmlFor="topic">
-            Topic
-          </label>
-          <select
-            id="topic"
-            name="topic"
-            value={topic}
-            onChange={(e) => setTopic(e.target.value)}
-            className="h-10 w-full rounded-xl border-4 border-black bg-white px-3 shadow-[4px_4px_0_#000] focus:outline-none"
-          >
-            <option>Order</option>
-            <option>Listing</option>
-            <option>Payout</option>
-            <option>Account</option>
-            <option>Bug</option>
-            <option>Abuse/Report</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-3 md:grid-cols-2">
-        <div>
-          <label className="mb-1 block text-sm font-bold" htmlFor="ref">
-            Order ID / Listing URL
-          </label>
-          <Input
-            id="ref"
-            name="reference"
-            placeholder="#12345 or https://…"
-            className="rounded-xl border-4 border-black shadow-[4px_4px_0_#000]"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-sm font-bold" htmlFor="email">
-            Contact email
-          </label>
-          <Input
-            id="email"
-            name="email"
-            type="email"
-            placeholder="you@example.com"
-            required
-            className="rounded-xl border-4 border-black shadow-[4px_4px_0_#000]"
-          />
-        </div>
-      </div>
-
-      <div>
-        <label className="mb-1 block text-sm font-bold" htmlFor="desc">
-          What happened? What outcome do you expect?
-        </label>
-        <Textarea
-          id="desc"
-          name="description"
-          required
-          rows={5}
-          className="rounded-2xl border-4 border-black shadow-[4px_4px_0_#000]"
-        />
-        <p className="mt-1 text-xs text-muted-foreground">
-          Tip: include photos of the item, packaging, and label—this speeds
-          things up.
-        </p>
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div className="text-xs text-muted-foreground">
-          By submitting you agree to our{' '}
-          <Link className="underline" href="/terms">
-            Terms
-          </Link>{' '}
-          and{' '}
-          <Link className="underline" href="/privacy">
-            Privacy Policy
-          </Link>
-          .
-        </div>
-        <Button
-          type="submit"
-          disabled={submitting}
-          className="rounded-2xl border-4 border-black bg-black text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[4px_4px_0_#000]"
-        >
-          {submitting ? 'Sending…' : 'Send message'}
-        </Button>
-      </div>
-    </form>
-  );
-}
-
-// Utility: render ReactNode to plain text for JSON-LD answer text
-function renderToText(node: React.ReactNode): string {
-  if (node == null || typeof node === 'boolean') return '';
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map(renderToText).join(' ');
-  if (React.isValidElement(node)) {
-    const el = node as React.ReactElement<{ children?: React.ReactNode }>;
-    return renderToText(el.props.children);
-  }
-  return '';
 }

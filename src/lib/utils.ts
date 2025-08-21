@@ -1,3 +1,4 @@
+import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -42,4 +43,15 @@ export function formatCurrency(value: number | string) {
     currency: 'USD',
     maximumFractionDigits: 0
   }).format(Number(value));
+}
+
+export function renderToText(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(renderToText).join(' ');
+  if (React.isValidElement(node)) {
+    const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+    return renderToText(el.props.children);
+  }
+  return '';
 }
