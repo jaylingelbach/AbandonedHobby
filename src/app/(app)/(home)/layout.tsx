@@ -1,3 +1,5 @@
+'use client';
+
 import { Suspense } from 'react';
 import { Footer } from '@/modules/home/ui/components/footer';
 import { SearchFiltersLoading } from '@/modules/home/ui/components/search-filters';
