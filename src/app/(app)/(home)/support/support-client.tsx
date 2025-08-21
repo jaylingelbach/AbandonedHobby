@@ -82,13 +82,14 @@ export default function SupportClient() {
       },
       {
         label: 'Fees & taxes',
-        href: '/support/policies#fees',
+        // href: '/support/policies#fees',
+        href: 'policies',
         icon: DollarSign,
         color: 'bg-orange-300'
       },
       {
         label: 'Message center',
-        href: '/messages',
+        href: '/inbox',
         icon: Bell,
         color: 'bg-yellow-300'
       }
@@ -278,25 +279,26 @@ export default function SupportClient() {
               </div>
               {/* Suggestions */}
               {searchable.length > 0 && (
-                <div
-                  role="listbox"
+                <ul
                   aria-label="Search suggestions"
                   className="mt-3 grid gap-2 md:grid-cols-2"
                 >
-                  {searchable.map((s, idx) => (
-                    <Link key={idx} href={s.href} className="group">
-                      <div className="flex items-center justify-between rounded-xl border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0_#000] transition-transform group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-[4px_4px_0_#000]">
-                        <div className="truncate">
-                          <span className="mr-2 rounded-md border-2 border-black bg-yellow-200 px-1 text-xs font-bold">
-                            {s.type}
-                          </span>
-                          <span className="font-semibold">{s.title}</span>
+                  {searchable.map((s) => (
+                    <li key={`${s.type}::${s.title}`}>
+                      <Link href={s.href} className="group">
+                        <div className="flex items-center justify-between rounded-xl border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0_#000] transition-transform group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-[4px_4px_0_#000]">
+                          <div className="truncate">
+                            <span className="mr-2 rounded-md border-2 border-black bg-yellow-200 px-1 text-xs font-bold">
+                              {s.type}
+                            </span>
+                            <span className="font-semibold">{s.title}</span>
+                          </div>
+                          <span aria-hidden>→</span>
                         </div>
-                        <span aria-hidden>→</span>
-                      </div>
-                    </Link>
+                      </Link>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
           </div>
@@ -401,7 +403,7 @@ export default function SupportClient() {
               </ol>
               <Separator />
               <p className="text-xs text-muted-foreground">
-                Abandoned Hobbies is a marketplace: sellers handle listings &
+                Abandoned Hobby is a marketplace: sellers handle listings &
                 shipping; we provide secure payments, fraud checks, and platform
                 support.
               </p>
@@ -414,7 +416,9 @@ export default function SupportClient() {
       <Script
         id="faq-jsonld"
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(faqJsonLd).replace(/</g, '\\u003c')
+        }}
       />
     </main>
   );
@@ -657,6 +661,7 @@ function ContactForm() {
           .
         </div>
         <Button
+          type="submit"
           disabled={submitting}
           className="rounded-2xl border-4 border-black bg-black text-white shadow-[6px_6px_0_#000] transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[4px_4px_0_#000]"
         >
