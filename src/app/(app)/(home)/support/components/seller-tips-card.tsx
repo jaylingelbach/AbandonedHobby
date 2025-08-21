@@ -1,8 +1,21 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import { ComponentProps } from 'react';
 
-export default function SellerTipsCard() {
+type SellerTipsCardProps = ComponentProps<typeof Card> & { title?: string };
+export default function SellerTipsCard({
+  className,
+  title = 'Shipping & Returns tips',
+  ...props
+}: SellerTipsCardProps) {
   return (
-    <Card className="rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]">
+    <Card
+      className={cn(
+        'rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]',
+        className
+      )}
+      {...props}
+    >
       <CardHeader>
         <CardTitle className="text-xl font-black">
           Shipping & Returns tips

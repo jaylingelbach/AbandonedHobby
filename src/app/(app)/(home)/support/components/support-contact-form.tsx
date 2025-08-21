@@ -17,20 +17,33 @@ export default function SupportContactForm() {
     // TODO: Wire this to your endpoint (e.g., /api/support). This is a friendly stub.
     try {
       const payload = Object.fromEntries(form.entries());
-      console.log('Support form payload', payload);
+      if (process.env.NODE_ENV !== 'production') {
+        console.log('Support form payload', payload);
+      }
       alert("Thanks! We've received your message and will reply by email.");
       (e.currentTarget as HTMLFormElement).reset();
     } finally {
+      setRole('buyer');
+      setTopic('Order');
       setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form
+      onSubmit={onSubmit}
+      method="post"
+      aria-busy={submitting}
+      className="space-y-4"
+    >
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="mb-1 block text-sm font-bold">I am a</label>
-          <div className="flex gap-2">
+          <div
+            className="flex gap-2"
+            role="group"
+            aria-label="Choose your role"
+          >
             <Button
               type="button"
               onClick={() => setRole('buyer')}
@@ -97,6 +110,7 @@ export default function SupportContactForm() {
             placeholder="you@example.com"
             required
             className="rounded-xl border-4 border-black shadow-[4px_4px_0_#000]"
+            autoComplete="email"
           />
         </div>
       </div>

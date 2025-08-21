@@ -1597,3 +1597,40 @@ File Changes:
   - recap.md
     - Documents new Postmark email transport, verification workflow, API route, and type-level migrations.
 
+# Support Page 08/21/25
+
+### Walkthrough
+
+- Extracts FAQ, policy, tips, and contact form UI into dedicated components; updates the support page to use these components; and adds a renderToText utility to convert React nodes to text for JSON-LD generation.
+
+### New Features
+
+- Added FAQ card with accordion and colored badges.
+- Added Policies & Safety overview card.
+- Added Seller tips card.
+- Introduced Support contact form with buyer/seller toggle, topic selection, required email/description, and submission feedback.
+
+### Refactor
+
+- Modularized support page by extracting FAQs, policies, tips, and contact form into dedicated components.
+- Updated JSON-LD generation to use a shared utility.
+
+### Utilities
+
+- Added renderToText helper to convert React content to plain text.
+
+### Refactor
+
+- Modularized the Support page into reusable components for improved consistency and maintainability, with no user-facing behavior changes.
+
+### File changes:
+
+- New support UI components
+  - src/app/(app)/(home)/support/components/faq-card.tsx, .../policy-card.tsx, .../seller-tips-card.tsx, .../support-contact-form.tsx
+    - Adds modular Card-based components: FaqCard (accordion with hue variants), PolicyCard (static policy blocks), SellerTipsCard (static tips list), SupportContactForm (role/topic selection, form fields, submit handler stub).
+- Support page refactor
+  - src/app/(app)/(home)/support/support-client.tsx
+    - Replaces inline UI blocks with imported components; switches contact form to SupportContactForm; uses renderToText from utils for JSON-LD; removes local helper and inline components; cleans up imports.
+- Utilities
+  - src/lib/utils.ts
+    - Adds React import and new export renderToText(ReactNode): string to flatten React nodes to plain text for JSON-LD.
