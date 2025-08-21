@@ -1,16 +1,8 @@
 'use client';
 
 import { Suspense } from 'react';
-import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient, trpc } from '@/trpc/server';
-
 import { Footer } from '@/modules/home/ui/components/footer';
-
-import {
-  SearchFilters,
-  SearchFiltersLoading
-} from '@/modules/home/ui/components/search-filters';
-
+import { SearchFiltersLoading } from '@/modules/home/ui/components/search-filters';
 import dynamic from 'next/dynamic';
 
 const Navbar = dynamic(
@@ -19,27 +11,32 @@ const Navbar = dynamic(
     ssr: false
   }
 );
+
+const SearchFilters = dynamic(
+  () =>
+    import('@/modules/home/ui/components/search-filters').then(
+      (m) => m.SearchFilters
+    ),
+  { ssr: false, loading: () => <SearchFiltersLoading /> }
+);
+
 interface Props {
   children: React.ReactNode;
 }
 
-export default async function Layout({ children }: Props) {
-  /* ─── Server-side prefetch ───────────────────────────────────────────── */
-  const queryClient = getQueryClient();
-  // pre-warm the cache so the first paint is instant
-  await queryClient.prefetchQuery(trpc.categories.getMany.queryOptions());
+export default function Layout({ children }: Props) {
+  //   /* ─── Server-side prefetch ───────────────────────────────────────────── */
+  //   const queryClient = getQueryClient();
+  //   // pre-warm the cache so the first paint is instant
+  //   await queryClient.prefetchQuery(trpc.categories.getMany.queryOptions());
 
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
-      <HydrationBoundary state={dehydrate(queryClient)}>
-        <Suspense fallback={<SearchFiltersLoading />}>
-          <SearchFilters />
-        </Suspense>
-      </HydrationBoundary>
-
+      <Suspense fallback={<SearchFiltersLoading />}>
+        <SearchFilters />
+      </Suspense>
       <div className="flex-1 bg-[#F4F4F0]">{children}</div>
-
       <Footer />
     </div>
   );
