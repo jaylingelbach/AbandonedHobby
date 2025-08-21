@@ -12,13 +12,11 @@ export const generateAuthCookie = async ({ prefix, value }: Props) => {
     value: value,
     httpOnly: true,
     path: '/',
-    // Will work localhost, but not with subdomains turned on. Subdomains controlled through .env
-    ...(process.env.NODE_ENV !== 'development' && {
-      sameSite: 'none',
-      maxAge: 60 * 60 * 24 * 7,
-      // TODO: ensure cross domain cookie sharing.
-      domain: process.env.NEXT_PUBLIC_ROOT_DOMAIN,
-      secure: true
-    })
+    sameSite: process.env.NEXT_PUBLIC_ROOT_DOMAIN ? 'none' : 'lax',
+    secure: process.env.NODE_ENV === 'production',
+    ...(process.env.NEXT_PUBLIC_ROOT_DOMAIN
+      ? { domain: process.env.NEXT_PUBLIC_ROOT_DOMAIN }
+      : {}),
+    maxAge: 60 * 60 * 24 * 7
   });
 };

@@ -26,7 +26,6 @@ export default function RootLayout({
       <body className={`${dmSans.className} antialiased`}>
         <NuqsAdapter>
           <TRPCReactProvider>
-            {/* ✔️ This is a client component. */}
             <LiveblocksWrapper>{children}</LiveblocksWrapper>
             <Toaster />
           </TRPCReactProvider>

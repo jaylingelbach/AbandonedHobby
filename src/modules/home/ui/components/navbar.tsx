@@ -1,70 +1,60 @@
-'use client';
-
 import { useState } from 'react';
-
 import Link from 'next/link';
 import { Inbox, MenuIcon } from 'lucide-react';
 import { Poppins } from 'next/font/google';
 import { usePathname } from 'next/navigation';
 import { useQuery } from '@tanstack/react-query';
-
 import { useTRPC } from '@/trpc/client';
-
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { NavbarSidebar } from './navbar-sidebar';
 
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['700']
-});
-
-interface NavbarItemProps {
-  href: string;
-  children: React.ReactNode;
-  isActive?: boolean;
-}
-
-const NavbarItem = ({ href, children, isActive }: NavbarItemProps) => {
-  return (
-    <Button
-      asChild
-      variant="outline"
-      className={cn(
-        'bg-transparent hover:bg-transparent rounded-full hover:border-primary border-transparent px-3.5 text-lg',
-        isActive && 'bg-black text-white hover:bg-black hover:text-white'
-      )}
-    >
-      <Link href={href}>{children}</Link>
-    </Button>
-  );
-};
+const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
 const navbarItems = [
   { href: '/', children: 'Home' },
   { href: '/about', children: 'About' },
   { href: '/features', children: 'Features' },
   { href: '/pricing', children: 'Pricing' },
-  { href: '/contact', children: 'Contact' }
+  { href: '/support', children: 'Support' }
 ];
 
 export const Navbar = () => {
   const pathname = usePathname();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
-  const session = useQuery(trpc.auth.session.queryOptions());
 
-  // Fetch unread message notifications
-  const notificationsQuery = useQuery(
-    trpc.notifications.unreadCount.queryOptions()
-  );
+  // only run queries in
+  const isClient = typeof window !== 'undefined';
 
-  // normalize data to ensure number is returned and not totalDocs.
-  const rawCount = notificationsQuery.data as number | { totalDocs: number };
+  // Gate the session query to client only
+  const session = useQuery({
+    ...trpc.auth.session.queryOptions(),
+    enabled: isClient,
+    // optional hardening:
+    retry: 0,
+    staleTime: 30_000
+  });
+
+  const isAuthed = !!session.data?.user;
+
+  // Gate unreadCount to client AND only when authenticated
+  const notificationsQuery = useQuery({
+    ...trpc.notifications.unreadCount.queryOptions(),
+    enabled: isClient && isAuthed,
+    retry: 0,
+    staleTime: 30_000
+  });
+
+  const rawCount = notificationsQuery.data as
+    | number
+    | { totalDocs: number }
+    | undefined;
   const unreadCount =
     typeof rawCount === 'number' ? rawCount : (rawCount?.totalDocs ?? 0);
 
-  if (session.isLoading) return null;
+  // Don't block SSR entirely; if you prefer, you can keep this:
+  // if (session.isLoading) return null;
 
   return (
     <nav className="h-20 flex border-b justify-between font-medium bg-white">
@@ -82,17 +72,22 @@ export const Navbar = () => {
 
       <div className="items-center gap-4 hidden lg:flex">
         {navbarItems.map((item) => (
-          <NavbarItem
+          <Button
             key={item.href}
-            href={item.href}
-            isActive={pathname === item.href}
+            asChild
+            variant="outline"
+            className={cn(
+              'bg-transparent hover:bg-transparent rounded-full hover:border-primary border-transparent px-3.5 text-lg',
+              pathname === item.href &&
+                'bg-black text-white hover:bg-black hover:text-white'
+            )}
           >
-            {item.children}
-          </NavbarItem>
+            <Link href={item.href}>{item.children}</Link>
+          </Button>
         ))}
       </div>
 
-      {session.data?.user ? (
+      {isAuthed ? (
         <div className="hidden lg:flex">
           <div className="items-center gap-4 hidden lg:flex">
             <Button
@@ -154,9 +149,7 @@ export const Navbar = () => {
         <Button
           variant="ghost"
           className="size-12 border-transparent bg-white"
-          onClick={() => {
-            setIsSidebarOpen(true);
-          }}
+          onClick={() => setIsSidebarOpen(true)}
         >
           <MenuIcon />
         </Button>

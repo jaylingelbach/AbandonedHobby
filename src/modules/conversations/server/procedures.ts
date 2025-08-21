@@ -13,7 +13,9 @@ export const conversationsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const { buyerId, sellerId, productId } = input;
-      const me = ctx.session.user.id;
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      const me = user.id;
 
       // only buyer or seller can start a chat
       if (me !== buyerId && me !== sellerId) {
