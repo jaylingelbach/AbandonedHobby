@@ -1,17 +1,5 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Search,
-  Truck,
-  MessageSquare,
-  RefreshCw,
-  Flag,
-  Lock,
-  CheckCircle2,
-  DollarSign,
-  Wallet,
-  HelpCircle,
-  Bell
-} from 'lucide-react';
+import { HelpCircle } from 'lucide-react';
 import {
   Accordion,
   AccordionItem,
