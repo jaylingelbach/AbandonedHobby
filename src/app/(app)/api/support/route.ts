@@ -5,8 +5,6 @@ import { ServerClient } from 'postmark';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const DEV_DEBUG = process.env.NODE_ENV !== 'production';
-
 const schema = z.object({
   role: z.enum(['buyer', 'seller']),
   topic: z.enum([
@@ -80,18 +78,11 @@ export async function POST(req: Request) {
     });
 
     return NextResponse.json({ ok: true, caseId }, { status: 200 });
-  } catch (err: any) {
-    const debug = {
-      name: err?.name,
-      message: err?.message,
-      code: err?.code ?? err?.ErrorCode,
-      status: err?.statusCode ?? err?.StatusCode
-    };
-    console.error('Support route error:', debug); // server logs
+  } catch (error) {
+    console.error('Support route error:', error);
     return NextResponse.json(
       {
-        ok: false,
-        error: DEV_DEBUG ? debug : 'Failed to send support request'
+        ok: false
       },
       { status: 502 }
     );

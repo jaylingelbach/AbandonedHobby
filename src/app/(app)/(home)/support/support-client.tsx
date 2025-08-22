@@ -13,7 +13,6 @@ import {
   Lock,
   CheckCircle2,
   DollarSign,
-  Wallet,
   Bell
 } from 'lucide-react';
 
