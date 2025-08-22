@@ -17,9 +17,7 @@ export default function SellerTipsCard({
       {...props}
     >
       <CardHeader>
-        <CardTitle className="text-xl font-black">
-          Shipping & Returns tips
-        </CardTitle>
+        <CardTitle className="text-xl font-black">{title}</CardTitle>
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <ul className="list-disc pl-5">
