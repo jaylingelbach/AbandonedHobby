@@ -57,6 +57,7 @@
     "@trpc/client": "^11.1.2",
     "@trpc/server": "^11.1.2",
     "@trpc/tanstack-react-query": "^11.1.2",
+    "@upstash/redis": "^1.35.3",
     "bad-words": "^4.0.0",
     "bson-objectid": "^2.0.4",
     "class-variance-authority": "^0.7.1",

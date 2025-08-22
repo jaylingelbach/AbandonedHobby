@@ -7,6 +7,14 @@ type LineItem = {
   amount: string;
 };
 
+type SendSupportOptions = {
+  role: string;
+  topic: string;
+  reference: string;
+  email: string;
+  description: string;
+};
+
 type SendSaleNotificationOptions = {
   to: string;
   sellerName: string;
@@ -124,7 +132,6 @@ export const sendOrderConfirmationEmail = async ({
   }
 };
 
-// sendEmail.ts
 export const sendSaleNotificationEmail = async ({
   to,
   sellerName,
@@ -165,6 +172,36 @@ export const sendSaleNotificationEmail = async ({
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
       To: to,
+      TemplateId: Number(process.env.POSTMARK_SALE_CONFIRMATION_TEMPLATEID!),
+      TemplateModel: model
+    });
+  } catch (error) {
+    console.error('Failed to send email:', error);
+    throw new Error(
+      `Email sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`
+    );
+  }
+};
+
+export const sendSupportEmail = async ({
+  role,
+  topic,
+  reference,
+  email,
+  description
+}: SendSupportOptions) => {
+  const model = {
+    role,
+    topic,
+    reference,
+    email,
+    description
+  };
+
+  try {
+    await postmark.sendEmailWithTemplate({
+      From: email,
+      To: process.env.POSTMARK_SUPPORT_EMAIL!,
       TemplateId: Number(process.env.POSTMARK_SALE_CONFIRMATION_TEMPLATEID!),
       TemplateModel: model
     });

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
+import { sendSupportEmail } from '@/lib/sendEmail';
 
 export default function SupportContactForm() {
   const [submitting, setSubmitting] = useState(false);
@@ -20,8 +22,35 @@ export default function SupportContactForm() {
       if (process.env.NODE_ENV !== 'production') {
         console.log('Support form payload', payload);
       }
-      alert("Thanks! We've received your message and will reply by email.");
+      if (
+        !payload.role?.toString() ||
+        !payload.topic?.toString() ||
+        !payload.reference?.toString() ||
+        !payload.email?.toString() ||
+        !payload.description?.toString()
+      )
+        throw new Error('Please fill out the form in its entirety.');
+      const res = await fetch('/api/support', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          role: payload.role,
+          topic: payload.topic,
+          reference: payload.reference,
+          email: payload.email,
+          description: payload.description
+        })
+      });
+      if (!res.ok) throw new Error('Failed to submit support request');
+      const { caseId } = await res.json();
+      toast.success(
+        `Thanks! Ticket ${caseId} created. We'll email you shortly.`
+      );
       (e.currentTarget as HTMLFormElement).reset();
+    } catch (error) {
+      toast.error(
+        `Something went wrong: ${error instanceof Error ? error.message : 'Something went wrong please try again.'}`
+      );
     } finally {
       setRole('buyer');
       setTopic('Order');
