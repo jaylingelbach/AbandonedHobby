@@ -5,7 +5,6 @@ import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { sendSupportEmail } from '@/lib/sendEmail';
 
 export default function SupportContactForm() {
   const [submitting, setSubmitting] = useState(false);
@@ -22,25 +21,29 @@ export default function SupportContactForm() {
       if (process.env.NODE_ENV !== 'production') {
         console.log('Support form payload', payload);
       }
-      if (
-        !payload.role?.toString() ||
-        !payload.topic?.toString() ||
-        !payload.reference?.toString() ||
-        !payload.email?.toString() ||
-        !payload.description?.toString()
-      )
-        throw new Error('Please fill out the form in its entirety.');
+      if (!payload.description?.toString())
+        throw new Error('Please enter a description');
+      if (payload.description.toString().length < 10)
+        throw new Error('Description must be at least 10 characters.');
+      if (!payload.reference?.toString())
+        throw new Error('You must enter either an order id or item url');
+      if (!payload.email?.toString())
+        throw new Error('Please enter a contact email address.');
+
       const res = await fetch('/api/support', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          role: payload.role,
-          topic: payload.topic,
+          role: payload.role!,
+          topic: payload.topic!,
           reference: payload.reference,
           email: payload.email,
           description: payload.description
         })
       });
+      console.log('RES status:', res.status, 'ok:', res.ok);
+      const debugBody = await res.clone().text();
+      console.log('RES body:', debugBody);
       if (!res.ok) throw new Error('Failed to submit support request');
       const { caseId } = await res.json();
       toast.success(
@@ -77,7 +80,7 @@ export default function SupportContactForm() {
               type="button"
               onClick={() => setRole('buyer')}
               variant={role === 'buyer' ? 'default' : 'secondary'}
-              className={`rounded-xl border-4 border-black shadow-[4px_4px_0_#000] ${role === 'buyer' ? 'bg-yellow-300' : 'bg-white'}`}
+              className={`rounded-xl border-4 border-black shadow-[4px_4px_0_#000] ${role === 'buyer' ? 'bg-pink-500' : 'bg-white'}`}
               aria-pressed={role === 'buyer'}
             >
               Buyer
@@ -126,6 +129,7 @@ export default function SupportContactForm() {
             name="reference"
             placeholder="#12345 or https://…"
             className="rounded-xl border-4 border-black shadow-[4px_4px_0_#000]"
+            required
           />
         </div>
         <div>
@@ -152,6 +156,7 @@ export default function SupportContactForm() {
           id="desc"
           name="description"
           required
+          minLength={10}
           rows={5}
           className="rounded-2xl border-4 border-black shadow-[4px_4px_0_#000]"
         />
