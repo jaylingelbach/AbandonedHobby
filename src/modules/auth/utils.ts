@@ -5,7 +5,6 @@ interface Props {
   value: string;
 }
 
-// src/lib/utils.ts
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -27,7 +26,7 @@ export function generateTenantURL(tenantSlug: string) {
   }
 
   // Subdomains in non-dev → need a root domain
-  let domain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || '')
+  const domain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || '')
     .replace(/^https?:\/\//, '')
     .replace(/\/$/, '');
 
