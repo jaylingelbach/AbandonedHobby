@@ -1635,10 +1635,39 @@ File Changes:
   - src/lib/utils.ts
     - Adds React import and new export renderToText(ReactNode): string to flatten React nodes to plain text for JSON-LD.
 
-# Bug login-issue 08/25/25
+# Support email 2 (support tickets) 08/22/25
 
 ### Walkthrough
 
-- Updated tenant URL generation logic in src/lib/utils.ts to prefer dev/path routing when isDev or subdomains disabled, simplified domain normalization, and defaulted APP_URL in dev. Added cn and formatCurrency utilities to src/modules/auth/utils.ts. Sign-in form now prevents default before calling React Hook Form; SellerTipsCard title is now dynamic.Also added error message if not verified when logging in.
+- Adds a new support request flow end-to-end: client-side validation and submission in the Support form, a new Next.js POST API route to process requests and send Postmark emails, a new email utility for support tickets, and minor updates to Support quick links and package dependencies.
 
--
+### New Features
+
+- Support contact form now submits tickets with client-side validation and shows a case ID on success, with clear success and error notifications.
+- Quick Actions updated: “Reset my password” and “Verify seller account” now link to the correct pages; “Set up payouts” removed.
+
+### Style
+
+- Buyer button active color updated to pink for clearer state indication.
+
+### Chores
+
+- Internal dependency update to support new functionality.
+
+### File Changes:
+
+- Dependencies
+  - package.json
+    - Added dependency @upstash/redis@^1.35.3.
+- Support form (client)
+  - src/app/(app)/(home)/support/components/support-contact-form.tsx
+    - Replaced alert with validation, POST to /api/support, success/error toasts, form reset on success, required inputs, minLength on description, and minor button style changes.
+- Support quick actions
+  - src/app/(app)/(home)/support/support-client.tsx
+    - Updated links: reset password to /admin/forgot, verify seller to /stripe-verify; commented out payouts setup action.
+- Support API (server)
+  - src/app/(app)/api/support/route.ts
+    - New POST endpoint: zod-validated payload, generates caseId, sends Postmark templated email, returns JSON responses; exports runtime='nodejs' and dynamic='force-dynamic'.
+- Email utilities
+  - src/lib/sendEmail.ts
+    - Added SendSupportOptions type and sendSupportEmail function to send support emails via Postmark; minor comment cleanup.

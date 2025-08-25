@@ -20,6 +20,7 @@ export default function SellerTipsCard({
         <CardTitle className="text-xl font-black" aria-level={3} role="heading">
           {title}
         </CardTitle>
+
       </CardHeader>
       <CardContent className="space-y-2 text-sm">
         <ul className="list-disc pl-5">

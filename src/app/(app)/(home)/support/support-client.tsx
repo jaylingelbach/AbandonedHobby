@@ -13,7 +13,6 @@ import {
   Lock,
   CheckCircle2,
   DollarSign,
-  Wallet,
   Bell
 } from 'lucide-react';
 
@@ -59,22 +58,22 @@ export default function SupportClient() {
       },
       {
         label: 'Reset my password',
-        href: '/sign-in?reset=1',
+        href: '/admin/forgot',
         icon: Lock,
         color: 'bg-violet-300'
       },
       {
         label: 'Verify seller account',
-        href: '/dashboard/payouts',
+        href: '/stripe-verify',
         icon: CheckCircle2,
         color: 'bg-lime-300'
       },
-      {
-        label: 'Set up payouts',
-        href: '/dashboard/payouts',
-        icon: Wallet,
-        color: 'bg-sky-300'
-      },
+      // {
+      //   label: 'Set up payouts',
+      //   href: '/dashboard/payouts',
+      //   icon: Wallet,
+      //   color: 'bg-sky-300'
+      // },
       {
         label: 'Fees & taxes',
         // href: '/support/policies#fees',
