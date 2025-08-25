@@ -69,7 +69,11 @@ function SignInView() {
         <Form {...form}>
           {/* form.handleSubmit enfores the validation from our schema */}
           <form
-            onSubmit={form.handleSubmit(onSubmit)}
+            method="post"
+            onSubmit={(e) => {
+              e.preventDefault();
+              form.handleSubmit(onSubmit)(e);
+            }}
             className="flex flex-col gap-8 p-4 lg:p-16"
           >
             <div className="flex items-center justify-between mb-8">
