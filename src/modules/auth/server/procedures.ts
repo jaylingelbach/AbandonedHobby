@@ -156,6 +156,14 @@ export const authRouter = createTRPCRouter({
         password: input.password
       }
     });
+    const isVerified = data.user._verified;
+    if (!isVerified) {
+      throw new TRPCError({
+        code: 'UNAUTHORIZED',
+        message:
+          'You must verify your account before logging in. Please verify your email to continue. Check your inbox or resend the verification email.'
+      });
+    }
     if (!data.token) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
