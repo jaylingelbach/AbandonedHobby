@@ -1634,3 +1634,11 @@ File Changes:
 - Utilities
   - src/lib/utils.ts
     - Adds React import and new export renderToText(ReactNode): string to flatten React nodes to plain text for JSON-LD.
+
+# Bug login-issue 08/25/25
+
+### Walkthrough
+
+- Updated tenant URL generation logic in src/lib/utils.ts to prefer dev/path routing when isDev or subdomains disabled, simplified domain normalization, and defaulted APP_URL in dev. Added cn and formatCurrency utilities to src/modules/auth/utils.ts. Sign-in form now prevents default before calling React Hook Form; SellerTipsCard title is now dynamic.Also added error message if not verified when logging in.
+
+-
