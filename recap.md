@@ -1671,3 +1671,34 @@ File Changes:
 - Email utilities
   - src/lib/sendEmail.ts
     - Added SendSupportOptions type and sendSupportEmail function to send support emails via Postmark; minor comment cleanup.
+
+# Bug login-issue 08/25/25
+
+### Walkthrough
+
+- Updated tenant URL generation logic in src/lib/utils.ts to prefer dev/path routing when isDev or subdomains disabled, simplified domain normalization, and defaulted APP_URL in dev. Added cn and formatCurrency utilities to src/modules/auth/utils.ts. Sign-in form now prevents default before calling React Hook Form; SellerTipsCard title is now dynamic.
+
+### New Features
+
+- Improved tenant link generation to correctly route users in development and production (with or without subdomains).
+- Seller tips card header now accepts a dynamic title while preserving the previous default.
+- Added utilities for merging CSS class names and formatting currency for consistent UI output.
+
+### Bug Fixes
+
+- Prevented unintended page reloads on sign-in by intercepting form submission and ensuring validation runs.
+
+### File changes:
+
+- Core utils (modified)
+- src/lib/utils.ts
+  - generateTenantURL(tenantSlug: string) logic changed: uses isDev gating (was isProd), renamed routing flag to subdomains, uses NEXT_PUBLIC_APP_URL with default http://localhost:3000 for path-based URLs, simplifies domain normalization (trims trailing slashes only), and updates error messaging when root domain missing. Other exports unchanged.
+- Auth utilities (added helpers)
+  - src/modules/auth/utils.ts
+    - Added cn(...inputs: ClassValue[]) (clsx + twMerge) and `formatCurrency(value: number
+- Auth sign-in view (submit flow)
+  - src/modules/auth/ui/views/sign-in-view.tsx
+    - Form now has method="post" and replaces onSubmit={form.handleSubmit(onSubmit)} with an explicit handler that calls e.preventDefault() then form.handleSubmit(onSubmit)(e).
+- UI component (title dynamic)
+  - src/app/(app)/(home)/support/components/seller-tips-card.tsx
+    - Header text changed to render the existing title prop (<CardTitle>{title}</CardTitle>); default title behavior preserved when prop omitted.
