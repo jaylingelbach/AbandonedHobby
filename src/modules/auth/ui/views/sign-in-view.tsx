@@ -39,12 +39,21 @@ function SignInView() {
   const queryClient = useQueryClient();
 
   const resend = async (email: string) => {
-    await fetch('/api/resend', {
-      method: 'POST',
-      headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    toast.success('If an account exists, a new verification email was sent.');
+    try {
+      const res = await fetch('/api/resend', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) {
+        toast.success('If an account exists, a new verification email was sent.');
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? 'Could not resend verification email.');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    }
   };
 
   const onSubmit = (values: z.infer<typeof loginSchema>) => {
