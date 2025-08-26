@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
     );
   }
   const { email } = parsed.data;
+  const normalizedEmail = email.trim().toLowerCase();
 
   const payload = await getPayload({ config });
 
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
   try {
     const res = await payload.find({
       collection: 'users',
-      where: { email: { equals: email } },
+      where: { email: { equals: normalizedEmail } },
       limit: 1,
       depth: 0,
       overrideAccess: true,
@@ -46,13 +47,9 @@ export async function POST(req: NextRequest) {
 
     const token: string | null = user._verificationToken ?? null;
     if (!token) {
-      // In most cases new registrations will have a token. If it’s missing,
-      // you can ask the user to sign in again (which will issue a new token)
-      // or implement a server action to flip the email and back to trigger a new one.
-      return NextResponse.json(
-        { ok: false, error: 'No verification token available' },
-        { status: 409 }
-      );
+      // Preserve indistinguishability; optionally log for internal follow-up.
+      console.warn('[resend] user missing _verificationToken; no email sent');
+      return NextResponse.json({ ok: true });
     }
 
     const appUrl =

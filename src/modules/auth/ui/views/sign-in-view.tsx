@@ -60,7 +60,11 @@ function SignInView() {
             duration: Infinity,
             action: {
               label: 'Resend link',
-              onClick: () => resend(form.getValues('email'))
+              onClick: () => {
+                const value = form.getValues('email');
+                if (!value) return toast.error('Enter your email first.');
+                resend(value);
+              }
             },
             closeButton: true
           });
@@ -89,7 +93,7 @@ function SignInView() {
     <div className="grid grid-cols-1 lg:grid-cols-5">
       <div className="bg-[#F4F4F0] h-screen w-full lg:col-span-3 overflow-y-auto">
         <Form {...form}>
-          {/* form.handleSubmit enfores the validation from our schema */}
+          {/* form.handleSubmit enforces the validation from the schema */}
           <form
             method="post"
             onSubmit={(e) => {
