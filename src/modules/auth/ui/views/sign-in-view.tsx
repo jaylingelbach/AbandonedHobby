@@ -37,10 +37,36 @@ function SignInView() {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
+  const resend = async (email: string) => {
+    await fetch('/api/resend', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    toast.success('If an account exists, a new verification email was sent.');
+  };
+
+  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    login.mutate(values);
+  };
+
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       onError: (error) => {
-        toast.error(error.message);
+        const message = error.message;
+        if (message.includes('verify')) {
+          toast.error('Please verify your email to continue.', {
+            duration: Infinity,
+            action: {
+              label: 'Resend link',
+              onClick: () => resend(form.getValues('email'))
+            },
+            closeButton: true
+          });
+        } else {
+          toast.error(error.message);
+        }
       },
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
@@ -58,10 +84,6 @@ function SignInView() {
       password: ''
     }
   });
-
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
-    login.mutate(values);
-  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5">
