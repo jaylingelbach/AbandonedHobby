@@ -1702,3 +1702,31 @@ File Changes:
 - UI component (title dynamic)
   - src/app/(app)/(home)/support/components/seller-tips-card.tsx
     - Header text changed to render the existing title prop (<CardTitle>{title}</CardTitle>); default title behavior preserved when prop omitted.
+
+# Resend verification 08/26/25
+
+### Walkthough
+
+- Adds a resend verification email API endpoint, updates verify API to redirect on success, introduces a client UI component to trigger resend, integrates resend and improved toasts into sign-in flow, and switches email “from” values to environment variables in Payload config.
+
+### New features
+
+- Add “Resend verification email” flow, including a form and action from the sign-in error toast with clear success/error messages.
+- After successful email verification, automatically redirect to the sign-in page with confirmation.
+- Improved sign-in experience: clearer error messaging, success toast on login, automatic session refresh, and redirect to home.
+
+### Chores
+
+- Updated email sender name and address to use environment-based settings.
+
+### File changes:
+
+- API: Verification flows
+  - src/app/api/resend/route.ts, src/app/api/verify/route.ts
+    - New POST /api/resend to resend verification emails with input validation, token checks, and email dispatch; verify route now redirects to /sign-in?verified=1 on success, existing error redirects unchanged. Exports runtime='nodejs' and dynamic='force-dynamic' in resend route.
+- UI: Resend trigger + sign-in
+  - src/components/custom-payload/resend-verify.tsx, src/modules/auth/ui/views/sign-in-view.tsx
+    - New ResendVerify client component to submit email to /api/resend with simple status messaging; sign-in view wires onSubmit earlier, adds resend() helper and verification-required toast with “Resend link” action, success toast and navigation on login, and refined error handling.
+- Config: Email sender
+  - src/payload.config.ts
+    - Moves defaultFromAddress and defaultFromName to process.env.POSTMARK_FROM_EMAIL and process.env.POSTMARK_FROM_NAME using non-null assertions; no other transport changes.

@@ -37,10 +37,49 @@ function SignInView() {
   const router = useRouter();
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
+  const resend = async (email: string) => {
+    try {
+      const res = await fetch('/api/resend', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email })
+      });
+      if (res.ok) {
+        toast.success('If an account exists, a new verification email was sent.');
+      } else {
+        const data = await res.json().catch(() => null);
+        toast.error(data?.error ?? 'Could not resend verification email.');
+      }
+    } catch {
+      toast.error('Network error. Please try again.');
+    }
+  };
+
+  const onSubmit = (values: z.infer<typeof loginSchema>) => {
+    login.mutate(values);
+  };
+
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       onError: (error) => {
-        toast.error(error.message);
+        const message = error.message;
+        if (message.includes('verify')) {
+          toast.error('Please verify your email to continue.', {
+            duration: Infinity,
+            action: {
+              label: 'Resend link',
+              onClick: () => {
+                const value = form.getValues('email');
+                if (!value) return toast.error('Enter your email first.');
+                resend(value);
+              }
+            },
+            closeButton: true
+          });
+        } else {
+          toast.error(error.message);
+        }
       },
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
@@ -59,15 +98,11 @@ function SignInView() {
     }
   });
 
-  const onSubmit = (values: z.infer<typeof loginSchema>) => {
-    login.mutate(values);
-  };
-
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5">
       <div className="bg-[#F4F4F0] h-screen w-full lg:col-span-3 overflow-y-auto">
         <Form {...form}>
-          {/* form.handleSubmit enfores the validation from our schema */}
+          {/* form.handleSubmit enforces the validation from the schema */}
           <form
             method="post"
             onSubmit={(e) => {
