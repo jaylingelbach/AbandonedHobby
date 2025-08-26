@@ -1,4 +1,3 @@
-// src/lib/email/welcomeVerify.ts
 type BasicUser = { email: string; firstName?: string; username?: string };
 
 type BuildParams = {

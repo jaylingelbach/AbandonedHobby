@@ -93,11 +93,11 @@ export const authRouter = createTRPCRouter({
           collection: 'tenants',
           overrideAccess: true, // bypass create access rule (super-admin only)
           data: {
-            name: input.username, // shop display name;
+            name: input.username,
             slug,
             stripeAccountId: account.id,
             stripeDetailsSubmitted: false,
-            primaryContact: newUser.id, // REQUIRED relationship—must be a string ID
+            primaryContact: newUser.id,
             notificationEmail: input.email,
             notificationName: input.firstName || input.username
           }
