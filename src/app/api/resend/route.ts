@@ -64,7 +64,8 @@ export async function POST(req: NextRequest) {
     await payload.sendEmail({
       to: email,
       subject,
-      html
+      html,
+      from: process.env.POSTMARK_FROM_NAME!
       // Optionally set from; defaults come from your nodemailerAdapter config:
       // from: 'Jay from abandoned hobby <jay@abandonedhobby.com>',
     });
