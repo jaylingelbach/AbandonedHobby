@@ -13,7 +13,8 @@ import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
-import { asId, generateTenantURL } from '@/lib/utils';
+import { generateTenantURL } from '@/lib/utils';
+import { asId } from '@/lib/server/utils';
 
 export const runtime = 'nodejs';
 
@@ -68,6 +69,7 @@ export const checkoutRouter = createTRPCRouter({
       }
       return { url: accountLink.url };
     } catch (error) {
+      if (error instanceof TRPCError) throw error;
       console.error('Error creating Stripe account link:', error);
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
