@@ -1730,3 +1730,24 @@ File Changes:
 - Config: Email sender
   - src/payload.config.ts
     - Moves defaultFromAddress and defaultFromName to process.env.POSTMARK_FROM_EMAIL and process.env.POSTMARK_FROM_NAME using non-null assertions; no other transport changes.
+
+# Update Library (to orders) 08/27/25
+
+### Walkthrough
+
+### New Features
+
+- Post-checkout and “Purchases” navigation now go to Orders; product detail links also open under Orders.
+- Stripe onboarding now returns users to the tenant’s admin domain when available.
+
+### Refactor
+
+- Removed legacy Library pages and related server-side prefetching to simplify routing.
+
+### Bug Fixes
+
+- More informative errors when account verification fails due to missing or invalid tenant.
+
+### Documentation
+
+- Updated Seller FAQ to reference “Dashboard → Verify Account” instead of “Dashboard → Payouts.”
