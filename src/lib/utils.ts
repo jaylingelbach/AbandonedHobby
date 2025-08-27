@@ -1,6 +1,7 @@
 import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { TRPCError } from '@trpc/server';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -47,4 +48,20 @@ export function renderToText(node: React.ReactNode): string {
     return renderToText(el.props.children);
   }
   return '';
+}
+
+export function asId(ref: unknown): string {
+  if (typeof ref === 'string') return ref;
+  if (
+    ref &&
+    typeof ref === 'object' &&
+    'id' in (ref as any) &&
+    typeof (ref as any).id === 'string'
+  ) {
+    return (ref as any).id;
+  }
+  throw new TRPCError({
+    code: 'BAD_REQUEST',
+    message: 'Missing or invalid tenant reference.'
+  });
 }

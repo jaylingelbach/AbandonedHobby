@@ -153,8 +153,8 @@ export default function SupportClient() {
         a: (
           <>
             Complete verification with Stripe in{' '}
-            <strong>Dashboard → Payouts</strong>. You can’t list for sale until
-            this is done.
+            <strong>Dashboard → Verify Account</strong>. You can’t list for sale
+            until this is done.
           </>
         )
       },
