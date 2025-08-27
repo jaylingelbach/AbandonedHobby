@@ -53,15 +53,10 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // (nice-to-have) send them back to the seller’s admin on their own domain
-      const returnBase = tenant.slug
-        ? `${generateTenantURL(tenant.slug)}/admin`
-        : `${process.env.NEXT_PUBLIC_APP_URL!}/admin`;
-
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
-        refresh_url: returnBase,
-        return_url: returnBase,
+        refresh_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
+        return_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
         type: 'account_onboarding'
       });
 
