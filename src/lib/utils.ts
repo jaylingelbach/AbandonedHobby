@@ -50,16 +50,13 @@ export function renderToText(node: React.ReactNode): string {
   return '';
 }
 
-export function asId(ref: unknown): string {
+type IdRef = string | { id: string } | null | undefined;
+
+export function asId(ref: IdRef): string {
   if (typeof ref === 'string') return ref;
-  if (
-    ref &&
-    typeof ref === 'object' &&
-    'id' in (ref as any) &&
-    typeof (ref as any).id === 'string'
-  ) {
-    return (ref as any).id;
-  }
+  if (ref && typeof ref === 'object' && typeof ref.id === 'string')
+    return ref.id;
+
   throw new TRPCError({
     code: 'BAD_REQUEST',
     message: 'Missing or invalid tenant reference.'
