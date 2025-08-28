@@ -1755,3 +1755,31 @@ File Changes:
 
 Updated Seller FAQ to reference Dashboard → Verify Account.
 Added recap covering the Orders transition and onboarding behavior.
+
+# Light mode for admin 08/28/25
+
+### New Features
+
+- None
+
+### Style
+
+- Refreshed verify banner and button styling for light theme with higher contrast.
+- Improved hover and focus-visible states; added clear keyboard focus ring.
+- Enhanced button label weight, spacing, and alignment; full-width layout.
+
+### Refactor
+
+- Replaced inline styles with reusable CSS classes for the banner and button.
+- Removed a legacy verification component with no change to visible behavior.
+
+### File changes:
+
+- Theme styles for verify UI
+  - src/app/(payload)/custom.scss
+    - Adds @layer payload rules for light theme: high-contrast styles for .verify-banner and .verify-btn variants, hover/focus-visible states, label tweaks, full-width layout, and focus ring.
+      Class-based markup for verify component
+  - src/components/custom-payload/stripe-verify.tsx
+    - Replaces inline styles with verify-banner and verify-btn classes; no logic, visibility, or content changes.
+- Legacy component removal
+  - src/components/stripe-verify.tsx Deletes old StripeVerify component and its export.
