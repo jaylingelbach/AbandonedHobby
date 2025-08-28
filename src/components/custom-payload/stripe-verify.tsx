@@ -19,7 +19,7 @@ export function StripeVerify() {
   if (!show) return null;
 
   return (
-    <div className="verify-banner">
+    <div className="verify-banner" role="status" aria-live="polite">
       <p>
         Your account isn’t fully verified with Stripe yet. Verify to begin
         selling.
