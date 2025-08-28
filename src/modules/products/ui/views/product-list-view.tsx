@@ -6,12 +6,14 @@ import { ProductSort } from '../components/product-sort';
 
 interface Props {
   category?: string;
+  subcategory?: string;
   tenantSlug?: string;
   narrowView?: boolean;
 }
 
 export const ProductListView = ({
   category,
+  subcategory,
   tenantSlug,
   narrowView
 }: Props) => {
@@ -29,6 +31,7 @@ export const ProductListView = ({
           <Suspense fallback={<ProductListSkeleton narrowView={narrowView} />}>
             <ProductList
               category={category}
+              subcategory={subcategory}
               tenantSlug={tenantSlug}
               narrowView={narrowView}
             />
