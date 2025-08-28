@@ -21,12 +21,10 @@ export default async function Page({ params, searchParams }: Props) {
   void queryClient.prefetchInfiniteQuery(
     trpc.products.getMany.infiniteQueryOptions({
       ...filters,
-     trpc.products.getMany.infiniteQueryOptions({
-       ...filters,
-       category,
-       subcategory,
-       limit: DEFAULT_LIMIT
-     })
+      category,
+      subcategory,
+      limit: DEFAULT_LIMIT
+    })
   );
 
   return (
