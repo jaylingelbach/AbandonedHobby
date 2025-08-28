@@ -19,13 +19,13 @@ export function StripeVerify() {
   if (!show) return null;
 
   return (
-    <div style={{ color: 'yellow', fontWeight: 'bold', padding: '1rem' }}>
+    <div className="verify-banner" role="status" aria-live="polite">
       <p>
         Your account isn’t fully verified with Stripe yet. Verify to begin
         selling.
       </p>
       <Link href="/stripe-verify">
-        <Button>Verify Account</Button>
+        <Button className="verify-btn">Verify Account</Button>
       </Link>
     </div>
   );
