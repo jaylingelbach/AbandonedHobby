@@ -1,4 +1,14 @@
 @layer payload {
+@layer payload {
+  /* Verify banner container (light mode) */
+  [data-theme='light'] .verify-banner {
+    padding: 1rem;
+    border: 1px solid #e5e7eb; /* gray-200 */
+    border-radius: 0.5rem;
+    background-color: #f9fafb; /* gray-50 */
+    color: #111827; /* slate-900 */
+  }
+
   /* High-contrast filled button (light mode, in banner) */
   [data-theme='light'] .verify-banner .verify-btn.btn,
   [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
