@@ -1744,10 +1744,14 @@ File Changes:
 
 - Removed legacy Library pages and related server-side prefetching to simplify routing.
 
+- Consolidated “Purchases” under Orders: successful checkout now redirects to Orders; Purchases button and product links lead to Orders; back navigation updated accordingly.
+
 ### Bug Fixes
 
 - More informative errors when account verification fails due to missing or invalid tenant.
+- Improved account verification flow with clearer errors and stricter link validation to prevent failed onboarding attempts.
 
 ### Documentation
 
-- Updated Seller FAQ to reference “Dashboard → Verify Account” instead of “Dashboard → Payouts.”
+Updated Seller FAQ to reference Dashboard → Verify Account.
+Added recap covering the Orders transition and onboarding behavior.
