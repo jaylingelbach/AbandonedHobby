@@ -1783,3 +1783,41 @@ Added recap covering the Orders transition and onboarding behavior.
     - Replaces inline styles with verify-banner and verify-btn classes; no logic, visibility, or content changes.
 - Legacy component removal
   - src/components/stripe-verify.tsx Deletes old StripeVerify component and its export.
+
+# Subcategory routing v2
+
+### New Features
+
+- Browse products by both category and subcategory via updated URLs.
+- Product lists and views now accept an optional subcategory filter.
+
+### Improvements
+
+- More accurate product filtering using category/subcategory relationships.
+- Prefetching aligned with dual-slug navigation for smoother loading.
+- Displays a “No products found” message when searches return empty.
+
+### Style
+
+- Adjusted subcategory menu z-index to ensure proper layering and hover behavior.
+
+### File changes:
+
+- Routing & Prefetch
+  - src/app/(app)/(home)/[category]/[subcategory]/page.tsx
+    - Page now destructures { category, subcategory } from params; prefetchInfiniteQuery uses both slugs and cursor: 1; renders ProductListView with both props.
+- Server: Products querying
+  - src/modules/products/server/procedures.ts
+    - getMany input adds subcategory; implements subcategory-first filtering with parent validation; category-first resolves children and filters by category or child subcategory IDs; replaces slug filters with relational IDs; adds no-results sentinel.
+- Products collection schema & hooks
+  - src/collections/Products.ts
+    - Adds required category relationship and required subcategory relationship (conditional UI, filtered by selected category); beforeValidate enforces presence and hierarchy; helper for sibling category ID; keeps Stripe verification hook; minor admin copy/formatting tweaks.
+- Products UI components
+  - src/modules/products/ui/components/product-list.tsx, src/modules/products/ui/views/product-list-view.tsx
+    - Add optional subcategory prop end-to-end; pass into infinite query options; add “No products found” empty state; adjust ProductListSkeleton signature.
+- Search filter UI tweak
+  - src/modules/home/ui/components/search-filters/subcategory-menu.tsx
+    - Tailwind z-index class changed to arbitrary value syntax ([z-100]); comment expanded; no logic change.
+- Types
+  - src/payload-types.ts
+    - Product.category now required (string or Category); add optional Product.subcategory; extend ProductsSelect with subcategory?: T.

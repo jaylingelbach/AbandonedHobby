@@ -193,7 +193,14 @@ export interface Product {
    * In USD
    */
   price: number;
-  category?: (string | null) | Category;
+  /**
+   * Pick a top-level category first.
+   */
+  category: string | Category;
+  /**
+   * Choose a subcategory (enabled after picking a category).
+   */
+  subcategory?: (string | null) | Category;
   tags?: (string | Tag)[] | null;
   image?: (string | null) | Media;
   cover?: (string | null) | Media;
@@ -584,6 +591,7 @@ export interface ProductsSelect<T extends boolean = true> {
   description?: T;
   price?: T;
   category?: T;
+  subcategory?: T;
   tags?: T;
   image?: T;
   cover?: T;

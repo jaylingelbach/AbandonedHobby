@@ -13,26 +13,33 @@ import { DEFAULT_LIMIT } from '@/constants';
 
 interface Props {
   category?: string;
+  subcategory?: string; // 👈 NEW
   tenantSlug?: string;
   narrowView?: boolean;
 }
 
-export const ProductList = ({ category, tenantSlug, narrowView }: Props) => {
+export const ProductList = ({
+  category,
+  subcategory,
+  tenantSlug,
+  narrowView
+}: Props) => {
   const [filters] = useProductFilters();
   const trpc = useTRPC();
+
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useSuspenseInfiniteQuery(
       trpc.products.getMany.infiniteQueryOptions(
         {
           ...filters,
           category,
+          subcategory,
           tenantSlug,
           limit: DEFAULT_LIMIT
         },
         {
-          getNextPageParam: (lastPage) => {
-            return lastPage.docs.length > 0 ? lastPage.nextPage : undefined;
-          }
+          getNextPageParam: (lastPage) =>
+            lastPage.docs.length > 0 ? lastPage.nextPage : undefined
         }
       )
     );
@@ -45,6 +52,7 @@ export const ProductList = ({ category, tenantSlug, narrowView }: Props) => {
       </div>
     );
   }
+
   return (
     <>
       <div
@@ -85,7 +93,11 @@ export const ProductList = ({ category, tenantSlug, narrowView }: Props) => {
   );
 };
 
-export const ProductListSkeleton = ({ narrowView }: Props) => {
+export const ProductListSkeleton = ({
+  narrowView
+}: {
+  narrowView?: boolean;
+}) => {
   return (
     <div
       className={cn(
