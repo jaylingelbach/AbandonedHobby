@@ -57,7 +57,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       clearCart();
       // invalidates and refreshes library query
       queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
-      router.push('/library');
+      router.push('/orders');
     }
   }, [
     states.success,

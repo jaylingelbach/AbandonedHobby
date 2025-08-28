@@ -14,6 +14,7 @@ import { TRPCError } from '@trpc/server';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL } from '@/lib/utils';
+import { asId } from '@/lib/server/utils';
 
 export const runtime = 'nodejs';
 
@@ -22,42 +23,44 @@ export const checkoutRouter = createTRPCRouter({
     try {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      // Get a depth:0 user so relationships are ids
       const dbUser = await ctx.db.findByID({
         collection: 'users',
         id: user.id,
-        depth: 0 // user.tenants[0].tenant will be a string (tenant id)
+        depth: 0
       });
-      if (!dbUser) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'User not found.'
-        });
-      }
-      const tenantId = user.tenants?.[0]?.tenant as string; // This is an id bc of depth: 0
+      if (!dbUser)
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found.' });
+
+      // ✅ Use dbUser (depth:0) and normalize to an id
+      const tenantRel = dbUser.tenants?.[0]?.tenant;
+      const tenantId = asId(tenantRel);
+
       const tenant = await ctx.db.findByID({
         collection: 'tenants',
         id: tenantId
       });
 
-      if (!tenant) {
+      if (!tenant)
         throw new TRPCError({
           code: 'NOT_FOUND',
-          message: `Could not find tenant with the id of ${tenantId}.`
+          message: `Could not find tenant ${tenantId}.`
         });
-      }
       if (!tenant.stripeAccountId) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Tenant does not have a Stripe account configured.'
         });
       }
-      // account verification process
+
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
         refresh_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
         return_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
         type: 'account_onboarding'
       });
+
       if (!accountLink.url) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
@@ -66,6 +69,7 @@ export const checkoutRouter = createTRPCRouter({
       }
       return { url: accountLink.url };
     } catch (error) {
+      if (error instanceof TRPCError) throw error;
       console.error('Error creating Stripe account link:', error);
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
