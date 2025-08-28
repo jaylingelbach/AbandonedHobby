@@ -260,8 +260,9 @@ export const Products: CollectionConfig = {
       },
       filterOptions: ({ siblingData }) => {
         const parentId = getCategoryIdFromSibling(siblingData);
-        if (!parentId) return false;
-        return { parent: { equals: parentId } };
+        return parentId
+          ? { parent: { equals: parentId } }
+          : { id: { in: [] } };
       },
       validate: (value, { siblingData }) => {
         if (!getCategoryIdFromSibling(siblingData))
