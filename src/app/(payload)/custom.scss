@@ -1,48 +1,49 @@
 @layer payload {
-@layer payload {
-  /* Verify banner container (light mode) */
-  [data-theme='light'] .verify-banner {
-    padding: 1rem;
-    border: 1px solid #e5e7eb; /* gray-200 */
-    border-radius: 0.5rem;
-    background-color: #f9fafb; /* gray-50 */
-    color: #111827; /* slate-900 */
-  }
+  @layer payload {
+    /* Verify banner container (light mode) */
+    [data-theme='light'] .verify-banner {
+      padding: 1rem;
+      border: 1px solid #e5e7eb; /* gray-200 */
+      border-radius: 0.5rem;
+      background-color: #f9fafb; /* gray-50 */
+      color: #111827; /* slate-900 */
+    }
 
-  /* High-contrast filled button (light mode, in banner) */
-  [data-theme='light'] .verify-banner .verify-btn.btn,
-  [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
-  [data-theme='light'] .verify-banner .verify-btn.btn--style-secondary {
-    background-color: #111827 !important; /* slate-900 */
-    color: #fff !important;
-    border-color: #111827 !important;
-  }
+    /* High-contrast filled button (light mode, in banner) */
+    [data-theme='light'] .verify-banner .verify-btn.btn,
+    [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
+    [data-theme='light'] .verify-banner .verify-btn.btn--style-secondary {
+      background-color: #111827 !important; /* slate-900 */
+      color: #fff !important;
+      border-color: #111827 !important;
+    }
 
-  [data-theme='light'] .verify-banner .verify-btn:hover,
-  [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    background-color: #0f172a !important; /* slightly darker */
-  }
+    [data-theme='light'] .verify-banner .verify-btn:hover,
+    [data-theme='light'] .verify-banner .verify-btn:focus-visible {
+      background-color: #0f172a !important; /* slightly darker */
+    }
 
-  /* Make it pop a bit more */
-  [data-theme='light'] .verify-banner .verify-btn .btn__label {
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
+    /* Make it pop a bit more */
+    [data-theme='light'] .verify-banner .verify-btn .btn__label {
+      font-weight: 700;
+      letter-spacing: 0.01em;
+    }
 
-  /* Optional: full-width and spacing for the narrow sidebar */
-  [data-theme='light'] .verify-banner .verify-btn {
-    width: 100%;
-    margin-top: 0.5rem;
-    text-align: center;
-  }
+    /* Optional: full-width and spacing for the narrow sidebar */
+    [data-theme='light'] .verify-banner .verify-btn {
+      width: 100%;
+      margin-top: 0.5rem;
+      text-align: center;
+    }
 
-  [data-theme='light'] .verify-banner .verify-btn:focus:not(:focus-visible) {
-    outline: none;
-  }
+    [data-theme='light'] .verify-banner .verify-btn:focus:not(:focus-visible) {
+      outline: none;
+    }
 
-  /* Accessible focus ring that shows on keyboard nav */
-  [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue ring */
-    outline-offset: 2px;
+    /* Accessible focus ring that shows on keyboard nav */
+    [data-theme='light'] .verify-banner .verify-btn:focus-visible {
+      outline: 2px solid #1d4ed8; /* blue ring */
+      outline-offset: 2px;
+    }
   }
 }
