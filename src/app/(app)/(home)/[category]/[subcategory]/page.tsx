@@ -7,23 +7,24 @@ import { ProductListView } from '@/modules/products/ui/views/product-list-view';
 import { DEFAULT_LIMIT } from '@/constants';
 
 interface Props {
-  params: { category: string; subcategory: string };
-  searchParams: SearchParams;
+  params: Promise<{ category: string; subcategory: string }>;
+  searchParams: Promise<SearchParams>;
 }
 
 export default async function Page({ params, searchParams }: Props) {
-  const { category, subcategory } = params;
-  const filters = await loadProductFilters(searchParams);
+  const { category, subcategory } = await params; // 👈 await the promises
+  const filters = await loadProductFilters(await searchParams); // 👈 await here too
 
   const queryClient = getQueryClient();
 
-  // Prefetch with BOTH slugs (single call — no nesting)
+  // Prefetch with BOTH slugs
   void queryClient.prefetchInfiniteQuery(
     trpc.products.getMany.infiniteQueryOptions({
       ...filters,
       category,
       subcategory,
-      limit: DEFAULT_LIMIT
+      limit: DEFAULT_LIMIT,
+      cursor: 1
     })
   );
 

@@ -3,7 +3,7 @@ import { headers as getHeaders } from 'next/headers';
 import z from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { Category, Media, Tenant } from '@/payload-types';
+import { Media, Tenant } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';

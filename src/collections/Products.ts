@@ -258,11 +258,11 @@ export const Products: CollectionConfig = {
           Boolean(getCategoryIdFromSibling(siblingData)),
         description: 'Choose a subcategory (enabled after picking a category).'
       },
+
       filterOptions: ({ siblingData }) => {
         const parentId = getCategoryIdFromSibling(siblingData);
-        return parentId
-          ? { parent: { equals: parentId } }
-          : { id: { in: [] } };
+        if (!parentId) return false;
+        return { parent: { equals: parentId } };
       },
       validate: (value, { siblingData }) => {
         if (!getCategoryIdFromSibling(siblingData))
