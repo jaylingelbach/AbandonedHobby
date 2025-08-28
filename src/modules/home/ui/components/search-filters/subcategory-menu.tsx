@@ -20,7 +20,7 @@ export const SubcategoryMenu = ({ category, isOpen }: Props) => {
 
   return (
     <div
-      className="absolute [z-100]"
+      className="absolute z-[100]"
       style={{
         top: '100%',
         left: 0
