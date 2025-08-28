@@ -146,11 +146,11 @@ export const Products: CollectionConfig = {
   },
   hooks: {
     beforeValidate: [
-      async ({ data, req, operation }) => {
+      async ({ data, req, operation, originalDoc }) => {
         if (operation !== 'create' && operation !== 'update') return data;
 
-        const cat = data?.category;
-        const sub = data?.subcategory;
+        const cat = data?.category ?? originalDoc?.category;
+        const sub = data?.subcategory ?? originalDoc?.subcategory;
 
         if (!cat || !sub) {
           throw new Error('Please choose both Category and Subcategory.');
