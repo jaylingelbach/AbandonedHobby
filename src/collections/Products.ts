@@ -241,7 +241,7 @@ export const Products: CollectionConfig = {
       },
       filterOptions: () => ({
         parent: { equals: null }, // only top-level
-        slug: { not_equals: 'all' } // hide your "All categories"
+        slug: { not_equals: 'all' } // hide "All categories" slug
       }),
       validate: (value) => (value ? true : 'Category is required.')
     },

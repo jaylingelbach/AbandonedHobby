@@ -174,8 +174,18 @@ const categories: Category[] = [
       { name: 'Digital Audio Workstations', slug: 'daws' },
       { name: 'Musical Instruments', slug: 'musical-instruments' },
       { name: 'Other', slug: 'other' },
+      { name: 'Records', slug: 'records' }
+    ]
+  },
+  {
+    name: 'Musical Instruments',
+    slug: 'musical-instruments',
+    color: '#BD9B16',
+    subcategories: [
+      { name: 'Acoustic Guitars & Basses', slug: 'acoustic-guitars' },
+      { name: 'Electric Guitars & Basses', slug: 'electric-guitars' },
+      { name: 'Other', slug: 'other' },
       { name: 'Pedals & Effects', slug: 'pedals-effects' },
-      { name: 'Records', slug: 'records' },
       { name: 'Synthesizers & MIDI', slug: 'synthesizers-midi' }
     ]
   },
