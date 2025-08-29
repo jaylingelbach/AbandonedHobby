@@ -5,9 +5,10 @@ import { getQueryClient, trpc } from '@/trpc/server';
 import { Footer } from '@/modules/tenants/ui/components/footer';
 import { Navbar, NavbarSkeleton } from '@/modules/tenants/ui/components/navbar';
 
+type LayoutParams = { slug: string };
 interface LayoutProps {
   children: React.ReactNode;
-  params: { slug: string };
+  params: Promise<LayoutParams>;
 }
 
 export default async function Layout({ children, params }: LayoutProps) {

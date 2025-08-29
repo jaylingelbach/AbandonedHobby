@@ -9,7 +9,9 @@ export default async function middleware(req: NextRequest) {
   const hostHeader = req.headers.get('host') || '';
   let rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || '';
   if (!rootDomain) {
-    console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
+    if (process.env.NODE_ENV === 'production') {
+      console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
+    }
     return NextResponse.next();
   }
   // Strip any protocol or leading dots:
