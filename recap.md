@@ -1821,3 +1821,47 @@ Added recap covering the Orders transition and onboarding behavior.
 - Types
   - src/payload-types.ts
     - Product.category now required (string or Category); add optional Product.subcategory; extend ProductsSelect with subcategory?: T.
+
+# Display user cms (user badge in payload)
+
+### Walkthrough
+
+- Adds a new client-side CurrentUserBadge component, wires it into the admin UI (beforeNavLinks) and the admin import map, updates SCSS with styles for new components and refactors AbandonedHobbyLink to use class-based styling, adjusts seed category data (adds Musical Instruments; moves Records), and updates a comment in Products.
+
+### New Features
+
+- Admin now shows a “Signed in as” badge displaying the current user.
+
+### Style
+
+- Added light/dark theme styles for Current User Badge and Abandoned Hobby link.
+- Consolidated Stripe Verify banner styles and improved focus states.
+
+### Refactor
+
+- Abandoned Hobby link reworked to use CSS classes (no functional change).
+
+### Content/Data
+
+- Seed data updated: introduced a top-level “Musical Instruments” category with subcategories; moved “Records” under “Music.”
+
+### File changes:
+
+- Admin UI integration
+  - src/app/(payload)/admin/importMap.js, src/payload.config.ts
+    - Adds import-map alias and registers CurrentUserBadge in admin.beforeNavLinks; retains existing mappings/links.
+- Styling updates
+  - src/app/(payload)/custom.scss
+    - Consolidates verify banner block, adds styles for current-user-badge and abandoned-hobby-link for light/dark themes; normalizes comments and focus states.
+- New component
+  - src/components/custom-payload/current-user-badge.tsx
+    - Introduces client component using useAuth to display the current user; exports named and default; dynamic = 'force-dynamic'.
+- Refactor component styling
+  - src/components/custom-payload/abandoned-hobby-link.tsx
+    - Replaces inline styles with class-based structure (ah-link\* classes); no logic changes.
+- Seed data changes
+  - src/lib/seed.ts
+    - Adds top-level “Musical Instruments” with subcategories; moves “Records” under “Music”; removes it from “Musical Instruments”.
+- Minor comment update
+  - src/collections/Products.ts
+    - Updates comment in filterOptions; no behavioral changes.
