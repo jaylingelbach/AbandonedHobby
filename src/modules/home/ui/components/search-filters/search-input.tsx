@@ -53,8 +53,8 @@ export const SearchInput = ({ disabled, defaultValue, onChange }: Props) => {
       {session.data?.user && (
         <Button asChild variant="elevated">
           <Link prefetch href="/orders">
-            <BookmarkCheckIcon />
-            Purchases
+            <BookmarkCheckIcon aria-hidden="true" />
+            Orders
           </Link>
         </Button>
       )}

@@ -45,6 +45,22 @@ export const Users: CollectionConfig = {
     useAsTitle: 'email',
     hidden: ({ user }) => !isSuperAdmin(user)
   },
+  hooks: {
+    beforeValidate: [
+      ({ data }) => {
+        if (typeof data?.username === 'string') {
+          data.username = data.username
+            .normalize('NFKD')
+            .toLowerCase()
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .replace(/[^a-z0-9._-]+/g, '-')
+            .replace(/^-+|-+$/g, '');
+        }
+        return data;
+      }
+    ]
+  },
   fields: [
     {
       name: 'firstName',
@@ -77,7 +93,7 @@ export const Users: CollectionConfig = {
       },
       name: 'roles',
       type: 'select',
-      defaultValue: 'user',
+      defaultValue: ['user'],
       hasMany: true,
       options: ['super-admin', 'user'],
       access: {
