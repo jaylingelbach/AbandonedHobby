@@ -1822,7 +1822,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/payload-types.ts
     - Product.category now required (string or Category); add optional Product.subcategory; extend ProductsSelect with subcategory?: T.
 
-# Display user cms (user badge in payload)
+# Display user cms (user badge in payload) 08/28/25
 
 ### Walkthrough
 
