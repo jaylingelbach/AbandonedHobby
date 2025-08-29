@@ -5,15 +5,14 @@ import { getQueryClient, trpc } from '@/trpc/server';
 import { Footer } from '@/modules/tenants/ui/components/footer';
 import { Navbar, NavbarSkeleton } from '@/modules/tenants/ui/components/navbar';
 
-// src/app/(app)/(tenants)/tenants/[slug]/(home)/layout.tsx
 type LayoutParams = { slug: string };
 interface LayoutProps {
   children: React.ReactNode;
-  params: Promise<LayoutParams>;
+  params: LayoutParams;
 }
 
 export default async function Layout({ children, params }: LayoutProps) {
-  const { slug } = await params;
+  const { slug } = params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */

@@ -1920,3 +1920,43 @@ Added recap covering the Orders transition and onboarding behavior.
 - UI text updates
   - src/modules/home/ui/components/search-filters/search-input.tsx, src/modules/library/ui/views/library-view.tsx
     - Changed link label “Purchases” → “Orders”; H1 title “Library” → “Orders”. No behavioral changes.
+
+# Sitewide 404 08/29/25
+
+### Walkthough
+
+- Adds server-side validation for category and subcategory routes with notFound handling, introduces a new app RootLayout and a 404 page, implements server utilities to validate categories via Payload, gates a middleware log to production, and performs minor comment/formatting cleanups without functional changes elsewhere.
+
+### New Features
+
+- Added a polished 404 page with clear messaging and quick links (Home, Support, Explore).
+- Introduced a global app layout for consistent styling and page metadata across the site.
+
+### Bug Fixes
+
+- Invalid category or subcategory URLs now correctly return a 404 instead of proceeding to load content.
+
+### Chores
+
+- Limited a noisy configuration warning to production environments only.
+
+### Style
+
+- Minor formatting and comment cleanups with no impact on behavior.
+
+### File changes:
+
+- Category routing validation
+  - src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/[category]/[subcategory]/page.tsx
+    - Add runtime validation using isValidCategory/isValidCategoryAndSub; invoke notFound() on invalid params; rest of data loading/rendering unchanged.
+- App shell and 404 page
+  - src/app/layout.tsx, src/app/not-found.tsx
+    - Introduce RootLayout with global metadata and styles; add a presentational 404 page component.
+- Server utilities for category checks
+  - src/lib/server/utils.ts
+    - Add exported async helpers: isValidCategory and isValidCategoryAndSub querying Payload categories and subcategories.
+- Middleware logging gate
+  - src/middleware.ts Restrict missing domain warning log to production environment; request handling unchanged.
+- No-op/comment/formatting updates
+  - src/app/(app)/api/stripe/webhooks/route.ts, src/modules/products/server/procedures.ts, src/modules/products/ui/components/product-list.tsx, components.json
+    - Remove inline comments; no logic changes. Add trailing newline to components.json.

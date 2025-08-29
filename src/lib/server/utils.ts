@@ -23,18 +23,24 @@ export async function isValidCategoryAndSub(
 ): Promise<boolean> {
   if (!category || !sub) return false;
   const payload = await getPayload({ config });
-  const res = await payload.find({
+  const catRes = await payload.find({
     collection: 'categories',
     depth: 0,
     limit: 1,
     where: { slug: { equals: category } }
   });
-  const cat = res.docs[0];
-  if (!cat) return false;
-  return (
-    Array.isArray(cat.subcategories) &&
-    cat.subcategories.some((s: Category) => s.slug === sub)
-  );
+  const cat = catRes.docs[0] as Category | undefined;
+  if (!cat?.id) return false;
+  const subRes = await payload.find({
+    collection: 'categories',
+    depth: 0,
+    limit: 1,
+    where: {
+      slug: { equals: sub },
+      parent: { equals: cat.id }
+    }
+  });
+  return subRes.totalDocs > 0;
 }
 
 type IdRef = string | { id: string } | null | undefined;
