@@ -1,7 +1,7 @@
 'use client';
 
 import { LoaderIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTRPC } from '@/trpc/client';
 import { useMutation } from '@tanstack/react-query';
@@ -24,7 +24,11 @@ const Page = () => {
     })
   );
 
+  // used to prevent getting called twice in dev
+  const calledRef = useRef(false);
   useEffect(() => {
+    if (calledRef.current) return;
+    calledRef.current = true;
     verify();
   }, [verify]);
 
