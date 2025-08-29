@@ -8,11 +8,11 @@ import { Navbar, NavbarSkeleton } from '@/modules/tenants/ui/components/navbar';
 type LayoutParams = { slug: string };
 interface LayoutProps {
   children: React.ReactNode;
-  params: LayoutParams;
+  params: Promise<LayoutParams>;
 }
 
 export default async function Layout({ children, params }: LayoutProps) {
-  const { slug } = params;
+  const { slug } = await params;
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
