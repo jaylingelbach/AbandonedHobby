@@ -278,7 +278,7 @@ export const productsRouter = createTRPCRouter({
         cursor: z.number().default(1),
         limit: z.number().default(DEFAULT_LIMIT),
         category: z.string().nullable().optional(),
-        subcategory: z.string().nullable().optional(), // 👈 NEW
+        subcategory: z.string().nullable().optional(),
         minPrice: z.string().nullable().optional(),
         maxPrice: z.string().nullable().optional(),
         tags: z.array(z.string()).nullable().optional(),

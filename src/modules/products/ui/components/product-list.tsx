@@ -13,7 +13,7 @@ import { DEFAULT_LIMIT } from '@/constants';
 
 interface Props {
   category?: string;
-  subcategory?: string; // 👈 NEW
+  subcategory?: string;
   tenantSlug?: string;
   narrowView?: boolean;
 }

@@ -5,6 +5,8 @@ import { getQueryClient, trpc } from '@/trpc/server';
 import { loadProductFilters } from '@/modules/products/search-params';
 import { ProductListView } from '@/modules/products/ui/views/product-list-view';
 import { DEFAULT_LIMIT } from '@/constants';
+import { isValidCategoryAndSub } from '@/lib/server/utils';
+import { notFound } from 'next/navigation';
 
 interface Props {
   params: Promise<{ category: string; subcategory: string }>;
@@ -12,8 +14,9 @@ interface Props {
 }
 
 export default async function Page({ params, searchParams }: Props) {
-  const { category, subcategory } = await params; // 👈 await the promises
-  const filters = await loadProductFilters(await searchParams); // 👈 await here too
+  const { category, subcategory } = await params;
+  if (!(await isValidCategoryAndSub(category, subcategory))) return notFound();
+  const filters = await loadProductFilters(await searchParams);
 
   const queryClient = getQueryClient();
 

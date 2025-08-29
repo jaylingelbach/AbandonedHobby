@@ -356,7 +356,7 @@ export async function POST(req: Request) {
             await sendSaleNotificationEmail({
               // to: sellerEmail,
               to: 'jay@abandonedhobby.com',
-              sellerName, // 👈 camelCase here
+              sellerName,
               receiptId: order.id,
               orderDate: new Date().toLocaleDateString('en-US'),
               lineItems: receiptLineItems,

@@ -1,4 +1,5 @@
 import type { SearchParams } from 'nuqs/server';
+import { notFound } from 'next/navigation';
 
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { getQueryClient, trpc } from '@/trpc/server';
@@ -6,6 +7,7 @@ import { getQueryClient, trpc } from '@/trpc/server';
 import { loadProductFilters } from '@/modules/products/search-params';
 import { ProductListView } from '@/modules/products/ui/views/product-list-view';
 import { DEFAULT_LIMIT } from '@/constants';
+import { isValidCategory } from '@/lib/server/utils';
 interface Props {
   params: Promise<{
     category: string;
@@ -15,6 +17,7 @@ interface Props {
 
 const Page = async ({ params, searchParams }: Props) => {
   const { category } = await params;
+  if (!(await isValidCategory(category))) return notFound();
   const filters = await loadProductFilters(searchParams);
 
   const queryClient = getQueryClient();
