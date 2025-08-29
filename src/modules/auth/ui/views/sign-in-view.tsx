@@ -6,7 +6,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { useTRPC } from '@/trpc/client';
 import z from 'zod';
 
@@ -25,6 +25,7 @@ import { cn } from '@/lib/utils';
 import { loginSchema } from '../../schemas';
 import { useState } from 'react';
 import { Eye, EyeOff } from 'lucide-react';
+import { getSafeNextURL } from '@/lib/utils';
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -35,6 +36,11 @@ function SignInView() {
   const [showPassword, setShowPassword] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get('next') ?? null;
+  const safeNext =
+    typeof window !== 'undefined' ? getSafeNextURL(rawNext) : null;
+
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
@@ -46,7 +52,9 @@ function SignInView() {
         body: JSON.stringify({ email })
       });
       if (res.ok) {
-        toast.success('If an account exists, a new verification email was sent.');
+        toast.success(
+          'If an account exists, a new verification email was sent.'
+        );
       } else {
         const data = await res.json().catch(() => null);
         toast.error(data?.error ?? 'Could not resend verification email.');
@@ -84,10 +92,24 @@ function SignInView() {
       onSuccess: async () => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
         toast.success('Successfully logged in!');
+        if (safeNext) {
+          // Cross-origin (e.g., apex -> subdomain) needs a full navigation
+          if (safeNext.origin !== window.location.origin) {
+            window.location.assign(safeNext.toString());
+          } else {
+            router.replace(
+              `${safeNext.pathname}${safeNext.search}${safeNext.hash}`
+            );
+          }
+          return;
+        }
         router.push('/');
       }
     })
   );
+  const signUpHref = rawNext
+    ? `/sign-up?next=${encodeURIComponent(rawNext)}`
+    : '/sign-up';
 
   const form = useForm<z.infer<typeof loginSchema>>({
     mode: 'all',
@@ -125,7 +147,7 @@ function SignInView() {
                 size="sm"
                 className="text-base border-none underline"
               >
-                <Link prefetch href="/sign-up">
+                <Link prefetch href={signUpHref}>
                   Sign-up
                 </Link>
               </Button>

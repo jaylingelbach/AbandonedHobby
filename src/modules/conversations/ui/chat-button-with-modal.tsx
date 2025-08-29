@@ -7,6 +7,7 @@ import { useUser } from '@/hooks/use-user';
 import { useTRPC } from '@/trpc/client';
 import { useMutation } from '@tanstack/react-query';
 import { toast } from 'sonner';
+import { buildSignInUrl } from '@/lib/utils';
 
 interface Props {
   productId: string;
@@ -42,18 +43,13 @@ export function ChatButtonWithModal({ productId, sellerId, username }: Props) {
 
   const handleClick = () => {
     if (!user) {
-      toast.error('Please sign in to start a chat.');
-      window.location.href = '/sign-in';
+      const next = typeof window !== 'undefined' ? window.location.href : '/';
+      window.location.assign(buildSignInUrl(next));
       return;
     }
 
-    startChat({
-      buyerId: user.id,
-      sellerId,
-      productId
-    });
+    startChat({ buyerId: user.id, sellerId, productId });
   };
-
   return (
     <>
       <Button variant="elevated" onClick={handleClick}>

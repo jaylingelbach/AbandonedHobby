@@ -1,15 +1,20 @@
 'use client';
 
+import { useState } from 'react';
+
 import Link from 'next/link';
-import { z } from 'zod';
+import { useRouter, useSearchParams } from 'next/navigation';
 import { Poppins } from 'next/font/google';
+
+import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { toast } from 'sonner';
 import { useForm } from 'react-hook-form';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { useRouter } from 'next/navigation';
-import { useTRPC } from '@/trpc/client';
+import { toast } from 'sonner';
+import { Eye, EyeOff } from 'lucide-react';
 
+import { useTRPC } from '@/trpc/client';
+import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -20,24 +25,22 @@ import {
   FormLabel,
   FormMessage
 } from '@/components/ui/form';
-
 import { Input } from '@/components/ui/input';
-import { cn } from '@/lib/utils';
-import { registerSchema } from '../../schemas';
-import { useState } from 'react';
-import { Eye, EyeOff } from 'lucide-react';
 
-const poppins = Poppins({
-  subsets: ['latin'],
-  weight: ['700']
-});
+import { registerSchema } from '../../schemas';
+
+const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
 function SignUpView() {
   const [showPassword, setShowPassword] = useState(false);
 
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const rawNext = searchParams.get('next') ?? null;
+
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
   const register = useMutation(
     trpc.auth.register.mutationOptions({
       onError: (error) => {
@@ -48,7 +51,10 @@ function SignUpView() {
         toast.success(
           'Account created. Check your email to verify, then sign in.'
         );
-        router.push('/sign-in');
+
+        // Always send to sign-in and preserve ?next=
+        const nextQS = rawNext ? `?next=${encodeURIComponent(rawNext)}` : '';
+        router.replace(`/sign-in${nextQS}`);
       }
     })
   );
@@ -71,14 +77,17 @@ function SignUpView() {
 
   const username = form.watch('username');
   const usernameErrors = form.formState.errors.username;
-
   const showPreview = username && !usernameErrors;
+
+  const signInHref = rawNext
+    ? `/sign-in?next=${encodeURIComponent(rawNext)}`
+    : '/sign-in';
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5">
       <div className="bg-[#F4F4F0] h-screen w-full lg:col-span-3 overflow-y-auto">
         <Form {...form}>
-          {/* form.handleSubmit enfores the validation from our schema */}
+          {/* form.handleSubmit enforces the validation from our schema */}
           <form
             onSubmit={form.handleSubmit(onSubmit)}
             className="flex flex-col gap-8 p-4 lg:p-16"
@@ -97,13 +106,14 @@ function SignUpView() {
                 size="sm"
                 className="text-base border-none underline"
               >
-                <Link href="/sign-in">Sign-in</Link>
+                <Link href={signInHref}>Sign-in</Link>
               </Button>
             </div>
+
             <h1 className="text-4xl font-medium">
-              {`Join other ADHDers and neurodivergents buying selling and trading
-              each other's abandoned hobbies.`}
+              {`Join other ADHDers and neurodivergents buying selling and trading each other's abandoned hobbies.`}
             </h1>
+
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <FormField
                 name="firstName"
@@ -130,40 +140,39 @@ function SignUpView() {
                 )}
               />
             </div>
+
             <FormField
               name="username"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-base">Username</FormLabel>
                   <FormControl>
-                    {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                     <Input {...field} autoComplete="username" />
                   </FormControl>
                   <FormDescription
                     className={cn('hidden', showPreview && 'block')}
                   >
-                    Your account/store will be available at&nbsp;
-                    {/* TODO:  Use method to generate preview url */}
+                    Your account/store will be available at{' '}
                     <strong>{username}</strong>.abandonedhobby.com
                   </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               name="email"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel className="text-base">Email</FormLabel>
                   <FormControl>
-                    {/* spreading the field ensures you have all the things like onChange onBlur and state */}
-                    <Input {...field} />
+                    <Input {...field} autoComplete="email" />
                   </FormControl>
-
                   <FormMessage />
                 </FormItem>
               )}
             />
+
             <FormField
               name="password"
               render={({ field }) => (
@@ -171,7 +180,6 @@ function SignUpView() {
                   <FormLabel className="text-base">Password</FormLabel>
                   <div className="relative">
                     <FormControl>
-                      {/* spreading the field ensures you have all the things like onChange onBlur and state */}
                       <Input
                         {...field}
                         type={showPassword ? 'text' : 'password'}
@@ -183,9 +191,7 @@ function SignUpView() {
                       type="button"
                       className="absolute inset-y-0 right-2 my-auto h-8 rounded px-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
                       onClick={() => setShowPassword((v) => !v)}
-                      onMouseDown={(e) =>
-                        e.preventDefault()
-                      } /* keep cursor focus in input */
+                      onMouseDown={(e) => e.preventDefault()} // keep cursor in input
                       aria-label={
                         showPassword ? 'Hide password' : 'Show password'
                       }
@@ -202,6 +208,7 @@ function SignUpView() {
                 </FormItem>
               )}
             />
+
             <Button
               disabled={register.isPending}
               type="submit"
@@ -214,6 +221,7 @@ function SignUpView() {
           </form>
         </Form>
       </div>
+
       <div
         className="h-screen w-full lg:col-span-2 hidden lg:block"
         style={{
