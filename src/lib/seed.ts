@@ -287,8 +287,8 @@ async function seed() {
           password: adminPassword,
           username: 'admin',
           roles: ['super-admin'],
-          firstName: 'Admin',
-          lastName: 'User',
+          firstName: 'Jay',
+          lastName: 'Lingelbach',
           welcomeEmailSent: true, // skip welcome email during seed.
           tenants: []
         },
