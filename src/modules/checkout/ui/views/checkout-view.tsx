@@ -13,6 +13,8 @@ import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
 import CheckoutSidebar from '../components/checkout-sidebar';
 
+import { buildSignInUrl } from '@/lib/utils';
+
 interface CheckoutViewProps {
   tenantSlug: string;
 }
@@ -33,20 +35,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       onMutate: () => {
         setStates({ success: false, cancel: false });
       },
-      // not a purchase, but the checkout link was successfully created.
       onSuccess: (data) => {
-        window.location.href = data.url;
+        window.location.assign(data.url);
       },
       onError: (error) => {
         console.error('Error: ', error);
-        const host = window.location.hostname;
-        const parts = host.split('.');
-        const rootDomain = parts.length > 2 ? parts.slice(-2).join('.') : host;
-        if (rootDomain === 'localhost') {
-          router.push('/sign-in');
-        } else {
-          window.location.href = `https://${rootDomain}/sign-in`;
-        }
+        const next = typeof window !== 'undefined' ? window.location.href : '/';
+        window.location.assign(buildSignInUrl(next));
       }
     })
   );

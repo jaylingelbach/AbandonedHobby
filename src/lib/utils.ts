@@ -48,3 +48,52 @@ export function renderToText(node: React.ReactNode): string {
   }
   return '';
 }
+
+export const getSafeNextURL = (raw: string | null): URL | null => {
+  if (!raw) return null;
+  try {
+    const url = new URL(raw, window.location.origin); // supports relative + absolute
+    const host = url.hostname;
+
+    const ROOT_DOMAIN = (
+      process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'abandonedhobby.com'
+    ).replace(/^https?:\/\//, '');
+
+    const allowed =
+      host === window.location.hostname || // same host (incl. localhost and previews)
+      host === 'localhost' ||
+      host === ROOT_DOMAIN ||
+      host.endsWith(`.${ROOT_DOMAIN}`) ||
+      (window.location.hostname.endsWith('vercel.app') &&
+        host.endsWith('.vercel.app'));
+
+    return allowed ? url : null;
+  } catch {
+    return null;
+  }
+};
+
+export const getAuthOrigin = () => {
+  // In previews, keep users on the same preview host
+  if (
+    typeof window !== 'undefined' &&
+    location.hostname.endsWith('vercel.app')
+  ) {
+    return location.origin;
+  }
+
+  // Otherwise use your configured origin, falling back to the current one
+  const origin =
+    process.env.NEXT_PUBLIC_APP_URL ||
+    (typeof window !== 'undefined'
+      ? location.origin
+      : 'https://abandonedhobby.com');
+
+  return origin.replace(/\/$/, '');
+};
+
+export const buildSignInUrl = (next?: string) => {
+  const origin = getAuthOrigin();
+  const qs = next ? `?next=${encodeURIComponent(next)}` : '';
+  return `${origin}/sign-in${qs}`;
+};
