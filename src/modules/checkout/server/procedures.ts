@@ -54,6 +54,20 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      const mcc = '5932';
+      const acct = await stripe.accounts.retrieve(tenant.stripeAccountId);
+      if (acct.type !== 'standard') {
+        await stripe.accounts.update(tenant.stripeAccountId, {
+          business_profile: {
+            url: generateTenantURL(tenant.slug),
+            product_description: `${tenant.name} sells hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
+            mcc
+          }
+        });
+      } else {
+        // Optional: log and proceed to account link creation for Standard accounts
+        console.debug(`Skipping business_profile update for standard account ${tenant.stripeAccountId}`);
+      }
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
         refresh_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
@@ -163,9 +177,11 @@ export const checkoutRouter = createTRPCRouter({
           quantity: 1,
           price_data: {
             unit_amount: Math.round(Number(product.price) * 100),
+            tax_behavior: 'exclusive',
             currency: 'usd',
             product_data: {
               name: product.name,
+              tax_code: 'txcd_99999999',
               metadata: {
                 stripeAccountId: sellerTenant.stripeAccountId,
                 id: product.id,
@@ -188,10 +204,26 @@ export const checkoutRouter = createTRPCRouter({
 
       let checkout: Stripe.Checkout.Session;
       try {
+        const [settings, regs] = await Promise.all([
+          stripe.tax.settings.retrieve(
+            {},
+            { stripeAccount: sellerTenant.stripeAccountId }
+          ),
+          stripe.tax.registrations.list(
+            { limit: 1 },
+            { stripeAccount: sellerTenant.stripeAccountId }
+          )
+        ]);
+
+        const isTaxReady = settings.status === 'active' && regs.data.length > 0;
+
         checkout = await stripe.checkout.sessions.create(
           {
             mode: 'payment',
             line_items: lineItems,
+            automatic_tax: {
+              enabled: isTaxReady
+            },
             invoice_creation: {
               enabled: true
             },
@@ -213,7 +245,7 @@ export const checkoutRouter = createTRPCRouter({
             shipping_address_collection: { allowed_countries: ['US'] },
             billing_address_collection: 'required'
           },
-          { stripeAccount: sellerTenant.stripeAccountId }
+          { stripeAccount: sellerTenant.stripeAccountId } // direct charge
         );
       } catch (err: unknown) {
         if (err instanceof Stripe.errors.StripeError) {

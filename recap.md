@@ -1865,3 +1865,25 @@ Added recap covering the Orders transition and onboarding behavior.
 - Minor comment update
   - src/collections/Products.ts
     - Updates comment in filterOptions; no behavioral changes.
+
+# Update onboarding flow 08/29/25
+
+### Walkthrough
+
+- Updates Stripe Connect integration: registration sets business_profile fields (URL, product_description, MCC 5932) using slug-derived URL; checkout verify mutates business_profile before onboarding link. Purchase flow adds explicit tax behavior/code per item, computes tax readiness per seller (settings/registrations), and toggles automatic tax on Checkout Sessions.
+
+### New Features
+
+- Enhanced seller onboarding: business profile now includes a storefront URL derived from username, marketplace product description, and appropriate merchant category.
+- Smarter taxes at checkout: automatic tax is enabled per seller when their Stripe tax setup is active, ensuring accurate tax handling.
+- Line items now explicitly use exclusive tax behavior with a standardized tax code for consistency.
+- Improved item metadata flows through to checkout for clearer order and receipt details.
+
+### File changes:
+
+- Auth registration and Stripe account creation
+  - src/modules/auth/server/procedures.ts
+    - Use slug-derived URL for business_profile.url; add business_profile.product_description and MCC '5932' during Stripe account creation; minor formatting cleanup.
+- Checkout verification and purchase flow
+  - src/modules/checkout/server/procedures.ts verify:
+    - update seller Stripe account business_profile (url, product_description, MCC) before onboarding link. purchase: add tax_behavior 'exclusive' and tax_code 'txcd_99999999' to line items; extend product_data.metadata (typed) with seller/account info; fetch tax settings and registrations in parallel to compute isTaxReady; set automatic_tax.enabled accordingly; maintain direct charge via stripeAccount on session creation.
