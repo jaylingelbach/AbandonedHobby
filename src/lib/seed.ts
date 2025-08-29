@@ -287,8 +287,8 @@ async function seed() {
           password: adminPassword,
           username: 'admin',
           roles: ['super-admin'],
-          firstName: 'Jay',
-          lastName: 'Lingelbach',
+          firstName: process.env.ADMIN_SEED_FIRST_NAME || 'Admin',
+          lastName: process.env.ADMIN_SEED_LAST_NAME || 'User',
           welcomeEmailSent: true, // skip welcome email during seed.
           tenants: []
         },

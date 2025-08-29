@@ -50,7 +50,9 @@ export const Users: CollectionConfig = {
       ({ data }) => {
         if (typeof data?.username === 'string') {
           data.username = data.username
+            .normalize('NFKD')
             .toLowerCase()
+            .replace(/[\u0300-\u036f]/g, '')
             .trim()
             .replace(/[^a-z0-9._-]+/g, '-')
             .replace(/^-+|-+$/g, '');

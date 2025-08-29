@@ -1887,3 +1887,36 @@ Added recap covering the Orders transition and onboarding behavior.
 - Checkout verification and purchase flow
   - src/modules/checkout/server/procedures.ts verify:
     - update seller Stripe account business_profile (url, product_description, MCC) before onboarding link. purchase: add tax_behavior 'exclusive' and tax_code 'txcd_99999999' to line items; extend product_data.metadata (typed) with seller/account info; fetch tax settings and registrations in parallel to compute isTaxReady; set automatic_tax.enabled accordingly; maintain direct charge via stripeAccount on session creation.
+
+# Update library to orders 08/29/25
+
+### Walkthough
+
+- Adds a beforeValidate hook in Users collection to normalize usernames and updates roles field default to an array. Adjusts seeded admin user’s first and last name. Renames UI text from “Purchases/Library” to “Orders” in two components. No other logic, routes, or interfaces changed.
+
+### New Features
+
+- Usernames are auto-normalized (lowercase, trim, replace invalid characters with hyphens) during account creation/updates for consistency.
+
+### Bug Fixes
+
+- Roles default now uses an array, preventing issues when assigning multiple roles.
+
+### Style
+
+- Renamed “Purchases” to “Orders” in navigation/search and updated the Library page title to “Orders” for consistent terminology.
+
+### Chores
+
+- Updated seeded admin display name to Jay Lingelbach for more accurate demo data.
+
+### File changes:
+
+- Users collection hooks and defaults
+  - src/collections/Users.ts
+    - Added beforeValidate hook to normalize data.username (lowercase, trim, replace invalid chars with hyphens, trim hyphens). Changed roles field defaultValue from 'user' to ['user'].
+- Seed data update
+  - src/lib/seed.ts - Updated admin seed user name: firstName “Admin” → “Jay”, lastName “User” → “Lingelbach”. No logic changes.
+- UI text updates
+  - src/modules/home/ui/components/search-filters/search-input.tsx, src/modules/library/ui/views/library-view.tsx
+    - Changed link label “Purchases” → “Orders”; H1 title “Library” → “Orders”. No behavioral changes.
