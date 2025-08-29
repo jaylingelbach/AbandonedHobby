@@ -62,11 +62,16 @@ export const authRouter = createTRPCRouter({
       let tenant: { id: string } | null = null;
 
       try {
+        const MCC_USED_MERCH = '5932';
         // 1) Create Stripe account for the shop
         const account = await stripe.accounts.create({
           type: 'standard',
           business_type: 'individual',
-          business_profile: { url: generateTenantURL(input.username) }
+          business_profile: {
+            url: generateTenantURL(slug),
+            product_description: `Sell hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
+            mcc: MCC_USED_MERCH
+          }
         });
         if (!account) {
           throw new TRPCError({
@@ -147,7 +152,6 @@ export const authRouter = createTRPCRouter({
         });
       }
     }),
-
   login: baseProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
     const data = await ctx.db.login({
       collection: 'users',
