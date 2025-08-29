@@ -55,14 +55,19 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       const mcc = '5932';
-      await stripe.accounts.update(tenant.stripeAccountId, {
-        business_profile: {
-          url: generateTenantURL(tenant.slug),
-          product_description: `${tenant.name} sells hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
-          mcc
-        }
-      });
-
+      const acct = await stripe.accounts.retrieve(tenant.stripeAccountId);
+      if (acct.type !== 'standard') {
+        await stripe.accounts.update(tenant.stripeAccountId, {
+          business_profile: {
+            url: generateTenantURL(tenant.slug),
+            product_description: `${tenant.name} sells hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
+            mcc
+          }
+        });
+      } else {
+        // Optional: log and proceed to account link creation for Standard accounts
+        console.debug(`Skipping business_profile update for standard account ${tenant.stripeAccountId}`);
+      }
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
         refresh_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
