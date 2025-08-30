@@ -1960,3 +1960,35 @@ Added recap covering the Orders transition and onboarding behavior.
 - No-op/comment/formatting updates
   - src/app/(app)/api/stripe/webhooks/route.ts, src/modules/products/server/procedures.ts, src/modules/products/ui/components/product-list.tsx, components.json
     - Remove inline comments; no logic changes. Add trailing newline to components.json.
+
+# Admin CSS not working bug 08/30/25
+
+### Walkthrough
+
+- This PR reformats src/app/(payload)/layout.tsx for style consistency and deletes src/app/layout.tsx, removing the global RootLayout and metadata exports.
+
+### New Features
+
+- None.
+
+### Refactor
+
+- Reworked application layout, removing the previous global wrapper. Page structure and global styles may differ.
+- Removed previously defined site metadata (title and description), which may affect page titles and SEO previews.
+
+### Style
+
+- Formatting updates to improve consistency (e.g., semicolon usage and prop formatting).
+
+### Chores
+
+- Cleaned up layout configuration by removing unused layout definitions.
+
+### File changes:
+
+- Style/formatting updates
+  - src/app/(payload)/layout.tsx
+    - Added semicolons to imports/exports and directives; removed a trailing comma; reformatted JSX props and return; no functional or API changes.
+- Global layout removal
+  - src/app/layout.tsx
+    - Deleted the file, removing global CSS import, exported metadata, and default RootLayout component (HTML/body scaffold).
