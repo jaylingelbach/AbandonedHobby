@@ -7,9 +7,7 @@ export const runtime = 'nodejs';
 export async function GET(req: NextRequest) {
   const token = new URL(req.url).searchParams.get('token');
   if (!token)
-    return NextResponse.redirect(
-      new URL('/sign-in?verified=0&reason=missing', req.url)
-    );
+    return NextResponse.redirect(new URL('verified=0&reason=missing', req.url));
 
   try {
     const payload = await getPayload({ config });

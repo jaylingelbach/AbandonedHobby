@@ -1,9 +1,8 @@
 'use client';
 
-import * as React from 'react';
 import Link from 'next/link';
 import Script from 'next/script';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Truck,
@@ -30,6 +29,35 @@ import { renderToText } from '@/lib/utils';
 export const dynamic = 'force-dynamic';
 
 export default function SupportClient() {
+  const [tab, setTab] = useState<'buyers' | 'sellers'>(() => {
+    if (typeof window !== 'undefined') {
+      const h = window.location.hash.replace('#', '');
+      return h === 'sellers' ? 'sellers' : 'buyers';
+    }
+    return 'buyers';
+  });
+
+  // respond to external hash changes (e.g., clicking /support#sellers)
+  useEffect(() => {
+    const onHash = () => {
+      const h = window.location.hash.replace('#', '');
+      if (h === 'buyers' || h === 'sellers') setTab(h);
+    };
+    window.addEventListener('hashchange', onHash);
+    onHash();
+    return () => window.removeEventListener('hashchange', onHash);
+  }, []);
+
+  // when user switches tabs, update the hash without jumping
+  const handleTabChange = (value: string) => {
+    const next = value === 'sellers' ? 'sellers' : 'buyers';
+    if (typeof window !== undefined) {
+      history.replaceState(null, '', `#${next}`);
+      document
+        .getElementById(next)
+        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
   const actions = useMemo(
     () => [
       {
@@ -76,8 +104,8 @@ export default function SupportClient() {
       // },
       {
         label: 'Fees & taxes',
-        // href: '/support/policies#fees',
-        href: 'policies',
+        href: '/support#policies',
+        // href: 'policies',
         icon: DollarSign,
         color: 'bg-orange-300'
       },
