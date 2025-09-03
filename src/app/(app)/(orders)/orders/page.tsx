@@ -3,10 +3,14 @@ import { getQueryClient, trpc } from '@/trpc/server';
 
 import LibraryView from '@/modules/library/ui/views/library-view';
 import { DEFAULT_LIMIT } from '@/constants';
+import { caller } from '@/trpc/server';
+import { redirect } from 'next/navigation';
 
 export const dynamic = 'force-dynamic';
 
 const Page = async () => {
+  const session = await caller.auth.session();
+  if (!session.user) redirect('/sign-in?next=/orders');
   /* ─── Server-side prefetch ───────────────────────────────────────────── */
   const queryClient = getQueryClient();
   void queryClient.prefetchInfiniteQuery(
