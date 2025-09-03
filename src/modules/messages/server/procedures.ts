@@ -62,22 +62,22 @@ export const messagesRouter = createTRPCRouter({
   sendMessage: protectedProcedure
     .input(
       z.object({
-        conversationId: z.string(), // <-- this is still your Conversations record ID
-        content: z.string()
+        conversationId: z.string(),
+        content: z.string().min(1).max(10_000)
       })
     )
     .output(SendMessageDTO)
     .mutation(async ({ ctx, input }) => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-      const senderId = user.id;
 
-      // 1) load the conversation document
+      // Load conversation by DB id
       const conversation = await ctx.db.findByID({
         collection: 'conversations',
         id: input.conversationId,
         depth: 0
       });
+
       if (!conversation) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -85,37 +85,41 @@ export const messagesRouter = createTRPCRouter({
         });
       }
 
-      // 2) validate its roomId (chat-buyer-seller-product)
-      const match = conversation.roomId.match(
-        /^chat-([\w-]+)-([\w-]+)-([\w-]+)$/
-      );
-      if (!match) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Invalid room format'
-        });
-      }
-      const [, buyerId, sellerId, productId] = match;
+      // Derive buyer/seller/product ids from the conversation
+      const buyerId =
+        typeof conversation.buyer === 'string'
+          ? conversation.buyer
+          : conversation.buyer.id;
 
-      // 3) ensure the user is a participant
-      if (senderId !== buyerId && senderId !== sellerId) {
+      const sellerId =
+        typeof conversation.seller === 'string'
+          ? conversation.seller
+          : conversation.seller.id;
+
+      if (user.id !== buyerId && user.id !== sellerId) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'You are not a participant in this conversation'
         });
       }
 
-      const receiverId = senderId === buyerId ? sellerId : buyerId;
+      const receiverId = user.id === buyerId ? sellerId : buyerId;
 
-      // 4) create the message, still referencing the conversation's DB ID
+      const productId =
+        typeof conversation.product === 'string'
+          ? conversation.product
+          : conversation.product.id;
+
+      // Persist the message referencing the conversation’s DB id
       const message = await ctx.db.create({
         collection: 'messages',
         data: {
-          conversationId: conversation.id, // DB record ID
-          sender: senderId,
-          receiver: receiverId!,
+          conversationId: conversation.id,
+          sender: user.id,
+          receiver: receiverId,
           content: input.content,
-          product: productId
+          product: productId,
+          read: false
         }
       });
 

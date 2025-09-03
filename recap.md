@@ -2022,3 +2022,30 @@ Added recap covering the Orders transition and onboarding behavior.
 - Navbar text tweaks and cleanup
   - src/modules/home/ui/components/navbar-sidebar.tsx, src/modules/home/ui/components/navbar.tsx
     - Change sign-up label from "Start selling" to "Sign up"; remove two commented guidance lines; no behavioral changes beyond label text.
+
+# Order details - messaging
+
+## Walkthrough
+
+- Updates messaging and conversation flows: enforces conv\_ room format, adds server-side access checks for Liveblocks auth, refactors conversations getOrCreate to derive buyer from session, tightens message creation using relationship helpers, expands Products schema with category/subcategory validation, introduces an OrderSummaryCard, and revamps ProductView UI.
+
+## New Features
+
+- Redesigned product page with order summary, shipment status, reviews, and contextual “Chat with seller” button.
+- Added reusable Order Details card.
+- Enhanced product categorization with required category/subcategory selection.
+
+## Improvements
+
+- Streamlined chat start flow (auto-identifies buyer), clearer sign-in prompts, and pending states.
+- Library view adds guidance: how to view order details.
+- Consistent conversation room IDs across the app.
+
+## Bug Fixes
+
+- Stronger access control for conversations/messages and prevention of messaging yourself.
+- More descriptive errors and response handling.
+
+## Validation
+
+- Message content must be 1–10,000 characters.

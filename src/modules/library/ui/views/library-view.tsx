@@ -18,6 +18,9 @@ export const LibraryView = () => {
         <div className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 flex flex-col gap-y-4">
           <h1 className="text-[40px] font-medium">Orders</h1>
           <p className="font-medium">Your purchases and reviews</p>
+          <p className="font-medium">
+            To view order details click on the image of your order
+          </p>
         </div>
       </header>
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
