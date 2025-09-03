@@ -16,7 +16,7 @@
 
 # Categories finalization
 
-### New Features
+## New Features
 
 - Introduced a responsive and interactive category navigation sidebar for improved browsing on all devices.
 - Added a new script to seed the database with a comprehensive set of categories and subcategories.
@@ -29,7 +29,7 @@
 - Updated category-related components to use a unified, more descriptive category type for improved data handling.
 - Improved responsive layout and category display logic for better usability across screen sizes.
 
-### Style
+## Style
 
 -Standardized code formatting and styling in dropdown menu components.
 
@@ -46,7 +46,7 @@
 
 # tRPC integration 5/2/25
 
-### New Features
+## New Features
 
 - Introduced tRPC and React Query integration for efficient data fetching and state management.
   Added new API endpoints for category retrieval using tRPC.
@@ -71,7 +71,7 @@
 
 # Authentication 5/5/25
 
-### New Features
+## New Features
 
 - Introduced user authentication with sign-in and sign-up pages, including form validation and error handling.
 - Added support for username during registration, with live validation and preview.
@@ -121,13 +121,13 @@
 
 # Auth states 5/6/25
 
-### New Features
+## New Features
 
 - Sign-in and sign-up pages now automatically redirect authenticated users to the home page.
 - Navbar dynamically displays a "Dashboard" button for authenticated users, or "Login" and "Start Selling" for others.
 - "Library" button appears in search filters for authenticated users.
 
-### Improvements
+## Improvements
 
 - Session state is now checked server-side for authentication pages, enhancing security and user experience.
 - Session data is refreshed after successful sign-in or sign-up, ensuring up-to-date user information.
@@ -159,13 +159,13 @@
 
 # Category Pages 5/6/25
 
-### New Features
+## New Features
 
 - Added breadcrumb navigation to display the current category and subcategory.
 - Introduced dynamic category and subcategory pages for improved navigation.
 - Updated category selection to reflect the current route.
 
-### Improvements
+## Improvements
 
 - Enhanced search filters with responsive design and dynamic background colors based on category.
 
@@ -203,7 +203,7 @@
 
 This update introduces a new "Products" collection to the CMS schema, complete with type definitions and admin configuration. It implements a TRPC router for querying products by category and subcategory, and adds React components for data-driven product listing with server-side prefetching, client-side hydration, and suspense-based loading states. Minor improvements and comments are also included in related UI components.
 
-### New Features
+## New Features
 
 - Introduced a new Products collection in the CMS, enabling management of products with fields such as name, description, price, category, image, and refund policy.
 
@@ -236,12 +236,12 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Filters 1 5/10/25
 
-### New Features
+## New Features
 
 - Added price filtering to product listings, allowing users to filter products by minimum and maximum price.
 - Introduced a sidebar with collapsible product filter sections for improved browsing.
 
-### Improvements
+## Improvements
 
 - Updated the product list to display products in a styled grid of cards for better readability.
 - Enhanced the home page layout with a responsive grid, displaying filters and products side by side.
@@ -257,7 +257,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - Updated dependencies and removed unused platform-specific packages.
 - Improved TypeScript configuration for stricter type checking.
 
-### File changes:
+## File changes
 
 - src/modules/products/ui/components/product-filters.tsx, src/modules/products/ui/components/price-filter.tsx, src/modules/products/hooks/use-product-filters.ts
   - Added new product filter UI components (ProductFilters, ProductFilter, PriceFilter) and a custom hook (useProductFilters) to manage price filter state via URL query parameters.
@@ -286,7 +286,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Sort filters 5/11/25
 
-### New Features
+## New Features
 
 - Added support for filtering products by tags and sorting by curated, trending, or hot & new.
 - Introduced a new Tags collection and tag management for products.
@@ -341,7 +341,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Product List - UI 5/12/25
 
-### New Features
+## New Features
 
 - Added comprehensive product filtering by tags and sorting options (curated, trending, hot & new).
 - Introduced infinite scroll and pagination for product listings.
@@ -358,7 +358,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Corrected numeric input handling in the max price filter.
 
-### File Changes:
+## File changes
 
 - src/collections/Tags.ts, src/collections/Products.ts, src/payload-types.ts, src/payload.config.ts
   - Added new Tags collection schema, integrated tag relationships into Products schema, updated types, and registered tags in Payload CMS config.
@@ -387,13 +387,13 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Multi tenancy
 
-### New Features
+## New Features
 
 - Introduced multi-tenant support, enabling management of multiple stores or tenants.
 - Added a new Tenants admin interface with support for tenant details and Stripe integration.
 - Enhanced user roles and permissions, including "super-admin" and tenant associations.
 
-### Improvements
+## Improvements
 
 - Home page now uses server-side data fetching for faster product search and listing.
 - Advanced category filtering with new dropdowns, sidebar, and dynamic UI components.
@@ -403,7 +403,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Added defensive checks during data seeding to prevent runtime errors.
 
-### Style
+## Style
 
 - Updated background color styling in loading components to use CSS classes.
 - Improved code comments for better clarity.
@@ -412,7 +412,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Updated and added dependencies and scripts to support multi-tenancy and environment management.
 
-### File Changes:
+## File changes
 
 - package.json, src/app/(payload)/admin/importMap.js
   - Added multi-tenant plugin and dotenv dependencies/scripts. Extended import map for tenant components.
@@ -437,7 +437,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Tenant Pages 5/15/25
 
-### New Features
+## New Features
 
 - Introduced tenant-specific pages with dedicated layouts, navigation bars, and footers.
 - Added the ability to filter and display products by tenant.
@@ -456,7 +456,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Standardized code formatting and import statements for better maintainability.
 
-### File Changes:
+## File changes
 
 - src/app/(app)/(home)/clientProviders.tsx
   - Added new ClientProviders React component for React Query client-side hydration.
@@ -487,13 +487,13 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Product Page 5/15/25
 
-### Walkthrough:
+## Walkthrough:
 
 - This update introduces a server-rendered product detail page that fetches tenant and product data using tRPC and React Query.
 - It adds a ProductView component for detailed product display, a reusable StarRating component, and a currency formatting utility.
 - Product data structures and API procedures are extended to support a new cover image and refined refund policy options.
 
-### New Features
+## New Features
 
 - Introduced a detailed product view page with server-side data fetching and hydration, displaying product image, name, price, tenant info, star ratings, refund policy, and ratings summary.
 - Added a star rating UI component for displaying product ratings.
@@ -509,7 +509,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Changed refund policy options from plural to singular day forms (e.g., "30 days" → "30 day").
 
-### File Changes:
+## File changes
 
 - src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/page.tsx
   -Added a new server-side React page component that prefetches tenant and product data, hydrates client cache, and renders the product view.
@@ -528,16 +528,17 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Cart (F.E. only) 5/16/25
 
-- Walkthrough
-  - This update introduces a multi-tenant shopping cart system using Zustand for state management and localStorage for persistence. It adds new cart management hooks, store, and UI components for cart and checkout actions. The hydration logic for React Query is simplified by removing a custom provider and using the official HydrationBoundary component. Several components are now dynamically imported to address hydration issues related to localStorage.
+## Walkthrough
 
-### New Features
+- This update introduces a multi-tenant shopping cart system using Zustand for state management and localStorage for persistence. It adds new cart management hooks, store, and UI components for cart and checkout actions. The hydration logic for React Query is simplified by removing a custom provider and using the official HydrationBoundary component. Several components are now dynamically imported to address hydration issues related to localStorage.
+
+## New Features
 
 - Introduced cart functionality supporting multiple tenants, allowing users to add or remove products and view cart contents.
 - Added a checkout button that displays the cart item count and links to the tenant-specific checkout page.
 - Added a cart button to product views for easy product addition or removal.
 
-### Improvements
+## Improvements
 
 - Enhanced reliability of cart and checkout buttons by loading them dynamically on the client, resolving hydration issues.
 
@@ -549,7 +550,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 - Simplified client hydration by replacing a custom provider with the official React Query hydration boundary.
 
-### File changes:
+## File changes
 
 - package.json Added zustand dependency.
 - src/app/(app)/(home)/clientProviders.tsx
@@ -572,13 +573,13 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Checkout - 5/19/25
 
-### Walkthrough
+## Walkthrough
 
 - The changes introduce a dynamic, tenant-specific checkout feature in a React/Next.js application.
 - This includes new server and UI components for the checkout flow, a dedicated router and procedure for fetching products and calculating totals, UI components for checkout items and sidebar, and integration of the checkout router into the main API router.
 - A bug in the cart hook is also fixed.
 
-### New Features
+## New Features
 
 - Introduced a dynamic, tenant-specific checkout page with a dedicated layout, including consistent navigation and footer.
 - Added a checkout view displaying cart items, product details, and total price.
@@ -594,7 +595,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - Enabled backend support for fetching checkout products and calculating total price.
   Integrated checkout API endpoints into the main application router.
 
-### File changes:
+## File changes
 
 - src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/page.tsx
 - Added a dynamic async server page component for tenant-specific checkout, extracting slug from params and rendering CheckoutView.
@@ -617,11 +618,11 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 
 # Stripe integration 5/21/25
 
-### Walkthrough
+## Walkthrough
 
 This update introduces Stripe integration for checkout and order processing. It adds a Stripe webhook handler, a centralized Stripe client, and a new Orders collection in the CMS. Checkout logic is enhanced with a protected purchase mutation, new types, and state management hooks. Several interfaces and prop names are updated for clarity and consistency.
 
-### New Features
+## New Features
 
 - Introduced Stripe integration for handling payments and webhooks.
 - Added order management, allowing orders to be tracked and associated with users and products.
@@ -642,7 +643,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Centralized Stripe client configuration.
 - Added new hooks and types for managing checkout state and metadata.
 
-### File changes:
+## File changes
 
 - package.json
   - Added Stripe dependency (stripe@^18.1.1).
@@ -673,11 +674,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Library 5/22/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces a complete "Library" feature, including backend procedures, API routing, server/client data fetching, and UI components for displaying a user's purchased products. It also enhances product detail and cart button components to reflect purchase status, optimizes cart state management, and updates API routers to integrate the new library module.
 
-### New Features
+## New Features
 
 - Introduced a personal library page displaying your purchased products and reviews.
 - Added product cards and a responsive product list with infinite scrolling in the library.
@@ -697,7 +698,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Updated internal API routing to support new library features.
 
-### File changes:
+## File changes
 
 - src/app/(app)/(library)/library/page.tsx
   - Added a new server-side React page component that prefetches library data using React Query and tRPC, hydrates it for the client, and renders the LibraryView.
@@ -726,11 +727,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Reviews - 5/28/25
 
-### Walkthrough
+## Walkthrough
 
 - This change introduces a complete user review system for products, including backend collections, API procedures, type definitions, and frontend components for submitting, editing, and displaying reviews. It also adds a product detail page in the library section with server-side data prefetching, hydration, and integration of the new review sidebar and form.
 
-### New Features
+## New Features
 
 - Introduced product review functionality, allowing users to submit, edit, and view reviews with ratings for products in their library.
 - Added interactive star rating picker for submitting product ratings.
@@ -772,11 +773,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Review aggregation 5/28/25
 
-### Walkthrough
+## Walkthrough
 
 - The changes enrich product and library server procedures to include review summary data—average rating, review count, and rating distribution—when fetching products. UI components are updated to display these dynamic review metrics instead of static placeholders. Additionally, a clipboard copy feature with user feedback is added to the product view page.
 
-### New Features
+## New Features
 
 - Added a clipboard copy button for product URLs with user feedback, including a success notification and visual indicator.
 
@@ -785,11 +786,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Product cards and lists now display real review ratings and counts based on actual data instead of static values.
 - Product detail views show accurate average ratings and review counts, along with a dynamic ratings breakdown reflecting real review distribution.
 
-### Style
+## Style
 
 - Removed outdated comment lines regarding ratings from product card components.
 
-### File changes:
+## File changes
 
 - src/modules/library/server/procedures.ts
   - Enriches product data in getOne and getMany with review count and average rating from reviews.
@@ -804,17 +805,17 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Access Control 5/29/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces granular access control across multiple collection configurations, primarily restricting create, update, and delete operations to super administrators. A utility function isSuperAdmin is added to centralize role checks. Additional improvements include new fields, admin UI visibility controls, dependency updates, editor formatting settings, and enhanced type documentation.
 
-### New Features
+## New Features
 
 - Introduced stricter access controls across collections, restricting create, update, and delete operations to super admins in most cases.
 - Added conditional admin UI visibility for several collections, hiding them from non-super-admin users.
 - Added a protected "content" field to products, visible only after purchase.
 
-### Improvements
+## Improvements
 
 - Enhanced admin UI descriptions for various fields to provide clearer guidance.
 - Product view now conditionally displays special content if available.
@@ -823,7 +824,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Improved type documentation and comments for better clarity in code interfaces.
 
-### File Changes:
+## File changes
 
 - package.json
 - Updated eslint-config-next version range
@@ -859,11 +860,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Stripe connect 6/2/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces a Stripe account verification flow for tenants, including a new React page and component for initiating verification, backend mutations to generate onboarding links, and webhook handling for Stripe account updates. The Orders schema is updated to track Stripe account IDs, and platform fee calculations are added to checkout. Admin UI and seed scripts are also adjusted for Stripe integration.
 
-### New Features
+## New Features
 
 - Added Stripe account verification flow, including onboarding and status checks for tenants.
 - Introduced a UI component prompting users to verify their account for payouts.
@@ -884,7 +885,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Updated webhook handling to support additional Stripe events and synchronize verification status.
 - Improved admin UI configuration and collection field organization.
 
-### File changes:
+## File changes
 
 - src/app/(app)/(tenants)/stripe-verify/page.tsx
   - New client page triggers Stripe verification on mount via TRPC mutation; redirects based on result; shows loader during process.
@@ -909,18 +910,18 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # 6/4/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces rich text support for product descriptions and content, adds isArchived and isPrivate fields to products, and refines access control. Product and review views now use React Suspense with skeleton fallbacks for loading states. Several import paths are updated, and dependencies are upgraded or added.
 
-### New Features
+## New Features
 
 - Added skeleton loading states for product and review views, improving user experience during data loading.
 - Introduced a dedicated error page for product errors.
 - Enhanced product descriptions and content with rich text formatting.
 - Added options to archive or make products private, allowing greater control over product visibility.
 
-### Improvements
+## Improvements
 
 - Product views and sidebars now use suspense boundaries for smoother loading transitions.
 - Product filtering now excludes archived and private products where appropriate.
@@ -938,7 +939,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Minor UI and text adjustments for clarity and consistency.
 
-### File changes:
+## File changes
 
 - package.json
   - Upgraded @payloadcms/richtext-lexical to ^3.40.0, added react-error-boundary dependency.
@@ -981,11 +982,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Subdomains 6/4/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces middleware for tenant-based routing by rewriting URLs based on subdomains, integrates a utility for generating tenant-specific URLs, and applies this utility across authentication and checkout modules. It also updates footer components and domain references for consistency, and includes minor documentation and import adjustments.
 
-### New Features
+## New Features
 
 - Introduced middleware to enable tenant-specific routing based on subdomains.
 
@@ -1003,7 +1004,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Updated descriptions and examples to improve clarity regarding tenant subdomains and features.
 
-### File changes:
+## File changes
 
 - src/middleware.ts
   - Added middleware for subdomain-based tenant routing with path exclusions and debug logging.
@@ -1030,15 +1031,15 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Deployment to Vercel 6/4/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces dynamic rendering to several Next.js page modules by exporting a dynamic constant. It updates the Stripe API version in the Stripe client initialization, refines type definitions and prop interfaces, improves debounce logic and state updates in a dropdown component, and makes minor import and configuration adjustments for ESLint and TRPC.
 
-### New Features
+## New Features
 
 - Improved dynamic rendering for sign-in, sign-up, and library pages, ensuring they are always rendered dynamically.
 
-### Improvements
+## Improvements
 
 - Updated Stripe integration to use the latest API version.
 - Enhanced stability and correctness of dropdown filter interactions for a smoother user experience.
@@ -1052,7 +1053,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Updated internal configuration and cleaned up unused imports.
 
-### File changes:
+## File changes
 
 - src/app/(app)/(auth)/sign-in/page.tsx src/app/(app)/(auth)/sign-up/page.tsx src/app/(app)/(library)/library/[productId]/page.tsx src/app/(app)/(library)/library/page.tsx
   - Added export const dynamic = 'force-dynamic'; to explicitly set dynamic rendering for pages.
@@ -1077,11 +1078,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Messaging 7/6/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces a complete real-time messaging system with conversations and messages, integrating Liveblocks for collaborative chat, Payload CMS for data persistence, and tRPC for API routing. New UI components and hooks enable chat initiation, modal chat windows, and a full chat page. Supporting schemas, access control, and type definitions are added throughout the backend and frontend.
 
-### New Features
+## New Features
 
 - Introduced real-time chat functionality, allowing users to initiate and participate in conversations about products.
 - Added chat modals and chat room components for seamless in-app messaging between buyers and sellers.
@@ -1091,7 +1092,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Added user and message management APIs with secure access controls.
 - Introduced React hooks for user session management and conversation handling.
 
-### Improvements
+## Improvements
 
 - Enhanced About page with detailed information and improved layout.
 - Updated branding and site text to consistently use "Abandoned Hobby".
@@ -1105,11 +1106,11 @@ This update introduces Stripe integration for checkout and order processing. It 
 - Added and configured new dependencies for Liveblocks and Radix UI.
 - Updated and documented future UI/UX improvements in recap notes.
 
-### Style
+## Style
 
 - Standardized code formatting and style in sidebar components.
 
-### File changes:
+## File changes
 
 - src/collections/Conversations.ts, src/collections/Messages.ts, src/payload.config.ts
   - Introduced new Payload CMS collections for conversations and messages; registered them in CMS config.
@@ -1160,20 +1161,20 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Search Filters 7/8/25
 
-### Walkthrough
+## Walkthrough
 
 - A debounced search filter was added to the product filtering system. The SearchInput component is now controlled and updates the global filter state with a debounce. The search parameter is propagated through hooks, query parameters, and server logic, allowing product filtering by name. The SearchInput is wrapped in a React Suspense boundary.
 
-### New features
+## New Features
 
 - Added the ability to filter products by a search term, allowing users to find products by name.
 - Introduced a search input in the product filters with improved responsiveness through debounced updates.
 
-### Improvements
+## Improvements
 
 - Enhanced the loading experience of the search input with asynchronous handling for smoother interactions.
 
-### File changes:
+## File changes
 
 - src/modules/home/ui/components/search-filters/index.tsx
   - Wrapped SearchInput with React Suspense; integrated useProductFilters hook to manage filter state and pass search props.
@@ -1190,17 +1191,17 @@ This update introduces Stripe integration for checkout and order processing. It 
 
   # Message Notifications 7/25/25
 
-  ### Walkthrough
+  ## Walkthrough
   - A notifications system was implemented across the application. This includes a new notifications collection with access control, automatic notification creation when messages are sent, unread notification counting via a tRPC endpoint, and a UI badge in the Navbar displaying unread message counts. Associated type definitions and collection registration updates were also made.
 
-  ### New features
+  ## New Features
 
 - Introduced in-app notifications for messages, automatically notifying users when they receive a new message.
 - Added a notifications collection with support for unread status and access control.
 - Displayed an unread message indicator with a badge in the navigation bar.
 - Provided an API endpoint to fetch the count of unread notifications for the current user.
 
-### File changes:
+## File changes
 
 - src/collections/Notifications.ts
   - Added new Notifications collection with schema, access control, and admin UI config.
@@ -1219,16 +1220,16 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Home button in nav bar 7/30/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces a new ESLint configuration, enhances editor auto-fix settings, adds a lint fix script and updates a dependency version, refines a user-facing label in the sign-up view, and restructures the Navbar component to use a grid layout with a new home icon link and improved alignment.
 
-### New Features
+## New Features
 
 - Added a home icon link to the left side of the navigation bar for quick access to the homepage.
 - Introduced a new script to automatically fix linting issues in project files.
 
-### Improvements
+## Improvements
 
 - Updated the navigation bar layout for better alignment and usability.
 - Enhanced the form description in the sign-up view to clarify account/store availability.
@@ -1239,7 +1240,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 - Upgraded a development dependency for improved linting support.
 
-### File changes:
+## File changes
 
 - ESLint Configuration
   - .eslintrc.js Introduces a new ESLint configuration file with plugins, extended rulesets, and a detailed import order rule for code style enforcement.
@@ -1254,21 +1255,21 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Fix read access for notifications and Home button in CMS 7/31/25 bug/fix/update-notification
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces a new AbandonedHobbyLink React component, relocates the StripeVerify component to a custom directory, and updates import paths and admin configuration to register both components in the admin panel. Additionally, the access control logic for the Notifications collection is refined to correctly restrict read permissions based on user ownership.
 
-### New Features
+## New Features
 
 - Added a new "Abandoned Hobby Link" component, providing a prominent Home link in the interface.
 - Introduced a Stripe verification prompt that alerts users to verify their Stripe account if required.
 
-### Improvements
+## Improvements
 
 - Updated admin navigation to display both the Stripe verification prompt and the new Home link.
 - Enhanced notification privacy by ensuring users can only view notifications relevant to them, with super admins retaining full access.
 
-### File changes:
+## File changes
 
 - Admin Import Map & Config Updates
   - src/app/(payload)/admin/importMap.js, src/payload.config.ts
@@ -1282,16 +1283,16 @@ This update introduces Stripe integration for checkout and order processing. It 
 
 # Postmark Integration 08/04/25
 
-### Walkthrough
+## Walkthrough
 
 - This update introduces email sending capabilities using Postmark, including new scripts and utilities for sending test and order confirmation emails. The TRPC context and middleware handling are refactored for unified context propagation and authentication. Additional logging is added to Stripe webhook handling, and minor admin UI and notification query adjustments are made.
 
-### New Features
+## New Features
 
 - Added email sending functionality, including a utility for sending transactional emails and an automated confirmation email when a new order is created.
 - Introduced a script to test email sending.
 
-### Improvements
+## Improvements
 
 - Enhanced webhook logging for Stripe events to aid in monitoring and debugging.
 - Updated unread notification count logic for more accurate results.
@@ -1330,11 +1331,11 @@ File Changes:
 
 # Sale Confirmation email 08/07/25
 
-### Walkthrough
+## Walkthrough
 
 - This update restores and enhances email notification logic in the Stripe webhook handler, adding validation for customer shipping details and improving payment information accuracy. Additional changes include reordering imports in an admin import map, updating a link label, and configuring a new admin UI component to render before the login screen.
 
-### New Features
+## New Features
 
 - New Features
 
@@ -1367,13 +1368,13 @@ File Changes:
 
 # Welcome email 8/12/25
 
-### New features
+## New Features
 
 - Seller sale notification emails and Postmark welcome emails; admin seeding ensures admin user/tenant.
 - Tenant-aware storefronts, per-tenant branding/navigation, and pre-login admin link.
 - Library for purchased products, in-app notifications, and chat.
 
-### Improvements
+## Improvements
 
 - Checkout enforces single-seller carts and performs seller-specific checkout/redirects.
 - Dynamic rendering for sign-in, sign-up, and library pages.
@@ -1385,7 +1386,7 @@ File Changes:
 - Access Control
   - Stricter admin visibility and super-admin checks.
 
-### File changes:
+## File changes
 
 - Stripe webhooks & email helpers
   - src/app/(app)/api/stripe/webhooks/route.ts, src/lib/sendEmail.ts
@@ -1411,11 +1412,11 @@ File Changes:
 
 # Small changes filed under bugs 8/13/25
 
-### Walkthrough
+## Walkthrough
 
 - Removed header comment lines in several files, simplified inline comments and one seed category label, added a required support_email field to the welcome-email type and template payload, updated the users collection to pass support_email and a static sender_name to the welcome-email call, and applied a Poppins font styling to the footer.
 
-### New Features
+## New Features
 
 - Welcome emails now include a visible support email address.
 
@@ -1425,7 +1426,7 @@ File Changes:
 - Chores
   - Simplified inline comments and updated a seed category label ("All categories"); no functional or API changes.
 
-### File changes:
+## File changes
 
 - Header comment cleanup
   - src/app/(app)/layout.tsx, src/app/api/liveblocks-auth/route.ts, src/collections/Notifications.ts, src/components/providers/liveblocks-wrapper.tsx, src/lib/liveblocks.ts, src/trpc/server-context.ts
@@ -1445,18 +1446,18 @@ File Changes:
 
 # Toggle password hidden
 
-### Walkthrough
+## Walkthrough
 
 - Adds client-side password visibility toggles to SignInView and SignUpView (local showPassword state, toggle button, Eye/EyeOff icons, ARIA attributes, autoComplete tweaks). Also removes two blank lines in a home search-filters component; no functional change.
 
-### New features
+## New Features
 
 - Added a password visibility toggle to Sign In and Sign Up forms, preserving focus, updating accessible labels/pressed state, and switching between hidden and plain text without changing validation or submission. Inputs now include appropriate autocomplete hints (email, username, current/new password).
   Style
 
 - Minor whitespace cleanup in UI code with no user-facing impact.
 
-### File changes:
+## File changes
 
 - Auth: Password visibility toggle
   - src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx
@@ -1468,11 +1469,11 @@ File Changes:
 
 # Bug stripe verify 08/19/25
 
-### Walkthrough
+## Walkthrough
 
 - Refactors Product create/update access to use a new mustBeStripeVerified check and adds a beforeChange hook enforcing tenant Stripe verification. Updates StripeVerify components to consider details_submitted. Adds emailVerified to Users and passes verification_url in welcome emails. Tweaks env-driven URLs, minor Tenants description cleanup, and adds Stripe webhook logging.
 
-### New Features
+## New Features
 
 - Added show/hide password toggle on sign-in and sign-up with accessible controls.
 - Welcome emails now include a verification link; accounts track “Email Verified.”
@@ -1486,7 +1487,7 @@ File Changes:
 
 - Added documentation for the password visibility toggle and minor cleanup notes for search filters.
 
-### File changes:
+## File changes
 
 - Docs recap
   - recap.md
@@ -1510,11 +1511,11 @@ File Changes:
 
 # Feature email verification 08/19/25
 
-### Walkthrough
+## Walkthrough
 
 - Adds Postmark-backed email transport to Payload, introduces a verification email flow using auth.verify, creates a Next.js /api/verify route to process tokens, updates Users collection to use verification templates, adjusts Product hooks to enforce tenant Stripe verification, updates user types for internal verification fields, and removes legacy code.
 
-### New Features
+## New Features
 
 - Email verification flow: users receive verification emails and can confirm via a new verification endpoint.
 - Outgoing transactional emails enabled via Postmark, improving deliverability.
@@ -1530,7 +1531,7 @@ File Changes:
 
 - Added a dependency to support Postmark email transport.
 
-### File changes:
+## File changes
 
 - Email transport config & dependency
   - package.json, src/payload.config.ts
@@ -1550,11 +1551,11 @@ File Changes:
 
 # Feature small fixes 08/20/25
 
-### Walkthrough
+## Walkthrough
 
 - Introduces an email verification workflow (Postmark transport, internal verification fields, and a /api/verify route), updates user types to internalize verification state, enforces tenant Stripe verification for product operations, disables post-signup auto-login, adjusts sign-up redirect and copy, and removes debug logs in Stripe webhook and checkout procedures.
 
-### New Features
+## New Features
 
 - Email verification added; users receive verification emails and can complete verification to activate accounts.
 - “Forgot password?” link added to the sign-in screen.
@@ -1573,7 +1574,7 @@ File Changes:
 
 - Added email service dependency and removed debug logs.
 
-### File changes:
+## File changes
 
 - Verification types and schema
   - src/payload-types.ts
@@ -1599,11 +1600,11 @@ File Changes:
 
 # Support Page 08/21/25
 
-### Walkthrough
+## Walkthrough
 
 - Extracts FAQ, policy, tips, and contact form UI into dedicated components; updates the support page to use these components; and adds a renderToText utility to convert React nodes to text for JSON-LD generation.
 
-### New Features
+## New Features
 
 - Added FAQ card with accordion and colored badges.
 - Added Policies & Safety overview card.
@@ -1623,7 +1624,7 @@ File Changes:
 
 - Modularized the Support page into reusable components for improved consistency and maintainability, with no user-facing behavior changes.
 
-### File changes:
+## File changes
 
 - New support UI components
   - src/app/(app)/(home)/support/components/faq-card.tsx, .../policy-card.tsx, .../seller-tips-card.tsx, .../support-contact-form.tsx
@@ -1637,16 +1638,16 @@ File Changes:
 
 # Support email 2 (support tickets) 08/22/25
 
-### Walkthrough
+## Walkthrough
 
 - Adds a new support request flow end-to-end: client-side validation and submission in the Support form, a new Next.js POST API route to process requests and send Postmark emails, a new email utility for support tickets, and minor updates to Support quick links and package dependencies.
 
-### New Features
+## New Features
 
 - Support contact form now submits tickets with client-side validation and shows a case ID on success, with clear success and error notifications.
 - Quick Actions updated: “Reset my password” and “Verify seller account” now link to the correct pages; “Set up payouts” removed.
 
-### Style
+## Style
 
 - Buyer button active color updated to pink for clearer state indication.
 
@@ -1654,7 +1655,7 @@ File Changes:
 
 - Internal dependency update to support new functionality.
 
-### File Changes:
+## File changes
 
 - Dependencies
   - package.json
@@ -1674,11 +1675,11 @@ File Changes:
 
 # Bug login-issue 08/25/25
 
-### Walkthrough
+## Walkthrough
 
 - Updated tenant URL generation logic in src/lib/utils.ts to prefer dev/path routing when isDev or subdomains disabled, simplified domain normalization, and defaulted APP_URL in dev. Added cn and formatCurrency utilities to src/modules/auth/utils.ts. Sign-in form now prevents default before calling React Hook Form; SellerTipsCard title is now dynamic.
 
-### New Features
+## New Features
 
 - Improved tenant link generation to correctly route users in development and production (with or without subdomains).
 - Seller tips card header now accepts a dynamic title while preserving the previous default.
@@ -1688,7 +1689,7 @@ File Changes:
 
 - Prevented unintended page reloads on sign-in by intercepting form submission and ensuring validation runs.
 
-### File changes:
+## File changes
 
 - Core utils (modified)
 - src/lib/utils.ts
@@ -1705,11 +1706,11 @@ File Changes:
 
 # Resend verification 08/26/25
 
-### Walkthough
+## Walkthrough
 
 - Adds a resend verification email API endpoint, updates verify API to redirect on success, introduces a client UI component to trigger resend, integrates resend and improved toasts into sign-in flow, and switches email “from” values to environment variables in Payload config.
 
-### New features
+## New Features
 
 - Add “Resend verification email” flow, including a form and action from the sign-in error toast with clear success/error messages.
 - After successful email verification, automatically redirect to the sign-in page with confirmation.
@@ -1719,7 +1720,7 @@ File Changes:
 
 - Updated email sender name and address to use environment-based settings.
 
-### File changes:
+## File changes
 
 - API: Verification flows
   - src/app/api/resend/route.ts, src/app/api/verify/route.ts
@@ -1733,9 +1734,9 @@ File Changes:
 
 # Update Library (to orders) 08/27/25
 
-### Walkthrough
+## Walkthrough
 
-### New Features
+## New Features
 
 - Post-checkout and “Purchases” navigation now go to Orders; product detail links also open under Orders.
 - Stripe onboarding now returns users to the tenant’s admin domain when available.
@@ -1758,11 +1759,11 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Light mode for admin 08/28/25
 
-### New Features
+## New Features
 
 - None
 
-### Style
+## Style
 
 - Refreshed verify banner and button styling for light theme with higher contrast.
 - Improved hover and focus-visible states; added clear keyboard focus ring.
@@ -1773,7 +1774,7 @@ Added recap covering the Orders transition and onboarding behavior.
 - Replaced inline styles with reusable CSS classes for the banner and button.
 - Removed a legacy verification component with no change to visible behavior.
 
-### File changes:
+## File changes
 
 - Theme styles for verify UI
   - src/app/(payload)/custom.scss
@@ -1786,22 +1787,22 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Subcategory routing v2
 
-### New Features
+## New Features
 
 - Browse products by both category and subcategory via updated URLs.
 - Product lists and views now accept an optional subcategory filter.
 
-### Improvements
+## Improvements
 
 - More accurate product filtering using category/subcategory relationships.
 - Prefetching aligned with dual-slug navigation for smoother loading.
 - Displays a “No products found” message when searches return empty.
 
-### Style
+## Style
 
 - Adjusted subcategory menu z-index to ensure proper layering and hover behavior.
 
-### File changes:
+## File changes
 
 - Routing & Prefetch
   - src/app/(app)/(home)/[category]/[subcategory]/page.tsx
@@ -1824,15 +1825,15 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Display user cms (user badge in payload) 08/28/25
 
-### Walkthrough
+## Walkthrough
 
 - Adds a new client-side CurrentUserBadge component, wires it into the admin UI (beforeNavLinks) and the admin import map, updates SCSS with styles for new components and refactors AbandonedHobbyLink to use class-based styling, adjusts seed category data (adds Musical Instruments; moves Records), and updates a comment in Products.
 
-### New Features
+## New Features
 
 - Admin now shows a “Signed in as” badge displaying the current user.
 
-### Style
+## Style
 
 - Added light/dark theme styles for Current User Badge and Abandoned Hobby link.
 - Consolidated Stripe Verify banner styles and improved focus states.
@@ -1845,7 +1846,7 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Seed data updated: introduced a top-level “Musical Instruments” category with subcategories; moved “Records” under “Music.”
 
-### File changes:
+## File changes
 
 - Admin UI integration
   - src/app/(payload)/admin/importMap.js, src/payload.config.ts
@@ -1868,18 +1869,18 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Update onboarding flow 08/29/25
 
-### Walkthrough
+## Walkthrough
 
 - Updates Stripe Connect integration: registration sets business_profile fields (URL, product_description, MCC 5932) using slug-derived URL; checkout verify mutates business_profile before onboarding link. Purchase flow adds explicit tax behavior/code per item, computes tax readiness per seller (settings/registrations), and toggles automatic tax on Checkout Sessions.
 
-### New Features
+## New Features
 
 - Enhanced seller onboarding: business profile now includes a storefront URL derived from username, marketplace product description, and appropriate merchant category.
 - Smarter taxes at checkout: automatic tax is enabled per seller when their Stripe tax setup is active, ensuring accurate tax handling.
 - Line items now explicitly use exclusive tax behavior with a standardized tax code for consistency.
 - Improved item metadata flows through to checkout for clearer order and receipt details.
 
-### File changes:
+## File changes
 
 - Auth registration and Stripe account creation
   - src/modules/auth/server/procedures.ts
@@ -1890,11 +1891,11 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Update library to orders 08/29/25
 
-### Walkthough
+## Walkthrough
 
 - Adds a beforeValidate hook in Users collection to normalize usernames and updates roles field default to an array. Adjusts seeded admin user’s first and last name. Renames UI text from “Purchases/Library” to “Orders” in two components. No other logic, routes, or interfaces changed.
 
-### New Features
+## New Features
 
 - Usernames are auto-normalized (lowercase, trim, replace invalid characters with hyphens) during account creation/updates for consistency.
 
@@ -1902,7 +1903,7 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Roles default now uses an array, preventing issues when assigning multiple roles.
 
-### Style
+## Style
 
 - Renamed “Purchases” to “Orders” in navigation/search and updated the Library page title to “Orders” for consistent terminology.
 
@@ -1910,7 +1911,7 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Updated seeded admin display name to Jay Lingelbach for more accurate demo data.
 
-### File changes:
+## File changes
 
 - Users collection hooks and defaults
   - src/collections/Users.ts
@@ -1923,11 +1924,11 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Sitewide 404 08/29/25
 
-### Walkthough
+## Walkthrough
 
 - Adds server-side validation for category and subcategory routes with notFound handling, introduces a new app RootLayout and a 404 page, implements server utilities to validate categories via Payload, gates a middleware log to production, and performs minor comment/formatting cleanups without functional changes elsewhere.
 
-### New Features
+## New Features
 
 - Added a polished 404 page with clear messaging and quick links (Home, Support, Explore).
 - Introduced a global app layout for consistent styling and page metadata across the site.
@@ -1940,11 +1941,11 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Limited a noisy configuration warning to production environments only.
 
-### Style
+## Style
 
 - Minor formatting and comment cleanups with no impact on behavior.
 
-### File changes:
+## File changes
 
 - Category routing validation
   - src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/[category]/[subcategory]/page.tsx
@@ -1963,11 +1964,11 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Admin CSS not working bug 08/30/25
 
-### Walkthrough
+## Walkthrough
 
 - This PR reformats src/app/(payload)/layout.tsx for style consistency and deletes src/app/layout.tsx, removing the global RootLayout and metadata exports.
 
-### New Features
+## New Features
 
 - None.
 
@@ -1976,7 +1977,7 @@ Added recap covering the Orders transition and onboarding behavior.
 - Reworked application layout, removing the previous global wrapper. Page structure and global styles may differ.
 - Removed previously defined site metadata (title and description), which may affect page titles and SEO previews.
 
-### Style
+## Style
 
 - Formatting updates to improve consistency (e.g., semicolon usage and prop formatting).
 
@@ -1984,7 +1985,7 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Cleaned up layout configuration by removing unused layout definitions.
 
-### File changes:
+## File changes
 
 - Style/formatting updates
   - src/app/(payload)/layout.tsx
@@ -1994,24 +1995,24 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Bug guard orders and support URL hashes 09/03/25
 
-### Walkthrough
+## Walkthrough
 
 - Implements hash-driven tab state in the Support client, adds a server-side authentication guard to the Orders page with redirect, updates sign-up label text in navbar components, and removes commented lines from the navbar component. Also adjusts a Support page anchor to point to /support#policies.
 
-### New Features
+## New Features
 
 - Support page tabs now sync with URL hashes (#buyers/#sellers) for deep linking and back/forward navigation.
 - Orders page now requires sign-in; unauthenticated users are redirected to sign in and returned to /orders.
 
-### Improvements
+## Improvements
 
 - Updated “Fees & taxes” link to point to /support#policies.
 
-### Style
+## Style
 
 - Replaced “Start selling” with “Sign up” in the navbar and sidebar.
 
-### File changes:
+## File changes
 
 - Support page: hash-synced tabs and link update
   - src/app/(app)/(home)/support/support-client.tsx - Add client-side tab state synced to URL hash (#buyers/#sellers), subscribe to hashchange, initialize from hash, and update hash via history.replaceState on tab change with smooth scroll; update Fees & taxes link to /support#policies.
