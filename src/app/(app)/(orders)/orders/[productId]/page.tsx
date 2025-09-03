@@ -1,10 +1,11 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient, trpc } from '@/trpc/server';
+import { caller, getQueryClient, trpc } from '@/trpc/server';
 import {
   ProductView,
   ProductViewSkeleton
 } from '@/modules/library/ui/views/product-view';
 import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
 
 interface Props {
   params: Promise<{ productId: string }>;
@@ -14,6 +15,12 @@ export const dynamic = 'force-dynamic';
 
 const Page = async ({ params }: Props) => {
   const { productId } = await params;
+  try {
+    const session = await caller.auth.session();
+    if (!session.user) redirect('/sign-in?next=/orders');
+  } catch {
+    redirect('/sign-in?next=/orders');
+  }
   /* ─── Server-side prefetch ───────────────────────────────────────────── */
   const queryClient = getQueryClient();
   // library prefetch

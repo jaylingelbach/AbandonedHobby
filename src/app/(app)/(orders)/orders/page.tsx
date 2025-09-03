@@ -9,8 +9,12 @@ import { redirect } from 'next/navigation';
 export const dynamic = 'force-dynamic';
 
 const Page = async () => {
-  const session = await caller.auth.session();
-  if (!session.user) redirect('/sign-in?next=/orders');
+  try {
+    const session = await caller.auth.session();
+    if (!session.user) redirect('/sign-in?next=/orders');
+  } catch {
+    redirect('/sign-in?next=/orders');
+  }
   /* ─── Server-side prefetch ───────────────────────────────────────────── */
   const queryClient = getQueryClient();
   void queryClient.prefetchInfiniteQuery(
