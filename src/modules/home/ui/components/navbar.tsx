@@ -53,9 +53,6 @@ export const Navbar = () => {
   const unreadCount =
     typeof rawCount === 'number' ? rawCount : (rawCount?.totalDocs ?? 0);
 
-  // Don't block SSR entirely; if you prefer, you can keep this:
-  // if (session.isLoading) return null;
-
   return (
     <nav className="h-20 flex border-b justify-between font-medium bg-white">
       <Link href="/" className="pl-6 flex items-center">
@@ -139,7 +136,7 @@ export const Navbar = () => {
             className="border-l border-t border-b-0 border-r-0 px-12 h-full rounded-none bg-black text-white hover:bg-pink-400 hover:text-black transition-colors text-lg"
           >
             <Link prefetch href="/sign-up">
-              Start Selling
+              Sign up
             </Link>
           </Button>
         </div>
