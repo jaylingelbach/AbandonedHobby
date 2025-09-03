@@ -1991,4 +1991,33 @@ Added recap covering the Orders transition and onboarding behavior.
     - Added semicolons to imports/exports and directives; removed a trailing comma; reformatted JSX props and return; no functional or API changes.
 - Global layout removal
   - src/app/layout.tsx - Deleted the file, removing global CSS import, exported metadata, and default RootLayout component (HTML/body scaffold).
-    gi
+
+# Bug guard orders and support URL hashes 09/03/25
+
+### Walkthrough
+
+- Implements hash-driven tab state in the Support client, adds a server-side authentication guard to the Orders page with redirect, updates sign-up label text in navbar components, and removes commented lines from the navbar component. Also adjusts a Support page anchor to point to /support#policies.
+
+### New Features
+
+- Support page tabs now sync with URL hashes (#buyers/#sellers) for deep linking and back/forward navigation.
+- Orders page now requires sign-in; unauthenticated users are redirected to sign in and returned to /orders.
+
+### Improvements
+
+- Updated “Fees & taxes” link to point to /support#policies.
+
+### Style
+
+- Replaced “Start selling” with “Sign up” in the navbar and sidebar.
+
+### File changes:
+
+- Support page: hash-synced tabs and link update
+  - src/app/(app)/(home)/support/support-client.tsx - Add client-side tab state synced to URL hash (#buyers/#sellers), subscribe to hashchange, initialize from hash, and update hash via history.replaceState on tab change with smooth scroll; update Fees & taxes link to /support#policies.
+- Orders page: server-side auth guard
+  - src/app/(app)/(orders)/orders/page.tsx
+    - Fetch session on server via TRPC caller; if unauthenticated, redirect to /sign-in?next=/orders; perform prefetch only after auth check; no public API changes.
+- Navbar text tweaks and cleanup
+  - src/modules/home/ui/components/navbar-sidebar.tsx, src/modules/home/ui/components/navbar.tsx
+    - Change sign-up label from "Start selling" to "Sign up"; remove two commented guidance lines; no behavioral changes beyond label text.
