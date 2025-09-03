@@ -51,7 +51,8 @@ export default function SupportClient() {
   // when user switches tabs, update the hash without jumping
   const handleTabChange = (value: string) => {
     const next = value === 'sellers' ? 'sellers' : 'buyers';
-    if (typeof window !== undefined) {
+    if (typeof window !== 'undefined') {
+      setTab(next);
       history.replaceState(null, '', `#${next}`);
       document
         .getElementById(next)
@@ -357,7 +358,11 @@ export default function SupportClient() {
 
       {/* Buyers / Sellers segmented */}
       <section id="audiences" className="mx-auto max-w-6xl px-4 pb-10">
-        <Tabs defaultValue="buyers" className="w-full">
+        <Tabs
+          defaultValue={tab}
+          onValueChange={handleTabChange}
+          className="w-full"
+        >
           <TabsList className="mb-6 grid w-full grid-cols-2 rounded-2xl border-4 border-black bg-white p-1 shadow-[6px_6px_0_#000]">
             <TabsTrigger
               value="buyers"
