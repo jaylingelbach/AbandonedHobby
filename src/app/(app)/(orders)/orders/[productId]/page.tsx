@@ -17,24 +17,18 @@ const Page = async ({ params }: Props) => {
   const { productId } = await params;
   try {
     const session = await caller.auth.session();
-    if (!session.user) redirect('/sign-in?next=/orders');
+    if (!session.user)
+      redirect(`/sign-in?next=${encodeURIComponent(`/orders/${productId}`)}`);
   } catch {
-    redirect('/sign-in?next=/orders');
+    redirect(`/sign-in?next=${encodeURIComponent(`/orders/${productId}`)}`);
   }
   /* ─── Server-side prefetch ───────────────────────────────────────────── */
   const queryClient = getQueryClient();
-  // library prefetch
-  void queryClient.prefetchQuery(
-    trpc.library.getOne.queryOptions({
-      productId
-    })
-  );
-  // review prefetch
-  void queryClient.prefetchQuery(
-    trpc.reviews.getOne.queryOptions({
-      productId
-    })
-  );
+  // await library and review prefetches
+  await Promise.all([
+    queryClient.prefetchQuery(trpc.library.getOne.queryOptions({ productId })),
+    queryClient.prefetchQuery(trpc.reviews.getOne.queryOptions({ productId }))
+  ]);
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <Suspense fallback={<ProductViewSkeleton />}>
