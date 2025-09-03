@@ -25,6 +25,13 @@ export const conversationsRouter = createTRPCRouter({
         depth: 0
       })) as Tenant;
 
+      if (!tenant) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Seller not found.'
+        });
+      }
+
       const sellerUserId = relId<User>(tenant.primaryContact);
       if (!sellerUserId) {
         throw new TRPCError({
