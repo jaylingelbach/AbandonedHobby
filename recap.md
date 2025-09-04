@@ -2049,3 +2049,50 @@ Added recap covering the Orders transition and onboarding behavior.
 ## Validation
 
 - Message content must be 1–10,000 characters.
+
+# Add order details to collection 09/04/25
+
+## Walkthrough
+
+- Implements itemized Orders schema and types; rewrites Stripe webhook to create orders via Stripe Connect on checkout.session.completed and handle account.updated; adds server utils for refund policy days; introduces orders TRPC router with getLatestForProduct; updates product view to fetch/display latest order; refactors OrderSummaryCard props; extends products.getMany with subcategory filtering.
+
+## New features
+
+- Stripe checkout now creates comprehensive orders (line items, totals, currency, returns window) and sends confirmation emails to buyer and seller, with duplicate protection on retries.
+
+- Product pages display your latest order summary (order number, date, total, quantity, returns cutoff) and auto-refresh after successful checkout.
+
+- Product browsing supports subcategory filtering and category hierarchy, with review counts and ratings shown in listings.
+
+- Seller account status now syncs from Stripe to reflect onboarding completion.
+
+## Bug fixes
+
+- Safer webhook parsing and error handling to reduce failed events.
+
+## File changes
+
+- Stripe Webhook Handler
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Rebuilt webhook to verify signatures, support Stripe Connect, handle checkout.session.completed into a single itemized Order (with duplicate-session guard), fetch expanded session/payment details, resolve buyer/tenant, send emails, handle account.updated, and export runtime = 'nodejs'.
+
+- Orders Collection & Types
+  - src/collections/Orders.ts, src/payload-types.ts
+    - Adds indexed orderNumber, buyer, sellerTenant, buyerEmail, currency, stripePaymentIntentId, stripeChargeId, items array (product relation, snapshots, amounts, refundPolicy, returnsAcceptedThrough), order-level returnsAcceptedThrough, and status. Updates payload-types to match.
+
+- Orders Router & App Router
+  - src/modules/orders/server/procedures.ts, src/trpc/routers/\_app.ts
+    - Adds ordersRouter with protected getLatestForProduct(productId) returning a compact latest-order summary for the authenticated buyer; exposes orders on the app TRPC router.
+
+- UI: Product View & OrderSummaryCard
+  - src/modules/library/ui/views/product-view.tsx, src/modules/orders/ui/OrderSummaryCard.tsx
+    - Product view now fetches latest order via TRPC, invalidates on ?success=true, and conditionally renders OrderSummaryCard. OrderSummaryCard props refactored to a union (dollars vs cents), now accepts quantity and computes monetary display at runtime.
+
+- Server Utilities
+  - src/lib/server/utils.ts Adds export function daysForPolicy(p?: string): number mapping refund policy labels to day counts.
+
+- Products Router Enhancements
+  src/modules/products/server/procedures.ts Implements getMany with optional subcategory input, category/subcategory filtering, enrichment with reviewCount/reviewRating, and retains existing filters/sorting/pagination.
+- Misc. types & utils
+  - src/lib/utils.ts, src/payload-types.ts, src/app/(app)/(orders)/orders/[productId]/page.tsx, recap.md
+    - Updates formatCurrency and renderToText signatures; expands Order types in payload-types; moves minor imports in product orders page; updates recap documentation.

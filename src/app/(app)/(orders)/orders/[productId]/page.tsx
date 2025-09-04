@@ -1,11 +1,13 @@
+import { Suspense } from 'react';
+import { redirect } from 'next/navigation';
+
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { caller, getQueryClient, trpc } from '@/trpc/server';
+
 import {
   ProductView,
   ProductViewSkeleton
 } from '@/modules/library/ui/views/product-view';
-import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
 
 interface Props {
   params: Promise<{ productId: string }>;

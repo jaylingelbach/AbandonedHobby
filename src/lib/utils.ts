@@ -1,4 +1,5 @@
 import React from 'react';
+import type { ReactNode } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -30,20 +31,26 @@ export function generateTenantURL(tenantSlug: string) {
   return `https://${tenantSlug}.${domain}`;
 }
 
-export function formatCurrency(value: number | string) {
+export function formatCurrency(
+  value: number | string,
+  currency = 'USD',
+  minimumFractionDigits = 2,
+  maximumFractionDigits = 2
+) {
   return new Intl.NumberFormat('en-US', {
     style: 'currency',
-    currency: 'USD',
-    maximumFractionDigits: 0
+    currency,
+    minimumFractionDigits,
+    maximumFractionDigits
   }).format(Number(value));
 }
 
-export function renderToText(node: React.ReactNode): string {
+export function renderToText(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';
   if (typeof node === 'string' || typeof node === 'number') return String(node);
   if (Array.isArray(node)) return node.map(renderToText).join(' ');
   if (React.isValidElement(node)) {
-    const el = node as React.ReactElement<{ children?: React.ReactNode }>;
+    const el = node as React.ReactElement<{ children?: ReactNode }>;
     return renderToText(el.props.children);
   }
   return '';

@@ -375,6 +375,27 @@ export interface Order {
    * The total amount paid in cents (Stripe amount_total).
    */
   total: number;
+  orderNumber: string;
+  buyer: string | User;
+  sellerTenant: string | Tenant;
+  buyerEmail?: string | null;
+  currency: string;
+  stripePaymentIntentId?: string | null;
+  stripeChargeId?: string | null;
+  items: {
+    product: string | Product;
+    nameSnapshot: string;
+    unitAmount: number;
+    quantity: number;
+    amountSubtotal?: number | null;
+    amountTax?: number | null;
+    amountTotal?: number | null;
+    refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
+    returnsAcceptedThrough?: string | null;
+    id?: string | null;
+  }[];
+  returnsAcceptedThrough?: string | null;
+  status?: ('paid' | 'refunded' | 'partially_refunded' | 'canceled') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -578,6 +599,29 @@ export interface OrdersSelect<T extends boolean = true> {
   stripeAccountId?: T;
   stripeCheckoutSessionId?: T;
   total?: T;
+  orderNumber?: T;
+  buyer?: T;
+  sellerTenant?: T;
+  buyerEmail?: T;
+  currency?: T;
+  stripePaymentIntentId?: T;
+  stripeChargeId?: T;
+  items?:
+    | T
+    | {
+        product?: T;
+        nameSnapshot?: T;
+        unitAmount?: T;
+        quantity?: T;
+        amountSubtotal?: T;
+        amountTax?: T;
+        amountTotal?: T;
+        refundPolicy?: T;
+        returnsAcceptedThrough?: T;
+        id?: T;
+      };
+  returnsAcceptedThrough?: T;
+  status?: T;
   updatedAt?: T;
   createdAt?: T;
 }
