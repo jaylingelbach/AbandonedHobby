@@ -2049,3 +2049,19 @@ Added recap covering the Orders transition and onboarding behavior.
 ## Validation
 
 - Message content must be 1–10,000 characters.
+
+# Add order details to collection 09/04/25
+
+## Walkthrough
+
+- Implements itemized Orders schema and types; rewrites Stripe webhook to create orders via Stripe Connect on checkout.session.completed and handle account.updated; adds server utils for refund policy days; introduces orders TRPC router with getLatestForProduct; updates product view to fetch/display latest order; refactors OrderSummaryCard props; extends products.getMany with subcategory filtering.
+
+## New features
+
+- Stripe checkout now creates comprehensive orders (line items, totals, currency, returns window) and sends confirmation emails to buyer and seller, with duplicate protection on retries.
+
+- Product pages display your latest order summary (order number, date, total, quantity, returns cutoff) and auto-refresh after successful checkout.
+
+- Product browsing supports subcategory filtering and category hierarchy, with review counts and ratings shown in listings.
+
+- Seller account status now syncs from Stripe to reflect onboarding completion.

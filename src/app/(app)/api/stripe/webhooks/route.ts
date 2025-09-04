@@ -250,10 +250,7 @@ export async function POST(req: Request) {
         );
 
         // derive items
-        // use charge.created (epoch seconds) as the order base date
-        const orderBaseDate = new Date(
-          (charge.created ?? Math.floor(Date.now() / 1000)) * 1000
-        );
+        const now = new Date();
         type RefundPolicyOption = Exclude<Product['refundPolicy'], null>;
 
         const orderItems = lineItems.map((line) => {
@@ -270,8 +267,7 @@ export async function POST(req: Request) {
           const returnsDate =
             policy && daysForPolicy(policy) > 0
               ? new Date(
-                  orderBaseDate.getTime() +
-                    daysForPolicy(policy) * 24 * 60 * 60 * 1000
+                  now.getTime() + daysForPolicy(policy) * 24 * 60 * 60 * 1000
                 )
               : undefined;
 
@@ -372,14 +368,12 @@ export async function POST(req: Request) {
             stripeAccountId: event.account,
             stripeCheckoutSessionId: session.id,
             stripeChargeId: charge.id,
-            stripePaymentIntentId: paymentIntent.id,
             items: orderItems,
             returnsAcceptedThrough: returnsAcceptedThroughISO, // string | undefined (OK for string | null | undefined)
             buyerEmail: customer.email ?? undefined,
             status: 'paid',
             total: totalCents
           },
-        });
           overrideAccess: true
         });
         // ---- emails ----
@@ -482,8 +476,7 @@ export async function POST(req: Request) {
         await payload.update({
           collection: 'tenants',
           where: { stripeAccountId: { equals: account.id } },
-          data: { stripeDetailsSubmitted: account.details_submitted },
-          overrideAccess: true,
+          data: { stripeDetailsSubmitted: account.details_submitted }
         });
         return NextResponse.json({ updated: true }, { status: 200 });
       }
