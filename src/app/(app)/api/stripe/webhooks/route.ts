@@ -232,11 +232,6 @@ export async function POST(req: Request) {
           totalCents = paymentIntent.amount_received;
         }
 
-        // reduce risk of $0 orders.
-        if (!totalCents && typeof (charge as any).amount === 'number') {
-          totalCents = (charge as any).amount;
-        }
-
         // --- build normalized items array for Orders schema ---
         // Ensure every item gets a product id (string), not undefined.
         const productIdsFromLines = lineItems.map(requireStripeProductId);
