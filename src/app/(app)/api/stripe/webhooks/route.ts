@@ -250,7 +250,10 @@ export async function POST(req: Request) {
         );
 
         // derive items
-        const now = new Date();
+        // use charge.created (epoch seconds) as the order base date
+        const orderBaseDate = new Date(
+          (charge.created ?? Math.floor(Date.now() / 1000)) * 1000
+        );
         type RefundPolicyOption = Exclude<Product['refundPolicy'], null>;
 
         const orderItems = lineItems.map((line) => {
@@ -267,7 +270,8 @@ export async function POST(req: Request) {
           const returnsDate =
             policy && daysForPolicy(policy) > 0
               ? new Date(
-                  now.getTime() + daysForPolicy(policy) * 24 * 60 * 60 * 1000
+                  orderBaseDate.getTime() +
+                    daysForPolicy(policy) * 24 * 60 * 60 * 1000
                 )
               : undefined;
 
