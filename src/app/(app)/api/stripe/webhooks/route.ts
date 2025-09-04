@@ -1,4 +1,3 @@
-// app/api/stripe/webhook/route.ts
 import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
@@ -378,96 +377,96 @@ export async function POST(req: Request) {
           overrideAccess: true
         });
         // ---- emails ----
-        // const summary = receiptLineItems.map((i) => i.description).join(', ');
+        const summary = receiptLineItems.map((i) => i.description).join(', ');
 
-        // const { name, address } = customer;
-        // if (!name)
-        //   throw new Error('Cannot send sale email: customer name is missing');
-        // if (!address?.line1)
-        //   throw new Error('Cannot send sale email: address line 1 is missing');
-        // if (!address?.city)
-        //   throw new Error('Cannot send sale email: shipping city is missing');
-        // if (!address?.state)
-        //   throw new Error('Cannot send sale email: shipping state is missing');
-        // if (!address.postal_code)
-        //   throw new Error(
-        //     'Cannot send sale email: shipping postal code is missing'
-        //   );
-        // if (!address.country)
-        //   throw new Error(
-        //     'Cannot send sale email: shipping country is missing'
-        //   );
+        const { name, address } = customer;
+        if (!name)
+          throw new Error('Cannot send sale email: customer name is missing');
+        if (!address?.line1)
+          throw new Error('Cannot send sale email: address line 1 is missing');
+        if (!address?.city)
+          throw new Error('Cannot send sale email: shipping city is missing');
+        if (!address?.state)
+          throw new Error('Cannot send sale email: shipping state is missing');
+        if (!address.postal_code)
+          throw new Error(
+            'Cannot send sale email: shipping postal code is missing'
+          );
+        if (!address.country)
+          throw new Error(
+            'Cannot send sale email: shipping country is missing'
+          );
 
-        // // figure seller notification target
-        // const primaryRef = tenantDoc.primaryContact;
-        // let primaryContactUser: User | null = null;
+        // figure seller notification target
+        const primaryRef = tenantDoc.primaryContact;
+        let primaryContactUser: User | null = null;
 
-        // if (typeof primaryRef === 'string') {
-        //   try {
-        //     primaryContactUser = (await payload.findByID({
-        //       collection: 'users',
-        //       id: primaryRef,
-        //       depth: 0,
-        //       overrideAccess: true
-        //     })) as User;
-        //   } catch {
-        //     primaryContactUser = null;
-        //   }
-        // } else if (primaryRef && typeof primaryRef === 'object') {
-        //   primaryContactUser = primaryRef as User;
-        // }
+        if (typeof primaryRef === 'string') {
+          try {
+            primaryContactUser = (await payload.findByID({
+              collection: 'users',
+              id: primaryRef,
+              depth: 0,
+              overrideAccess: true
+            })) as User;
+          } catch {
+            primaryContactUser = null;
+          }
+        } else if (primaryRef && typeof primaryRef === 'object') {
+          primaryContactUser = primaryRef as User;
+        }
 
-        // const sellerEmail: string | null =
-        //   tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
+        const sellerEmail: string | null =
+          tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
 
-        // const sellerNameFinal: string =
-        //   tenantDoc.notificationName ??
-        //   primaryContactUser?.firstName ??
-        //   (primaryContactUser ? primaryContactUser.username : undefined) ??
-        //   tenantDoc.name ??
-        //   'Seller';
+        const sellerNameFinal: string =
+          tenantDoc.notificationName ??
+          primaryContactUser?.firstName ??
+          (primaryContactUser ? primaryContactUser.username : undefined) ??
+          tenantDoc.name ??
+          'Seller';
 
-        // // Buyer email
-        // await sendOrderConfirmationEmail({
-        //   to: 'jay@abandonedhobby.com', // replace with user.email when ready
-        //   name: user.firstName,
-        //   creditCardStatement: charge.statement_descriptor ?? 'ABANDONED HOBBY',
-        //   creditCardBrand: charge.payment_method_details?.card?.brand ?? 'N/A',
-        //   creditCardLast4: charge.payment_method_details?.card?.last4 ?? '0000',
-        //   receiptId: String(orderDoc.id),
-        //   orderDate: new Date().toLocaleDateString('en-US'),
-        //   lineItems: receiptLineItems,
-        //   total: `$${(totalCents / 100).toFixed(2)}`,
-        //   support_url:
-        //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-        //   item_summary: summary
-        // });
+        // Buyer email
+        await sendOrderConfirmationEmail({
+          to: 'jay@abandonedhobby.com', // replace with user.email when ready
+          name: user.firstName,
+          creditCardStatement: charge.statement_descriptor ?? 'ABANDONED HOBBY',
+          creditCardBrand: charge.payment_method_details?.card?.brand ?? 'N/A',
+          creditCardLast4: charge.payment_method_details?.card?.last4 ?? '0000',
+          receiptId: String(orderDoc.id),
+          orderDate: new Date().toLocaleDateString('en-US'),
+          lineItems: receiptLineItems,
+          total: `$${(totalCents / 100).toFixed(2)}`,
+          support_url:
+            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+          item_summary: summary
+        });
 
-        // if (!sellerEmail) {
-        //   throw new Error(
-        //     `No seller notification email configured for tenant ${tenantDoc.id}`
-        //   );
-        // }
+        if (!sellerEmail) {
+          throw new Error(
+            `No seller notification email configured for tenant ${tenantDoc.id}`
+          );
+        }
 
-        // // Seller email
-        // await sendSaleNotificationEmail({
-        //   to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
-        //   sellerName: sellerNameFinal,
-        //   receiptId: String(orderDoc.id),
-        //   orderDate: new Date().toLocaleDateString('en-US'),
-        //   lineItems: receiptLineItems,
-        //   total: `$${(totalCents / 100).toFixed(2)}`,
-        //   item_summary: summary,
-        //   shipping_name: customer.name!,
-        //   shipping_address_line1: address.line1!,
-        //   shipping_address_line2: address.line2 ?? undefined,
-        //   shipping_city: address.city!,
-        //   shipping_state: address.state!,
-        //   shipping_zip: address.postal_code!,
-        //   shipping_country: address.country!,
-        //   support_url:
-        //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
-        // });
+        // Seller email
+        await sendSaleNotificationEmail({
+          to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
+          sellerName: sellerNameFinal,
+          receiptId: String(orderDoc.id),
+          orderDate: new Date().toLocaleDateString('en-US'),
+          lineItems: receiptLineItems,
+          total: `$${(totalCents / 100).toFixed(2)}`,
+          item_summary: summary,
+          shipping_name: customer.name!,
+          shipping_address_line1: address.line1!,
+          shipping_address_line2: address.line2 ?? undefined,
+          shipping_city: address.city!,
+          shipping_state: address.state!,
+          shipping_zip: address.postal_code!,
+          shipping_country: address.country!,
+          support_url:
+            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+        });
 
         return NextResponse.json({ received: true }, { status: 200 });
       }
