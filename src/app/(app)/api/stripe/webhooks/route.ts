@@ -482,7 +482,8 @@ export async function POST(req: Request) {
         await payload.update({
           collection: 'tenants',
           where: { stripeAccountId: { equals: account.id } },
-          data: { stripeDetailsSubmitted: account.details_submitted }
+          data: { stripeDetailsSubmitted: account.details_submitted },
+          overrideAccess: true,
         });
         return NextResponse.json({ updated: true }, { status: 200 });
       }
