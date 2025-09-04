@@ -372,12 +372,14 @@ export async function POST(req: Request) {
             stripeAccountId: event.account,
             stripeCheckoutSessionId: session.id,
             stripeChargeId: charge.id,
+            stripePaymentIntentId: paymentIntent.id,
             items: orderItems,
             returnsAcceptedThrough: returnsAcceptedThroughISO, // string | undefined (OK for string | null | undefined)
             buyerEmail: customer.email ?? undefined,
             status: 'paid',
             total: totalCents
           },
+        });
           overrideAccess: true
         });
         // ---- emails ----
