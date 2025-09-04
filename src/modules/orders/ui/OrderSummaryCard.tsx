@@ -3,21 +3,50 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
 
-type OrderSummaryCardProps = {
+type BaseOrderSummaryProps = {
   orderDate: string | Date;
-  totalPaid: number; // in USD (dollars)
   orderNumber: string;
   returnsAcceptedThrough?: string | Date | null;
+  quantity?: number;
   className?: string;
 };
 
-export function OrderSummaryCard({
-  orderDate,
-  totalPaid,
-  orderNumber,
-  returnsAcceptedThrough,
-  className
-}: OrderSummaryCardProps) {
+// EITHER dollars (your old way) OR cents (from DB/Stripe)
+type DollarsVariant = BaseOrderSummaryProps & {
+  totalPaid: number; // dollars
+  totalCents?: never;
+  currency?: never;
+};
+type CentsVariant = BaseOrderSummaryProps & {
+  totalCents: number; // cents
+  currency?: string; // optional, reserved for future
+  totalPaid?: never;
+};
+
+export type OrderSummaryCardProps = DollarsVariant | CentsVariant;
+
+// --- type guards ---
+function hasTotalCents(props: OrderSummaryCardProps): props is CentsVariant {
+  return typeof (props as CentsVariant).totalCents === 'number';
+}
+function hasTotalPaid(props: OrderSummaryCardProps): props is DollarsVariant {
+  return typeof (props as DollarsVariant).totalPaid === 'number';
+}
+
+export function OrderSummaryCard(props: OrderSummaryCardProps) {
+  const { orderDate, orderNumber, returnsAcceptedThrough, className } = props;
+
+  let totalDollars: number;
+  if (hasTotalCents(props)) {
+    totalDollars = props.totalCents / 100;
+  } else if (hasTotalPaid(props)) {
+    totalDollars = props.totalPaid;
+  } else {
+    totalDollars = 0; // final fallback; should never happen
+  }
+
+  const quantity = props.quantity ?? 1;
+
   const fmtDate = (d?: string | Date | null) => {
     if (!d) return '—';
     const date = typeof d === 'string' ? new Date(d) : d;
@@ -30,10 +59,8 @@ export function OrderSummaryCard({
     <Card
       aria-label="Order details"
       className={[
-        // neo-brutalism: thick border + offset hard shadow
         'ah-order-card rounded-xl border-2 border-black bg-white',
         'shadow-[6px_6px_0_0_rgba(0,0,0,1)]',
-        // keep spacing compact so it feels “small”
         'max-w-md',
         className ?? ''
       ].join(' ')}
@@ -46,7 +73,8 @@ export function OrderSummaryCard({
       </CardHeader>
       <CardContent className="grid gap-3 text-sm">
         <Row label="Order date" value={fmtDate(orderDate)} />
-        <Row label="Total paid" value={formatCurrency(totalPaid)} strong />
+        <Row label="Quantity" value={quantity} />
+        <Row label="Total paid" value={formatCurrency(totalDollars)} strong />
         <Row
           label="Order #"
           value={<span className="font-mono">{orderNumber}</span>}

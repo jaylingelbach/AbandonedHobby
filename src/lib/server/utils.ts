@@ -55,3 +55,18 @@ export function asId(ref: IdRef): string {
     message: 'Missing or invalid tenant reference.'
   });
 }
+
+export function daysForPolicy(p?: string): number {
+  switch (p) {
+    case '30 day':
+      return 30;
+    case '14 day':
+      return 14;
+    case '7 day':
+      return 7;
+    case '1 day':
+      return 1;
+    default:
+      return 0; // 'no refunds' or undefined
+  }
+}

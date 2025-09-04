@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { Suspense } from 'react';
+import { Suspense, useEffect, useMemo } from 'react';
 import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
 
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import ReviewSidebar from '../components/review-sidebar';
 import { ReviewFormSkeleton } from '../components/review-form';
@@ -19,6 +19,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
+import { useSearchParams } from 'next/navigation';
 
 interface Props {
   productId: string;
@@ -30,6 +31,8 @@ const neoBrut =
 export const ProductView = ({ productId }: Props) => {
   const trpc = useTRPC();
   const { user } = useUser();
+  const queryClient = useQueryClient();
+  const search = useSearchParams();
 
   const { data: product } = useSuspenseQuery(
     trpc.library.getOne.queryOptions({ productId })
@@ -46,12 +49,20 @@ export const ProductView = ({ productId }: Props) => {
   // Mocked shipment + order data for now
   const trackingProvided = false;
   const trackingNumber = '69420';
-  const orderMock = {
-    orderDate: '2025-08-28',
-    totalPaid: 124.5,
-    orderNumber: 'AH-2J9Q6-69420',
-    returnsAcceptedThrough: '2025-09-30'
-  };
+
+  const success = search.get('success') === 'true';
+
+  const orderOpts = useMemo(
+    () => trpc.orders.getLatestForProduct.queryOptions({ productId }),
+    [trpc, productId]
+  );
+
+  const { data: order } = useSuspenseQuery(orderOpts);
+
+  useEffect(() => {
+    if (!success) return;
+    void queryClient.invalidateQueries({ queryKey: orderOpts.queryKey });
+  }, [success, orderOpts.queryKey, queryClient]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
@@ -99,14 +110,19 @@ export const ProductView = ({ productId }: Props) => {
           {/* Right rail (sticky) */}
           <div className="lg:col-span-4">
             <div className="sticky top-4 space-y-6">
-              {/* Order summary */}
-              <OrderSummaryCard
-                orderDate={orderMock.orderDate}
-                orderNumber={orderMock.orderNumber}
-                returnsAcceptedThrough={orderMock.returnsAcceptedThrough}
-                totalPaid={orderMock.totalPaid}
-              />
-
+              {order ? (
+                <OrderSummaryCard
+                  orderDate={order.orderDateISO}
+                  totalCents={order.totalCents}
+                  orderNumber={order.orderNumber}
+                  returnsAcceptedThrough={order.returnsAcceptedThroughISO}
+                  quantity={order.quantity}
+                />
+              ) : (
+                <div className="text-sm italic text-muted-foreground">
+                  No order found for this item.
+                </div>
+              )}
               {/* Shipment & actions */}
               <Card className={`${neoBrut}`}>
                 <CardHeader className="pb-2">
