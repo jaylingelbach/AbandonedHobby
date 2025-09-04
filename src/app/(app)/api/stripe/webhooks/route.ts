@@ -1,16 +1,18 @@
-import Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
 
+import Stripe from 'stripe';
+
 import { stripe } from '@/lib/stripe';
-import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
-import type { Tenant, User, Product } from '@/payload-types';
 import { daysForPolicy } from '@/lib/server/utils';
 import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
+
+import type { Tenant, User, Product } from '@/payload-types';
+import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
 
 export const runtime = 'nodejs';
 
@@ -228,6 +230,11 @@ export async function POST(req: Request) {
 
         if (!totalCents && typeof paymentIntent.amount_received === 'number') {
           totalCents = paymentIntent.amount_received;
+        }
+
+        // reduce risk of $0 orders.
+        if (!totalCents && typeof (charge as any).amount === 'number') {
+          totalCents = (charge as any).amount;
         }
 
         // --- build normalized items array for Orders schema ---

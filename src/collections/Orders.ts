@@ -35,6 +35,7 @@ export const Orders: CollectionConfig = {
     {
       name: 'stripeAccountId',
       type: 'text',
+      index: true,
       required: true,
       admin: {
         description: 'The Stripe account associated with the order. '
@@ -55,8 +56,6 @@ export const Orders: CollectionConfig = {
         description: 'The total amount paid in cents (Stripe amount_total).'
       }
     },
-
-    // --- new helpful fields (optional but recommended) ---
     {
       name: 'orderNumber',
       type: 'text',
@@ -79,8 +78,8 @@ export const Orders: CollectionConfig = {
     },
     { name: 'buyerEmail', type: 'email' },
     { name: 'currency', type: 'text', required: true },
-    { name: 'stripePaymentIntentId', type: 'text' },
-    { name: 'stripeChargeId', type: 'text' },
+    { name: 'stripePaymentIntentId', type: 'text', index: true },
+    { name: 'stripeChargeId', type: 'text', index: true },
 
     // line items w/ quantity (no change to Products collection)
     {

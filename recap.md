@@ -2065,3 +2065,24 @@ Added recap covering the Orders transition and onboarding behavior.
 - Product browsing supports subcategory filtering and category hierarchy, with review counts and ratings shown in listings.
 
 - Seller account status now syncs from Stripe to reflect onboarding completion.
+
+## File changes
+
+- Stripe Webhook Handler
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Rebuilt webhook to verify signatures, support Stripe Connect, process checkout.session.completed into a single order with items, prevent duplicates, resolve buyer/tenant/payment details, send emails, handle account.updated, and export runtime = 'nodejs'.
+- Orders Collection and Types
+  - src/collections/Orders.ts, src/payload-types.ts
+    - Adds orderNumber, buyer/sellerTenant relations, buyerEmail, currency, Stripe IDs, itemized array with per-line details and refund policy, returnsAcceptedThrough, and status. Updates generated types and selectors accordingly.
+- Orders Server Router and App Router
+  - src/modules/orders/server/procedures.ts, src/trpc/routers/\_app.ts
+    - Introduces ordersRouter with protected getLatestForProduct returning a compact latest-order summary; exposes orders on the TRPC app router.
+- Product View and Order Summary UI
+  - src/modules/library/ui/views/product-view.tsx, src/modules/orders/ui/OrderSummaryCard.tsx
+    - Product view fetches latest order via TRPC, invalidates on ?success=true, and conditionally renders. OrderSummaryCard props refactored to accept either dollars or cents and include quantity; adjusts rendering.
+- Server Utilities
+  - src/lib/server/utils.ts
+    - Adds daysForPolicy(p?: string): number helper mapping policy labels to day counts.
+- Products Router Enhancements
+  - src/modules/products/server/procedures.ts
+    - Implements getMany with optional subcategory input, category/subcategory filtering, enrichment with review metrics, and existing filters/sorting.

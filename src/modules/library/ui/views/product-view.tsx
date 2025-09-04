@@ -1,25 +1,27 @@
 'use client';
 
-import Link from 'next/link';
 import { Suspense, useEffect, useMemo } from 'react';
-import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import Link from 'next/link';
 
+import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
-import ReviewSidebar from '../components/review-sidebar';
-import { ReviewFormSkeleton } from '../components/review-form';
 import { RichText } from '@payloadcms/richtext-lexical/react';
-import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
+
+import { useTRPC } from '@/trpc/client';
 import { useUser } from '@/hooks/use-user';
 import { relDoc, relId } from '@/lib/relationshipHelpers';
-import type { Product, Tenant } from '@/payload-types';
 
-import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { useSearchParams } from 'next/navigation';
+import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
+import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
+import ReviewSidebar from '../components/review-sidebar';
+import { ReviewFormSkeleton } from '../components/review-form';
+
+import type { Product, Tenant } from '@/payload-types';
 
 interface Props {
   productId: string;
@@ -33,6 +35,7 @@ export const ProductView = ({ productId }: Props) => {
   const { user } = useUser();
   const queryClient = useQueryClient();
   const search = useSearchParams();
+  const router = useRouter();
 
   const { data: product } = useSuspenseQuery(
     trpc.library.getOne.queryOptions({ productId })
@@ -59,10 +62,15 @@ export const ProductView = ({ productId }: Props) => {
 
   const { data: order } = useSuspenseQuery(orderOpts);
 
+  // Avoid repeated invalidations when navigating back to this page.
   useEffect(() => {
     if (!success) return;
     void queryClient.invalidateQueries({ queryKey: orderOpts.queryKey });
-  }, [success, orderOpts.queryKey, queryClient]);
+    // strip ?success=true
+    const url = new URL(window.location.href);
+    url.searchParams.delete('success');
+    router.replace(url.pathname + url.search, { scroll: false });
+  }, [success, orderOpts.queryKey, queryClient, router]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">

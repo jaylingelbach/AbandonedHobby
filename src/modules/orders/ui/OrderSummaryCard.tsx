@@ -45,11 +45,13 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
     totalDollars = 0; // final fallback; should never happen
   }
 
-  const quantity = props.quantity ?? 1;
+  // Prevent rendering 0 or negative quantities if upstream ever passes bad data.
+  const quantity = Math.max(1, Number(props.quantity ?? 1) || 1);
 
   const fmtDate = (d?: string | Date | null) => {
     if (!d) return '—';
     const date = typeof d === 'string' ? new Date(d) : d;
+    if (!(date instanceof Date) || Number.isNaN(date.getTime())) return '—';
     return new Intl.DateTimeFormat('en-US', { dateStyle: 'medium' }).format(
       date
     );
