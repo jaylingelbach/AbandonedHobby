@@ -2096,3 +2096,48 @@ Added recap covering the Orders transition and onboarding behavior.
 - Misc. types & utils
   - src/lib/utils.ts, src/payload-types.ts, src/app/(app)/(orders)/orders/[productId]/page.tsx, recap.md
     - Updates formatCurrency and renderToText signatures; expands Order types in payload-types; moves minor imports in product orders page; updates recap documentation.
+
+# Order routing switch 09/06/25
+
+## Walkthrough
+
+- Adds an order-scoped product page at orders/[orderId] with auth/redirect, removes the prior orders/[productId] page, adds buyer-scoped orders endpoints and DTOs, enhances library procedures to require ownership and summarize reviews, updates UI to support order-based linking, and adds relation/link helpers plus a schema index.
+
+## New Features
+
+- Order-specific product page that opens a product tied to a specific order.
+- Buyer endpoints: view a single order by ID and paginated list of buyer orders.
+
+## Enhancements
+
+- Library items include review counts and average rating.
+- Product cards support linking by order, product, or direct URL.
+
+## Performance
+
+- Added index to speed lookup by checkout session.
+
+## UI/UX
+
+- Safer image/tenant fallbacks and improved loading skeletons.
+
+## File changes
+
+- Orders app pages
+  - src/app/(app)/(orders)/orders/[orderId]/page.tsx, src/app/(app)/(orders)/orders/[productId]/page.tsx
+    - New dynamic page orders/[orderId] added (auth guard, prefetch product+reviews, hydrate, render ProductView); old orders/[productId]/page.tsx deleted.
+- Library server & types
+  - src/modules/library/server/procedures.ts, src/modules/library/types.ts
+    - Added summarizeReviews; library.getOne now requires ownership and returns ProductWithRatings; library.getMany pages buyer orders, builds ProductCardDTOs with ratings; new DTO/type exports added.
+- Orders server & types
+  - src/modules/orders/server/procedures.ts, src/modules/orders/types.ts
+    - New endpoints getForBuyerById and listForBuyer; getLatestForProduct now includes productId; introduced OrderSummaryDTO type; explicit buyer-scoped access checks and error cases.
+- Library UI
+  - src/modules/library/ui/components/product-card.tsx, src/modules/library/ui/components/product-list.tsx, src/modules/library/ui/views/product-view.tsx
+    - ProductCard props refactored to union (orderId/id/href) and uses buildHref; ProductList passes orderId and normalizes image/tenant props; ProductView accepts orderId and fetches that order.
+- Utils
+  - src/lib/server/utils.ts, src/lib/utils.ts
+    - Added getRelId(rel) to extract relation id; added buildHref(props: ProductCardProps) to compute product/order links.
+- Orders collection schema
+  - src/collections/Orders.ts
+    - Added index: true on stripeCheckoutSessionId and reformatted fields to multiline; no semantic field changes beyond the new index.

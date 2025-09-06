@@ -10,41 +10,7 @@ import type {
   ProductCardDTO
 } from '../types';
 
-import { getRelId } from '@/lib/server/utils';
-
-/** Compute review summaries (count + 1-decimal average) by product id */
-function summarizeReviews(
-  reviews: Review[]
-): Map<string, { count: number; avg: number }> {
-  const sums = new Map<string, { count: number; sum: number }>();
-
-  for (const review of reviews) {
-    const rel = review.product as string | Product | null | undefined;
-    const productId =
-      typeof rel === 'string'
-        ? rel
-        : rel && typeof rel === 'object' && 'id' in rel
-          ? (rel.id as string | undefined)
-          : undefined;
-
-    if (!productId) continue;
-
-    const rating = typeof review.rating === 'number' ? review.rating : 0;
-    const current = sums.get(productId) ?? { count: 0, sum: 0 };
-    current.count += 1;
-    current.sum += rating;
-    sums.set(productId, current);
-  }
-
-  const out = new Map<string, { count: number; avg: number }>();
-  for (const [pid, { count, sum }] of sums.entries()) {
-    out.set(pid, {
-      count,
-      avg: count ? Math.round((sum / count) * 10) / 10 : 0
-    });
-  }
-  return out;
-}
+import { getRelId, summarizeReviews } from '@/lib/server/utils';
 
 export const libraryRouter = createTRPCRouter({
   /**
@@ -57,14 +23,12 @@ export const libraryRouter = createTRPCRouter({
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-      // 1) Ensure this user has an order for the product
       // 1) Ensure this user has an order for the product (handles legacy + items[])
       const ordersRes = (await ctx.db.find({
         collection: 'orders',
         pagination: false,
         depth: 0,
         sort: '-createdAt',
-        limit: 25, // small window of recent orders; bump if needed
         where: {
           or: [
             { buyer: { equals: user.id } }, // new field
@@ -95,7 +59,8 @@ export const libraryRouter = createTRPCRouter({
       const product = (await ctx.db.findByID({
         collection: 'products',
         id: input.productId,
-        depth: 2
+        depth: 2,
+        overrideAccess: true
       })) as Product | null;
 
       if (!product) {
@@ -137,8 +102,8 @@ export const libraryRouter = createTRPCRouter({
   getMany: protectedProcedure
     .input(
       z.object({
-        cursor: z.number().default(1),
-        limit: z.number().default(DEFAULT_LIMIT)
+        cursor: z.number().int().min(1).default(1),
+        limit: z.number().int().min(1).max(50).default(DEFAULT_LIMIT)
       })
     )
     .query(async ({ ctx, input }) => {
@@ -166,25 +131,25 @@ export const libraryRouter = createTRPCRouter({
       const productIdSet = new Set<string>();
       const latestOrderIdByProduct = new Map<string, string>();
 
-      for (const o of orders.docs) {
+      for (const order of orders.docs) {
         let foundInItems = false;
-        if (Array.isArray(o.items) && o.items.length > 0) {
-          for (const it of o.items) {
+        if (Array.isArray(order.items) && order.items.length > 0) {
+          for (const it of order.items) {
             const pid = getRelId(it?.product ?? null);
             if (pid) {
               productIdSet.add(pid);
               if (!latestOrderIdByProduct.has(pid))
-                latestOrderIdByProduct.set(pid, o.id);
+                latestOrderIdByProduct.set(pid, order.id);
               foundInItems = true;
             }
           }
         }
         if (!foundInItems) {
-          const pid = getRelId(o.product ?? null);
+          const pid = getRelId(order.product ?? null);
           if (pid) {
             productIdSet.add(pid);
             if (!latestOrderIdByProduct.has(pid))
-              latestOrderIdByProduct.set(pid, o.id);
+              latestOrderIdByProduct.set(pid, order.id);
           }
         }
       }
@@ -220,12 +185,17 @@ export const libraryRouter = createTRPCRouter({
 
       const summaries = summarizeReviews(reviewsRes.docs);
 
-      // 5) Build normalized DTOs with a guaranteed orderId
-      const docs: ProductCardDTO[] = productsRes.docs.flatMap((p) => {
-        const orderId = latestOrderIdByProduct.get(p.id);
-        if (!orderId) return []; // skip if somehow missing mapping
+      // 5) Build normalized DTOs in the same order as productIds (recency)
+      const productById = new Map(productsRes.docs.map((p) => [p.id, p]));
 
-        const stats = summaries.get(p.id) ?? { count: 0, avg: 0 };
+      const docs: ProductCardDTO[] = productIds.flatMap((pid) => {
+        const p = productById.get(pid);
+        if (!p) return []; // product was deleted or filtered out — skip
+
+        const orderId = latestOrderIdByProduct.get(pid);
+        if (!orderId) return []; // safety: should exist from step 2
+
+        const stats = summaries.get(pid) ?? { count: 0, avg: 0 };
 
         const normalizedImage: Media | null = (p.image as Media | null) ?? null;
         const tenantObj = (p.tenant as Tenant | null) ?? null;
