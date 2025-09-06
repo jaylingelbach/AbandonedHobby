@@ -55,14 +55,16 @@ export const ProductCard = (props: ProductCardProps) => {
           <div className="flex items-center gap-2">
             {tenantImageURL && (
               <Image
-                alt={tenantSlug}
+                alt={tenantSlug || 'Seller'}
                 src={tenantImageURL}
                 width={16}
                 height={16}
                 className="rounded-full border shrink-0 size-[16px]"
               />
             )}
-            <p className="text-sm underline font-medium">{tenantSlug}</p>
+            <p className="text-sm underline font-medium">
+              {tenantSlug || 'Seller'}
+            </p>
           </div>
           {reviewCount > 0 && (
             <div className="flex items-center gap-1">
