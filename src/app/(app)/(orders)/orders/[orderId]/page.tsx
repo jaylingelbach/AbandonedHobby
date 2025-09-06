@@ -1,5 +1,5 @@
 import { Suspense } from 'react';
-import { redirect } from 'next/navigation';
+import { redirect, notFound } from 'next/navigation';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { caller, getQueryClient, trpc } from '@/trpc/server';
 
@@ -26,16 +26,17 @@ export default async function Page({
     redirect(`/sign-in?next=${encodeURIComponent(`/orders/${orderId}`)}`);
   }
 
-  // Load the order on the server to discover its productId
-  const orderDTO = await caller.orders.getForBuyerById({ orderId }); // returns { productId, ... }
-
   const queryClient = getQueryClient();
+
+  let orderDTO;
+  try {
+    orderDTO = await caller.orders.getForBuyerById({ orderId }); // returns { productId, ... }
+  } catch {
+    return notFound();
+  }
 
   // Prefetch everything the client will need
   await Promise.all([
-    queryClient.prefetchQuery(
-      trpc.orders.getForBuyerById.queryOptions({ orderId })
-    ),
     queryClient.prefetchQuery(
       trpc.library.getOne.queryOptions({ productId: orderDTO.productId })
     ),
