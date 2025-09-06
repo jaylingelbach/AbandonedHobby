@@ -58,21 +58,36 @@ export const libraryRouter = createTRPCRouter({
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
       // 1) Ensure this user has an order for the product
+      // 1) Ensure this user has an order for the product (handles legacy + items[])
       const ordersRes = (await ctx.db.find({
         collection: 'orders',
-        limit: 1,
         pagination: false,
         depth: 0,
+        sort: '-createdAt',
+        limit: 25, // small window of recent orders; bump if needed
         where: {
-          and: [
-            { product: { equals: input.productId } }, // back-compat top-level field
-            { user: { equals: user.id } }
+          or: [
+            { buyer: { equals: user.id } }, // new field
+            { user: { equals: user.id } } // legacy field
           ]
         }
       })) as { docs: OrderMinimal[] };
 
-      const order = ordersRes.docs[0];
-      if (!order) {
+      const hasOrder = ordersRes.docs.some((o) => {
+        // legacy top-level product
+        const top = getRelId(o.product ?? null);
+        if (top === input.productId) return true;
+
+        // new items[] product references
+        if (Array.isArray(o.items)) {
+          for (const it of o.items) {
+            if (getRelId(it?.product ?? null) === input.productId) return true;
+          }
+        }
+        return false;
+      });
+
+      if (!hasOrder) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'No order found' });
       }
 

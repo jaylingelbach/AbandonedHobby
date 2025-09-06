@@ -2,7 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { ProductCardProps } from '@/modules/library/ui/components/product-card';
+import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
