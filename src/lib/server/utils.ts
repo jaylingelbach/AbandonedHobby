@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { Category } from '@/payload-types';
+import { Category, Product } from '@/payload-types';
 
 // Categories
 export async function isValidCategory(slug: string): Promise<boolean> {
@@ -69,4 +69,20 @@ export function daysForPolicy(p?: string): number {
     default:
       return 0; // 'no refunds' or undefined
   }
+}
+
+/** Safely extract a product id from a relationship that may be string or doc */
+export function getRelId(
+  rel: string | Product | null | undefined
+): string | null {
+  if (typeof rel === 'string' && rel) return rel;
+  if (
+    rel &&
+    typeof rel === 'object' &&
+    'id' in rel &&
+    typeof rel.id === 'string'
+  ) {
+    return rel.id;
+  }
+  return null;
 }

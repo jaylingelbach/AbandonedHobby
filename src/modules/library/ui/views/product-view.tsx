@@ -3,15 +3,12 @@
 import { Suspense, useEffect, useMemo } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-
 import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
 import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { RichText } from '@payloadcms/richtext-lexical/react';
-
 import { useTRPC } from '@/trpc/client';
 import { useUser } from '@/hooks/use-user';
 import { relDoc, relId } from '@/lib/relationshipHelpers';
-
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -20,23 +17,24 @@ import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with
 import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
 import ReviewSidebar from '../components/review-sidebar';
 import { ReviewFormSkeleton } from '../components/review-form';
-
 import type { Product, Tenant } from '@/payload-types';
 
 interface Props {
   productId: string;
+  orderId: string;
 }
 
 const neoBrut =
   'rounded-xl border-2 border-black bg-white shadow-[6px_6px_0_0_rgba(0,0,0,1)]';
 
-export const ProductView = ({ productId }: Props) => {
+export const ProductView = ({ productId, orderId }: Props) => {
   const trpc = useTRPC();
   const { user } = useUser();
   const queryClient = useQueryClient();
   const search = useSearchParams();
   const router = useRouter();
 
+  // Product content
   const { data: product } = useSuspenseQuery(
     trpc.library.getOne.queryOptions({ productId })
   ) as { data: Product };
@@ -49,32 +47,30 @@ export const ProductView = ({ productId }: Props) => {
     (t) => relId<Tenant>(t.tenant) === tenantId
   );
 
-  // Mocked shipment + order data for now
   const trackingProvided = false;
   const trackingNumber = '69420';
 
   const success = search.get('success') === 'true';
 
-  const orderOpts = useMemo(
-    () => trpc.orders.getLatestForProduct.queryOptions({ productId }),
-    [trpc, productId]
+  // ✅ build once, reuse for query + invalidate
+  const orderQueryOptions = useMemo(
+    () => trpc.orders.getForBuyerById.queryOptions({ orderId }),
+    [trpc, orderId]
   );
+  const { data: order } = useSuspenseQuery(orderQueryOptions);
 
-  const { data: order } = useSuspenseQuery(orderOpts);
-
-  // Avoid repeated invalidations when navigating back to this page.
   useEffect(() => {
     if (!success) return;
-    void queryClient.invalidateQueries({ queryKey: orderOpts.queryKey });
-    // strip ?success=true
+    void queryClient.invalidateQueries({
+      queryKey: orderQueryOptions.queryKey
+    });
     const url = new URL(window.location.href);
     url.searchParams.delete('success');
     router.replace(url.pathname + url.search, { scroll: false });
-  }, [success, orderOpts.queryKey, queryClient, router]);
+  }, [success, orderQueryOptions.queryKey, queryClient, router]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
-      {/* Top nav */}
       <nav className="p-4 w-full border-b bg-[#F4F4F0]">
         <Link prefetch href="/orders" className="flex items-center gap-2">
           <ArrowLeftIcon className="size-4" />
@@ -82,7 +78,6 @@ export const ProductView = ({ productId }: Props) => {
         </Link>
       </nav>
 
-      {/* Header */}
       <header className="py-8 border-b bg-[#F4F4F0]">
         <div className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12">
           <h1 className="text-[40px] font-medium leading-none">
@@ -94,12 +89,10 @@ export const ProductView = ({ productId }: Props) => {
         </div>
       </header>
 
-      {/* Main */}
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          {/* Main content */}
           <div className="lg:col-span-8">
-            <Card className={`${neoBrut}`}>
+            <Card className={neoBrut}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Item details</CardTitle>
               </CardHeader>
@@ -115,7 +108,6 @@ export const ProductView = ({ productId }: Props) => {
             </Card>
           </div>
 
-          {/* Right rail (sticky) */}
           <div className="lg:col-span-4">
             <div className="sticky top-4 space-y-6">
               {order ? (
@@ -131,15 +123,14 @@ export const ProductView = ({ productId }: Props) => {
                   No order found for this item.
                 </div>
               )}
-              {/* Shipment & actions */}
-              <Card className={`${neoBrut}`}>
+
+              <Card className={neoBrut}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">
                     Shipment & actions
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {/* Status row */}
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <Truck className="size-4" />
@@ -161,11 +152,9 @@ export const ProductView = ({ productId }: Props) => {
 
                   <Separator />
 
-                  {/* Actions (mocked / placeholders) */}
                   <div className="grid gap-2">
                     {!isViewerSeller && tenantId && (
                       <div className="w-full">
-                        {/* Chat button component controls its own UI; grouped here for layout */}
                         <ChatButtonWithModal
                           productId={productId}
                           sellerId={tenantId}
@@ -195,8 +184,7 @@ export const ProductView = ({ productId }: Props) => {
                 </CardContent>
               </Card>
 
-              {/* Reviews */}
-              <Card className={`${neoBrut}`}>
+              <Card className={neoBrut}>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-base">Reviews</CardTitle>
                 </CardHeader>
