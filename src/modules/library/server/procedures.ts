@@ -152,7 +152,9 @@ export const libraryRouter = createTRPCRouter({
         page: input.cursor,
         limit: input.limit,
         sort: '-createdAt',
-        where: { user: { equals: user.id } }
+        where: {
+          or: [{ buyer: { equals: user.id } }, { user: { equals: user.id } }]
+        }
       })) as {
         docs: OrderMinimal[];
         page: number;
