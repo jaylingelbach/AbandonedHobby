@@ -44,6 +44,7 @@ export const Orders: CollectionConfig = {
     {
       name: 'stripeCheckoutSessionId',
       type: 'text',
+      index: true,
       admin: {
         description: 'The Stripe checkout session associated with the order. '
       }
@@ -76,11 +77,25 @@ export const Orders: CollectionConfig = {
       relationTo: 'tenants',
       required: true
     },
-    { name: 'buyerEmail', type: 'email' },
-    { name: 'currency', type: 'text', required: true },
-    { name: 'stripePaymentIntentId', type: 'text', index: true },
-    { name: 'stripeChargeId', type: 'text', index: true },
-
+    {
+      name: 'buyerEmail',
+      type: 'email'
+    },
+    {
+      name: 'currency',
+      type: 'text',
+      required: true
+    },
+    {
+      name: 'stripePaymentIntentId',
+      type: 'text',
+      index: true
+    },
+    {
+      name: 'stripeChargeId',
+      type: 'text',
+      index: true
+    },
     // line items w/ quantity (no change to Products collection)
     {
       name: 'items',
@@ -93,24 +108,50 @@ export const Orders: CollectionConfig = {
           relationTo: 'products',
           required: true
         },
-        { name: 'nameSnapshot', type: 'text', required: true },
-        { name: 'unitAmount', type: 'number', required: true }, // cents
-        { name: 'quantity', type: 'number', required: true, defaultValue: 1 },
-        { name: 'amountSubtotal', type: 'number' }, // cents
-        { name: 'amountTax', type: 'number' }, // cents
-        { name: 'amountTotal', type: 'number' }, // cents
+        {
+          name: 'nameSnapshot',
+          type: 'text',
+          required: true
+        },
+        {
+          name: 'unitAmount',
+          type: 'number',
+          required: true
+        }, // cents
+        {
+          name: 'quantity',
+          type: 'number',
+          required: true,
+          defaultValue: 1
+        },
+        {
+          name: 'amountSubtotal',
+          type: 'number'
+        }, // cents
+        {
+          name: 'amountTax',
+          type: 'number'
+        }, // cents
+        {
+          name: 'amountTotal',
+          type: 'number'
+        }, // cents
         {
           name: 'refundPolicy',
           type: 'select',
           options: ['30 day', '14 day', '7 day', '1 day', 'no refunds']
         },
-        { name: 'returnsAcceptedThrough', type: 'date' }
+        {
+          name: 'returnsAcceptedThrough',
+          type: 'date'
+        }
       ]
     },
-
     // order-level returns cutoff (earliest eligible item)
-    { name: 'returnsAcceptedThrough', type: 'date' },
-
+    {
+      name: 'returnsAcceptedThrough',
+      type: 'date'
+    },
     {
       name: 'status',
       type: 'select',

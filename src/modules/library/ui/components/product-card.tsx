@@ -1,28 +1,46 @@
 import Image from 'next/image';
 import Link from 'next/link';
-
 import { StarIcon } from 'lucide-react';
-interface ProductCardProps {
-  id: string;
+import { buildHref } from '@/lib/utils';
+
+// Common fields the card always needs
+type BaseProps = {
   name: string;
   imageURL?: string | null;
   tenantSlug: string;
   tenantImageURL?: string | null;
   reviewRating: number;
   reviewCount: number;
-}
+};
 
-export const ProductCard = ({
-  id,
-  name,
-  imageURL,
-  tenantSlug,
-  tenantImageURL,
-  reviewRating,
-  reviewCount
-}: ProductCardProps) => {
+// Exactly one of these “where to link” options must be provided
+type OrderVariant = BaseProps & { orderId: string; id?: never; href?: never };
+type ProductVariant = BaseProps & { id: string; orderId?: never; href?: never };
+type DirectHrefVariant = BaseProps & {
+  href: string;
+  id?: never;
+  orderId?: never;
+};
+
+export type ProductCardProps =
+  | OrderVariant
+  | ProductVariant
+  | DirectHrefVariant;
+
+export const ProductCard = (props: ProductCardProps) => {
+  const {
+    name,
+    imageURL,
+    tenantSlug,
+    tenantImageURL,
+    reviewRating,
+    reviewCount
+  } = props;
+
+  const linkHref: string = buildHref(props);
+
   return (
-    <Link prefetch href={`/orders/${id}`}>
+    <Link prefetch href={linkHref}>
       <div className="hover:shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] transition-shadow border rounded-md bg-white overflow-hidden h-full flex flex-col">
         <div className="relative aspect-square">
           <Image
@@ -60,13 +78,11 @@ export const ProductCard = ({
   );
 };
 
-export const ProductCardSkeleton = () => {
-  return (
-    <div
-      className="w-full aspect-3/4 bg-neutral-200 rounded-lg animate-pulse"
-      aria-label="Loading product information"
-    >
-      Loading...
-    </div>
-  );
-};
+export const ProductCardSkeleton = () => (
+  <div
+    className="w-full aspect-3/4 bg-neutral-200 rounded-lg animate-pulse"
+    aria-label="Loading product information"
+  >
+    Loading...
+  </div>
+);

@@ -2,6 +2,7 @@ import React from 'react';
 import type { ReactNode } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -104,3 +105,11 @@ export const buildSignInUrl = (next?: string) => {
   const qs = next ? `?next=${encodeURIComponent(next)}` : '';
   return `${origin}/sign-in${qs}`;
 };
+
+// used in product card and built for 2 variants. one with id and one with orderId
+export function buildHref(props: ProductCardProps): string {
+  if ('href' in props && props.href) return props.href;
+  if ('orderId' in props && props.orderId) return `/orders/${props.orderId}`;
+  if ('id' in props && props.id) return `/products/${props.id}`;
+  return '#'; // safe fallback
+}

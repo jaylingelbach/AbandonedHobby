@@ -1,7 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { getPayload } from 'payload';
 import config from '@payload-config';
-import { Category } from '@/payload-types';
+import { Category, Product, Review } from '@/payload-types';
 
 // Categories
 export async function isValidCategory(slug: string): Promise<boolean> {
@@ -69,4 +69,47 @@ export function daysForPolicy(p?: string): number {
     default:
       return 0; // 'no refunds' or undefined
   }
+}
+
+/** Safely extract a product id from a relationship that may be string or doc */
+export function getRelId(
+  rel: string | Product | null | undefined
+): string | null {
+  if (typeof rel === 'string' && rel) return rel;
+  if (
+    rel &&
+    typeof rel === 'object' &&
+    'id' in rel &&
+    typeof rel.id === 'string'
+  ) {
+    return rel.id;
+  }
+  return null;
+}
+
+export function summarizeReviews(
+  reviews: Review[]
+): Map<string, { count: number; avg: number }> {
+  const sums = new Map<string, { count: number; sum: number }>();
+
+  for (const review of reviews) {
+    const productId = getRelId(review.id);
+
+    if (!productId) continue;
+
+    const rating = typeof review.rating === 'number' ? review.rating : 0;
+    const current = sums.get(productId) ?? { count: 0, sum: 0 };
+    current.count += 1;
+    current.sum += rating;
+    sums.set(productId, current);
+  }
+
+  const out = new Map<string, { count: number; avg: number }>();
+  for (const [pid, { count, sum }] of sums.entries()) {
+    out.set(pid, {
+      count,
+      avg: count ? Math.round((sum / count) * 10) / 10 : 0
+    });
+  }
+  return out;
 }

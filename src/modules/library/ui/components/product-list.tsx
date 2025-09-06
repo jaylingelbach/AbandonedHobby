@@ -41,11 +41,11 @@ export const ProductList = () => {
           .map((product) => (
             <ProductCard
               key={product.id}
-              id={product.id}
+              orderId={product.orderId}
               name={product.name}
-              imageURL={product.image?.url}
-              tenantSlug={product.tenant?.slug}
-              tenantImageURL={product.tenant?.image?.url}
+              imageURL={product.image?.url ?? null}
+              tenantSlug={product.tenant?.slug ?? ''}
+              tenantImageURL={product.tenant?.image?.url ?? null}
               reviewRating={product.reviewRating}
               reviewCount={product.reviewCount}
             />
