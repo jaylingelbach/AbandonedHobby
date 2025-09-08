@@ -52,7 +52,7 @@ export function OnboardingBannerAdmin() {
           className="ah-onboarding-btn"
           href={next ?? '/welcome'}
           target="_blank"
-          rel="noreferrer"
+          rel="noopener noreferrer"
         >
           Continue
         </a>

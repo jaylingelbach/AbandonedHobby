@@ -49,7 +49,8 @@ function SignInView() {
       const res = await fetch('/api/resend', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email })
+        body: JSON.stringify({ email }),
+        credentials: 'include'
       });
       if (res.ok) {
         toast.success(
@@ -71,8 +72,12 @@ function SignInView() {
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       onError: (error) => {
-        const message = error.message;
-        if (message.includes('verify')) {
+        const message = error?.message ?? '';
+        const code = error?.data?.code;
+        if (
+          code === 'UNAUTHORIZED' ||
+          message.toLowerCase().includes('verify')
+        ) {
           toast.error('Please verify your email to continue.', {
             duration: 5000,
             action: {

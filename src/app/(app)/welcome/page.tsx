@@ -13,7 +13,11 @@ export default function WelcomePage() {
   const trpc = useTRPC();
   const { data, isLoading, isError, error } = useQuery({
     ...trpc.users.me.queryOptions(),
-    staleTime: 60_000
+    staleTime: 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    gcTime: 30 * 60_000
   });
 
   useRedirectOnUnauthorized(isError ? error : null);
@@ -22,7 +26,7 @@ export default function WelcomePage() {
   if (isError || !data) {
     return (
       <div className="p-4 text-red-600">
-        {error?.message ?? 'Failed to load'}
+        Something went wrong. Please try again.
       </div>
     );
   }

@@ -35,9 +35,9 @@ export function useOnboardingBanner() {
 
   const shouldShow =
     !!data &&
-    step !== 'dashboard' &&
     step !== undefined &&
-    uiState?.hideOnboardingBanner !== true && // 👈 permanent hide
+    step !== 'dashboard' &&
+    uiState?.hideOnboardingBanner !== true && // permanent hide
     uiState?.onboardingDismissedStep !== step;
 
   return {
@@ -48,8 +48,14 @@ export function useOnboardingBanner() {
     label: data?.onboarding.label,
     step,
     next: data?.onboarding.next,
-    dismissOnce: () => step && dismiss.mutate({ step }),
-    dismissForever: () => step && dismiss.mutate({ step, forever: true }),
+    dismissOnce: () => {
+      if (!step) return;
+      dismiss.mutate({ step });
+    },
+    dismissForever: () => {
+      if (!step) return;
+      dismiss.mutate({ step, forever: true });
+    },
     isDismissing: dismiss.isPending
   };
 }

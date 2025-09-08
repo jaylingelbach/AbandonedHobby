@@ -13,8 +13,8 @@ export function useRedirectOnUnauthorized(error: unknown) {
     if (code !== 'UNAUTHORIZED') return;
 
     if (typeof window === 'undefined') return;
-    const { pathname, search } = window.location;
-    const next = `${pathname}${search}`;
+    const { pathname, search, hash } = window.location;
+    const next = `${pathname}${search}${hash}`;
 
     if (pathname === '/sign-in') return;
     router.replace(`/sign-in?next=${encodeURIComponent(next)}`);

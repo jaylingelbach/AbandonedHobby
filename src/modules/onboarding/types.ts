@@ -15,12 +15,14 @@ export type DbUser = {
   defaultTenantId?: string | null;
 };
 
-export type OnboardingStep =
-  | 'verify-email'
-  | 'create-tenant'
-  | 'connect-stripe'
-  | 'list-first-product'
-  | 'dashboard';
+export const ONBOARDING_STEPS = [
+  'verify-email',
+  'create-tenant',
+  'connect-stripe',
+  'list-first-product',
+  'dashboard'
+] as const;
+export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
 
 export type OnboardingState = {
   step: OnboardingStep;

@@ -33,7 +33,11 @@ export function OnboardingBannerSite() {
   if (!shouldShow) return null;
 
   return (
-    <div className="border bg-muted p-3 mb-4 flex items-center justify-between">
+    <div
+      role="region"
+      aria-label="Onboarding"
+      className="border bg-muted p-3 mb-4 flex items-center justify-between"
+    >
       <div className="flex items-center gap-2">
         <span className="text-sm">Finish getting set up</span>
         {label ? (
@@ -42,25 +46,10 @@ export function OnboardingBannerSite() {
           </span>
         ) : null}
       </div>
-      {/* <div className="flex items-center gap-2">
-        <Link href={next ?? '/welcome'}>
-          <Button size="sm">Continue</Button>
-        </Link>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="h-8 w-8"
-          aria-label="Dismiss"
-          onClick={dismiss}
-          disabled={isDismissing}
-        >
-          ✕
-        </Button>
-      </div> */}
       <div className="flex items-center gap-2">
-        <Link href={next ?? '/welcome'}>
-          <Button size="sm">Continue</Button>
-        </Link>
+        <Button asChild size="sm">
+          <Link href={next ?? '/welcome'}>Continue</Link>
+        </Button>
         <Button
           size="icon"
           variant="ghost"

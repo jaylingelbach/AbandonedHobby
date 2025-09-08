@@ -1,12 +1,8 @@
 import { z } from 'zod';
+import { ONBOARDING_STEPS } from '@/modules/onboarding/types';
 
-export const OnboardingStepEnum = z.enum([
-  'verify-email',
-  'create-tenant',
-  'connect-stripe',
-  'list-first-product',
-  'dashboard'
-]);
+export const OnboardingStepEnum = z.enum(ONBOARDING_STEPS);
+
 export type OnboardingStep = z.infer<typeof OnboardingStepEnum>;
 
 /** UI prefs stored on the user doc. Extendable via .passthrough() */

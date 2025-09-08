@@ -113,7 +113,11 @@ export const Users: CollectionConfig = {
       admin: {
         description: 'UI preferences (e.g., dismissed banners)'
       },
-      defaultValue: {} // ensures {} instead of null
+      defaultValue: {}, // ensures {} instead of null
+      access: {
+        read: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id,
+        update: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id
+      }
     }
   ]
 };

@@ -6,7 +6,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function isDbTenant(value: unknown): value is DbTenant {
   return (
-    isRecord(value) && typeof (value as { slug?: unknown }).slug === 'string'
+    isRecord(value) &&
+    typeof (value as { id?: unknown }).id === 'string' &&
+    typeof (value as { slug?: unknown }).slug === 'string'
   );
 }
 
@@ -32,7 +34,7 @@ export function getActiveTenant(user: DbUser): DbTenant | null {
     if (preferred) return preferred;
   }
 
-  return asTenant(memberships[0]);
+  return memberships.map(asTenant).find((t): t is DbTenant => !!t) ?? null;
 }
 
 function isVerified(user: DbUser): boolean {
@@ -110,6 +112,7 @@ export function isSafeReturnTo(value: unknown): value is string {
   try {
     const decoded = decodeURIComponent(trimmed);
     if (decoded.startsWith('//')) return false;
+    if (decoded.includes('\\')) return false;
   } catch {
     /* ignore bad encodings */
   }
