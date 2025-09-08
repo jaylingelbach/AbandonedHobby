@@ -60,6 +60,7 @@ export function OnboardingBannerAdmin() {
           className="ah-onboarding-btn"
           onClick={dismissOnce}
           disabled={isDismissing}
+          type="button"
           aria-label="Dismiss"
         >
           ✕
@@ -68,6 +69,8 @@ export function OnboardingBannerAdmin() {
           className="ah-onboarding-btn"
           onClick={dismissForever}
           disabled={isDismissing}
+          type="button"
+          aria-label="Dismiss forever"
         >
           Don’t show again
         </button>

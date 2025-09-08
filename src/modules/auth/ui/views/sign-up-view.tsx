@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { useTRPC } from '@/trpc/client';
-import { cn } from '@/lib/utils';
+import { cn, getSafeNextURL } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -54,8 +54,11 @@ function SignUpView() {
         );
 
         if (res?.returnTo) {
-          router.replace(res.returnTo);
-          return;
+          const safe = getSafeNextURL(res.returnTo);
+          if (safe) {
+            router.replace(`${safe.pathname}${safe.search}${safe.hash}`);
+            return;
+          }
         }
         router.replace('/welcome');
       }

@@ -40,6 +40,13 @@ export const usersRouter = createTRPCRouter({
       depth: 1
     });
 
+    if (!dbUser) {
+      throw new TRPCError({
+        code: 'NOT_FOUND',
+        message: 'User not found.'
+      });
+    }
+
     type MaybeVerified = {
       _verified?: boolean | null;
       _verifiedAt?: string | Date | null;

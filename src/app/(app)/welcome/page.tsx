@@ -84,7 +84,7 @@ export default function WelcomePage() {
       done: stripeDone,
       icon: CreditCard,
       action: !stripeDone && canDo('connect-stripe') && (
-        <Link href="/sell/stripe">
+        <Link href={onboarding.next ?? '/stripe-verify'}>
           <Button size="sm">Connect</Button>
         </Link>
       )

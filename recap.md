@@ -2141,3 +2141,23 @@ Added recap covering the Orders transition and onboarding behavior.
 - Orders collection schema
   - src/collections/Orders.ts
     - Added index: true on stripeCheckoutSessionId and reformatted fields to multiline; no semantic field changes beyond the new index.
+
+# Post signup welcome flow
+
+## Walkthrough
+
+## New Features
+
+- New Welcome page with a 5‑step onboarding checklist, progress, and context-aware actions.
+- Onboarding banners for site and admin with dismiss (once/forever) and loading skeletons.
+- Sign-up now redirects directly to the next step or a saved return destination.
+- Automatic redirect to sign-in when unauthorized.
+
+## Style
+
+- Added themed styles and animations for onboarding banners and skeleton states.
+
+## Chores
+
+- Enabled React Query Devtools.
+- Registered admin TRPC provider and updated admin components integration.
