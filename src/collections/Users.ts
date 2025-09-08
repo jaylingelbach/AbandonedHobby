@@ -106,6 +106,19 @@ export const Users: CollectionConfig = {
         ...(defaultTenantArrayField?.admin || {}),
         position: 'sidebar'
       }
+    },
+    {
+      name: 'uiState',
+      type: 'json',
+      admin: {
+        description: 'UI preferences (e.g., dismissed banners)'
+      },
+      defaultValue: {}, // ensures {} instead of null
+      access: {
+        read: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id,
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id
+      }
     }
   ]
 };

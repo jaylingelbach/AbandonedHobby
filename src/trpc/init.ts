@@ -1,4 +1,3 @@
-// src/trpc/init.ts
 import { initTRPC, TRPCError } from '@trpc/server';
 import config from '@payload-config';
 import { getPayload } from 'payload';

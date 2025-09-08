@@ -2141,3 +2141,61 @@ Added recap covering the Orders transition and onboarding behavior.
 - Orders collection schema
   - src/collections/Orders.ts
     - Added index: true on stripeCheckoutSessionId and reformatted fields to multiline; no semantic field changes beyond the new index.
+
+# Post signup welcome flow
+
+## Walkthrough
+
+- Adds a full onboarding flow: server utilities/types, TRPC endpoints, client hooks/components (site + admin banners, Welcome page), user UI state storage, auth/register changes returning onboarding/returnTo, TRPC client tweaks (credentials + DevTools), and Payload admin integrations and styles.
+
+## New Features
+
+- Welcome page with 5‑step onboarding checklist, progress, and contextual actions.
+- Site and admin onboarding banners with dismiss (once/forever), loading skeletons, and a hook to manage visibility.
+- New APIs to surface current user + onboarding state and to dismiss the banner.
+- Sign-up/register flow now returns a safe return destination; unauthorized access triggers redirect to sign-in.
+
+## Style
+
+- Themed styles and shimmering skeleton animations for onboarding UI.
+
+## Chores
+
+- React Query Devtools enabled and admin TRPC provider registered.
+
+## Data
+
+- Per-user UI preferences persisted (e.g., dismissed banners).
+
+## File changes
+
+- Onboarding core (types & server utils)
+  - src/modules/onboarding/types.ts, src/modules/onboarding/server/utils.ts
+    - New types (DbTenant/DbUser/OnboardingStep/OnboardingState), helpers to normalize users, compute onboarding state, and validate safe returnTo URLs.
+- Users API: onboarding endpoints & types
+  - src/modules/users/server/procedures.ts, src/hooks/types.ts
+    - Adds me query returning { user, onboarding } and dismissOnboardingBanner mutation; introduces Zod UIState schema and UIState types.
+- Client hooks: banner + redirect
+  - src/hooks/use-onboarding-banner.ts, src/hooks/use-redirect-on-unauthorized.ts
+    - New useOnboardingBanner hook (me query, dismiss mutation, show logic) and useRedirectOnUnauthorized (redirects to sign-in with next).
+- Onboarding UI (site & admin)
+  - src/components/onboarding-banner-site.tsx, src/components/custom-payload/onboarding-banner.tsx, src/app/(app)/welcome/page.tsx
+    - New site and admin onboarding banner components (skeletons, actions, dismissal) and a Welcome page with 5-step onboarding checklist and progress.
+- Payload admin integration & styles
+  - src/app/(payload)/custom.scss, src/app/(payload)/admin/importMap.js, src/payload.config.ts, src/payload/providers/trpc-admin-provider.tsx
+    - Adds onboarding banner styles/skeletons; registers OnboardingBannerAdmin and TRPCAdminProvider in import map and payload admin hooks; removes StripeVerify mapping; registers beforeLogin/beforeDashboard providers.
+- User schema/types
+  - src/collections/Users.ts, src/payload-types.ts
+    - Adds uiState JSON field to Users collection and optional uiState to payload User types to store per-user UI prefs.
+- Auth flow updates
+  - src/modules/auth/server/procedures.ts, src/modules/auth/ui/views/sign-in-view.tsx, src/modules/auth/ui/views/sign-up-view.tsx
+    - register now returns { user, onboarding, returnTo }; adds login mutation; improved cleanup/error handling; sign-in invalidates session+me and clears cache; sign-up redirects to safe returnTo or /welcome.
+- TRPC client & devtools
+  src/trpc/client.tsx, package.json
+  - Forces fetch credentials: 'include' in httpBatchLink; adds React Query Devtools UI and dependency; consolidated react-query imports.
+- Utilities
+  - src/lib/utils.ts
+    - New helpers: pickFirstDefined, resolveReturnToFromHeaders, and getTrpcCode.
+- Minor cleanups
+  - src/app/(app)/(home)/layout.tsx, src/trpc/init.ts, src/modules/messages/ui/chat-room.tsx, recap.md
+    - Formatting/comment-only edits and documentation update describing the onboarding flow.

@@ -14,7 +14,7 @@ import { toast } from 'sonner';
 import { Eye, EyeOff } from 'lucide-react';
 
 import { useTRPC } from '@/trpc/client';
-import { cn } from '@/lib/utils';
+import { cn, getSafeNextURL } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
 import {
   Form,
@@ -41,20 +41,29 @@ function SignUpView() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  // Use the typed tRPC hook directly (simpler & avoids brace mixups)
   const register = useMutation(
     trpc.auth.register.mutationOptions({
       onError: (error) => {
         toast.error(error.message);
       },
-      onSuccess: async () => {
+      onSuccess: async (res) => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
         toast.success(
           'Account created. Check your email to verify, then sign in.'
         );
 
-        // Always send to sign-in and preserve ?next=
-        const nextQS = rawNext ? `?next=${encodeURIComponent(rawNext)}` : '';
-        router.replace(`/sign-in${nextQS}`);
+        if (res?.returnTo) {
+          const safe = getSafeNextURL(res.returnTo);
+          if (safe) {
+            if (safe.hostname !== window.location.hostname) {
+              window.location.replace(safe.toString());
+            } else {
+              router.replace(`${safe.pathname}${safe.search}${safe.hash}`);
+            }
+            return;
+          }
+        }
       }
     })
   );
@@ -77,7 +86,7 @@ function SignUpView() {
 
   const username = form.watch('username');
   const usernameErrors = form.formState.errors.username;
-  const showPreview = username && !usernameErrors;
+  const showPreview = !!username && !usernameErrors;
 
   const signInHref = rawNext
     ? `/sign-in?next=${encodeURIComponent(rawNext)}`
@@ -106,7 +115,7 @@ function SignUpView() {
                 size="sm"
                 className="text-base border-none underline"
               >
-                <Link href={signInHref}>Sign-in</Link>
+                <Link href={signInHref}>Sign in</Link>
               </Button>
             </div>
 
