@@ -47,7 +47,7 @@ function SignUpView() {
       onError: (error) => {
         toast.error(error.message);
       },
-      onSuccess: async (res: { returnTo?: string | null }) => {
+      onSuccess: async (res) => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
         toast.success(
           'Account created. Check your email to verify, then sign in.'
@@ -56,11 +56,14 @@ function SignUpView() {
         if (res?.returnTo) {
           const safe = getSafeNextURL(res.returnTo);
           if (safe) {
-            router.replace(`${safe.pathname}${safe.search}${safe.hash}`);
+            if (safe.hostname !== window.location.hostname) {
+              window.location.replace(safe.toString());
+            } else {
+              router.replace(`${safe.pathname}${safe.search}${safe.hash}`);
+            }
             return;
           }
         }
-        router.replace('/welcome');
       }
     })
   );
@@ -112,7 +115,7 @@ function SignUpView() {
                 size="sm"
                 className="text-base border-none underline"
               >
-                <Link href={signInHref}>Sign-in</Link>
+                <Link href={signInHref}>Sign in</Link>
               </Button>
             </div>
 

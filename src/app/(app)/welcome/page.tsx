@@ -122,6 +122,7 @@ export default function WelcomePage() {
             Browse the marketplace
           </Button>
         </Link>
+        {/* TODO: add visit dashboard (admin panel), adjust css */}
         <Link href={onboarding.next ?? '/sell/start'}>
           <Button className="ah-btn">Start selling</Button>
         </Link>

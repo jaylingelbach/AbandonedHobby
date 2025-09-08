@@ -28,10 +28,7 @@ export function useOnboardingBanner() {
   const data = query.data;
   const step = data?.onboarding.step as OnboardingStep | undefined;
 
-  // uiState is now typed on the server response
-  const uiState: UIState | undefined = data?.user.uiState as
-    | UIState
-    | undefined;
+  const uiState: UIState | undefined = data?.user.uiState;
 
   const shouldShow =
     !!data &&
@@ -49,11 +46,11 @@ export function useOnboardingBanner() {
     step,
     next: data?.onboarding.next,
     dismissOnce: () => {
-      if (!step) return;
+      if (!step || dismiss.isPending) return;
       dismiss.mutate({ step });
     },
     dismissForever: () => {
-      if (!step) return;
+      if (!step || dismiss.isPending) return;
       dismiss.mutate({ step, forever: true });
     },
     isDismissing: dismiss.isPending

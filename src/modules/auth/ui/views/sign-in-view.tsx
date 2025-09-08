@@ -49,8 +49,7 @@ function SignInView() {
       const res = await fetch('/api/resend', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ email }),
-        credentials: 'include'
+        body: JSON.stringify({ email })
       });
       if (res.ok) {
         toast.success(
@@ -99,8 +98,6 @@ function SignInView() {
           queryClient.invalidateQueries(trpc.auth.session.queryFilter()),
           queryClient.invalidateQueries(trpc.users.me.queryFilter())
         ]);
-        // If multiple users may swap in one tab, zero leakage
-        queryClient.clear();
         toast.success('Successfully logged in!');
         if (safeNext) {
           // Cross-origin (e.g., apex -> subdomain) needs a full navigation

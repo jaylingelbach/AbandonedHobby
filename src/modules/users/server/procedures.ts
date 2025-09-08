@@ -69,13 +69,6 @@ export const usersRouter = createTRPCRouter({
       uiState
     };
 
-    if (!user) {
-      throw new TRPCError({
-        code: 'NOT_FOUND',
-        message: 'User not found.'
-      });
-    }
-
     const onboarding = computeOnboarding(user);
     return { user, onboarding };
   }),
