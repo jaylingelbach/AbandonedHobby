@@ -1,8 +1,7 @@
 'use client';
 
-// ^-- to make sure we can mount the Provider from a server component
-import type { QueryClient } from '@tanstack/react-query';
-import { QueryClientProvider } from '@tanstack/react-query';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ReactQueryDevtools } from '@tanstack/react-query-devtools';
 import { createTRPCClient, httpBatchLink } from '@trpc/client';
 import { createTRPCContext } from '@trpc/tanstack-react-query';
 import { useState } from 'react';
@@ -46,7 +45,9 @@ export function TRPCReactProvider(
       links: [
         httpBatchLink({
           // transformer: superjson, <-- if you use a data transformer
-          url: getUrl()
+          url: getUrl(),
+          fetch: (input, init) =>
+            fetch(input, { ...init, credentials: 'include' })
         })
       ]
     })
@@ -55,6 +56,10 @@ export function TRPCReactProvider(
     <QueryClientProvider client={queryClient}>
       <TRPCProvider trpcClient={trpcClient} queryClient={queryClient}>
         {props.children}
+        <ReactQueryDevtools
+          initialIsOpen={false}
+          buttonPosition="bottom-left"
+        />
       </TRPCProvider>
     </QueryClientProvider>
   );

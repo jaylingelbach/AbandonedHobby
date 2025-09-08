@@ -126,4 +126,126 @@
     outline: 2px solid #1d4ed8; /* blue ring */
     outline-offset: 2px;
   }
+
+  /* Onboarding banner — shared layout */
+  .ah-onboarding-banner {
+    margin-bottom: 1rem;
+    padding: 12px;
+    border-radius: 0.5rem; /* 8px */
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ah-onboarding-left {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .ah-onboarding-badge {
+    font-size: 12px;
+    line-height: 1;
+    padding: 4px 8px;
+    border-radius: 9999px;
+    font-weight: 600;
+  }
+  .ah-onboarding-btn {
+    padding: 6px 12px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-size: 14px;
+    font-weight: 600;
+    outline: none;
+  }
+  .ah-onboarding-btn:focus-visible {
+    outline: 2px solid #1d4ed8; /* blue ring */
+    outline-offset: 2px;
+  }
+
+  /* Light theme */
+  [data-theme='light'] .ah-onboarding-banner {
+    border: 1px solid #e5e7eb; /* gray-200 */
+    background: #f9fafb; /* gray-50 */
+    color: #111827; /* slate-900 */
+  }
+  [data-theme='light'] .ah-onboarding-badge {
+    background: #e2e8f0; /* slate-200 */
+    color: #0f172a; /* slate-900 */
+  }
+  [data-theme='light'] .ah-onboarding-btn {
+    border: 1px solid #111827; /* gray-900 */
+    color: #111827;
+    background: transparent;
+  }
+  [data-theme='light'] .ah-onboarding-btn:hover {
+    background: #111827;
+    color: #ffffff;
+  }
+
+  /* Dark theme */
+  [data-theme='dark'] .ah-onboarding-banner {
+    border: 1px solid #374151; /* gray-700 */
+    background: #0b1220; /* deep slate/navy match */
+    color: #e5e7eb; /* gray-200 */
+  }
+  [data-theme='dark'] .ah-onboarding-badge {
+    background: #1f2937; /* gray-800 */
+    color: #e5e7eb;
+  }
+  [data-theme='dark'] .ah-onboarding-btn {
+    border: 1px solid #e5e7eb;
+    color: #e5e7eb;
+    background: transparent;
+  }
+  [data-theme='dark'] .ah-onboarding-btn:hover {
+    background: #e5e7eb;
+    color: #0b1220;
+  }
+
+  //  onboarding skeleton
+
+  /* Onboarding banner skeleton */
+  .ah-onboarding-skel .ah-skel {
+    border-radius: 0.375rem;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .ah-skel-text {
+    height: 0.9rem;
+  }
+  .ah-skel-pill {
+    height: 1.25rem;
+    width: 104px;
+    border-radius: 9999px;
+  }
+  .ah-skel-btn {
+    height: 2rem;
+    width: 110px;
+    border-radius: 0.375rem;
+  }
+
+  /* Light theme shimmer */
+  [data-theme='light'] .ah-onboarding-skel .ah-skel {
+    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+    background-size: 200% 100%;
+    animation: ah-shimmer 1.2s infinite;
+  }
+
+  /* Dark theme shimmer */
+  [data-theme='dark'] .ah-onboarding-skel .ah-skel {
+    background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
+    background-size: 200% 100%;
+    animation: ah-shimmer 1.2s infinite;
+  }
+
+  @keyframes ah-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
 }

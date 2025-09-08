@@ -74,7 +74,7 @@ function SignInView() {
         const message = error.message;
         if (message.includes('verify')) {
           toast.error('Please verify your email to continue.', {
-            duration: Infinity,
+            duration: 5000,
             action: {
               label: 'Resend link',
               onClick: () => {
@@ -90,7 +90,12 @@ function SignInView() {
         }
       },
       onSuccess: async () => {
-        await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
+        await Promise.all([
+          queryClient.invalidateQueries(trpc.auth.session.queryFilter()),
+          queryClient.invalidateQueries(trpc.users.me.queryFilter())
+        ]);
+        // If multiple users may swap in one tab, zero leakage
+        queryClient.clear();
         toast.success('Successfully logged in!');
         if (safeNext) {
           // Cross-origin (e.g., apex -> subdomain) needs a full navigation

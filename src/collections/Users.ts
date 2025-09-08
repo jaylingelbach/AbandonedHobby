@@ -106,6 +106,14 @@ export const Users: CollectionConfig = {
         ...(defaultTenantArrayField?.admin || {}),
         position: 'sidebar'
       }
+    },
+    {
+      name: 'uiState',
+      type: 'json',
+      admin: {
+        description: 'UI preferences (e.g., dismissed banners)'
+      },
+      defaultValue: {} // ensures {} instead of null
     }
   ]
 };

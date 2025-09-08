@@ -4,7 +4,12 @@ import { TRPCError } from '@trpc/server';
 
 import { loginSchema, registerSchema } from '../schemas';
 import { generateAuthCookie } from '../utils';
-import { generateTenantURL } from '@/lib/utils';
+import { generateTenantURL, resolveReturnToFromHeaders } from '@/lib/utils';
+import {
+  computeOnboarding,
+  toDbUser,
+  isSafeReturnTo
+} from '@/modules/onboarding/server/utils';
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
@@ -25,7 +30,6 @@ export const authRouter = createTRPCRouter({
         });
       }
 
-      // Email uniqueness (nice to have)
       const existingByEmail = await ctx.db.find({
         collection: 'users',
         limit: 1,
@@ -38,14 +42,12 @@ export const authRouter = createTRPCRouter({
         });
       }
 
-      // Normalize slug from username
       const slug = input.username
         .toLowerCase()
         .trim()
         .replace(/[^a-z0-9]+/g, '-')
         .replace(/(^-|-$)/g, '');
 
-      // Tenant slug uniqueness (defense in depth)
       const existingTenant = await ctx.db.find({
         collection: 'tenants',
         where: { slug: { equals: slug } },
@@ -63,6 +65,7 @@ export const authRouter = createTRPCRouter({
 
       try {
         const MCC_USED_MERCH = '5932';
+
         // 1) Create Stripe account for the shop
         const account = await stripe.accounts.create({
           type: 'standard',
@@ -79,24 +82,25 @@ export const authRouter = createTRPCRouter({
             message: 'Failed to create Stripe account.'
           });
         }
+
+        // 2) Create user
         newUser = await ctx.db.create({
           collection: 'users',
-          overrideAccess: true, // bypass admin access rules during registration
+          overrideAccess: true,
           data: {
             firstName: input.firstName,
             lastName: input.lastName,
             email: input.email,
             username: input.username,
-            password: input.password, // payload will hash
+            password: input.password,
             welcomeEmailSent: false
-            // tenants will be set after tenant is created
           }
         });
 
-        // Create the tenant
+        // 3) Create tenant
         tenant = await ctx.db.create({
           collection: 'tenants',
-          overrideAccess: true, // bypass create access rule (super-admin only)
+          overrideAccess: true,
           data: {
             name: input.username,
             slug,
@@ -108,17 +112,40 @@ export const authRouter = createTRPCRouter({
           }
         });
 
-        // Update user to link the tenant in their tenants array
+        // 4) Link tenant to user
         await ctx.db.update({
           collection: 'users',
           id: newUser.id,
           overrideAccess: true,
-          data: {
-            tenants: [{ tenant: tenant.id }]
-          }
+          data: { tenants: [{ tenant: tenant.id }] }
         });
+
+        // 5) Fetch a fresh user (with tenants/flags) and compute onboarding
+        const dbUser = await ctx.db.findByID({
+          collection: 'users',
+          id: newUser.id,
+          depth: 1 // ensure tenants -> { tenant: { slug, productCount, stripeDetailsSubmitted } }
+        });
+
+        // normalize Payload shape (_verified may be null; tenants may be null)
+        const user = toDbUser({
+          id: dbUser.id,
+          _verified: dbUser._verified,
+          tenants: dbUser.tenants
+        });
+
+        const onboarding = computeOnboarding(user);
+
+        // 6) Plumb through a safe returnTo if present (from ctx or headers)
+        const returnTo = resolveReturnToFromHeaders(
+          ctx.headers,
+          isSafeReturnTo
+        );
+
+        // 7)  Return shape the client can use to redirect
+        return { user, onboarding, returnTo };
       } catch (error) {
-        // optional cleanup if tenant creation failed after user was created
+        // cleanup on failure
         if (tenant?.id) {
           try {
             await ctx.db.delete({
@@ -126,9 +153,8 @@ export const authRouter = createTRPCRouter({
               id: tenant.id,
               overrideAccess: true
             });
-          } catch (error) {
-            console.error(`Error while creating tenant: ${error}`);
-            /* ignore cleanup error */
+          } catch (err) {
+            console.error(`Error deleting tenant during cleanup:`, err);
           }
         }
         if (newUser?.id) {
@@ -138,10 +164,8 @@ export const authRouter = createTRPCRouter({
               id: newUser.id,
               overrideAccess: true
             });
-          } catch (error) {
-            console.error(
-              `Error while deleting tenant during cleanup: ${error}`
-            );
+          } catch (err) {
+            console.error(`Error deleting user during cleanup:`, err);
           }
         }
 
@@ -152,6 +176,7 @@ export const authRouter = createTRPCRouter({
         });
       }
     }),
+
   login: baseProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
     const data = await ctx.db.login({
       collection: 'users',

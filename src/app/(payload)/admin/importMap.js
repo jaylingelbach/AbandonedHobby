@@ -23,10 +23,11 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { OnboardingBannerAdmin as OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a } from '@/components/custom-payload/onboarding-banner.tsx'
 import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7 } from '@/components/custom-payload/abandoned-hobby-link.tsx'
-import { StripeVerify as StripeVerify_875c5d8c802a1c0fcd8282c68d6d94a4 } from '@/components/custom-payload/stripe-verify.tsx'
 import { CurrentUserBadge as CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2 } from '@/components/custom-payload/current-user-badge.tsx'
 import { TenantSelector as TenantSelector_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { TRPCAdminProvider as TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b } from '@/payload/providers/trpc-admin-provider.tsx'
 import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 
@@ -56,10 +57,11 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
+  "@/components/custom-payload/onboarding-banner.tsx#OnboardingBannerAdmin": OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a,
   "@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink": AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7,
-  "@/components/custom-payload/stripe-verify.tsx#StripeVerify": StripeVerify_875c5d8c802a1c0fcd8282c68d6d94a4,
   "@/components/custom-payload/current-user-badge.tsx#CurrentUserBadge": CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2,
   "@payloadcms/plugin-multi-tenant/client#TenantSelector": TenantSelector_1d0591e3cf4f332c83a86da13a0de59a,
+  "@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider": TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b,
   "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62
 }

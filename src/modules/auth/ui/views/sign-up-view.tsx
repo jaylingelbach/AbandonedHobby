@@ -41,20 +41,23 @@ function SignUpView() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
+  // Use the typed tRPC hook directly (simpler & avoids brace mixups)
   const register = useMutation(
     trpc.auth.register.mutationOptions({
       onError: (error) => {
         toast.error(error.message);
       },
-      onSuccess: async () => {
+      onSuccess: async (res: { returnTo?: string | null }) => {
         await queryClient.invalidateQueries(trpc.auth.session.queryFilter());
         toast.success(
           'Account created. Check your email to verify, then sign in.'
         );
 
-        // Always send to sign-in and preserve ?next=
-        const nextQS = rawNext ? `?next=${encodeURIComponent(rawNext)}` : '';
-        router.replace(`/sign-in${nextQS}`);
+        if (res?.returnTo) {
+          router.replace(res.returnTo);
+          return;
+        }
+        router.replace('/welcome');
       }
     })
   );
@@ -77,7 +80,7 @@ function SignUpView() {
 
   const username = form.watch('username');
   const usernameErrors = form.formState.errors.username;
-  const showPreview = username && !usernameErrors;
+  const showPreview = !!username && !usernameErrors;
 
   const signInHref = rawNext
     ? `/sign-in?next=${encodeURIComponent(rawNext)}`

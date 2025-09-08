@@ -36,13 +36,18 @@ export default buildConfig({
       baseDir: path.resolve(dirname)
     },
     components: {
+      providers: [
+        '@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider'
+      ],
       beforeNavLinks: [
-        '@/components/custom-payload/stripe-verify.tsx#StripeVerify',
         '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink',
         '@/components/custom-payload/current-user-badge.tsx#CurrentUserBadge'
       ], // to use a named export - hashbrown plus the name of the named export.
       beforeLogin: [
         '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink'
+      ],
+      beforeDashboard: [
+        '@/components/custom-payload/onboarding-banner.tsx#OnboardingBannerAdmin'
       ]
     }
   },

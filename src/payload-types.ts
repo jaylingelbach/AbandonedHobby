@@ -308,6 +308,18 @@ export interface User {
         id?: string | null;
       }[]
     | null;
+  /**
+   * UI preferences (e.g., dismissed banners)
+   */
+  uiState?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
   email: string;
@@ -700,6 +712,7 @@ export interface UsersSelect<T extends boolean = true> {
         tenant?: T;
         id?: T;
       };
+  uiState?: T;
   updatedAt?: T;
   createdAt?: T;
   email?: T;

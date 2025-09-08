@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
+import { TRPCClientError } from '@trpc/client';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -112,4 +113,36 @@ export function buildHref(props: ProductCardProps): string {
   if ('orderId' in props && props.orderId) return `/orders/${props.orderId}`;
   if ('id' in props && props.id) return `/products/${props.id}`;
   return '#'; // safe fallback
+}
+
+export function pickFirstDefined<T>(
+  ...vals: Array<T | null | undefined>
+): T | null {
+  for (const v of vals) if (v != null) return v as T;
+  return null;
+}
+
+export function resolveReturnToFromHeaders(
+  headers: Headers,
+  isSafe: (v: unknown) => v is string
+): string | null {
+  const headerRT = headers.get('x-return-to');
+
+  let refererRT: string | null = null;
+  const referer = headers.get('referer');
+  if (referer) {
+    try {
+      const u = new URL(referer);
+      refererRT = u.searchParams.get('next') ?? u.searchParams.get('returnTo');
+    } catch {
+      /* ignore */
+    }
+  }
+
+  const candidate = pickFirstDefined<string>(headerRT, refererRT);
+  return isSafe(candidate) ? candidate : null;
+}
+
+export function getTrpcCode(error: unknown): string | undefined {
+  return error instanceof TRPCClientError ? error.data?.code : undefined;
 }

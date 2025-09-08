@@ -1,4 +1,3 @@
-// src/modules/conversations/ui/chat-room.tsx
 'use client';
 
 import { Suspense, useEffect, useRef } from 'react';
