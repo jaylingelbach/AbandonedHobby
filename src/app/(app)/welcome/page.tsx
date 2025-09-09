@@ -153,7 +153,7 @@ export default function WelcomePage() {
       done: hasProducts,
       icon: Package,
       action: !hasProducts && productHref && (
-        <Link href={productHref}>
+        <Link href="/admin/collections/products?limit=10">
           <Button size="sm">Add product</Button>
         </Link>
       )

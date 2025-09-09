@@ -113,3 +113,13 @@ export function summarizeReviews(
   }
   return out;
 }
+
+type RelID = string | { id?: string } | null | undefined;
+
+export const getCategoryIdFromSibling = (
+  siblingData: unknown
+): string | undefined => {
+  if (!siblingData || typeof siblingData !== 'object') return undefined;
+  const rel = (siblingData as { category?: RelID }).category;
+  return typeof rel === 'string' ? rel : rel?.id;
+};

@@ -87,6 +87,15 @@ export const Tenants: CollectionConfig = {
       required: false,
       admin: { description: 'Greeting/display name for notifications' },
       access: { update: ({ req: { user } }) => isSuperAdmin(user) }
+    },
+    {
+      name: 'productCount',
+      type: 'number',
+      defaultValue: 0,
+      admin: {
+        readOnly: true,
+        description: 'Auto-managed count of products.'
+      }
     }
   ]
 };

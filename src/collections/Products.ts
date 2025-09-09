@@ -1,8 +1,39 @@
 import { CollectionConfig } from 'payload';
+import type { Payload } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
 import { User } from '@/payload-types';
 
+/* ───────── helpers ───────── */
+
+function isObjectRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
 type RelID = string | { id?: string } | null | undefined;
+
+async function bumpCount(
+  payload: Payload,
+  tenantId: string,
+  delta: number
+): Promise<void> {
+  const tenantDoc = await payload.findByID({
+    collection: 'tenants',
+    id: tenantId,
+    depth: 0
+  });
+  const currentCount =
+    isObjectRecord(tenantDoc) && typeof tenantDoc.productCount === 'number'
+      ? tenantDoc.productCount
+      : 0;
+
+  const nextCount = Math.max(0, currentCount + delta);
+
+  await payload.update({
+    collection: 'tenants',
+    id: tenantId,
+    data: { productCount: nextCount }
+  });
+}
 
 const getCategoryIdFromSibling = (siblingData: unknown): string | undefined => {
   if (!siblingData || typeof siblingData !== 'object') return undefined;
@@ -21,6 +52,36 @@ export const Products: CollectionConfig = {
     useAsTitle: 'name'
   },
   hooks: {
+    afterChange: [
+      async ({ req, doc, previousDoc, operation }) => {
+        const prevTenant =
+          typeof previousDoc?.tenant === 'string'
+            ? previousDoc.tenant
+            : ((previousDoc?.tenant as { id?: string })?.id ?? null);
+        const nextTenant =
+          typeof doc.tenant === 'string'
+            ? doc.tenant
+            : ((doc.tenant as { id?: string })?.id ?? null);
+
+        if (operation === 'create' && nextTenant) {
+          await bumpCount(req.payload, nextTenant, 1);
+        } else if (operation === 'update') {
+          if (prevTenant && nextTenant && prevTenant !== nextTenant) {
+            await bumpCount(req.payload, prevTenant, -1);
+            await bumpCount(req.payload, nextTenant, 1);
+          }
+        }
+      }
+    ],
+    afterDelete: [
+      async ({ req, doc }) => {
+        const tenantId =
+          typeof doc.tenant === 'string'
+            ? doc.tenant
+            : ((doc.tenant as { id?: string })?.id ?? null);
+        if (tenantId) await bumpCount(req.payload, tenantId, -1);
+      }
+    ],
     beforeValidate: [
       async ({ data, req, operation, originalDoc }) => {
         if (operation !== 'create' && operation !== 'update') return data;
