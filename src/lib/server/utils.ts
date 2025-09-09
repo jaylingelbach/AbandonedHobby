@@ -11,6 +11,15 @@ import { relId, type Relationship } from '@/lib/relationshipHelpers';
 // Basic guards & relationship coercion
 // ─────────────────────────────────────────────────────────────────────────────
 
+/** Back-compat: extract an id from string | {id} | null/undefined. */
+export function getRelId<T extends { id: string }>(
+  rel: string | T | Relationship<T> | null | undefined
+): string | null {
+  // Reuse the single source of truth
+  const id = relId(rel as Relationship<T>);
+  return id ?? null;
+}
+
 /** Type guard: true if `value` is a non-null object (record-like). */
 export function isObjectRecord(
   value: unknown
