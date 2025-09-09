@@ -24,7 +24,7 @@ export function getRelId<T extends { id: string }>(
 export function isObjectRecord(
   value: unknown
 ): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 /** Type guard: true if `value` is an object with a string `id` property. */
@@ -107,7 +107,7 @@ export function getCategoryIdFromSibling(
 ): string | undefined {
   if (!isObjectRecord(siblingData)) return undefined;
   const raw = (siblingData as { category?: unknown }).category;
-  return relId(toRelationship<{ id: string }>(raw));
+  return relId(toRelationship<Category>(raw));
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -115,7 +115,7 @@ export function getCategoryIdFromSibling(
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** Refund policy label → number of days. */
-export function daysForPolicy(policy?: string): number {
+export function daysForPolicy(policy?: Product['refundPolicy']): number {
   switch (policy) {
     case '30 day':
       return 30;
@@ -149,7 +149,10 @@ export function summarizeReviews(
     const productId = relId(productRel as Relationship<Product>);
     if (!productId) continue;
 
-    const rating = typeof review.rating === 'number' ? review.rating : 0;
+    if (typeof review.rating !== 'number' || Number.isNaN(review.rating)) {
+      continue;
+    }
+    const rating = Math.max(0, Math.min(5, review.rating));
     const current = totals.get(productId) ?? { count: 0, sum: 0 };
     current.count += 1;
     current.sum += rating;
@@ -169,33 +172,44 @@ export function summarizeReviews(
 // ─────────────────────────────────────────────────────────────────────────────
 // Mongo atomic counter utilities (Payload mongooseAdapter)
 // ─────────────────────────────────────────────────────────────────────────────
-
-type TenantsCollection = {
-  updateOne: (
-    filter: Record<string, unknown>,
-    update: Record<string, unknown>,
-    options?: { session?: ClientSession }
-  ) => Promise<unknown>;
-};
-
-type PayloadDbWithCollections = {
-  collections: { tenants: TenantsCollection };
-};
-
 type PayloadDbWithConnection = {
   connection: { startSession: () => Promise<ClientSession> };
 };
 
 /** Internal: get the Tenants collection handle from Payload's db. */
-function getTenantsCollection(payload: Payload): TenantsCollection | null {
-  const db = payload.db as unknown;
-  if (
-    isObjectRecord(db) &&
-    'collections' in db &&
-    isObjectRecord((db as { collections: unknown }).collections) &&
-    'tenants' in (db as { collections: Record<string, unknown> }).collections
-  ) {
-    return (db as PayloadDbWithCollections).collections.tenants;
+type UpdateOneCapable = {
+  updateOne: (
+    filter: Record<string, unknown>,
+    update: Record<string, unknown>,
+    options?: { session?: import('mongoose').ClientSession }
+  ) => Promise<unknown>;
+};
+
+function hasUpdateOne(v: unknown): v is UpdateOneCapable {
+  return isObjectRecord(v) && typeof v.updateOne === 'function';
+}
+
+/** Find a handle with `updateOne` for the Tenants collection across possible adapter shapes. */
+function getTenantsCollection(
+  payload: import('payload').Payload
+): UpdateOneCapable | null {
+  const db = (payload as { db?: unknown }).db;
+  if (!isObjectRecord(db)) return null;
+
+  const collections = (db as { collections?: unknown }).collections;
+  if (!isObjectRecord(collections)) return null;
+
+  const tenants = (collections as Record<string, unknown>).tenants;
+  if (!tenants) return null;
+
+  const candidates: unknown[] = [
+    (tenants as { Model?: unknown }).Model, // mongoose model
+    (tenants as { collection?: unknown }).collection, // native driver collection
+    tenants // wrapper
+  ];
+
+  for (const candidate of candidates) {
+    if (hasUpdateOne(candidate)) return candidate;
   }
   return null;
 }
@@ -206,26 +220,70 @@ async function startSessionIfSupported(
 ): Promise<ClientSession | null> {
   const db = payload.db as unknown;
   if (isObjectRecord(db) && 'connection' in db) {
-    const connection = (db as PayloadDbWithConnection).connection;
-    return connection.startSession();
+    const connection = (db as PayloadDbWithConnection).connection as any;
+    if (connection && typeof connection.startSession === 'function') {
+      return connection.startSession();
+    }
   }
   return null;
 }
 
-/** Single atomic increment for a tenant’s `productCount`. (Mongo-only) */
+// Recompute productCount from source of truth and write it to the tenant.
+// Uses find({ limit: 0 }) and totalDocs to avoid fetching docs. --only runs if mongo handler not available
+export async function recountTenantProductCount(
+  payload: Payload,
+  tenantId: string
+): Promise<number> {
+  const res = await payload.find({
+    collection: 'products',
+    depth: 0,
+    limit: 0,
+    where: { tenant: { equals: tenantId } }
+  });
+
+  const count = typeof res.totalDocs === 'number' ? res.totalDocs : 0;
+
+  await payload.update({
+    collection: 'tenants',
+    id: tenantId,
+    data: { productCount: count }
+  });
+
+  return count;
+}
+
+/** Single atomic increment for a tenant’s `productCount`. (Mongo-first; with optional fallback) */
 export async function incTenantProductCount(
   payload: Payload,
   tenantId: string,
   delta: number,
   session?: ClientSession
 ): Promise<void> {
+  if (!delta) return;
+
   const tenants = getTenantsCollection(payload);
-  if (!tenants) return; // non-mongo adapter; no-op
-  await tenants.updateOne(
-    { _id: tenantId },
-    { $inc: { productCount: delta } },
-    session ? { session } : undefined
-  );
+  if (tenants) {
+    // Mongo / mongoose path: fast and atomic
+    await tenants.updateOne(
+      { _id: tenantId },
+      { $inc: { productCount: delta } },
+      session ? { session } : undefined
+    );
+    return;
+  }
+
+  // Optional non-mongo fallback (heavier, but correct)
+  if (process.env.AH_RECOUNT_FALLBACK === 'true') {
+    await recountTenantProductCount(payload, tenantId);
+  } else {
+    // Optional: log once so you notice drift risk in non-mongo envs
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[incTenantProductCount] No mongo handle; delta skipped. Enable AH_RECOUNT_FALLBACK to recompute counts.'
+      );
+    }
+  }
 }
 
 /** Atomically do -1 on previous and +1 on next in a transaction (swap). */
@@ -237,19 +295,26 @@ export async function swapTenantCountsAtomic(
   if (previousTenantId === nextTenantId) return;
 
   const session = await startSessionIfSupported(payload);
-  if (!session) {
-    // Fallback for non-mongo adapters: two best-effort atomic increments
-    await incTenantProductCount(payload, previousTenantId, -1);
-    await incTenantProductCount(payload, nextTenantId, +1);
-    return;
-  }
-
-  try {
+  if (session) {
     await session.withTransaction(async () => {
       await incTenantProductCount(payload, previousTenantId, -1, session);
       await incTenantProductCount(payload, nextTenantId, +1, session);
     });
-  } finally {
     await session.endSession();
+    return;
+  }
+
+  // Non-mongo path: prefer full recounts to avoid drift under concurrency.
+  if (process.env.AH_RECOUNT_FALLBACK === 'true') {
+    if (previousTenantId)
+      await recountTenantProductCount(payload, previousTenantId);
+    if (nextTenantId) await recountTenantProductCount(payload, nextTenantId);
+  } else {
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.warn(
+        '[swapTenantCountsAtomic] No mongo transaction; recount fallback disabled. Counts may drift.'
+      );
+    }
   }
 }
