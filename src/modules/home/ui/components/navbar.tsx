@@ -13,6 +13,7 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
 const navbarItems = [
   { href: '/', children: 'Home' },
+  { href: '/welcome', children: 'Welcome' },
   { href: '/about', children: 'About' },
   { href: '/features', children: 'Features' },
   { href: '/pricing', children: 'Pricing' },
