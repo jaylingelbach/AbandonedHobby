@@ -2199,3 +2199,29 @@ Added recap covering the Orders transition and onboarding behavior.
 - Minor cleanups
   - src/app/(app)/(home)/layout.tsx, src/trpc/init.ts, src/modules/messages/ui/chat-room.tsx, recap.md
     - Formatting/comment-only edits and documentation update describing the onboarding flow.
+
+# Add welcome to nav bar
+
+## Walkthrough
+
+- Introduces a loading skeleton for the Welcome page, refactors onboarding progress logic and updates a marketplace link path. Adds a “Welcome” item to the navbar. No exported/public API changes.
+
+## New Features
+
+- Added a loading skeleton to the Welcome page for a smoother experience during page load.
+- Introduced a “Welcome” link in the top navigation for quicker access.
+
+## Improvements
+
+- Refined onboarding progress behavior for clearer step completion, including treating the dashboard as completed when appropriate.
+- Updated “Browse the marketplace” link to point to the home page (/).
+- Replaced blank loading state on the Welcome page with the new skeleton for better feedback.
+
+## File changes
+
+- Welcome page loading and onboarding logic
+  - src/app/(app)/welcome/page.tsx
+    - Added WelcomeSkeleton and render during isLoading; refactored onboarding progress (currentStep/currentIndex, updated isDone/canDo); changed marketplace link from /browse to /; minor comment cleanup.
+- Navbar link addition
+  - src/modules/home/ui/components/navbar.tsx
+    - Added new navbar item: href '/welcome' with label 'Welcome'; no changes to component signature or rendering logic.

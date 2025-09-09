@@ -98,7 +98,7 @@ export default function WelcomePage() {
   ] as const;
   type Step = (typeof flow)[number];
   const currentStep = (onboarding.step ?? 'verify-email') as Step;
-  const currentIndex = Math.max(0, flow.indexOf(currentStep));
+  const currentIndex = flow.indexOf(currentStep);
 
   const isDone = (step: Step) =>
     currentIndex > flow.indexOf(step) || currentStep === 'dashboard';
@@ -186,7 +186,14 @@ export default function WelcomePage() {
           <CardTitle>Getting started</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="h-2 w-full rounded bg-muted">
+          <div
+            className="h-2 w-full rounded bg-muted"
+            role="progressbar"
+            aria-label="Onboarding progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(completion)}
+          >
             <div
               className="h-2 rounded bg-primary"
               style={{ width: `${completion}%` }}
