@@ -1,24 +1,43 @@
+// ─────────────────────────────────────────────────────────────
+// Imports
+// ─────────────────────────────────────────────────────────────
 import React from 'react';
 import type { ReactNode } from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
 import { TRPCClientError } from '@trpc/client';
 
-export function cn(...inputs: ClassValue[]) {
+import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
+
+// ─────────────────────────────────────────────────────────────
+// Tailwind / class utilities
+// ─────────────────────────────────────────────────────────────
+
+/** Merge conditional class names with Tailwind awareness. */
+export function cn(...inputs: ClassValue[]): string {
   return twMerge(clsx(inputs));
 }
 
-export function generateTenantURL(tenantSlug: string) {
+// ─────────────────────────────────────────────────────────────
+// URL + domain helpers
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Build a public tenant URL respecting dev vs prod and subdomain routing.
+ * - Dev or subdomains disabled → /tenants/:slug on app URL
+ * - Subdomains enabled → https://:slug.:rootDomain
+ */
+export function generateTenantURL(tenantSlug: string): string {
   const isDev = process.env.NODE_ENV === 'development';
-  const subdomains =
+  const slug = tenantSlug.trim().toLowerCase();
+  const subdomainsEnabled =
     process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
 
-  if (isDev || !subdomains) {
+  if (isDev || !subdomainsEnabled) {
     const appUrl = (
       process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     ).replace(/\/$/, '');
-    return `${appUrl}/tenants/${tenantSlug}`;
+    return `${appUrl}/tenants/${slug}`;
   }
 
   const domain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || '')
@@ -30,49 +49,32 @@ export function generateTenantURL(tenantSlug: string) {
       'NEXT_PUBLIC_ROOT_DOMAIN must be set when subdomain routing is enabled in non-development.'
     );
   }
-  return `https://${tenantSlug}.${domain}`;
+
+  return `https://${slug}.${domain}`;
 }
 
-export function formatCurrency(
-  value: number | string,
-  currency = 'USD',
-  minimumFractionDigits = 2,
-  maximumFractionDigits = 2
-) {
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency,
-    minimumFractionDigits,
-    maximumFractionDigits
-  }).format(Number(value));
-}
-
-export function renderToText(node: ReactNode): string {
-  if (node == null || typeof node === 'boolean') return '';
-  if (typeof node === 'string' || typeof node === 'number') return String(node);
-  if (Array.isArray(node)) return node.map(renderToText).join(' ');
-  if (React.isValidElement(node)) {
-    const el = node as React.ReactElement<{ children?: ReactNode }>;
-    return renderToText(el.props.children);
-  }
-  return '';
-}
-
+/**
+ * Safely parse a next/return URL and allow only same-site or whitelisted preview domains.
+ * Returns null if disallowed or invalid.
+ */
 export const getSafeNextURL = (raw: string | null): URL | null => {
   if (!raw) return null;
+  if (typeof window === 'undefined') return null; // SSR guard
+
   try {
-    const url = new URL(raw, window.location.origin); // supports relative + absolute
+    // Supports relative and absolute inputs
+    const url = new URL(raw, window.location.origin);
     const host = url.hostname;
 
-    const ROOT_DOMAIN = (
+    const rootDomain = (
       process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? 'abandonedhobby.com'
     ).replace(/^https?:\/\//, '');
 
     const allowed =
       host === window.location.hostname || // same host (incl. localhost and previews)
       host === 'localhost' ||
-      host === ROOT_DOMAIN ||
-      host.endsWith(`.${ROOT_DOMAIN}`) ||
+      host === rootDomain ||
+      host.endsWith(`.${rootDomain}`) ||
       (window.location.hostname.endsWith('vercel.app') &&
         host.endsWith('.vercel.app'));
 
@@ -82,16 +84,18 @@ export const getSafeNextURL = (raw: string | null): URL | null => {
   }
 };
 
-export const getAuthOrigin = () => {
-  // In previews, keep users on the same preview host
+/**
+ * Determine the origin to use for auth routes:
+ * - On Vercel previews, keep users on the same preview host
+ * - Else prefer NEXT_PUBLIC_APP_URL, falling back to current origin (client) or production domain (server)
+ */
+export const getAuthOrigin = (): string => {
   if (
     typeof window !== 'undefined' &&
     location.hostname.endsWith('vercel.app')
   ) {
     return location.origin;
   }
-
-  // Otherwise use your configured origin, falling back to the current one
   const origin =
     process.env.NEXT_PUBLIC_APP_URL ||
     (typeof window !== 'undefined'
@@ -101,13 +105,54 @@ export const getAuthOrigin = () => {
   return origin.replace(/\/$/, '');
 };
 
-export const buildSignInUrl = (next?: string) => {
+/** Build the /sign-in URL, preserving a safe `next` parameter if provided. */
+export const buildSignInUrl = (next?: string): string => {
   const origin = getAuthOrigin();
   const qs = next ? `?next=${encodeURIComponent(next)}` : '';
   return `${origin}/sign-in${qs}`;
 };
 
-// used in product card and built for 2 variants. one with id and one with orderId
+// ─────────────────────────────────────────────────────────────
+// Formatting helpers
+// ─────────────────────────────────────────────────────────────
+
+/** Format a number as currency (default USD). */
+export function formatCurrency(
+  value: number | string,
+  currency = 'USD',
+  minimumFractionDigits = 2,
+  maximumFractionDigits = 2
+): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits,
+    maximumFractionDigits
+  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
+}
+
+/** Render a React node into plain text for SEO, tooltips, etc. */
+export function renderToText(node: ReactNode): string {
+  if (node == null || typeof node === 'boolean') return '';
+  if (typeof node === 'string' || typeof node === 'number') return String(node);
+  if (Array.isArray(node)) return node.map(renderToText).join(' ');
+  if (React.isValidElement(node)) {
+    const element = node as React.ReactElement<{ children?: ReactNode }>;
+    return renderToText(element.props.children);
+  }
+  return '';
+}
+
+// ─────────────────────────────────────────────────────────────
+// Routing helpers for product cards / app flows
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Build an href for a product card given multiple variants:
+ * - explicit href
+ * - orderId → /orders/:orderId
+ * - id → /products/:id
+ */
 export function buildHref(props: ProductCardProps): string {
   if ('href' in props && props.href) return props.href;
   if ('orderId' in props && props.orderId) return `/orders/${props.orderId}`;
@@ -115,34 +160,48 @@ export function buildHref(props: ProductCardProps): string {
   return '#'; // safe fallback
 }
 
+/** Return the first non-nullish value from the provided list, or null. */
 export function pickFirstDefined<T>(
-  ...vals: Array<T | null | undefined>
+  ...values: Array<T | null | undefined>
 ): T | null {
-  for (const v of vals) if (v != null) return v as T;
+  for (const value of values) if (value != null) return value as T;
   return null;
 }
 
+/**
+ * Resolve a safe returnTo/next value from headers, preferring:
+ *   1) x-return-to header
+ *   2) ?next or ?returnTo on the Referer
+ * Returns null if missing or not passing the `isSafe` guard.
+ */
 export function resolveReturnToFromHeaders(
   headers: Headers,
-  isSafe: (v: unknown) => v is string
+  isSafe: (value: unknown) => value is string
 ): string | null {
-  const headerRT = headers.get('x-return-to');
+  const headerReturnTo = headers.get('x-return-to');
 
-  let refererRT: string | null = null;
+  let refererReturnTo: string | null = null;
   const referer = headers.get('referer');
   if (referer) {
     try {
-      const u = new URL(referer);
-      refererRT = u.searchParams.get('next') ?? u.searchParams.get('returnTo');
+      const refererUrl = new URL(referer);
+      refererReturnTo =
+        refererUrl.searchParams.get('next') ??
+        refererUrl.searchParams.get('returnTo');
     } catch {
-      /* ignore */
+      // ignore malformed referer
     }
   }
 
-  const candidate = pickFirstDefined<string>(headerRT, refererRT);
+  const candidate = pickFirstDefined<string>(headerReturnTo, refererReturnTo);
   return isSafe(candidate) ? candidate : null;
 }
 
+// ─────────────────────────────────────────────────────────────
+// tRPC helpers
+// ─────────────────────────────────────────────────────────────
+
+/** Extract the tRPC error code (e.g., 'UNAUTHORIZED') from a client error, if present. */
 export function getTrpcCode(error: unknown): string | undefined {
   return error instanceof TRPCClientError ? error.data?.code : undefined;
 }

@@ -241,7 +241,7 @@ export interface Product {
 export interface Tenant {
   id: string;
   /**
-   * This is the name of the store (e.g. Jay's store)
+   * This is the name of the store (e.g. Jay's store), if you would like to update this please contact us.
    */
   name: string;
   /**
@@ -269,6 +269,10 @@ export interface Tenant {
    * Greeting/display name for notifications
    */
   notificationName?: string | null;
+  /**
+   * Auto-managed count of products.
+   */
+  productCount?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -693,6 +697,7 @@ export interface TenantsSelect<T extends boolean = true> {
   primaryContact?: T;
   notificationEmail?: T;
   notificationName?: T;
+  productCount?: T;
   updatedAt?: T;
   createdAt?: T;
 }

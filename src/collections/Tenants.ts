@@ -17,8 +17,11 @@ export const Tenants: CollectionConfig = {
       required: true,
       type: 'text',
       label: 'Shop name',
+      access: {
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      },
       admin: {
-        description: `This is the name of the store (e.g. Jay's store)`
+        description: `This is the name of the store (e.g. Jay's store), if you would like to update this please contact us.`
       }
     },
     {
@@ -87,6 +90,19 @@ export const Tenants: CollectionConfig = {
       required: false,
       admin: { description: 'Greeting/display name for notifications' },
       access: { update: ({ req: { user } }) => isSuperAdmin(user) }
+    },
+    {
+      name: 'productCount',
+      type: 'number',
+      defaultValue: 0,
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        readOnly: true,
+        description: 'Auto-managed count of products.'
+      }
     }
   ]
 };

@@ -2142,7 +2142,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/collections/Orders.ts
     - Added index: true on stripeCheckoutSessionId and reformatted fields to multiline; no semantic field changes beyond the new index.
 
-# Post signup welcome flow
+# Post signup welcome flow 09/08/25
 
 ## Walkthrough
 
@@ -2200,7 +2200,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/app/(app)/(home)/layout.tsx, src/trpc/init.ts, src/modules/messages/ui/chat-room.tsx, recap.md
     - Formatting/comment-only edits and documentation update describing the onboarding flow.
 
-# Add welcome to nav bar
+# Add welcome to nav bar 09/09/25
 
 ## Walkthrough
 
@@ -2225,3 +2225,41 @@ Added recap covering the Orders transition and onboarding behavior.
 - Navbar link addition
   - src/modules/home/ui/components/navbar.tsx
     - Added new navbar item: href '/welcome' with label 'Welcome'; no changes to component signature or rendering logic.
+
+# Product count 09/09/25
+
+## Walkthrough
+
+- Adds tenant-level product counting with Products lifecycle hooks, a read-only productCount on Tenants and payload types, new server ID/coercion and atomic tenant-count utilities, several URL/auth/routing helpers, and fixes the Welcome onboarding “List your first item” action to a fixed admin Products list URL.
+
+## New Features
+
+- Tenant admin shows a read-only Product Count that auto-updates when products are added, reassigned, or removed, providing accurate non-negative inventory visibility.
+
+## Changes / Access
+
+- Tenant name edits restricted to super admins (contact support to request changes).
+- Improved URL/flow handling for onboarding and product routing.
+
+## Bug Fixes
+
+- Onboarding “List your first item” button consistently opens the Products list for reliable setup navigation.
+
+## Documentation
+
+- Recap updated with dated notes summarizing product count and onboarding changes.
+
+## File changes
+
+- Tenant product counting
+  - src/collections/Products.ts, src/collections/Tenants.ts, src/payload-types.ts
+    - Add afterChange and afterDelete hooks to Products to adjust tenant productCount on create/update/delete (inc/dec/swap, non-negative). Add productCount field to Tenants (read-only, super-admin access) and restrict name updates to super-admins. Expose productCount in payload types.
+- Server utilities & counters
+  - src/lib/server/utils.ts
+    - Add ID/coercion helpers (isObjectRecord, hasStringId, toRelationship, asId, getRelId), getCategoryIdFromSibling, revise isValidCategoryAndSub and summarizeReviews, and add atomic tenant-count utilities (incTenantProductCount, recountTenantProductCount, swapTenantCountsAtomic) with transactional fallback. Export new helpers.
+- App / UI routing and utilities
+  - src/app/(app)/welcome/page.tsx, src/lib/utils.ts
+    - Change Welcome “List your first item” action to fixed /admin/collections/products?limit=10 and visibility to canDo('list-first-product'). Add URL/auth/routing helpers (generateTenantURL, getSafeNextURL, getAuthOrigin, buildSignInUrl, pickFirstDefined, resolveReturnToFromHeaders, getTrpcCode).
+- Docs / recap
+  - recap.md
+    - Update recap headers with dates; add “Product count” section describing tenant counting, new hooks/utilities, payload/type updates, and the Welcome routing fix.
