@@ -181,7 +181,7 @@ type UpdateOneCapable = {
   updateOne: (
     filter: Record<string, unknown>,
     update: Record<string, unknown>,
-    options?: { session?: import('mongoose').ClientSession }
+    options?: { session?: ClientSession }
   ) => Promise<unknown>;
 };
 
@@ -215,17 +215,28 @@ function getTenantsCollection(
 }
 
 /** Internal: start a mongoose session if supported by the current adapter. */
+type HasStartSession = {
+  startSession: () => Promise<ClientSession>;
+};
+
+function hasStartSession(value: unknown): value is HasStartSession {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    'startSession' in value &&
+    typeof (value as { startSession?: unknown }).startSession === 'function'
+  );
+}
+
+/** Internal: start a mongoose session if supported by the current adapter  */
 async function startSessionIfSupported(
   payload: Payload
 ): Promise<ClientSession | null> {
-  const db = payload.db as unknown;
-  if (isObjectRecord(db) && 'connection' in db) {
-    const connection = (db as PayloadDbWithConnection).connection as any;
-    if (connection && typeof connection.startSession === 'function') {
-      return connection.startSession();
-    }
-  }
-  return null;
+  const db = (payload as { db?: unknown }).db;
+  if (!db || typeof db !== 'object') return null;
+
+  const connection = (db as PayloadDbWithConnection).connection;
+  return hasStartSession(connection) ? connection.startSession() : null;
 }
 
 // Recompute productCount from source of truth and write it to the tenant.
@@ -278,7 +289,6 @@ export async function incTenantProductCount(
   } else {
     // Optional: log once so you notice drift risk in non-mongo envs
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.warn(
         '[incTenantProductCount] No mongo handle; delta skipped. Enable AH_RECOUNT_FALLBACK to recompute counts.'
       );
@@ -311,7 +321,6 @@ export async function swapTenantCountsAtomic(
     if (nextTenantId) await recountTenantProductCount(payload, nextTenantId);
   } else {
     if (process.env.NODE_ENV !== 'production') {
-      // eslint-disable-next-line no-console
       console.warn(
         '[swapTenantCountsAtomic] No mongo transaction; recount fallback disabled. Counts may drift.'
       );
