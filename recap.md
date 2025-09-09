@@ -2142,7 +2142,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/collections/Orders.ts
     - Added index: true on stripeCheckoutSessionId and reformatted fields to multiline; no semantic field changes beyond the new index.
 
-# Post signup welcome flow
+# Post signup welcome flow 09/08/25
 
 ## Walkthrough
 
@@ -2200,7 +2200,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/app/(app)/(home)/layout.tsx, src/trpc/init.ts, src/modules/messages/ui/chat-room.tsx, recap.md
     - Formatting/comment-only edits and documentation update describing the onboarding flow.
 
-# Add welcome to nav bar
+# Add welcome to nav bar 09/09/25
 
 ## Walkthrough
 
@@ -2225,3 +2225,19 @@ Added recap covering the Orders transition and onboarding behavior.
 - Navbar link addition
   - src/modules/home/ui/components/navbar.tsx
     - Added new navbar item: href '/welcome' with label 'Welcome'; no changes to component signature or rendering logic.
+
+# Product count 09/09/25
+
+## Walkthrough
+
+- Introduces tenant-level product counting via new hooks in Products, a read-only productCount field in Tenants, and corresponding type updates. Adds a utility to extract category IDs from sibling data. Adjusts the Welcome page to use a fixed admin URL for the “List your first item” action.
+
+## New Features
+
+- Tenant admin now shows a read-only Product Count that automatically updates when products are created, reassigned between tenants, or deleted, providing accurate, up-to-date inventory visibility (never goes negative).
+
+## Bug Fixes
+
+- The onboarding “List your first item” button now consistently routes to the Products list, ensuring reliable navigation during setup.
+
+## File changes

@@ -1,45 +1,14 @@
 import { CollectionConfig } from 'payload';
-import type { Payload } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
 import { User } from '@/payload-types';
+import {
+  isObjectRecord,
+  getCategoryIdFromSibling,
+  incTenantProductCount,
+  swapTenantCountsAtomic
+} from '@/lib/server/utils';
 
-/* ───────── helpers ───────── */
-
-function isObjectRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-type RelID = string | { id?: string } | null | undefined;
-
-async function bumpCount(
-  payload: Payload,
-  tenantId: string,
-  delta: number
-): Promise<void> {
-  const tenantDoc = await payload.findByID({
-    collection: 'tenants',
-    id: tenantId,
-    depth: 0
-  });
-  const currentCount =
-    isObjectRecord(tenantDoc) && typeof tenantDoc.productCount === 'number'
-      ? tenantDoc.productCount
-      : 0;
-
-  const nextCount = Math.max(0, currentCount + delta);
-
-  await payload.update({
-    collection: 'tenants',
-    id: tenantId,
-    data: { productCount: nextCount }
-  });
-}
-
-const getCategoryIdFromSibling = (siblingData: unknown): string | undefined => {
-  if (!siblingData || typeof siblingData !== 'object') return undefined;
-  const rel = (siblingData as { category?: RelID }).category;
-  return typeof rel === 'string' ? rel : rel?.id;
-};
+/* ───────── Products collection ───────── */
 
 export const Products: CollectionConfig = {
   slug: 'products',
@@ -48,27 +17,36 @@ export const Products: CollectionConfig = {
     update: mustBeStripeVerified,
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
-  admin: {
-    useAsTitle: 'name'
-  },
+  admin: { useAsTitle: 'name' },
   hooks: {
     afterChange: [
       async ({ req, doc, previousDoc, operation }) => {
-        const prevTenant =
+        const previousTenantId =
           typeof previousDoc?.tenant === 'string'
             ? previousDoc.tenant
             : ((previousDoc?.tenant as { id?: string })?.id ?? null);
-        const nextTenant =
+
+        const nextTenantId =
           typeof doc.tenant === 'string'
             ? doc.tenant
             : ((doc.tenant as { id?: string })?.id ?? null);
 
-        if (operation === 'create' && nextTenant) {
-          await bumpCount(req.payload, nextTenant, 1);
-        } else if (operation === 'update') {
-          if (prevTenant && nextTenant && prevTenant !== nextTenant) {
-            await bumpCount(req.payload, prevTenant, -1);
-            await bumpCount(req.payload, nextTenant, 1);
+        if (operation === 'create' || operation === 'update') {
+          if (previousTenantId !== nextTenantId) {
+            if (previousTenantId && nextTenantId) {
+              // swap A → B: do both inside a transaction
+              await swapTenantCountsAtomic(
+                req.payload,
+                previousTenantId,
+                nextTenantId
+              );
+            } else if (previousTenantId) {
+              // detach: A → null
+              await incTenantProductCount(req.payload, previousTenantId, -1);
+            } else if (nextTenantId) {
+              // attach: null → B
+              await incTenantProductCount(req.payload, nextTenantId, +1);
+            }
           }
         }
       }
@@ -79,36 +57,42 @@ export const Products: CollectionConfig = {
           typeof doc.tenant === 'string'
             ? doc.tenant
             : ((doc.tenant as { id?: string })?.id ?? null);
-        if (tenantId) await bumpCount(req.payload, tenantId, -1);
+        if (tenantId) {
+          await incTenantProductCount(req.payload, tenantId, -1);
+        }
       }
     ],
     beforeValidate: [
       async ({ data, req, operation, originalDoc }) => {
         if (operation !== 'create' && operation !== 'update') return data;
 
-        const cat = data?.category ?? originalDoc?.category;
-        const sub = data?.subcategory ?? originalDoc?.subcategory;
+        const categoryRel = data?.category ?? originalDoc?.category;
+        const subcategoryRel = data?.subcategory ?? originalDoc?.subcategory;
 
-        if (!cat || !sub) {
+        if (!categoryRel || !subcategoryRel) {
           throw new Error('Please choose both Category and Subcategory.');
         }
 
-        const catId = typeof cat === 'object' ? cat.id : cat;
-        const subId = typeof sub === 'object' ? sub.id : sub;
+        const categoryId =
+          typeof categoryRel === 'object' ? categoryRel.id : categoryRel;
+        const subcategoryId =
+          typeof subcategoryRel === 'object'
+            ? subcategoryRel.id
+            : subcategoryRel;
 
-        // Look up the subcategory and confirm its parent matches the selected category
+        // Confirm the subcategory belongs to the selected category
         const subDoc = await req.payload.findByID({
           collection: 'categories',
-          id: subId,
+          id: subcategoryId,
           depth: 0
         });
 
         const parentId =
           typeof subDoc?.parent === 'object'
-            ? subDoc?.parent?.id
-            : subDoc?.parent;
+            ? (subDoc?.parent as { id?: string })?.id
+            : (subDoc?.parent as string | undefined);
 
-        if (!parentId || String(parentId) !== String(catId)) {
+        if (!parentId || String(parentId) !== String(categoryId)) {
           throw new Error(
             'Selected subcategory does not belong to the chosen category.'
           );
@@ -132,7 +116,14 @@ export const Products: CollectionConfig = {
             id: tenantId,
             depth: 0
           });
-          if (!tenant?.stripeAccountId || !tenant?.stripeDetailsSubmitted) {
+
+          const stripeReady =
+            isObjectRecord(tenant) &&
+            typeof tenant.stripeAccountId === 'string' &&
+            tenant.stripeAccountId.length > 0 &&
+            tenant.stripeDetailsSubmitted === true;
+
+          if (!stripeReady) {
             throw new Error(
               'You must complete Stripe verification before creating or editing products.'
             );
@@ -143,15 +134,8 @@ export const Products: CollectionConfig = {
     ]
   },
   fields: [
-    {
-      name: 'name',
-      type: 'text',
-      required: true
-    },
-    {
-      name: 'description',
-      type: 'richText'
-    },
+    { name: 'name', type: 'text', required: true },
+    { name: 'description', type: 'richText' },
     {
       name: 'price',
       type: 'number',
@@ -172,15 +156,14 @@ export const Products: CollectionConfig = {
       relationTo: 'categories',
       hasMany: false,
       required: true,
-      admin: {
-        description: 'Pick a top-level category first.'
-      },
+      admin: { description: 'Pick a top-level category first.' },
       filterOptions: () => ({
-        parent: { equals: null }, // only top-level
-        slug: { not_equals: 'all' } // hide "All categories" slug
+        parent: { equals: null },
+        slug: { not_equals: 'all' }
       }),
       validate: (value) => (value ? true : 'Category is required.')
     },
+
     // Subcategory
     {
       name: 'subcategory',
@@ -194,7 +177,6 @@ export const Products: CollectionConfig = {
           Boolean(getCategoryIdFromSibling(siblingData)),
         description: 'Choose a subcategory (enabled after picking a category).'
       },
-
       filterOptions: ({ siblingData }) => {
         const parentId = getCategoryIdFromSibling(siblingData);
         if (!parentId) return false;
@@ -208,22 +190,9 @@ export const Products: CollectionConfig = {
       }
     },
 
-    {
-      name: 'tags',
-      type: 'relationship',
-      relationTo: 'tags',
-      hasMany: true
-    },
-    {
-      name: 'image',
-      type: 'upload',
-      relationTo: 'media'
-    },
-    {
-      name: 'cover',
-      type: 'upload',
-      relationTo: 'media'
-    },
+    { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
+    { name: 'image', type: 'upload', relationTo: 'media' },
+    { name: 'cover', type: 'upload', relationTo: 'media' },
     {
       name: 'refundPolicy',
       type: 'select',
@@ -235,7 +204,7 @@ export const Products: CollectionConfig = {
       type: 'richText',
       admin: {
         description:
-          'Protected content only visible to customers after purchase. If there are downloadable assets can be added here. '
+          'Protected content only visible to customers after purchase. If there are downloadable assets can be added here.'
       }
     },
     {

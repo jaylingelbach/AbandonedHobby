@@ -241,7 +241,7 @@ export interface Product {
 export interface Tenant {
   id: string;
   /**
-   * This is the name of the store (e.g. Jay's store)
+   * This is the name of the store (e.g. Jay's store), if you would like to update this please contact us.
    */
   name: string;
   /**

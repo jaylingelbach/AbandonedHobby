@@ -109,10 +109,6 @@ export default function WelcomePage() {
   const stripeDone = isDone('connect-stripe');
   const hasProducts = isDone('list-first-product');
 
-  const productHref = canDo('list-first-product')
-    ? (onboarding.next ?? undefined)
-    : undefined;
-
   const steps = [
     {
       key: 'verify',
@@ -152,7 +148,7 @@ export default function WelcomePage() {
       label: 'List your first item',
       done: hasProducts,
       icon: Package,
-      action: !hasProducts && productHref && (
+      action: !hasProducts && canDo('list-first-product') && (
         <Link href="/admin/collections/products?limit=10">
           <Button size="sm">Add product</Button>
         </Link>

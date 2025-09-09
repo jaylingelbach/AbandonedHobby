@@ -1,9 +1,57 @@
 import { TRPCError } from '@trpc/server';
 import { getPayload } from 'payload';
-import config from '@payload-config';
-import { Category, Product, Review } from '@/payload-types';
+import type { Payload } from 'payload';
+import type { ClientSession } from 'mongoose';
 
-// Categories
+import config from '@payload-config';
+import type { Category, Product, Review } from '@/payload-types';
+import { relId, type Relationship } from '@/lib/relationshipHelpers';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Basic guards & relationship coercion
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Type guard: true if `value` is a non-null object (record-like). */
+export function isObjectRecord(
+  value: unknown
+): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+/** Type guard: true if `value` is an object with a string `id` property. */
+export function hasStringId(value: unknown): value is { id: string } {
+  return isObjectRecord(value) && typeof value.id === 'string';
+}
+
+/** Convert unknown into a Payload-style Relationship<T> (string id or {id}) or return undefined. */
+export function toRelationship<T extends { id: string }>(
+  value: unknown
+): Relationship<T> {
+  if (typeof value === 'string') return value as Relationship<T>;
+  if (hasStringId(value)) return value as T;
+  return undefined;
+}
+
+/** Payload-style relationship reference: string id or { id }, optionally null/undefined. */
+type IdRef = string | { id: string } | null | undefined;
+
+/** Normalize a relationship ref to a string id; throws TRPC BAD_REQUEST if missing/invalid. */
+export function asId(ref: IdRef): string {
+  if (typeof ref === 'string') return ref;
+  if (ref && typeof ref === 'object' && typeof ref.id === 'string')
+    return ref.id;
+
+  throw new TRPCError({
+    code: 'BAD_REQUEST',
+    message: 'Missing or invalid tenant reference.'
+  });
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Category utilities
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Returns true if a category slug exists. */
 export async function isValidCategory(slug: string): Promise<boolean> {
   if (!slug) return false;
   const payload = await getPayload({ config });
@@ -16,13 +64,15 @@ export async function isValidCategory(slug: string): Promise<boolean> {
   return res.totalDocs > 0;
 }
 
-// Categories and Subcategories
+/** Returns true if `subcategory` exists under `category` (by slug). */
 export async function isValidCategoryAndSub(
   category: string,
-  sub: string
+  subcategory: string
 ): Promise<boolean> {
-  if (!category || !sub) return false;
+  if (!category || !subcategory) return false;
+
   const payload = await getPayload({ config });
+
   const catRes = await payload.find({
     collection: 'categories',
     depth: 0,
@@ -31,33 +81,33 @@ export async function isValidCategoryAndSub(
   });
   const cat = catRes.docs[0] as Category | undefined;
   if (!cat?.id) return false;
+
   const subRes = await payload.find({
     collection: 'categories',
     depth: 0,
     limit: 1,
-    where: {
-      slug: { equals: sub },
-      parent: { equals: cat.id }
-    }
+    where: { slug: { equals: subcategory }, parent: { equals: cat.id } }
   });
+
   return subRes.totalDocs > 0;
 }
 
-type IdRef = string | { id: string } | null | undefined;
-
-export function asId(ref: IdRef): string {
-  if (typeof ref === 'string') return ref;
-  if (ref && typeof ref === 'object' && typeof ref.id === 'string')
-    return ref.id;
-
-  throw new TRPCError({
-    code: 'BAD_REQUEST',
-    message: 'Missing or invalid tenant reference.'
-  });
+/** Extract the Category id from Payload’s siblingData.category relationship (string or {id}). */
+export function getCategoryIdFromSibling(
+  siblingData: unknown
+): string | undefined {
+  if (!isObjectRecord(siblingData)) return undefined;
+  const raw = (siblingData as { category?: unknown }).category;
+  return relId(toRelationship<{ id: string }>(raw));
 }
 
-export function daysForPolicy(p?: string): number {
-  switch (p) {
+// ─────────────────────────────────────────────────────────────────────────────
+// Policy helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+/** Refund policy label → number of days. */
+export function daysForPolicy(policy?: string): number {
+  switch (policy) {
     case '30 day':
       return 30;
     case '14 day':
@@ -71,55 +121,126 @@ export function daysForPolicy(p?: string): number {
   }
 }
 
-/** Safely extract a product id from a relationship that may be string or doc */
-export function getRelId(
-  rel: string | Product | null | undefined
-): string | null {
-  if (typeof rel === 'string' && rel) return rel;
-  if (
-    rel &&
-    typeof rel === 'object' &&
-    'id' in rel &&
-    typeof rel.id === 'string'
-  ) {
-    return rel.id;
-  }
-  return null;
-}
+// ─────────────────────────────────────────────────────────────────────────────
+// Review aggregation
+// ─────────────────────────────────────────────────────────────────────────────
 
+/**
+ * Summarize reviews by product id:
+ * returns Map<productId, { count, avg }>
+ */
 export function summarizeReviews(
   reviews: Review[]
 ): Map<string, { count: number; avg: number }> {
-  const sums = new Map<string, { count: number; sum: number }>();
+  const totals = new Map<string, { count: number; sum: number }>();
 
   for (const review of reviews) {
-    const productId = getRelId(review.id);
-
+    // Expect Review to have a `product` relationship (string | {id} | null)
+    const productRel = (review as { product?: unknown }).product;
+    const productId = relId(productRel as Relationship<Product>);
     if (!productId) continue;
 
     const rating = typeof review.rating === 'number' ? review.rating : 0;
-    const current = sums.get(productId) ?? { count: 0, sum: 0 };
+    const current = totals.get(productId) ?? { count: 0, sum: 0 };
     current.count += 1;
     current.sum += rating;
-    sums.set(productId, current);
+    totals.set(productId, current);
   }
 
-  const out = new Map<string, { count: number; avg: number }>();
-  for (const [pid, { count, sum }] of sums.entries()) {
-    out.set(pid, {
+  const result = new Map<string, { count: number; avg: number }>();
+  for (const [productId, { count, sum }] of totals.entries()) {
+    result.set(productId, {
       count,
       avg: count ? Math.round((sum / count) * 10) / 10 : 0
     });
   }
-  return out;
+  return result;
 }
 
-type RelID = string | { id?: string } | null | undefined;
+// ─────────────────────────────────────────────────────────────────────────────
+// Mongo atomic counter utilities (Payload mongooseAdapter)
+// ─────────────────────────────────────────────────────────────────────────────
 
-export const getCategoryIdFromSibling = (
-  siblingData: unknown
-): string | undefined => {
-  if (!siblingData || typeof siblingData !== 'object') return undefined;
-  const rel = (siblingData as { category?: RelID }).category;
-  return typeof rel === 'string' ? rel : rel?.id;
+type TenantsCollection = {
+  updateOne: (
+    filter: Record<string, unknown>,
+    update: Record<string, unknown>,
+    options?: { session?: ClientSession }
+  ) => Promise<unknown>;
 };
+
+type PayloadDbWithCollections = {
+  collections: { tenants: TenantsCollection };
+};
+
+type PayloadDbWithConnection = {
+  connection: { startSession: () => Promise<ClientSession> };
+};
+
+/** Internal: get the Tenants collection handle from Payload's db. */
+function getTenantsCollection(payload: Payload): TenantsCollection | null {
+  const db = payload.db as unknown;
+  if (
+    isObjectRecord(db) &&
+    'collections' in db &&
+    isObjectRecord((db as { collections: unknown }).collections) &&
+    'tenants' in (db as { collections: Record<string, unknown> }).collections
+  ) {
+    return (db as PayloadDbWithCollections).collections.tenants;
+  }
+  return null;
+}
+
+/** Internal: start a mongoose session if supported by the current adapter. */
+async function startSessionIfSupported(
+  payload: Payload
+): Promise<ClientSession | null> {
+  const db = payload.db as unknown;
+  if (isObjectRecord(db) && 'connection' in db) {
+    const connection = (db as PayloadDbWithConnection).connection;
+    return connection.startSession();
+  }
+  return null;
+}
+
+/** Single atomic increment for a tenant’s `productCount`. (Mongo-only) */
+export async function incTenantProductCount(
+  payload: Payload,
+  tenantId: string,
+  delta: number,
+  session?: ClientSession
+): Promise<void> {
+  const tenants = getTenantsCollection(payload);
+  if (!tenants) return; // non-mongo adapter; no-op
+  await tenants.updateOne(
+    { _id: tenantId },
+    { $inc: { productCount: delta } },
+    session ? { session } : undefined
+  );
+}
+
+/** Atomically do -1 on previous and +1 on next in a transaction (swap). */
+export async function swapTenantCountsAtomic(
+  payload: Payload,
+  previousTenantId: string,
+  nextTenantId: string
+): Promise<void> {
+  if (previousTenantId === nextTenantId) return;
+
+  const session = await startSessionIfSupported(payload);
+  if (!session) {
+    // Fallback for non-mongo adapters: two best-effort atomic increments
+    await incTenantProductCount(payload, previousTenantId, -1);
+    await incTenantProductCount(payload, nextTenantId, +1);
+    return;
+  }
+
+  try {
+    await session.withTransaction(async () => {
+      await incTenantProductCount(payload, previousTenantId, -1, session);
+      await incTenantProductCount(payload, nextTenantId, +1, session);
+    });
+  } finally {
+    await session.endSession();
+  }
+}
