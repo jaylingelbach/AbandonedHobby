@@ -9,6 +9,62 @@ import { useTRPC } from '@/trpc/client';
 import { cn } from '@/lib/utils';
 import { useRedirectOnUnauthorized } from '@/hooks/use-redirect-on-unauthorized';
 
+/* ---------- Skeleton ---------- */
+function WelcomeSkeleton() {
+  return (
+    <div
+      className="mx-auto max-w-3xl px-4 py-8 animate-pulse"
+      role="status"
+      aria-live="polite"
+      aria-busy="true"
+    >
+      {/* success banner */}
+      <div className="mb-6 rounded-2xl border p-4 bg-muted">
+        <div className="h-4 w-64 rounded bg-muted-foreground/20" />
+        <div className="mt-2 h-5 w-80 rounded bg-muted-foreground/20" />
+      </div>
+
+      {/* action buttons */}
+      <div className="mb-6 flex gap-3">
+        <div className="h-9 w-44 rounded bg-muted-foreground/20" />
+        <div className="h-9 w-40 rounded bg-muted-foreground/20" />
+      </div>
+
+      {/* onboarding card */}
+      <Card className="ah-onboarding">
+        <CardHeader>
+          <CardTitle>
+            <div className="h-5 w-36 rounded bg-muted-foreground/20" />
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          {/* progress bar */}
+          <div className="h-2 w-full rounded bg-muted">
+            <div className="h-2 w-1/3 rounded bg-muted-foreground/20" />
+          </div>
+
+          {/* steps list */}
+          <ul className="space-y-2">
+            {Array.from({ length: 4 }).map((_, index) => (
+              <li
+                key={`skeleton-step-${index}`}
+                className="flex items-center justify-between rounded-xl border p-3"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="h-5 w-5 rounded-full bg-muted-foreground/20" />
+                  <div className="h-4 w-40 rounded bg-muted-foreground/20" />
+                </div>
+                <div className="h-8 w-24 rounded bg-muted-foreground/20" />
+              </li>
+            ))}
+          </ul>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+/* ---------- Page ---------- */
 export default function WelcomePage() {
   const trpc = useTRPC();
   const { data, isLoading, isError, error } = useQuery({
@@ -22,7 +78,7 @@ export default function WelcomePage() {
 
   useRedirectOnUnauthorized(isError ? error : null);
 
-  if (isLoading) return null;
+  if (isLoading) return <WelcomeSkeleton />;
   if (isError || !data) {
     return (
       <div className="p-4 text-red-600">
@@ -33,7 +89,6 @@ export default function WelcomePage() {
 
   const { onboarding } = data;
 
-  // get progress from server step
   const flow = [
     'verify-email',
     'create-tenant',
@@ -42,19 +97,18 @@ export default function WelcomePage() {
     'dashboard'
   ] as const;
   type Step = (typeof flow)[number];
-  const current = (onboarding.step ?? 'verify-email') as Step;
-  const idx = Math.max(0, flow.indexOf(current));
+  const currentStep = (onboarding.step ?? 'verify-email') as Step;
+  const currentIndex = flow.indexOf(currentStep);
 
   const isDone = (step: Step) =>
-    idx > flow.indexOf(step) || current === 'dashboard';
-  const canDo = (step: Step) => idx >= flow.indexOf(step);
+    currentIndex > flow.indexOf(step) || currentStep === 'dashboard';
+  const canDo = (step: Step) => currentIndex >= flow.indexOf(step);
 
   const emailVerified = isDone('verify-email');
   const hasTenant = isDone('create-tenant');
   const stripeDone = isDone('connect-stripe');
   const hasProducts = isDone('list-first-product');
 
-  // Only show "Add product" when we've reached that step
   const productHref = canDo('list-first-product')
     ? (onboarding.next ?? undefined)
     : undefined;
@@ -117,12 +171,11 @@ export default function WelcomePage() {
       </div>
 
       <div className="mb-6 flex gap-3">
-        <Link href="/browse">
+        <Link href="/">
           <Button className="ah-btn" variant="secondary">
             Browse the marketplace
           </Button>
         </Link>
-        {/* TODO: add visit dashboard (admin panel), adjust css */}
         <Link href={onboarding.next ?? '/sell/start'}>
           <Button className="ah-btn">Start selling</Button>
         </Link>
@@ -133,7 +186,14 @@ export default function WelcomePage() {
           <CardTitle>Getting started</CardTitle>
         </CardHeader>
         <CardContent className="space-y-3">
-          <div className="h-2 w-full rounded bg-muted">
+          <div
+            className="h-2 w-full rounded bg-muted"
+            role="progressbar"
+            aria-label="Onboarding progress"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={Math.round(completion)}
+          >
             <div
               className="h-2 rounded bg-primary"
               style={{ width: `${completion}%` }}

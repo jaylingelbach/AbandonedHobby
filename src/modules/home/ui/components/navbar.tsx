@@ -13,6 +13,7 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
 const navbarItems = [
   { href: '/', children: 'Home' },
+  { href: '/welcome', children: 'Welcome' },
   { href: '/about', children: 'About' },
   { href: '/features', children: 'Features' },
   { href: '/pricing', children: 'Pricing' },
@@ -38,6 +39,10 @@ export const Navbar = () => {
 
   const isAuthed = !!session.data?.user;
 
+  const navItems = isAuthed
+    ? navbarItems
+    : navbarItems.filter((item) => item.href !== '/welcome');
+
   // Gate unreadCount to client AND only when authenticated
   const notificationsQuery = useQuery({
     ...trpc.notifications.unreadCount.queryOptions(),
@@ -62,13 +67,13 @@ export const Navbar = () => {
       </Link>
 
       <NavbarSidebar
-        items={navbarItems}
+        items={navItems}
         open={isSidebarOpen}
         onOpenChange={setIsSidebarOpen}
       />
 
       <div className="items-center gap-4 hidden lg:flex">
-        {navbarItems.map((item) => (
+        {navItems.map((item) => (
           <Button
             key={item.href}
             asChild
@@ -79,7 +84,12 @@ export const Navbar = () => {
                 'bg-black text-white hover:bg-black hover:text-white'
             )}
           >
-            <Link href={item.href}>{item.children}</Link>
+            <Link
+              href={item.href}
+              aria-current={pathname === item.href ? 'page' : undefined}
+            >
+              {item.children}
+            </Link>
           </Button>
         ))}
       </div>
