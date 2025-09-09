@@ -96,7 +96,6 @@ export const Tenants: CollectionConfig = {
       type: 'number',
       defaultValue: 0,
       access: {
-        read: ({ req: { user } }) => isSuperAdmin(user),
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user)
       },

@@ -29,6 +29,7 @@ export function cn(...inputs: ClassValue[]): string {
  */
 export function generateTenantURL(tenantSlug: string): string {
   const isDev = process.env.NODE_ENV === 'development';
+  const slug = tenantSlug.trim().toLowerCase();
   const subdomainsEnabled =
     process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
 
@@ -36,7 +37,7 @@ export function generateTenantURL(tenantSlug: string): string {
     const appUrl = (
       process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     ).replace(/\/$/, '');
-    return `${appUrl}/tenants/${tenantSlug}`;
+    return `${appUrl}/tenants/${slug}`;
   }
 
   const domain = (process.env.NEXT_PUBLIC_ROOT_DOMAIN || '')
@@ -49,7 +50,7 @@ export function generateTenantURL(tenantSlug: string): string {
     );
   }
 
-  return `https://${tenantSlug}.${domain}`;
+  return `https://${slug}.${domain}`;
 }
 
 /**
@@ -127,7 +128,7 @@ export function formatCurrency(
     currency,
     minimumFractionDigits,
     maximumFractionDigits
-  }).format(Number(value));
+  }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
 }
 
 /** Render a React node into plain text for SEO, tooltips, etc. */

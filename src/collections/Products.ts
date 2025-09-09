@@ -204,7 +204,7 @@ export const Products: CollectionConfig = {
       type: 'richText',
       admin: {
         description:
-          'Protected content only visible to customers after purchase. If there are downloadable assets can be added here.'
+          'Protected content visible to customers after purchase. Add any downloadable assets here.'
       }
     },
     {
@@ -224,7 +224,7 @@ export const Products: CollectionConfig = {
       type: 'checkbox',
       admin: {
         description:
-          'Check this box if you want to hide this item from the marketplace and only show in your personal store front.'
+          'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
       }
     }
   ]

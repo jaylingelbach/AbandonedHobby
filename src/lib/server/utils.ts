@@ -11,7 +11,7 @@ import { relId, type Relationship } from '@/lib/relationshipHelpers';
 // Basic guards & relationship coercion
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Back-compat: extract an id from string | {id} | null/undefined. */
+/** Backwards-compatability: extract an id from string | {id} | null/undefined. */
 export function getRelId<T extends { id: string }>(
   rel: string | T | Relationship<T> | null | undefined
 ): string | null {
@@ -277,7 +277,11 @@ export async function incTenantProductCount(
     // Mongo / mongoose path: fast and atomic
     await tenants.updateOne(
       { _id: tenantId },
-      { $inc: { productCount: delta } },
+      {
+        $inc: {
+          productCount: { $max: [{ $add: ['$productCount', delta] }, 0] }
+        }
+      },
       session ? { session } : undefined
     );
     return;
