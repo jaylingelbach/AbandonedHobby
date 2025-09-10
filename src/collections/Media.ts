@@ -14,7 +14,11 @@ export const Media: CollectionConfig = {
     {
       name: 'alt',
       type: 'text',
-      required: true
+      required: false,
+      admin: {
+        description:
+          'Adds text for those who use screen readers or are visually impaired'
+      }
     }
   ],
   upload: true

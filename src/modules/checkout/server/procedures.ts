@@ -66,7 +66,9 @@ export const checkoutRouter = createTRPCRouter({
         });
       } else {
         // Optional: log and proceed to account link creation for Standard accounts
-        console.debug(`Skipping business_profile update for standard account ${tenant.stripeAccountId}`);
+        console.debug(
+          `Skipping business_profile update for standard account ${tenant.stripeAccountId}`
+        );
       }
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
@@ -92,14 +94,18 @@ export const checkoutRouter = createTRPCRouter({
     }
   }),
   purchase: protectedProcedure
+    // 1) Validate input: an array of product IDs the buyer wants to purchase.
     .input(
       z.object({
         productIds: z.array(z.string())
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // 2) Auth guard: require a logged-in user (server-trust boundary).
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      // 3) Helper: normalize a tenant reference into a string ID.
       function getTenantId(tenant: Tenant | string | null | undefined): string {
         if (typeof tenant === 'string') return tenant;
         if (
@@ -109,30 +115,27 @@ export const checkoutRouter = createTRPCRouter({
         ) {
           return tenant.id;
         }
+        // If a product lacks a valid tenant, we can’t route money correctly.
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Product is missing a valid tenant reference.'
         });
       }
+
+      // 4) Fetch the products by IDs, excluding archived ones.
+      //    Depth 2 so we can access nested/related fields if needed.
       const productsRes = await ctx.db.find({
         collection: 'products',
         depth: 2,
         where: {
           and: [
-            {
-              id: {
-                in: input.productIds
-              }
-            },
-            {
-              isArchived: {
-                not_equals: true
-              }
-            }
+            { id: { in: input.productIds } },
+            { isArchived: { not_equals: true } }
           ]
         }
       });
 
+      // 5) Ensure all requested products were found (guard against stale/invalid IDs).
       if (productsRes.totalDocs !== input.productIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -142,6 +145,7 @@ export const checkoutRouter = createTRPCRouter({
 
       const products = productsRes.docs;
 
+      // 6) Enforce single-seller carts: Stripe session is created per seller.
       const tenantIds = new Set<string>(
         products.map((p) => getTenantId(p.tenant))
       );
@@ -153,6 +157,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // 7) Load the seller tenant and validate Stripe config.
       const sellerTenantId = Array.from(tenantIds)[0]!;
       const sellerTenant = await ctx.db.findByID({
         collection: 'tenants',
@@ -172,16 +177,19 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // 8) Build Stripe line items from products.
+      //    - We price from the database (never trust client-sent prices).
+      //    - Attach metadata to help reconcile later (product id/name, account id).
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
         products.map((product) => ({
           quantity: 1,
           price_data: {
-            unit_amount: Math.round(Number(product.price) * 100),
+            unit_amount: Math.round(Number(product.price) * 100), // cents
             tax_behavior: 'exclusive',
             currency: 'usd',
             product_data: {
               name: product.name,
-              tax_code: 'txcd_99999999',
+              tax_code: 'txcd_99999999', // default/unspecified tax category
               metadata: {
                 stripeAccountId: sellerTenant.stripeAccountId,
                 id: product.id,
@@ -191,6 +199,7 @@ export const checkoutRouter = createTRPCRouter({
           }
         }));
 
+      // 9) Compute totals and platform fee in cents.
       const totalAmount = products.reduce(
         (acc, item) => acc + Math.round(Number(item.price) * 100),
         0
@@ -200,10 +209,12 @@ export const checkoutRouter = createTRPCRouter({
         totalAmount * (PLATFORM_FEE_PERCENTAGE / 100)
       );
 
+      // 10) Build domain for seller’s tenant to create success/cancel URLs.
       const domain = generateTenantURL(sellerTenant.slug);
 
       let checkout: Stripe.Checkout.Session;
       try {
+        // 11) Inspect seller’s Stripe Tax readiness so we can switch automatic tax on.
         const [settings, regs] = await Promise.all([
           stripe.tax.settings.retrieve(
             {},
@@ -217,19 +228,27 @@ export const checkoutRouter = createTRPCRouter({
 
         const isTaxReady = settings.status === 'active' && regs.data.length > 0;
 
+        // 12) Create Checkout Session on the seller’s connected account (direct charge).
+        //     - automatic_tax enabled only if the seller is configured.
+        //     - invoice_creation so buyers can get receipts.
+        //     - application_fee_amount collects your platform fee.
+        //     - metadata lets webhooks map session → buyer/seller/products.
+        //     - shipping/billing collection enabled for physical goods.
         checkout = await stripe.checkout.sessions.create(
           {
             mode: 'payment',
             line_items: lineItems,
-            automatic_tax: {
-              enabled: isTaxReady
-            },
-            invoice_creation: {
-              enabled: true
-            },
+            automatic_tax: { enabled: isTaxReady },
+            invoice_creation: { enabled: true },
             customer_email: user.email ?? undefined,
-            success_url: `${domain}/checkout?success=true`,
-            cancel_url: `${domain}/checkout?cancel=true`,
+
+            // NOTE: Consider including the session_id in the success URL for your
+            // success page flow (e.g., `${domain}/checkout/success?session_id={CHECKOUT_SESSION_ID}`)
+            // success_url: `${domain}/checkout?success=true`,
+            // cancel_url: `${domain}/checkout?cancel=true`,
+            success_url: `${domain}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+            cancel_url: `${domain}/checkout/restore`,
+
             metadata: {
               userId: user.id,
               tenantId: String(sellerTenantId),
@@ -245,9 +264,11 @@ export const checkoutRouter = createTRPCRouter({
             shipping_address_collection: { allowed_countries: ['US'] },
             billing_address_collection: 'required'
           },
-          { stripeAccount: sellerTenant.stripeAccountId } // direct charge
+          // Execute against the seller’s connected account → direct charge.
+          { stripeAccount: sellerTenant.stripeAccountId }
         );
       } catch (err: unknown) {
+        // 13) Surface Stripe-specific errors with useful context.
         if (err instanceof Stripe.errors.StripeError) {
           console.error('🔥 stripe checkout error:', {
             message: err.message,
@@ -259,6 +280,7 @@ export const checkoutRouter = createTRPCRouter({
             message: `Stripe error: ${err.message}`
           });
         }
+        // 14) Catch-all for unexpected failures.
         console.error('🔥 unknown error in checkout:', err);
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -266,6 +288,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // 15) Defensive check: ensure we got a redirect URL from Stripe.
       if (!checkout.url) {
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -273,6 +296,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // 16) Return the redirect URL to the client.
       return { url: checkout.url };
     }),
 

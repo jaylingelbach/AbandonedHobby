@@ -3,9 +3,54 @@ import type { Order, Product, Media, Tenant } from '@/payload-types';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { getRelId } from '@/lib/server/utils';
-import { OrderSummaryDTO } from '../types';
+import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
+import { mapOrderToConfirmation, mapOrderToSummary } from '../utils';
 
 export const ordersRouter = createTRPCRouter({
+  getSummaryBySession: protectedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      // Ensure your webhook sets `stripeCheckoutSessionId` on Orders
+      const result = await ctx.db.find({
+        collection: 'orders',
+        depth: 0,
+        where: {
+          and: [
+            { stripeCheckoutSessionId: { equals: input.sessionId } },
+            { buyer: { equals: user.id } }
+          ]
+        }
+      });
+
+      const summaries: OrderSummaryDTO[] = result.docs.map(mapOrderToSummary);
+      return { orders: summaries };
+    }),
+  getConfirmationBySession: protectedProcedure
+    .input(z.object({ sessionId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      // Your webhook stores stripeCheckoutSessionId on the Order
+      const result = await ctx.db.find({
+        collection: 'orders',
+        depth: 1, // pull tenant.slug if available for CTAs
+        where: {
+          and: [
+            { stripeCheckoutSessionId: { equals: input.sessionId } },
+            { buyer: { equals: user.id } }
+          ]
+        }
+      });
+
+      const orders: OrderConfirmationDTO[] = result.docs.map(
+        mapOrderToConfirmation
+      );
+      return { orders };
+    }),
   getLatestForProduct: protectedProcedure
     .input(z.object({ productId: z.string() }))
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO | null> => {
@@ -176,18 +221,6 @@ export const ordersRouter = createTRPCRouter({
         docs: Order[];
         page: number;
         totalPages: number;
-      };
-
-      type OrderListItem = {
-        orderId: string;
-        orderNumber: string;
-        orderDateISO: string;
-        totalCents: number;
-        currency: string;
-        productId: string;
-        productName: string;
-        productImageURL?: string;
-        tenantSlug?: string;
       };
 
       const docs: OrderListItem[] = res.docs.map((order) => {

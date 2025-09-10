@@ -24,6 +24,14 @@
       "@payload-config": ["./src/payload.config.ts"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    "src/app/(app)/chat/[conversationId]/page.js",
+    "src/app/(payload)/admin/[[...segments]]/page.tsx",
+    "src/app/(payload)/admin/[[...segments]]/not-found.js"
+  ],
   "exclude": ["node_modules"]
 }

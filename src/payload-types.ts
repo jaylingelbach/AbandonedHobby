@@ -206,7 +206,7 @@ export interface Product {
   cover?: (string | null) | Media;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
   /**
-   * Protected content only visible to customers after purchase. If there are downloadable assets can be added here.
+   * Protected content visible to customers after purchase. Add any downloadable assets here.
    */
   content?: {
     root: {
@@ -228,7 +228,7 @@ export interface Product {
    */
   isArchived?: boolean | null;
   /**
-   * Check this box if you want to hide this item from the marketplace and only show in your personal store front.
+   * Check this box if you want to hide this item from the marketplace and only show in your personal storefront.
    */
   isPrivate?: boolean | null;
   updatedAt: string;
@@ -282,7 +282,10 @@ export interface Tenant {
  */
 export interface Media {
   id: string;
-  alt: string;
+  /**
+   * Adds text for those who use screen readers or are visually impaired
+   */
+  alt?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
