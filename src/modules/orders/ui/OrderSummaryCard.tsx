@@ -14,13 +14,23 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
     shipping
   } = props;
 
-  let totalDollars: number;
-  if (hasTotalCents(props)) {
-    totalDollars = props.totalCents / 100;
-  } else if (hasTotalPaid(props)) {
-    totalDollars = props.totalPaid;
-  } else {
-    totalDollars = 0;
+  // dollars to display
+  const totalDollars = hasTotalCents(props)
+    ? props.totalCents / 100
+    : hasTotalPaid(props)
+      ? props.totalPaid
+      : 0;
+
+  // normalize currency: Stripe gives 'usd' – Intl wants 'USD'
+  const rawCurrency = hasTotalCents(props) ? (props.currency ?? 'USD') : 'USD';
+  const currencyCode = (rawCurrency || 'USD').toUpperCase();
+
+  // precompute a safe formatted string
+  let totalFormatted: string;
+  try {
+    totalFormatted = formatCurrency(totalDollars, currencyCode);
+  } catch {
+    totalFormatted = `${currencyCode} ${totalDollars.toFixed(2)}`;
   }
 
   const quantity = Math.max(1, Number(props.quantity ?? 1) || 1);
@@ -54,14 +64,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
       <CardContent className="grid gap-3 text-sm">
         <Row label="Order date" value={fmtDate(orderDate)} />
         <Row label="Quantity" value={quantity} />
-        <Row
-          label="Total paid"
-          value={formatCurrency(
-            totalDollars,
-            (hasTotalCents(props) && props.currency) || 'USD'
-          )}
-          strong
-        />
+        <Row label="Total paid" value={totalFormatted} strong />
         <Row
           label="Order #"
           value={<span className="font-mono">{orderNumber}</span>}
@@ -88,7 +91,6 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
                 </>
               ) : null}
               <br />
-              {/* City/state line: only show what exists, with proper separators */}
               <span>
                 {shipping.city ? shipping.city : ''}
                 {shipping.city && shipping.state ? ', ' : ''}

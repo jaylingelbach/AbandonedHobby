@@ -122,7 +122,7 @@ export async function POST(req: Request) {
           throw new Error('Missing customer details');
         }
 
-        const currency = expandedSession.currency;
+        const currency = expandedSession.currency?.toUpperCase();
         if (!currency) {
           throw new Error('Missing currency on Stripe session.');
         }

@@ -2314,3 +2314,16 @@ Added recap covering the Orders transition and onboarding behavior.
 - UI formatting
   - src/components/ui/breadcrumb.tsx
     - Style-only refactor: single quotes, minor typing punctuation; no behavioral changes.
+
+# (add) Shipping to confirmation view 09/11/25
+
+## New Features
+
+- Shipping address is now captured at checkout and shown on order pages and confirmation when present.
+- Order confirmation layout updated: each order is a card with header, items, Shipping section, and consolidated action links (View all orders, Visit seller, Continue shopping).
+- “Returns accepted through” now displayed at the order level.
+- Prices display consistently using cents-based currency formatting.
+
+## UX Improvements
+
+- Unauthorized users are prompted to sign in where applicable; order pages hydrate data server-side for faster load.
