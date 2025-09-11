@@ -31,6 +31,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   });
 
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
+    console.log('TODO: remove');
     return (
       <div className="min-h-screen bg-white p-8">
         <p className="font-medium">Please sign in to view your receipt.</p>
