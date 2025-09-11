@@ -13,10 +13,14 @@ function assertString(value: unknown, path: string): string {
 }
 
 function assertNumber(value: unknown, path: string): number {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (
+    typeof value !== 'number' ||
+    Number.isNaN(value) ||
+    !Number.isFinite(value)
+  ) {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: `Expected number at ${path}`
+      message: `Expected finite number at ${path}`
     });
   }
   return value;
@@ -98,12 +102,11 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   });
 
   // Primary product id (first) for back-compat with existing UI links
-  // Primary product id (first) for back-compat with existing UI links
   const primaryProductIdCandidate = productIds.at(0); // string | undefined
   if (typeof primaryProductIdCandidate !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'No product id resolved from order items'
+      message: 'Failed to resolve primary product ID from order items array'
     });
   }
   const primaryProductId: string = primaryProductIdCandidate;

@@ -13,12 +13,10 @@ export default async function Page({
 }) {
   const [, resolvedSearchParams] = await Promise.all([params, searchParams]);
 
-  const sessionId =
-    typeof resolvedSearchParams.session_id === 'string'
-      ? resolvedSearchParams.session_id
-      : Array.isArray(resolvedSearchParams.session_id)
-        ? (resolvedSearchParams.session_id[0] ?? '')
-        : '';
+  const sessionIdParam = resolvedSearchParams.session_id;
+  const sessionId = Array.isArray(sessionIdParam)
+    ? sessionIdParam[0]
+    : sessionIdParam || '';
 
   if (!sessionId) notFound();
 
@@ -28,7 +26,7 @@ export default async function Page({
       trpc.orders.getConfirmationBySession.queryOptions({ sessionId })
     );
   } catch {
-    // swallow 401/500 during SSR; client will refetch + show pending UI
+    console.warn('Prefetch failed for session:', sessionId);
   }
 
   return (

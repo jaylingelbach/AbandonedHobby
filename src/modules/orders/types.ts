@@ -28,7 +28,7 @@ export type OrderConfirmationDTO = {
   orderDateISO: string; // createdAt
   currency: string;
   totalCents: number;
-  returnsAcceptedThroughISO: string | null; // order-level cutoff (earliest item)
+  returnsAcceptedThroughISO: string | null; // order-level cutoff (earliest return date among all items)
   receiptUrl?: string | null; // if you attach one later
   tenantSlug?: string | null; // nice for CTAs
   items: OrderItemDTO[]; // full receipt lines
@@ -43,5 +43,5 @@ export type OrderSummaryDTO = {
   totalCents: number;
   quantity: number;
   productId: string;
-  productIds?: string[];
+  productIds?: string[]; // All product IDs in the order when multiple items exist
 };

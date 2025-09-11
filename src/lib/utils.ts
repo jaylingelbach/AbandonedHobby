@@ -131,6 +131,41 @@ export function formatCurrency(
   }).format(Number.isFinite(Number(value)) ? Number(value) : 0);
 }
 
+/**
+ * STRIPE SPECIFIC
+ * Convert a USD amount (string or number) to integer cents using string math.
+ * - Handles "12", "12.3", "12.34", "12.345" (rounds half up), "-1.23"
+ * - Strips commas and $ if present.
+ * - Throws on invalid input.
+ */
+export function usdToCents(input: string | number): number {
+  const raw = typeof input === 'number' ? String(input) : input;
+  const cleaned = raw.replace(/[\s,$,_]/g, '');
+
+  // Require at least one digit before optional decimals (prevents ".99")
+  if (!/^-?\d+(\.\d+)?$/.test(cleaned)) {
+    throw new Error(`Invalid USD amount: "${input}"`);
+  }
+
+  const negative = cleaned.startsWith('-');
+  const unsigned = negative ? cleaned.slice(1) : cleaned;
+
+  // 👇 Provide defaults so TS knows they're strings, not string | undefined
+  const [dollarsRaw, fracRaw] = unsigned.split('.');
+  const dollars: string = dollarsRaw ?? '0';
+  const frac: string = fracRaw ?? '';
+
+  // Round half-up to 2 decimals without float math
+  const frac3 = (frac + '000').slice(0, 3); // pad to 3 digits
+  const frac2 = frac3.slice(0, 2);
+  const roundDigit = frac3[2] ?? '0';
+
+  let cents = parseInt(dollars, 10) * 100 + parseInt(frac2 || '0', 10);
+  if (roundDigit >= '5') cents += 1;
+
+  return negative ? -cents : cents;
+}
+
 /** Render a React node into plain text for SEO, tooltips, etc. */
 export function renderToText(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';

@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { ArrowLeftIcon, ReceiptIcon, CheckCircle2 } from 'lucide-react';
+import { useState } from 'react';
 
 interface Props {
   sessionId: string;
@@ -22,6 +23,8 @@ export default function OrderSuccessSummaryView({ sessionId }: Props) {
     { staleTime: 5_000 }
   );
 
+  const [pollAttempts, setPollAttempts] = useState(0);
+
   const { data, refetch } = useSuspenseQuery({
     ...queryOptions,
     refetchInterval: (query) => {
@@ -30,8 +33,12 @@ export default function OrderSuccessSummaryView({ sessionId }: Props) {
         query.state.data.orders.length > 0;
       const updatedAt = query.state.dataUpdatedAt ?? 0;
       const elapsedMs = Date.now() - updatedAt;
-      const withinWindow = elapsedMs < 30_000;
-      return hasAny || !withinWindow ? false : 2_000;
+      const withinWindow = elapsedMs < 60_000;
+      if (hasAny || !withinWindow) return false;
+      const intervals = [2000, 4000, 8000, 10000];
+      const interval = intervals[Math.min(pollAttempts, intervals.length - 1)];
+      setPollAttempts((prev) => prev + 1);
+      return interval;
     }
   });
 
@@ -113,10 +120,20 @@ export default function OrderSuccessSummaryView({ sessionId }: Props) {
               <div className="flex items-center gap-2">
                 <ReceiptIcon className="size-5" />
                 <span className="font-medium">
-                  {(summary.totalCents / 100).toLocaleString(undefined, {
-                    style: 'currency',
-                    currency: summary.currency.toUpperCase()
-                  })}
+                  {(() => {
+                    try {
+                      return (summary.totalCents / 100).toLocaleString(
+                        undefined,
+                        {
+                          style: 'currency',
+                          currency: summary.currency.toUpperCase()
+                        }
+                      );
+                    } catch {
+                      // Fallback to simple formatting if currency code is invalid
+                      return `${summary.currency.toUpperCase()} ${(summary.totalCents / 100).toFixed(2)}`;
+                    }
+                  })()}
                 </span>
               </div>
             </div>

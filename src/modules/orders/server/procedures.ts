@@ -8,7 +8,14 @@ import { mapOrderToConfirmation, mapOrderToSummary } from '../utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
-    .input(z.object({ sessionId: z.string().min(1) }))
+    .input(
+      z.object({
+        sessionId: z
+          .string()
+          .min(1)
+          .regex(/^cs_[a-zA-Z0-9]+$/, 'Invalid session format')
+      })
+    )
     .query(async ({ ctx, input }) => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });

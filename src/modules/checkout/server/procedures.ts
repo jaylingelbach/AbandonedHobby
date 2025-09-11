@@ -13,7 +13,7 @@ import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
-import { generateTenantURL } from '@/lib/utils';
+import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { asId } from '@/lib/server/utils';
 
 export const runtime = 'nodejs';
@@ -97,7 +97,9 @@ export const checkoutRouter = createTRPCRouter({
     // 1) Validate input: an array of product IDs the buyer wants to purchase.
     .input(
       z.object({
-        productIds: z.array(z.string())
+        productIds: z
+          .array(z.string())
+          .min(1, 'At least one product is required')
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -107,6 +109,12 @@ export const checkoutRouter = createTRPCRouter({
 
       // 3) Helper: normalize a tenant reference into a string ID.
       function getTenantId(tenant: Tenant | string | null | undefined): string {
+        if (!tenant) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: ' Product is missing a tenant reference'
+          });
+        }
         if (typeof tenant === 'string') return tenant;
         if (
           tenant &&
@@ -181,32 +189,38 @@ export const checkoutRouter = createTRPCRouter({
       //    - We price from the database (never trust client-sent prices).
       //    - Attach metadata to help reconcile later (product id/name, account id).
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        products.map((product) => ({
-          quantity: 1,
-          price_data: {
-            unit_amount: Math.round(Number(product.price) * 100), // cents
-            tax_behavior: 'exclusive',
-            currency: 'usd',
-            product_data: {
-              name: product.name,
-              tax_code: 'txcd_99999999', // default/unspecified tax category
-              metadata: {
-                stripeAccountId: sellerTenant.stripeAccountId,
-                id: product.id,
-                name: product.name
-              } as ProductMetadata
+        products.map((product) => {
+          const unitAmountCents = usdToCents(
+            product.price as unknown as string | number
+          );
+          return {
+            quantity: 1,
+            price_data: {
+              unit_amount: unitAmountCents, // integer cents
+              tax_behavior: 'exclusive',
+              currency: 'usd',
+              product_data: {
+                name: product.name,
+                tax_code: 'txcd_99999999',
+                metadata: {
+                  stripeAccountId: sellerTenant.stripeAccountId,
+                  id: product.id,
+                  name: product.name
+                } as ProductMetadata
+              }
             }
-          }
-        }));
+          };
+        });
 
       // 9) Compute totals and platform fee in cents.
-      const totalAmount = products.reduce(
-        (acc, item) => acc + Math.round(Number(item.price) * 100),
+      const totalCents = products.reduce(
+        (acc, item) =>
+          acc + usdToCents(item.price as unknown as string | number),
         0
       );
 
       const platformFeeAmount = Math.round(
-        totalAmount * (PLATFORM_FEE_PERCENTAGE / 100)
+        (totalCents * PLATFORM_FEE_PERCENTAGE) / 100
       );
 
       // 10) Build domain for seller’s tenant to create success/cancel URLs.
@@ -318,14 +332,16 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      const totalPrice = data.docs.reduce((acc, product) => {
-        const price = Number(product.price);
-        return acc + (isNaN(price) ? 0 : price);
-      }, 0);
+      const totalCents = data.docs.reduce(
+        (acc, p) => acc + usdToCents(p.price as unknown as string | number),
+        0
+      );
+      const totalPrice = totalCents / 100; // keep for current UI if needed
 
       return {
         ...data,
-        totalPrice,
+        totalPrice, // existing consumers
+        totalCents, // precise integer for new consumers
         docs: data.docs.map((doc) => ({
           ...doc,
           image: doc.image as Media | null,

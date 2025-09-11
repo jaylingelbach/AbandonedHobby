@@ -277,6 +277,11 @@ export async function incTenantProductCount(
   const handle = getTenantsCollection(payload);
   if (!handle) {
     if (process.env.AH_RECOUNT_FALLBACK === 'true') {
+      if (process.env.NODE_ENV === 'production') {
+        console.info(
+          `[incTenantProductCount] Using recount fallback for tenant ${tenantId}`
+        );
+      }
       await recountTenantProductCount(payload, tenantId);
     }
     return;

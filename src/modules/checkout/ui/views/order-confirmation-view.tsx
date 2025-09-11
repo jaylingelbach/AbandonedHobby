@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
-import { buildSignInUrl } from '@/lib/utils';
+import { buildSignInUrl, formatCurrency } from '@/lib/utils';
 import { TRPCClientError } from '@trpc/client';
 
 interface Props {
@@ -31,7 +31,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   });
 
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
-    console.log('TODO: remove');
     return (
       <div className="min-h-screen bg-white p-8">
         <p className="font-medium">Please sign in to view your receipt.</p>
@@ -118,10 +117,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
               <div className="flex items-center gap-2">
                 <ReceiptIcon className="size-5" />
                 <span className="font-medium">
-                  {(order.totalCents / 100).toLocaleString(undefined, {
-                    style: 'currency',
-                    currency: order.currency.toUpperCase()
-                  })}
+                  {formatCurrency(order.totalCents, order.currency)}
                 </span>
               </div>
             </div>
@@ -138,13 +134,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                       <div className="font-medium">{item.name}</div>
                       <div className="text-sm text-muted-foreground">
                         Qty {item.quantity} •{' '}
-                        {(item.unitAmountCents / 100).toLocaleString(
-                          undefined,
-                          {
-                            style: 'currency',
-                            currency: order.currency.toUpperCase()
-                          }
-                        )}
+                        {formatCurrency(item.unitAmountCents, order.currency)}
                       </div>
                       {item.returnsAcceptedThroughISO ? (
                         <div className="text-xs mt-1">
@@ -156,10 +146,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                       ) : null}
                     </div>
                     <div className="ml-4 font-medium">
-                      {(item.amountTotalCents / 100).toLocaleString(undefined, {
-                        style: 'currency',
-                        currency: order.currency.toUpperCase()
-                      })}
+                      {formatCurrency(item.amountSubtotalCents, order.currency)}
                     </div>
                   </li>
                 ))}
