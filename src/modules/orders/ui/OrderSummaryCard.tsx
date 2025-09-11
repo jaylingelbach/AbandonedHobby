@@ -82,10 +82,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
           shipping.postalCode ||
           shipping.country ||
           shipping.name) ? (
-          <address
-            className="mt-3 border-2 border-black rounded p-3 not-italic"
-            g
-          >
+          <address className="mt-3 border-2 border-black rounded p-3 not-italic">
             <div className="text-xs text-muted-foreground mb-1">
               Shipping to
             </div>
