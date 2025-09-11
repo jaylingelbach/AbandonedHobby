@@ -117,6 +117,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
                   orderNumber={order.orderNumber}
                   returnsAcceptedThrough={order.returnsAcceptedThroughISO}
                   quantity={order.quantity}
+                  shipping={order.shipping}
                 />
               ) : (
                 <div className="text-sm italic text-muted-foreground">

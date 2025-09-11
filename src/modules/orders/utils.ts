@@ -37,6 +37,68 @@ function assertPositiveInt(value: unknown, path: string): number {
   return n;
 }
 
+/** Optional string helper (keeps types strict without using `any`). */
+function asOptionalString(v: unknown): string | null {
+  return typeof v === 'string' ? v : null;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Small helpers (no `any`)
+// ─────────────────────────────────────────────────────────────────────────────
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipping reader (accepts group or legacy array[0])
+// Essentials: line1 + postalCode + country; tolerates missing city/state.
+// ─────────────────────────────────────────────────────────────────────────────
+export function readShippingFromOrder(
+  shippingRaw: unknown
+): OrderSummaryDTO['shipping'] {
+  const toSnapshot = (
+    obj: Record<string, unknown>
+  ): OrderSummaryDTO['shipping'] => {
+    const name = isNonEmptyString(obj.name) ? obj.name : 'Customer';
+    const line1 = isNonEmptyString(obj.line1) ? obj.line1 : null;
+    const line2 = isNonEmptyString(obj.line2) ? obj.line2 : null;
+    const city = isNonEmptyString(obj.city) ? obj.city : null;
+    const state = isNonEmptyString(obj.state) ? obj.state : null;
+    const postalCode = isNonEmptyString(obj.postalCode) ? obj.postalCode : null;
+    const country = isNonEmptyString(obj.country) ? obj.country : null;
+
+    if (!line1 || !postalCode || !country) return undefined;
+
+    return {
+      name,
+      line1,
+      line2,
+      city: city ?? '',
+      state: state ?? '',
+      postalCode,
+      country
+    };
+  };
+
+  if (
+    shippingRaw &&
+    typeof shippingRaw === 'object' &&
+    !Array.isArray(shippingRaw)
+  ) {
+    return toSnapshot(shippingRaw as Record<string, unknown>);
+  }
+  if (Array.isArray(shippingRaw) && shippingRaw.length > 0) {
+    const first = shippingRaw[0];
+    if (first && typeof first === 'object') {
+      return toSnapshot(first as Record<string, unknown>);
+    }
+  }
+  return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Main mapper
+// ─────────────────────────────────────────────────────────────────────────────
 export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   if (!isObjectRecord(orderDocument)) {
     throw new TRPCError({
@@ -50,13 +112,11 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     orderDocument.orderNumber,
     'order.orderNumber'
   );
-
-  // createdAt should be an ISO string in Payload responses
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
-
   const currency = assertString(orderDocument.currency, 'order.currency');
   const totalCents = assertNumber(orderDocument.total, 'order.total');
 
+  // Items array (non-empty)
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
   if (!Array.isArray(itemsUnknown) || itemsUnknown.length === 0) {
     throw new TRPCError({
@@ -65,57 +125,66 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     });
   }
 
+  // Sum quantity and collect productIds
   let quantitySum = 0;
-  const productIds: string[] = itemsUnknown.map((item, index) => {
-    if (!isObjectRecord(item)) {
+  const productIds: string[] = itemsUnknown.map((rawItem, index) => {
+    if (!isObjectRecord(rawItem)) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: `items[${index}] must be an object`
       });
     }
 
-    // quantity must be a positive integer
-    const quantity = assertNumber(item.quantity, `items[${index}].quantity`);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].quantity must be a positive integer`
-      });
-    }
-    quantitySum += quantity;
+    // quantity
+    quantitySum += assertPositiveInt(
+      rawItem.quantity,
+      `items[${index}].quantity`
+    );
 
-    // prefer item.productId, fallback to item.id
-    const id =
-      typeof item.productId === 'string'
-        ? item.productId
-        : typeof item.id === 'string'
-          ? item.id
-          : null;
+    // product id (prefer relationship field)
+    const pRef = (rawItem as Record<string, unknown>).product;
+    let id: string | null = null;
+
+    if (typeof pRef === 'string') {
+      id = pRef;
+    } else if (isObjectRecord(pRef) && typeof pRef.id === 'string') {
+      id = pRef.id;
+    } else if (
+      typeof (rawItem as Record<string, unknown>).productId === 'string'
+    ) {
+      id = (rawItem as Record<string, unknown>).productId as string;
+    } else if (typeof (rawItem as Record<string, unknown>).id === 'string') {
+      id = (rawItem as Record<string, unknown>).id as string;
+    }
 
     if (!id) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].productId (or id) is required`
+        message: `items[${index}].product (or productId/id) is required`
       });
     }
     return id;
   });
 
-  // Primary product id (first) for back-compat with existing UI links
-  const primaryProductIdCandidate = productIds.at(0); // string | undefined
+  // Primary product id for back-compat UI links
+  const primaryProductIdCandidate = productIds.at(0);
   if (typeof primaryProductIdCandidate !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'Failed to resolve primary product ID from order items array'
+      message: 'Failed to resolve primary product ID from order items'
     });
   }
-  const primaryProductId: string = primaryProductIdCandidate;
+  const productId = primaryProductIdCandidate;
 
-  // Pull the order-level returns cutoff saved by the webhook; normalize to null if absent
+  // Order-level returns cutoff → normalize to null if absent
   const returnsRaw = (orderDocument as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =
-    typeof returnsRaw === 'string' ? returnsRaw : null;
+    typeof returnsRaw === 'string' && returnsRaw.length > 0 ? returnsRaw : null;
+
+  // Shipping snapshot (group or array[0])
+  const shippingRaw = (orderDocument as Record<string, unknown>).shipping;
+  const shipping = readShippingFromOrder(shippingRaw);
 
   return {
     orderId,
@@ -125,8 +194,9 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     currency,
     totalCents,
     quantity: quantitySum,
-    productId: primaryProductId,
-    productIds
+    productId,
+    productIds,
+    shipping
   };
 }
 
@@ -138,7 +208,7 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
     });
   }
 
-  // 🔧 product can be a string id OR a populated object with { id: string }
+  // product can be a string id OR a populated object with { id: string }
   const productRef = (orderItemRaw as Record<string, unknown>).product;
   const productId =
     typeof productRef === 'string'
@@ -239,13 +309,23 @@ export function mapOrderToConfirmation(
   const receiptUrlRaw = (orderDocument as Record<string, unknown>).receiptUrl;
   const receiptUrl = typeof receiptUrlRaw === 'string' ? receiptUrlRaw : null;
 
-  // Optional tenant slug for CTAs (if populated by depth>0)
+  // Optional tenant slug for CTAs (prefer sellerTenant; fallback to tenant)
   let tenantSlug: string | null = null;
-  const tenantRelation = (orderDocument as Record<string, unknown>).tenant;
-  if (isObjectRecord(tenantRelation)) {
-    const slugCandidate = (tenantRelation as Record<string, unknown>).slug;
-    if (typeof slugCandidate === 'string') tenantSlug = slugCandidate;
+  const maybeSeller = (orderDocument as Record<string, unknown>).sellerTenant;
+  const maybeTenant = (orderDocument as Record<string, unknown>).tenant;
+  const tenantRelation = isObjectRecord(maybeSeller)
+    ? maybeSeller
+    : isObjectRecord(maybeTenant)
+      ? maybeTenant
+      : null;
+  if (tenantRelation) {
+    const slugCandidate = asOptionalString(tenantRelation.slug);
+    if (slugCandidate) tenantSlug = slugCandidate;
   }
+
+  // 🔹 NEW: map shipping (supports group or legacy array[0])
+  const shippingRaw = (orderDocument as Record<string, unknown>).shipping;
+  const shipping = readShippingFromOrder(shippingRaw);
 
   return {
     orderId,
@@ -256,6 +336,7 @@ export function mapOrderToConfirmation(
     returnsAcceptedThroughISO,
     receiptUrl,
     tenantSlug,
-    items
+    items,
+    shipping
   };
 }

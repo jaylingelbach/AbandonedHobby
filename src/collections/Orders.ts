@@ -96,6 +96,48 @@ export const Orders: CollectionConfig = {
       type: 'text',
       index: true
     },
+    {
+      name: 'shipping',
+      type: 'group',
+      required: false,
+      fields: [
+        {
+          name: 'name',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'line1',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'line2',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'city',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'state',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'postalCode',
+          type: 'text',
+          required: false
+        },
+        {
+          name: 'country',
+          type: 'text',
+          required: false
+        }
+      ]
+    },
     // line items w/ quantity (no change to Products collection)
     {
       name: 'items',

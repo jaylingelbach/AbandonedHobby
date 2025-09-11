@@ -17,6 +17,7 @@ export default async function Page({
 }) {
   const { orderId } = await params;
 
+  // 1) Make sure the user is signed in (server-side)
   try {
     const session = await caller.auth.session();
     if (!session.user) {
@@ -28,15 +29,23 @@ export default async function Page({
 
   const queryClient = getQueryClient();
 
+  // 2) Prefetch session into the cache so client queries don’t 401 on first paint
+  await queryClient.prefetchQuery(trpc.auth.session.queryOptions());
+
+  // 3) Fetch the order on the server (you already do this to get productId)
   let orderDTO;
   try {
-    orderDTO = await caller.orders.getForBuyerById({ orderId }); // returns { productId, ... }
+    orderDTO = await caller.orders.getForBuyerById({ orderId });
   } catch {
     return notFound();
   }
 
-  // Prefetch everything the client will need
-  await Promise.all([
+  // 4) HYDRATE that same result under the same query key your client uses
+  const orderQ = trpc.orders.getForBuyerById.queryOptions({ orderId });
+  queryClient.setQueryData(orderQ.queryKey, orderDTO);
+
+  // 5) Prefetch other data the client view needs
+  await Promise.allSettled([
     queryClient.prefetchQuery(
       trpc.library.getOne.queryOptions({ productId: orderDTO.productId })
     ),
@@ -45,6 +54,7 @@ export default async function Page({
     )
   ]);
 
+  // 6) Dehydrate + render
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <Suspense fallback={<ProductViewSkeleton />}>

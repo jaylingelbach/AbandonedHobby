@@ -401,6 +401,15 @@ export interface Order {
   currency: string;
   stripePaymentIntentId?: string | null;
   stripeChargeId?: string | null;
+  shipping?: {
+    name?: string | null;
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  };
   items: {
     product: string | Product;
     nameSnapshot: string;
@@ -625,6 +634,17 @@ export interface OrdersSelect<T extends boolean = true> {
   currency?: T;
   stripePaymentIntentId?: T;
   stripeChargeId?: T;
+  shipping?:
+    | T
+    | {
+        name?: T;
+        line1?: T;
+        line2?: T;
+        city?: T;
+        state?: T;
+        postalCode?: T;
+        country?: T;
+      };
   items?:
     | T
     | {

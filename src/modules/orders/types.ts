@@ -1,3 +1,13 @@
+export type ShippingAddress = {
+  name?: string | null;
+  line1: string;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null; // ISO-2
+};
+
 export type OrderListItem = {
   orderId: string;
   orderNumber: string;
@@ -32,6 +42,7 @@ export type OrderConfirmationDTO = {
   receiptUrl?: string | null; // if you attach one later
   tenantSlug?: string | null; // nice for CTAs
   items: OrderItemDTO[]; // full receipt lines
+  shipping?: ShippingAddress;
 };
 
 export type OrderSummaryDTO = {
@@ -44,4 +55,28 @@ export type OrderSummaryDTO = {
   quantity: number;
   productId: string;
   productIds?: string[]; // All product IDs in the order when multiple items exist
+  shipping?: ShippingAddress;
 };
+
+type BaseOrderSummaryProps = {
+  orderDate: string | Date;
+  orderNumber: string;
+  returnsAcceptedThrough?: string | Date | null;
+  quantity?: number;
+  className?: string;
+  shipping?: ShippingAddress;
+};
+
+// EITHER dollars (your old way) OR cents (from DB/Stripe)
+export type DollarsVariant = BaseOrderSummaryProps & {
+  totalPaid: number; // dollars
+  totalCents?: never;
+  currency?: never;
+};
+export type CentsVariant = BaseOrderSummaryProps & {
+  totalCents: number; // cents
+  currency?: string; // optional, reserved for future
+  totalPaid?: never;
+};
+
+export type OrderSummaryCardProps = DollarsVariant | CentsVariant;
