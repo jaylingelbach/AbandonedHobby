@@ -150,6 +150,7 @@ export function usdToCents(input: string | number): number {
   const negative = cleaned.startsWith('-');
   const unsigned = negative ? cleaned.slice(1) : cleaned;
 
+  // 👇 Provide defaults so TS knows they're strings, not string | undefined
   const [dollarsRaw, fracRaw] = unsigned.split('.');
   const dollars: string = dollarsRaw ?? '0';
   const frac: string = fracRaw ?? '';
@@ -159,18 +160,9 @@ export function usdToCents(input: string | number): number {
   const frac2 = frac3.slice(0, 2);
   const roundDigit = frac3[2] ?? '0';
 
-  // Use BigInt for exact arithmetic and then ensure result fits in Number safely.
-  const frac2Val = parseInt(frac2 || '0', 10);
-  const dollarsBI = BigInt(dollars);
-  let centsBI = dollarsBI * 100n + BigInt(frac2Val);
-  if (roundDigit >= '5') centsBI += 1n;
+  let cents = parseInt(dollars, 10) * 100 + parseInt(frac2 || '0', 10);
+  if (parseInt(roundDigit, 10) >= 5) cents += 1;
 
-  const maxSafeBI = BigInt(Number.MAX_SAFE_INTEGER);
-  if (centsBI > maxSafeBI) {
-    throw new Error(`USD amount exceeds maximum safe value: "${input}"`);
-  }
-
-  const cents = Number(centsBI);
   return negative ? -cents : cents;
 }
 
