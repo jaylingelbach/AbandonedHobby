@@ -180,7 +180,8 @@ type PayloadDbWithConnection = {
 type UpdateOneCapable = {
   updateOne: (
     filter: Record<string, unknown>,
-    update: Record<string, unknown>,
+    // allow both classic update docs and aggregation pipeline updates
+    update: Record<string, unknown> | Record<string, unknown>[], // or: | PipelineStage[]
     options?: { session?: ClientSession }
   ) => Promise<unknown>;
 };
@@ -264,6 +265,7 @@ export async function recountTenantProductCount(
 }
 
 /** Single atomic increment for a tenant’s `productCount`. (Mongo-first; with optional fallback) */
+// drop-in replacement for incTenantProductCount
 export async function incTenantProductCount(
   payload: Payload,
   tenantId: string,
@@ -272,31 +274,41 @@ export async function incTenantProductCount(
 ): Promise<void> {
   if (!delta) return;
 
-  const tenants = getTenantsCollection(payload);
-  if (tenants) {
-    // Mongo / mongoose path: fast and atomic
-    await tenants.updateOne(
-      { _id: tenantId },
-      {
-        $inc: {
-          productCount: { $max: [{ $add: ['$productCount', delta] }, 0] }
-        }
-      },
-      session ? { session } : undefined
-    );
+  const handle = getTenantsCollection(payload);
+  if (!handle) {
+    if (process.env.AH_RECOUNT_FALLBACK === 'true') {
+      if (process.env.NODE_ENV === 'production') {
+        console.info(
+          `[incTenantProductCount] Using recount fallback for tenant ${tenantId}`
+        );
+      }
+      await recountTenantProductCount(payload, tenantId);
+    }
     return;
   }
 
-  // Optional non-mongo fallback (heavier, but correct)
-  if (process.env.AH_RECOUNT_FALLBACK === 'true') {
-    await recountTenantProductCount(payload, tenantId);
-  } else {
-    // Optional: log once so you notice drift risk in non-mongo envs
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        '[incTenantProductCount] No mongo handle; delta skipped. Enable AH_RECOUNT_FALLBACK to recompute counts.'
-      );
+  const options = session ? { session } : undefined;
+
+  // Pipeline update: productCount = max( ifNull(productCount,0) + delta, 0 )
+  const pipeline: Record<string, unknown>[] = [
+    {
+      $set: {
+        productCount: {
+          $max: [{ $add: [{ $ifNull: ['$productCount', 0] }, delta] }, 0]
+        }
+      }
     }
+  ];
+
+  try {
+    await handle.updateOne({ _id: tenantId }, pipeline, options);
+  } catch {
+    // Fallback if the adapter/version doesn't support pipeline updates
+    await handle.updateOne(
+      { _id: tenantId },
+      { $inc: { productCount: delta } },
+      options
+    );
   }
 }
 

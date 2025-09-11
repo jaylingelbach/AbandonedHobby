@@ -2263,3 +2263,54 @@ Added recap covering the Orders transition and onboarding behavior.
 - Docs / recap
   - recap.md
     - Update recap headers with dates; add “Product count” section describing tenant counting, new hooks/utilities, payload/type updates, and the Welcome routing fix.
+
+# Post checkout flow adjustments (success page/ order confirmation) 09/11/25
+
+## Walkthrough
+
+- Introduces checkout success/restore pages and loading UI, implements client views for order confirmation/summary with TRPC polling, adds server procedures to fetch orders by Stripe session, overhauls checkout purchase flow with Stripe integration and metadata, updates media alt optionality, tweaks UI breadcrumb formatting, adds admin not-found, utilities, and tsconfig includes.
+
+## New Features
+
+- Order success/confirmation UI with real-time polling, detailed item receipts, and actions; loading/finalizing screen; admin "Not Found" page.
+- New order APIs and DTOs to power summaries and confirmations.
+
+## Improvements
+
+- Hardened checkout: authenticated purchase, server-driven pricing, single-seller enforcement, tax readiness, richer metadata, clearer errors.
+- Media alt made optional with accessibility guidance.
+
+## Style
+
+- Breadcrumb code formatting only (no visual change).
+
+## Chores
+
+- Project config expanded to include additional app/admin routes.
+
+## File changes
+
+- Checkout pages & loading
+  - src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/restore/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/success/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/success/loading.tsx
+    - New restore placeholder page; success page does SSR prefetch (TRPC) and hydrates OrderConfirmationView; loading UI for finalization.
+- Checkout server flow
+  - src/modules/checkout/server/procedures.ts
+    - Strengthens purchase mutation: auth required, single-seller enforcement, server-priced Stripe line items, platform fee, tax readiness, enriched metadata, improved error handling, returns checkout URL. Minor log format in verify.
+- Order views (client)
+  - src/modules/checkout/ui/views/order-confirmation-view.tsx, src/modules/checkout/ui/views/order-success-summary-view.tsx
+    - New client components querying orders by session; suspense + polling, unauthorized handling, pending vs confirmed states, currency/date formatting, action links.
+- Orders API & mapping
+  - src/modules/orders/server/procedures.ts, src/modules/orders/types.ts, src/modules/orders/utils.ts
+    - Adds TRPC procedures getSummaryBySession/getConfirmationBySession; introduces DTOs (OrderListItem, OrderItemDTO, OrderConfirmationDTO) and updates OrderSummaryDTO; adds strict mappers with runtime validation.
+- Server utilities & counters
+  - src/lib/server/utils.ts Extends updateOne to accept pipeline;
+    - reworks incTenantProductCount with atomic pipeline update, fallback controls, session support, and compatibility path.
+- Admin app routes
+  - src/app/(payload)/admin/[[...segments]]/not-found.js, tsconfig.json
+    - Adds auto-generated admin not-found wrapper with metadata; includes admin routes (and a chat route) in tsconfig includes.
+- Media schema & types
+  - src/collections/Media.ts, src/payload-types.ts
+    - Makes Media.alt optional with admin description; aligns generated types and doc comments.
+- UI formatting
+  - src/components/ui/breadcrumb.tsx
+    - Style-only refactor: single quotes, minor typing punctuation; no behavioral changes.
