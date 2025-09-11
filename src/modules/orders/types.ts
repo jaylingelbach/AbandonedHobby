@@ -53,4 +53,44 @@ export type OrderSummaryDTO = {
   quantity: number;
   productId: string;
   productIds?: string[]; // All product IDs in the order when multiple items exist
+  shipping?: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  } | null;
 };
+
+type BaseOrderSummaryProps = {
+  orderDate: string | Date;
+  orderNumber: string;
+  returnsAcceptedThrough?: string | Date | null;
+  quantity?: number;
+  className?: string;
+  shipping?: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string;
+  } | null;
+};
+
+// EITHER dollars (your old way) OR cents (from DB/Stripe)
+export type DollarsVariant = BaseOrderSummaryProps & {
+  totalPaid: number; // dollars
+  totalCents?: never;
+  currency?: never;
+};
+export type CentsVariant = BaseOrderSummaryProps & {
+  totalCents: number; // cents
+  currency?: string; // optional, reserved for future
+  totalPaid?: never;
+};
+
+export type OrderSummaryCardProps = DollarsVariant | CentsVariant;

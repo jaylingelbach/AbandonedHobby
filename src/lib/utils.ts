@@ -166,6 +166,9 @@ export function usdToCents(input: string | number): number {
   return negative ? -cents : cents;
 }
 
+export const formatCents = (cents: number, currency = 'USD') =>
+  formatCurrency(cents / 100, currency);
+
 /** Render a React node into plain text for SEO, tooltips, etc. */
 export function renderToText(node: ReactNode): string {
   if (node == null || typeof node === 'boolean') return '';

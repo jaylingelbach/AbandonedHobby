@@ -115,74 +115,21 @@ export const ordersRouter = createTRPCRouter({
       const order = (await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId,
-        depth: 0,
+        depth: 0, // mapper expects plain relations or ids
         overrideAccess: true // bypass collection access rules
       })) as Order | null;
 
       if (!order) throw new TRPCError({ code: 'NOT_FOUND' });
 
-      // safe buyer check (string or populated object)
+      // Safe buyer check (string or populated object)
       const buyerId =
         typeof order.buyer === 'string' ? order.buyer : order.buyer?.id;
       if (buyerId !== user.id) throw new TRPCError({ code: 'FORBIDDEN' });
 
-      const items = Array.isArray(order.items) ? order.items : [];
-      const quantity = items.reduce<number>(
-        (sum, item) =>
-          sum + (typeof item.quantity === 'number' ? item.quantity : 1),
-        0
-      );
-
-      // items may contain product as string or as populated doc
-      let productId: string | null = null;
-
-      // Prefer a product id from items first
-      for (const item of items) {
-        const product = item.product;
-        if (typeof product === 'string' && product) {
-          productId = product;
-          break;
-        }
-        if (product && typeof product === 'object' && 'id' in product) {
-          const maybeId = (product as { id?: unknown }).id;
-          if (typeof maybeId === 'string' && maybeId) {
-            productId = maybeId;
-            break;
-          }
-        }
-      }
-
-      // Fallback to the legacy top-level order.product
-      if (!productId) {
-        const product = order.product;
-        if (typeof product === 'string' && product) {
-          productId = product;
-        } else if (product && typeof product === 'object' && 'id' in product) {
-          const maybeId = (product as { id?: unknown }).id;
-          if (typeof maybeId === 'string' && maybeId) {
-            productId = maybeId;
-          }
-        }
-      }
-
-      if (!productId) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: 'Order has no product'
-        });
-      }
-
-      return {
-        orderId: String(order.id),
-        orderNumber: order.orderNumber,
-        orderDateISO: order.createdAt,
-        returnsAcceptedThroughISO: order.returnsAcceptedThrough ?? null,
-        currency: order.currency,
-        totalCents: order.total,
-        quantity,
-        productId
-      };
+      // ✅ Single source of truth: includes shipping, productIds, etc.
+      return mapOrderToSummary(order);
     }),
+
   listForBuyer: protectedProcedure
     .input(
       z.object({

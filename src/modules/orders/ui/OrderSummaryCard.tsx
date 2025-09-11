@@ -2,39 +2,17 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency } from '@/lib/utils';
-
-type BaseOrderSummaryProps = {
-  orderDate: string | Date;
-  orderNumber: string;
-  returnsAcceptedThrough?: string | Date | null;
-  quantity?: number;
-  className?: string;
-};
-
-// EITHER dollars (your old way) OR cents (from DB/Stripe)
-type DollarsVariant = BaseOrderSummaryProps & {
-  totalPaid: number; // dollars
-  totalCents?: never;
-  currency?: never;
-};
-type CentsVariant = BaseOrderSummaryProps & {
-  totalCents: number; // cents
-  currency?: string; // optional, reserved for future
-  totalPaid?: never;
-};
-
-export type OrderSummaryCardProps = DollarsVariant | CentsVariant;
-
-// --- type guards ---
-function hasTotalCents(props: OrderSummaryCardProps): props is CentsVariant {
-  return typeof (props as CentsVariant).totalCents === 'number';
-}
-function hasTotalPaid(props: OrderSummaryCardProps): props is DollarsVariant {
-  return typeof (props as DollarsVariant).totalPaid === 'number';
-}
+import { OrderSummaryCardProps } from '../types';
+import { hasTotalCents, hasTotalPaid } from './utils-client';
 
 export function OrderSummaryCard(props: OrderSummaryCardProps) {
-  const { orderDate, orderNumber, returnsAcceptedThrough, className } = props;
+  const {
+    orderDate,
+    orderNumber,
+    returnsAcceptedThrough,
+    className,
+    shipping
+  } = props;
 
   let totalDollars: number;
   if (hasTotalCents(props)) {
@@ -42,10 +20,9 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
   } else if (hasTotalPaid(props)) {
     totalDollars = props.totalPaid;
   } else {
-    totalDollars = 0; // final fallback; should never happen
+    totalDollars = 0;
   }
 
-  // Prevent rendering 0 or negative quantities if upstream ever passes bad data.
   const quantity = Math.max(1, Number(props.quantity ?? 1) || 1);
 
   const fmtDate = (d?: string | Date | null) => {
@@ -73,10 +50,18 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
           Order details
         </CardTitle>
       </CardHeader>
+
       <CardContent className="grid gap-3 text-sm">
         <Row label="Order date" value={fmtDate(orderDate)} />
         <Row label="Quantity" value={quantity} />
-        <Row label="Total paid" value={formatCurrency(totalDollars)} strong />
+        <Row
+          label="Total paid"
+          value={formatCurrency(
+            totalDollars,
+            (hasTotalCents(props) && props.currency) || 'USD'
+          )}
+          strong
+        />
         <Row
           label="Order #"
           value={<span className="font-mono">{orderNumber}</span>}
@@ -85,6 +70,37 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
           label="Returns accepted through"
           value={fmtDate(returnsAcceptedThrough)}
         />
+
+        {shipping ? (
+          <div className="mt-3 border-2 border-black rounded p-3">
+            <div className="text-xs text-muted-foreground mb-1">
+              Shipping to
+            </div>
+            {shipping.name ? (
+              <div className="font-medium">{shipping.name}</div>
+            ) : null}
+            <div className="mt-0.5 leading-tight">
+              {shipping.line1}
+              {shipping.line2 ? (
+                <>
+                  <br />
+                  {shipping.line2}
+                </>
+              ) : null}
+              <br />
+              {/* City/state line: only show what exists, with proper separators */}
+              <span>
+                {shipping.city ? shipping.city : ''}
+                {shipping.city && shipping.state ? ', ' : ''}
+                {shipping.state ? shipping.state : ''}
+                {shipping.city || shipping.state ? ' ' : ''}
+                {shipping.postalCode}
+              </span>
+              <br />
+              {shipping.country}
+            </div>
+          </div>
+        ) : null}
       </CardContent>
     </Card>
   );

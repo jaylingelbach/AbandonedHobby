@@ -42,64 +42,63 @@ function asOptionalString(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
 }
 
-/** Read a shipping snapshot from either a Payload `group` or legacy `array[0]`. */
-function readShippingFromOrder(
+// ─────────────────────────────────────────────────────────────────────────────
+// Small helpers (no `any`)
+// ─────────────────────────────────────────────────────────────────────────────
+function isNonEmptyString(v: unknown): v is string {
+  return typeof v === 'string' && v.trim().length > 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Shipping reader (accepts group or legacy array[0])
+// Essentials: line1 + postalCode + country; tolerates missing city/state.
+// ─────────────────────────────────────────────────────────────────────────────
+export function readShippingFromOrder(
   shippingRaw: unknown
-): OrderConfirmationDTO['shipping'] {
-  // New schema (group)
-  if (isObjectRecord(shippingRaw)) {
-    const name = asOptionalString(shippingRaw.name);
-    const line1 = asOptionalString(shippingRaw.line1);
-    const line2 = asOptionalString(shippingRaw.line2);
-    const city = asOptionalString(shippingRaw.city);
-    const state = asOptionalString(shippingRaw.state);
-    const postalCode = asOptionalString(shippingRaw.postalCode);
-    const country = asOptionalString(shippingRaw.country);
+): OrderSummaryDTO['shipping'] {
+  const toSnapshot = (
+    obj: Record<string, unknown>
+  ): OrderSummaryDTO['shipping'] => {
+    const name = isNonEmptyString(obj.name) ? obj.name : 'Customer';
+    const line1 = isNonEmptyString(obj.line1) ? obj.line1 : null;
+    const line2 = isNonEmptyString(obj.line2) ? obj.line2 : null;
+    const city = isNonEmptyString(obj.city) ? obj.city : null;
+    const state = isNonEmptyString(obj.state) ? obj.state : null;
+    const postalCode = isNonEmptyString(obj.postalCode) ? obj.postalCode : null;
+    const country = isNonEmptyString(obj.country) ? obj.country : null;
 
-    // Only return shipping if we have the essential address parts
-    if (line1 && city && state && postalCode && country) {
-      return {
-        name: name ?? 'Customer',
-        line1,
-        line2,
-        city,
-        state,
-        postalCode,
-        country
-      };
-    }
-    return null;
+    if (!line1 || !postalCode || !country) return null;
+
+    return {
+      name,
+      line1,
+      line2,
+      city: city ?? '',
+      state: state ?? '',
+      postalCode,
+      country
+    };
+  };
+
+  if (
+    shippingRaw &&
+    typeof shippingRaw === 'object' &&
+    !Array.isArray(shippingRaw)
+  ) {
+    return toSnapshot(shippingRaw as Record<string, unknown>);
   }
-
-  // Legacy schema (array): take first element if present
   if (Array.isArray(shippingRaw) && shippingRaw.length > 0) {
     const first = shippingRaw[0];
-    if (isObjectRecord(first)) {
-      const name = asOptionalString(first.name);
-      const line1 = asOptionalString(first.line1);
-      const line2 = asOptionalString(first.line2);
-      const city = asOptionalString(first.city);
-      const state = asOptionalString(first.state);
-      const postalCode = asOptionalString(first.postalCode);
-      const country = asOptionalString(first.country);
-
-      if (line1 && city && state && postalCode && country) {
-        return {
-          name: name ?? 'Customer',
-          line1,
-          line2,
-          city,
-          state,
-          postalCode,
-          country
-        };
-      }
+    if (first && typeof first === 'object') {
+      return toSnapshot(first as Record<string, unknown>);
     }
   }
-
   return null;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// Main mapper
+// ─────────────────────────────────────────────────────────────────────────────
 export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   if (!isObjectRecord(orderDocument)) {
     throw new TRPCError({
@@ -113,13 +112,11 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     orderDocument.orderNumber,
     'order.orderNumber'
   );
-
-  // createdAt should be an ISO string in Payload responses
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
-
   const currency = assertString(orderDocument.currency, 'order.currency');
   const totalCents = assertNumber(orderDocument.total, 'order.total');
 
+  // Items array (non-empty)
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
   if (!Array.isArray(itemsUnknown) || itemsUnknown.length === 0) {
     throw new TRPCError({
@@ -128,57 +125,66 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     });
   }
 
+  // Sum quantity and collect productIds
   let quantitySum = 0;
-  const productIds: string[] = itemsUnknown.map((item, index) => {
-    if (!isObjectRecord(item)) {
+  const productIds: string[] = itemsUnknown.map((rawItem, index) => {
+    if (!isObjectRecord(rawItem)) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: `items[${index}] must be an object`
       });
     }
 
-    // quantity must be a positive integer
-    const quantity = assertNumber(item.quantity, `items[${index}].quantity`);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].quantity must be a positive integer`
-      });
-    }
-    quantitySum += quantity;
+    // quantity
+    quantitySum += assertPositiveInt(
+      rawItem.quantity,
+      `items[${index}].quantity`
+    );
 
-    // prefer item.productId, fallback to item.id
-    const id =
-      typeof item.productId === 'string'
-        ? item.productId
-        : typeof item.id === 'string'
-          ? item.id
-          : null;
+    // product id (prefer relationship field)
+    const pRef = (rawItem as Record<string, unknown>).product;
+    let id: string | null = null;
+
+    if (typeof pRef === 'string') {
+      id = pRef;
+    } else if (isObjectRecord(pRef) && typeof pRef.id === 'string') {
+      id = pRef.id;
+    } else if (
+      typeof (rawItem as Record<string, unknown>).productId === 'string'
+    ) {
+      id = (rawItem as Record<string, unknown>).productId as string;
+    } else if (typeof (rawItem as Record<string, unknown>).id === 'string') {
+      id = (rawItem as Record<string, unknown>).id as string;
+    }
 
     if (!id) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].productId (or id) is required`
+        message: `items[${index}].product (or productId/id) is required`
       });
     }
     return id;
   });
 
-  // Primary product id (first) for back-compat with existing UI links
-  const primaryProductIdCandidate = productIds.at(0); // string | undefined
+  // Primary product id for back-compat UI links
+  const primaryProductIdCandidate = productIds.at(0);
   if (typeof primaryProductIdCandidate !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: 'Failed to resolve primary product ID from order items array'
+      message: 'Failed to resolve primary product ID from order items'
     });
   }
-  const primaryProductId: string = primaryProductIdCandidate;
+  const productId = primaryProductIdCandidate;
 
-  // Pull the order-level returns cutoff saved by the webhook; normalize to null if absent
+  // Order-level returns cutoff → normalize to null if absent
   const returnsRaw = (orderDocument as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =
-    typeof returnsRaw === 'string' ? returnsRaw : null;
+    typeof returnsRaw === 'string' && returnsRaw.length > 0 ? returnsRaw : null;
+
+  // Shipping snapshot (group or array[0])
+  const shippingRaw = (orderDocument as Record<string, unknown>).shipping;
+  const shipping = readShippingFromOrder(shippingRaw);
 
   return {
     orderId,
@@ -188,8 +194,9 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     currency,
     totalCents,
     quantity: quantitySum,
-    productId: primaryProductId,
-    productIds
+    productId,
+    productIds,
+    shipping
   };
 }
 
