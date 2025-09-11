@@ -374,7 +374,16 @@ export async function POST(req: Request) {
             returnsAcceptedThrough: returnsAcceptedThroughISO, // string | undefined (OK for string | null | undefined)
             buyerEmail: customer.email ?? undefined,
             status: 'paid',
-            total: totalCents
+            total: totalCents,
+            shipping: {
+              name: customer.name ?? 'Customer',
+              line1: customer.address?.line1,
+              line2: customer.address?.line2,
+              city: customer.address?.city,
+              state: customer.address?.state,
+              postalCode: customer.address?.postal_code,
+              country: customer.address?.country
+            }
           },
           overrideAccess: true
         });

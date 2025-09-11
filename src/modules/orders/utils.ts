@@ -37,6 +37,69 @@ function assertPositiveInt(value: unknown, path: string): number {
   return n;
 }
 
+/** Optional string helper (keeps types strict without using `any`). */
+function asOptionalString(v: unknown): string | null {
+  return typeof v === 'string' ? v : null;
+}
+
+/** Read a shipping snapshot from either a Payload `group` or legacy `array[0]`. */
+function readShippingFromOrder(
+  shippingRaw: unknown
+): OrderConfirmationDTO['shipping'] {
+  // New schema (group)
+  if (isObjectRecord(shippingRaw)) {
+    const name = asOptionalString(shippingRaw.name);
+    const line1 = asOptionalString(shippingRaw.line1);
+    const line2 = asOptionalString(shippingRaw.line2);
+    const city = asOptionalString(shippingRaw.city);
+    const state = asOptionalString(shippingRaw.state);
+    const postalCode = asOptionalString(shippingRaw.postalCode);
+    const country = asOptionalString(shippingRaw.country);
+
+    // Only return shipping if we have the essential address parts
+    if (line1 && city && state && postalCode && country) {
+      return {
+        name: name ?? 'Customer',
+        line1,
+        line2,
+        city,
+        state,
+        postalCode,
+        country
+      };
+    }
+    return null;
+  }
+
+  // Legacy schema (array): take first element if present
+  if (Array.isArray(shippingRaw) && shippingRaw.length > 0) {
+    const first = shippingRaw[0];
+    if (isObjectRecord(first)) {
+      const name = asOptionalString(first.name);
+      const line1 = asOptionalString(first.line1);
+      const line2 = asOptionalString(first.line2);
+      const city = asOptionalString(first.city);
+      const state = asOptionalString(first.state);
+      const postalCode = asOptionalString(first.postalCode);
+      const country = asOptionalString(first.country);
+
+      if (line1 && city && state && postalCode && country) {
+        return {
+          name: name ?? 'Customer',
+          line1,
+          line2,
+          city,
+          state,
+          postalCode,
+          country
+        };
+      }
+    }
+  }
+
+  return null;
+}
+
 export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   if (!isObjectRecord(orderDocument)) {
     throw new TRPCError({
@@ -138,7 +201,7 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
     });
   }
 
-  // 🔧 product can be a string id OR a populated object with { id: string }
+  // product can be a string id OR a populated object with { id: string }
   const productRef = (orderItemRaw as Record<string, unknown>).product;
   const productId =
     typeof productRef === 'string'
@@ -239,13 +302,23 @@ export function mapOrderToConfirmation(
   const receiptUrlRaw = (orderDocument as Record<string, unknown>).receiptUrl;
   const receiptUrl = typeof receiptUrlRaw === 'string' ? receiptUrlRaw : null;
 
-  // Optional tenant slug for CTAs (if populated by depth>0)
+  // Optional tenant slug for CTAs (prefer sellerTenant; fallback to tenant)
   let tenantSlug: string | null = null;
-  const tenantRelation = (orderDocument as Record<string, unknown>).tenant;
-  if (isObjectRecord(tenantRelation)) {
-    const slugCandidate = (tenantRelation as Record<string, unknown>).slug;
-    if (typeof slugCandidate === 'string') tenantSlug = slugCandidate;
+  const maybeSeller = (orderDocument as Record<string, unknown>).sellerTenant;
+  const maybeTenant = (orderDocument as Record<string, unknown>).tenant;
+  const tenantRelation = isObjectRecord(maybeSeller)
+    ? maybeSeller
+    : isObjectRecord(maybeTenant)
+      ? maybeTenant
+      : null;
+  if (tenantRelation) {
+    const slugCandidate = asOptionalString(tenantRelation.slug);
+    if (slugCandidate) tenantSlug = slugCandidate;
   }
+
+  // 🔹 NEW: map shipping (supports group or legacy array[0])
+  const shippingRaw = (orderDocument as Record<string, unknown>).shipping;
+  const shipping = readShippingFromOrder(shippingRaw);
 
   return {
     orderId,
@@ -256,6 +329,7 @@ export function mapOrderToConfirmation(
     returnsAcceptedThroughISO,
     receiptUrl,
     tenantSlug,
-    items
+    items,
+    shipping
   };
 }

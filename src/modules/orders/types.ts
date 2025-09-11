@@ -32,6 +32,15 @@ export type OrderConfirmationDTO = {
   receiptUrl?: string | null; // if you attach one later
   tenantSlug?: string | null; // nice for CTAs
   items: OrderItemDTO[]; // full receipt lines
+  shipping?: {
+    name: string;
+    line1: string;
+    line2?: string | null;
+    city: string;
+    state: string;
+    postalCode: string;
+    country: string; // ISO-2
+  } | null;
 };
 
 export type OrderSummaryDTO = {
