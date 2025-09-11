@@ -1,3 +1,13 @@
+export type ShippingAddress = {
+  name?: string | null;
+  line1: string;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null; // ISO-2
+};
+
 export type OrderListItem = {
   orderId: string;
   orderNumber: string;
@@ -32,15 +42,7 @@ export type OrderConfirmationDTO = {
   receiptUrl?: string | null; // if you attach one later
   tenantSlug?: string | null; // nice for CTAs
   items: OrderItemDTO[]; // full receipt lines
-  shipping?: {
-    name: string;
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string; // ISO-2
-  } | null;
+  shipping?: ShippingAddress;
 };
 
 export type OrderSummaryDTO = {
@@ -53,15 +55,7 @@ export type OrderSummaryDTO = {
   quantity: number;
   productId: string;
   productIds?: string[]; // All product IDs in the order when multiple items exist
-  shipping?: {
-    name: string;
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  } | null;
+  shipping?: ShippingAddress;
 };
 
 type BaseOrderSummaryProps = {
@@ -70,15 +64,7 @@ type BaseOrderSummaryProps = {
   returnsAcceptedThrough?: string | Date | null;
   quantity?: number;
   className?: string;
-  shipping?: {
-    name: string;
-    line1: string;
-    line2?: string | null;
-    city: string;
-    state: string;
-    postalCode: string;
-    country: string;
-  } | null;
+  shipping?: ShippingAddress;
 };
 
 // EITHER dollars (your old way) OR cents (from DB/Stripe)

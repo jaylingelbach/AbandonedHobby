@@ -67,7 +67,7 @@ export function readShippingFromOrder(
     const postalCode = isNonEmptyString(obj.postalCode) ? obj.postalCode : null;
     const country = isNonEmptyString(obj.country) ? obj.country : null;
 
-    if (!line1 || !postalCode || !country) return null;
+    if (!line1 || !postalCode || !country) return undefined;
 
     return {
       name,
@@ -93,7 +93,7 @@ export function readShippingFromOrder(
       return toSnapshot(first as Record<string, unknown>);
     }
   }
-  return null;
+  return undefined;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

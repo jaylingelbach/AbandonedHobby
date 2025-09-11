@@ -1,7 +1,7 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { formatCurrency } from '@/lib/utils';
+import { formatCurrency, cn } from '@/lib/utils';
 import { OrderSummaryCardProps } from '../types';
 import { hasTotalCents, hasTotalPaid } from './utils-client';
 
@@ -22,7 +22,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
       : 0;
 
   // normalize currency: Stripe gives 'usd' – Intl wants 'USD'
-  const rawCurrency = hasTotalCents(props) ? (props.currency ?? 'USD') : 'USD';
+  const rawCurrency = props.currency ?? 'USD';
   const currencyCode = (rawCurrency || 'USD').toUpperCase();
 
   // precompute a safe formatted string
@@ -47,12 +47,12 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
   return (
     <Card
       aria-label="Order details"
-      className={[
+      className={cn(
         'ah-order-card rounded-xl border-2 border-black bg-white',
         'shadow-[6px_6px_0_0_rgba(0,0,0,1)]',
         'max-w-md',
-        className ?? ''
-      ].join(' ')}
+        className
+      )}
       data-variant="neo-brut"
     >
       <CardHeader className="pb-2">
@@ -74,14 +74,22 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
           value={fmtDate(returnsAcceptedThrough)}
         />
 
-        {shipping ? (
-          <div className="mt-3 border-2 border-black rounded p-3">
+        {shipping &&
+        (shipping.line1 ||
+          shipping.line2 ||
+          shipping.city ||
+          shipping.state ||
+          shipping.postalCode ||
+          shipping.country ||
+          shipping.name) ? (
+          <address
+            className="mt-3 border-2 border-black rounded p-3 not-italic"
+            g
+          >
             <div className="text-xs text-muted-foreground mb-1">
               Shipping to
             </div>
-            {shipping.name ? (
-              <div className="font-medium">{shipping.name}</div>
-            ) : null}
+            <div className="font-medium">{shipping.name ?? 'Customer'}</div>
             <div className="mt-0.5 leading-tight">
               {shipping.line1}
               {shipping.line2 ? (
@@ -101,7 +109,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
               <br />
               {shipping.country}
             </div>
-          </div>
+          </address>
         ) : null}
       </CardContent>
     </Card>

@@ -7,11 +7,19 @@ import type {
 export function hasTotalCents(
   props: OrderSummaryCardProps
 ): props is CentsVariant {
-  return typeof (props as CentsVariant).totalCents === 'number';
+  return (
+    'totalCents' in props &&
+    typeof (props as CentsVariant).totalCents === 'number' &&
+    !('totalPaid' in props)
+  );
 }
 
 export function hasTotalPaid(
   props: OrderSummaryCardProps
 ): props is DollarsVariant {
-  return typeof (props as DollarsVariant).totalPaid === 'number';
+  return (
+    'totalPaid' in props &&
+    typeof (props as DollarsVariant).totalPaid === 'number' &&
+    !('totalCents' in props)
+  );
 }

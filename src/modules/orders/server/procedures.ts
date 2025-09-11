@@ -59,7 +59,7 @@ export const ordersRouter = createTRPCRouter({
       return { orders };
     }),
   getLatestForProduct: protectedProcedure
-    .input(z.object({ productId: z.string() }))
+    .input(z.object({ productId: z.string().min(1) }))
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO | null> => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -84,27 +84,7 @@ export const ordersRouter = createTRPCRouter({
       const doc = res.docs[0];
       if (!doc) throw new TRPCError({ code: 'NOT_FOUND' });
       // Sum item quantities (defaults to 1 if missing)
-      const items = Array.isArray(doc.items) ? doc.items : [];
-      const quantity = items.reduce<number>((sum, item) => {
-        const q = typeof item.quantity === 'number' ? item.quantity : 1;
-        return sum + q;
-      }, 0);
-
-      const productId =
-        typeof doc.product === 'string'
-          ? doc.product
-          : ((doc.product as Product | null)?.id ?? '');
-
-      return {
-        orderId: String(doc.id),
-        orderNumber: doc.orderNumber,
-        orderDateISO: doc.createdAt,
-        returnsAcceptedThroughISO: doc.returnsAcceptedThrough ?? null,
-        currency: doc.currency,
-        totalCents: doc.total,
-        quantity,
-        productId
-      };
+      return mapOrderToSummary(doc);
     }),
   getForBuyerById: protectedProcedure
     .input(z.object({ orderId: z.string() }))

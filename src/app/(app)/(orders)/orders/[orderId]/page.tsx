@@ -45,7 +45,7 @@ export default async function Page({
   queryClient.setQueryData(orderQ.queryKey, orderDTO);
 
   // 5) Prefetch other data the client view needs
-  await Promise.all([
+  await Promise.allSettled([
     queryClient.prefetchQuery(
       trpc.library.getOne.queryOptions({ productId: orderDTO.productId })
     ),
