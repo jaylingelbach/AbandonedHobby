@@ -1,18 +1,20 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { AlertTriangle, RotateCcw, Trash2, X } from 'lucide-react';
+import { AlertTriangle, RotateCcw, Trash2, X, Loader2 } from 'lucide-react';
 
 type CheckoutBannerProps = {
   onReturnToCheckout?: () => void;
   onClearCart?: () => void;
   onDismiss?: () => void;
+  disabled?: boolean;
 };
 
 export default function CheckoutBanner({
   onReturnToCheckout,
   onClearCart,
-  onDismiss
+  onDismiss,
+  disabled = false
 }: CheckoutBannerProps) {
   return (
     <div role="status" aria-live="polite" className="mb-4">
@@ -46,10 +48,19 @@ export default function CheckoutBanner({
             {onReturnToCheckout ? (
               <Button
                 type="button"
-                onClick={onReturnToCheckout}
+                onClick={disabled ? undefined : onReturnToCheckout}
+                disabled={disabled}
+                aria-disabled={disabled}
                 className="border-2 border-black bg-white shadow-[4px_4px_0_0_#000]"
               >
-                <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+                {disabled ? (
+                  <Loader2
+                    className="mr-2 h-4 w-4 animate-spin"
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
+                )}
                 Return to checkout
               </Button>
             ) : null}

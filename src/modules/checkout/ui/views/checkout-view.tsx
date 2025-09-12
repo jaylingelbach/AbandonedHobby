@@ -1,4 +1,5 @@
 'use client';
+
 import { toast } from 'sonner';
 import { useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -26,13 +27,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Build query options once and add react-query config
+  // Build query options once for stable keys
   const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
     ids: productIds
   });
 
+  // Load products in cart (localStorage-driven, so no SSR/hydration needed)
   const { data, error, isLoading, isFetching } = useQuery({
-    ...productsQueryOptions, // from trpc.checkout.getProducts.queryOptions({ ids })
+    ...productsQueryOptions,
     enabled: productIds.length > 0, // don't fetch for empty cart
     placeholderData: (prev) => prev,
     retry: 1
@@ -47,18 +49,25 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         window.location.assign(payload.url);
       },
       onError: (err) => {
-        console.error('checkout.purchase failed:', err);
-        const code = err?.data?.code;
+        // Narrowly access possible TRPC shape without using `any`
+        const code = (err as unknown as { data?: { code?: string } })?.data
+          ?.code;
+
         if (code === 'UNAUTHORIZED') {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
           window.location.assign(buildSignInUrl(next));
         } else {
+          console.error('checkout.purchase failed:', err);
           toast.error('Checkout failed. Please try again.');
         }
       }
     })
   );
+
+  // Single flag for disabling "Return to checkout"
+  const disableResume =
+    productIds.length === 0 || purchase.isPending || isFetching;
 
   // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
@@ -70,18 +79,22 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     // Remove the param so the banner doesn't persist on refresh
     const url = new URL(window.location.href);
     url.searchParams.delete('cancel');
-    router.replace(`${url.pathname}${url.search}`, { scroll: false });
+    const newSearch = url.searchParams.toString();
+    router.replace(newSearch ? `${url.pathname}?${newSearch}` : url.pathname, {
+      scroll: false
+    });
   }, [router, searchParams, setStates]);
 
   // Clear cart if server says products are invalid
   useEffect(() => {
-    if (error?.data?.code === 'NOT_FOUND') {
+    const code = (error as unknown as { data?: { code?: string } })?.data?.code;
+    if (code === 'NOT_FOUND') {
       clearCart();
       toast.warning('Invalid products found, your cart has been cleared');
     }
   }, [error, clearCart]);
 
-  // Success flow coming from success_url (if you still use that route state)
+  // Success flow (if you toggle via state after returning from success_url)
   useEffect(() => {
     if (!states.success) return;
 
@@ -100,14 +113,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     trpc.library.getMany
   ]);
 
-  // ----- Renders -----
-
   // Loading: show spinner if there are items to fetch
   if (productIds.length > 0 && isLoading) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
+            disabled={disableResume}
             onReturnToCheckout={() => purchase.mutate({ productIds })}
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
@@ -130,6 +142,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
+            disabled // no items to resume with
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
               clearCart();
@@ -145,11 +158,17 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Normal render
+  // Compute total dollars from cents-first (fallback to legacy totalPrice)
+  const totalCents =
+    typeof data?.totalCents === 'number'
+      ? data.totalCents
+      : Math.round((data?.totalPrice ?? 0) * 100);
+
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
       {states.cancel && (
         <CheckoutBanner
+          disabled={disableResume}
           onReturnToCheckout={() => purchase.mutate({ productIds })}
           onDismiss={() => setStates({ cancel: false, success: false })}
           onClearCart={() => {
@@ -182,7 +201,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {/* Sidebar */}
         <div className="lg:col-span-3">
           <CheckoutSidebar
-            total={(data!.totalCents ?? 0) / 100}
+            total={totalCents / 100}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={purchase.isPending || isFetching}

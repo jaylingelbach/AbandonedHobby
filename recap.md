@@ -2352,7 +2352,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/app/(app)/(orders)/orders/[orderId]/page.tsx
     - Adds server-side auth gating, prefetches session and order data, hydrates client cache for the order query, and prefetches related product/review data with Promise.allSettled.
 - Formatting helper
-  -src/lib/utils.ts
+  - src/lib/utils.ts
   - Adds formatCents(cents, currency = 'USD') wrapper that converts cents → dollars and calls formatCurrency.
 - Server procedures
 - src/modules/orders/server/procedures.ts
