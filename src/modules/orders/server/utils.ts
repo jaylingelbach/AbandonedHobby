@@ -1,6 +1,6 @@
 import { isObjectRecord } from '@/lib/server/utils';
 import { TRPCError } from '@trpc/server';
-import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from './types';
+import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from '../types';
 
 function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
