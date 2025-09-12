@@ -2331,10 +2331,6 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Unauthorized users prompted to sign in where applicable; order pages hydrate data server-side for faster, more reliable loads.
 
-## UX Improvements
-
-- Unauthorized users are prompted to sign in where applicable; order pages hydrate data server-side for faster load.
-
 ## File changes
 
 - Stripe webhook & persistence
@@ -2364,3 +2360,46 @@ Added recap covering the Orders transition and onboarding behavior.
 - Documentation / recap
   - recap.md
     - Adds a recap entry describing shipping-to-confirmation changes and UX/UI updates.
+
+# Checkout cancel
+
+## Walkthrough
+
+- Adds shipping fields to Orders types and mappings, updates Stripe webhook handling and currency formatting utilities, and introduces a cancel flow in checkout with a new banner UI. Adjusts checkout server cancel_url, adds client-side cancel handling, minor page updates, and a path fix for orders server imports. Recap documentation updated.
+
+## New Features
+
+- Orders and order summaries now include shipping details.
+- Added a checkout cancel banner with options to return to checkout, clear cart, or dismiss.
+- Standardized currency display with improved cents-to-currency formatting.
+
+## Changes
+
+- Canceling Stripe Checkout redirects back to /checkout with a cancel indicator.
+- Empty-cart messaging improved; checkout flow clears cart if items are unavailable and shows a warning.
+- Successful purchases auto-clear cart and redirect to Orders.
+
+## Documentation
+
+- Updated recap with shipping-to-confirmation and UX changes.
+
+## File changes
+
+- Types and Docs
+  - recap.md, src/payload-types.ts
+    - Recap updated. Public types extended with optional ShippingAddress and shipping on Order-related DTOs.
+- Checkout Pages
+  - src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/restore/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/success/page.tsx
+    - Restore page converted from async to sync with new heading. Success page cleans up inline comments; behavior unchanged.
+- Checkout Server
+  - src/modules/checkout/server/procedures.ts
+    - Stripe Checkout session cancel_url changed to /checkout?cancel=true; comments removed.
+- Checkout UI
+  - src/modules/checkout/ui/views/checkout-view.tsx, src/modules/checkout/ui/views/checkout-banner.tsx
+    - New CheckoutBanner component. Checkout view adds cancel query handling, banner rendering, refined fetching gates, updated success/error flows, and cart clearing on NOT_FOUND.
+- Library UI
+  - src/modules/library/ui/views/product-view.tsx
+    - Removed a non-functional comment.
+- Orders Server
+  - src/modules/orders/server/procedures.ts
+    - Updated import path for mapping utils from ../utils to ./utils.

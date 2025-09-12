@@ -47,9 +47,15 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         window.location.assign(payload.url);
       },
       onError: (err) => {
-        console.error('Error: ', err);
-        const next = typeof window !== 'undefined' ? window.location.href : '/';
-        window.location.assign(buildSignInUrl(next));
+        console.error('checkout.purchase failed:', err);
+        const code = (err as any)?.data?.code;
+        if (code === 'UNAUTHORIZED') {
+          const next =
+            typeof window !== 'undefined' ? window.location.href : '/';
+          window.location.assign(buildSignInUrl(next));
+        } else {
+          toast.error('Checkout failed. Please try again.');
+        }
       }
     })
   );
@@ -124,7 +130,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            onReturnToCheckout={() => purchase.mutate({ productIds })}
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
               clearCart();
@@ -177,7 +182,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {/* Sidebar */}
         <div className="lg:col-span-3">
           <CheckoutSidebar
-            total={data!.totalPrice || 0}
+            total={(data!.totalCents ?? 0) / 100}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={purchase.isPending || isFetching}
