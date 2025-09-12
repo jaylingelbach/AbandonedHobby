@@ -52,6 +52,14 @@ function assertNonNegativeInt(value: unknown, path: string): number {
   return n;
 }
 
+function assertOptionalNonNegativeInt(
+  value: unknown,
+  path: string
+): number | null {
+  if (value == null) return null;
+  return assertNonNegativeInt(value, path);
+}
+
 /** Optional string helper (keeps types strict without using `any`). */
 function asOptionalString(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
@@ -259,10 +267,10 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
   );
 
   const amountTaxRaw = (orderItemRaw as Record<string, unknown>).amountTax;
-  const amountTaxCents =
-    typeof amountTaxRaw === 'number' && !Number.isNaN(amountTaxRaw)
-      ? amountTaxRaw
-      : null;
+  const amountTaxCents = assertOptionalNonNegativeInt(
+    amountTaxRaw,
+    `items[${index}].amountTax`
+  );
 
   const returnsRaw = (orderItemRaw as Record<string, unknown>)
     .returnsAcceptedThrough;

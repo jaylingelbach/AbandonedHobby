@@ -60,9 +60,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     })
   );
 
-  // Single guard for “Return to checkout”
-  const disableResume =
-    productIds.length === 0 || purchase.isPending || isFetching;
+  const disablePurchase = purchase.isPending || isFetching;
+  const disableResume = productIds.length === 0 || disablePurchase;
 
   // Handle ?cancel=true from Stripe cancel_url
   useEffect(() => {
@@ -94,7 +93,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     if (!states.success) return;
     setStates({ success: false, cancel: false });
     clearCart();
-    queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
+    void queryClient.invalidateQueries(
+      trpc.library.getMany.infiniteQueryFilter()
+    );
     router.push('/orders');
   }, [
     states.success,
@@ -142,7 +143,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             }}
           />
         )}
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg">
+        <div
+          className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg"
+          role="alert"
+          aria-live="assertive"
+        >
           <InboxIcon />
           <p className="text-sm font-medium">
             We couldn’t load your cart. Please retry.
@@ -228,7 +233,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             total={totalCents / 100}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
-            disabled={purchase.isPending || isFetching}
+            disabled={disablePurchase}
           />
         </div>
       </div>
