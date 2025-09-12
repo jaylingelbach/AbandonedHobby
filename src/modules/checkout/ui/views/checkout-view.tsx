@@ -27,32 +27,27 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Build query options once for stable keys
+  // Stable query options
   const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
     ids: productIds
   });
 
-  // Load products in cart (localStorage-driven, so no SSR/hydration needed)
-  const { data, error, isLoading, isFetching } = useQuery({
+  const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
     ...productsQueryOptions,
-    enabled: productIds.length > 0, // don't fetch for empty cart
-    placeholderData: (prev) => prev,
+    enabled: productIds.length > 0, // don’t fetch for empty cart
+    placeholderData: (prev) => prev, // keep last data to reduce flicker
     retry: 1
   });
 
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
-      onMutate: () => {
-        setStates({ success: false, cancel: false });
-      },
+      onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
         window.location.assign(payload.url);
       },
       onError: (err) => {
-        // Narrowly access possible TRPC shape without using `any`
         const code = (err as unknown as { data?: { code?: string } })?.data
           ?.code;
-
         if (code === 'UNAUTHORIZED') {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
@@ -65,22 +60,22 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     })
   );
 
-  // Single flag for disabling "Return to checkout"
+  // Single guard for “Return to checkout”
   const disableResume =
     productIds.length === 0 || purchase.isPending || isFetching;
 
-  // Handle ?cancel=true (Stripe cancel_url)
+  // Handle ?cancel=true from Stripe cancel_url
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
     if (!isCanceled) return;
 
     setStates({ cancel: true, success: false });
 
-    // Remove the param so the banner doesn't persist on refresh
+    // Remove the param so the banner doesn’t persist on refresh
     const url = new URL(window.location.href);
     url.searchParams.delete('cancel');
-    const newSearch = url.searchParams.toString();
-    router.replace(newSearch ? `${url.pathname}?${newSearch}` : url.pathname, {
+    const next = url.searchParams.toString();
+    router.replace(next ? `${url.pathname}?${next}` : url.pathname, {
       scroll: false
     });
   }, [router, searchParams, setStates]);
@@ -94,14 +89,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     }
   }, [error, clearCart]);
 
-  // Success flow (if you toggle via state after returning from success_url)
+  // Success flow
   useEffect(() => {
     if (!states.success) return;
-
     setStates({ success: false, cancel: false });
     clearCart();
-
-    // Refresh library queries
     queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
     router.push('/orders');
   }, [
@@ -136,8 +128,39 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
+  // Error or missing data (avoid crashing on data!)
+  if (productIds.length > 0 && (isError || !data)) {
+    return (
+      <div className="lg:pt-12 pt-4 px-4 lg:px-12">
+        {states.cancel && (
+          <CheckoutBanner
+            disabled
+            onDismiss={() => setStates({ cancel: false, success: false })}
+            onClearCart={() => {
+              clearCart();
+              setStates({ cancel: false, success: false });
+            }}
+          />
+        )}
+        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg">
+          <InboxIcon />
+          <p className="text-sm font-medium">
+            We couldn’t load your cart. Please retry.
+          </p>
+          <button
+            className="underline text-sm"
+            onClick={() => refetch()}
+            type="button"
+          >
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   // Empty cart (no ids OR fetched result is empty)
-  if (productIds.length === 0 || data?.totalDocs === 0) {
+  if (productIds.length === 0 || (data && data.totalDocs === 0)) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
@@ -158,7 +181,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Compute total dollars from cents-first (fallback to legacy totalPrice)
+  // Safe locals
+  const docs = data?.docs ?? [];
   const totalCents =
     typeof data?.totalCents === 'number'
       ? data.totalCents
@@ -182,10 +206,10 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {/* Items */}
         <div className="lg:col-span-4">
           <div className="border rounded-md overflow-hidden bg-white">
-            {data!.docs.map((product, index) => (
+            {docs.map((product, index) => (
               <CheckoutItem
                 key={product.id}
-                isLast={index === data!.docs.length - 1}
+                isLast={index === docs.length - 1}
                 imageURL={product.image?.url}
                 name={product.name}
                 productURL={`${generateTenantURL(product.tenant.slug)}/products/${product.id}`}
