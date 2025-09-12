@@ -8,8 +8,8 @@ export default async function Page({
   params,
   searchParams
 }: {
-  params: Promise<{ slug: string }>; // TEMP unblock
-  searchParams: Promise<SearchParams>; // TEMP unblock
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const [, resolvedSearchParams] = await Promise.all([params, searchParams]);
 

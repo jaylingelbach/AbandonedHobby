@@ -1,3 +1,3 @@
-export default async function Page() {
-  return <h1>PLACEHOLDER</h1>;
+export default function Page() {
+  return <h1>restore page</h1>;
 }

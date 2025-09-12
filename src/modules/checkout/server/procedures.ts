@@ -255,14 +255,8 @@ export const checkoutRouter = createTRPCRouter({
             automatic_tax: { enabled: isTaxReady },
             invoice_creation: { enabled: true },
             customer_email: user.email ?? undefined,
-
-            // NOTE: Consider including the session_id in the success URL for your
-            // success page flow (e.g., `${domain}/checkout/success?session_id={CHECKOUT_SESSION_ID}`)
-            // success_url: `${domain}/checkout?success=true`,
-            // cancel_url: `${domain}/checkout?cancel=true`,
             success_url: `${domain}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
-            cancel_url: `${domain}/checkout/restore`,
-
+            cancel_url: `${domain}/checkout?cancel=true`,
             metadata: {
               userId: user.id,
               tenantId: String(sellerTenantId),

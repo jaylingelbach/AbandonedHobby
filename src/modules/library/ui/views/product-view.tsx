@@ -52,7 +52,6 @@ export const ProductView = ({ productId, orderId }: Props) => {
 
   const success = search.get('success') === 'true';
 
-  // ✅ build once, reuse for query + invalidate
   const orderQueryOptions = useMemo(
     () => trpc.orders.getForBuyerById.queryOptions({ orderId }),
     [trpc, orderId]

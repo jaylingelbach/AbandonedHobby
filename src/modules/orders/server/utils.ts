@@ -1,6 +1,10 @@
 import { isObjectRecord } from '@/lib/server/utils';
 import { TRPCError } from '@trpc/server';
-import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from './types';
+import type {
+  OrderConfirmationDTO,
+  OrderItemDTO,
+  OrderSummaryDTO
+} from '../types';
 
 function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
@@ -35,6 +39,25 @@ function assertPositiveInt(value: unknown, path: string): number {
     });
   }
   return n;
+}
+
+function assertNonNegativeInt(value: unknown, path: string): number {
+  const n = assertNumber(value, path);
+  if (!Number.isInteger(n) || n < 0) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: `Expected non-negative integer (cents) at ${path}`
+    });
+  }
+  return n;
+}
+
+function assertOptionalNonNegativeInt(
+  value: unknown,
+  path: string
+): number | null {
+  if (value == null) return null;
+  return assertNonNegativeInt(value, path);
 }
 
 /** Optional string helper (keeps types strict without using `any`). */
@@ -73,8 +96,8 @@ export function readShippingFromOrder(
       name,
       line1,
       line2,
-      city: city ?? '',
-      state: state ?? '',
+      city,
+      state,
       postalCode,
       country
     };
@@ -114,7 +137,7 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   );
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
   const currency = assertString(orderDocument.currency, 'order.currency');
-  const totalCents = assertNumber(orderDocument.total, 'order.total');
+  const totalCents = assertNonNegativeInt(orderDocument.total, 'order.total');
 
   // Items array (non-empty)
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
@@ -167,7 +190,7 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   });
 
   // Primary product id for back-compat UI links
-  const primaryProductIdCandidate = productIds.at(0);
+  const primaryProductIdCandidate = productIds[0];
   if (typeof primaryProductIdCandidate !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
@@ -230,24 +253,24 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
     orderItemRaw.quantity,
     `items[${index}].quantity`
   );
-  const unitAmountCents = assertNumber(
+  const unitAmountCents = assertNonNegativeInt(
     orderItemRaw.unitAmount,
     `items[${index}].unitAmount`
   );
-  const amountSubtotalCents = assertNumber(
+  const amountSubtotalCents = assertNonNegativeInt(
     orderItemRaw.amountSubtotal,
     `items[${index}].amountSubtotal`
   );
-  const amountTotalCents = assertNumber(
+  const amountTotalCents = assertNonNegativeInt(
     orderItemRaw.amountTotal,
     `items[${index}].amountTotal`
   );
 
   const amountTaxRaw = (orderItemRaw as Record<string, unknown>).amountTax;
-  const amountTaxCents =
-    typeof amountTaxRaw === 'number' && !Number.isNaN(amountTaxRaw)
-      ? amountTaxRaw
-      : null;
+  const amountTaxCents = assertOptionalNonNegativeInt(
+    amountTaxRaw,
+    `items[${index}].amountTax`
+  );
 
   const returnsRaw = (orderItemRaw as Record<string, unknown>)
     .returnsAcceptedThrough;
@@ -288,7 +311,7 @@ export function mapOrderToConfirmation(
   );
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
   const currency = assertString(orderDocument.currency, 'order.currency');
-  const totalCents = assertNumber(orderDocument.total, 'order.total');
+  const totalCents = assertNonNegativeInt(orderDocument.total, 'order.total');
 
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
   if (!Array.isArray(itemsUnknown) || itemsUnknown.length === 0) {
