@@ -1,17 +1,20 @@
 'use client';
 
-import { toast } from 'sonner';
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
+import { toast } from 'sonner';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
-import { useTRPC } from '@/trpc/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { buildSignInUrl, generateTenantURL } from '@/lib/utils';
 
-import { CheckoutItem } from '../components/checkout-item';
+import { useTRPC } from '@/trpc/client';
+import { buildSignInUrl, generateTenantURL } from '@/lib/utils';
+import { track } from '@/lib/analytics';
+
 import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
+
+import { CheckoutItem } from '../components/checkout-item';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import CheckoutBanner from './checkout-banner';
 
@@ -27,17 +30,21 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
 
-  // Stable query options
+  // Build query options once for stable keys
   const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
     ids: productIds
   });
 
+  // Load products in cart (localStorage-driven, so no SSR/hydration needed)
   const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
     ...productsQueryOptions,
-    enabled: productIds.length > 0, // don’t fetch for empty cart
-    placeholderData: (prev) => prev, // keep last data to reduce flicker
+    enabled: productIds.length > 0, // don't fetch for empty cart
+    placeholderData: (prev) => prev,
     retry: 1
   });
+
+  // Session (to label userType)
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
@@ -60,21 +67,21 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     })
   );
 
-  const disablePurchase = purchase.isPending || isFetching;
-  const disableResume = productIds.length === 0 || disablePurchase;
+  // Single flag for disabling “Return to checkout”
+  const disableResume =
+    productIds.length === 0 || purchase.isPending || isFetching;
 
-  // Handle ?cancel=true from Stripe cancel_url
+  // Handle ?cancel=true (Stripe cancel_url) — set state and clean URL
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
     if (!isCanceled) return;
 
     setStates({ cancel: true, success: false });
 
-    // Remove the param so the banner doesn’t persist on refresh
     const url = new URL(window.location.href);
     url.searchParams.delete('cancel');
-    const next = url.searchParams.toString();
-    router.replace(next ? `${url.pathname}?${next}` : url.pathname, {
+    const qs = url.searchParams.toString();
+    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
       scroll: false
     });
   }, [router, searchParams, setStates]);
@@ -88,14 +95,15 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     }
   }, [error, clearCart]);
 
-  // Success flow
+  // Success flow (if you toggle via state after returning from success_url)
   useEffect(() => {
     if (!states.success) return;
+
     setStates({ success: false, cancel: false });
     clearCart();
-    void queryClient.invalidateQueries(
-      trpc.library.getMany.infiniteQueryFilter()
-    );
+
+    // Refresh library queries
+    queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
     router.push('/orders');
   }, [
     states.success,
@@ -105,6 +113,32 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     queryClient,
     trpc.library.getMany
   ]);
+
+  // ---- Analytics: checkout_cancelled on page load with cancel=true ----
+  const sentCancelEventRef = useRef(false);
+  useEffect(() => {
+    if (!states.cancel || sentCancelEventRef.current) return;
+
+    // Compute metrics (fallbacks safe if data is not ready yet)
+    const itemCount = productIds.length;
+    const cartTotalCents =
+      typeof data?.totalCents === 'number'
+        ? data.totalCents
+        : Math.round((data?.totalPrice ?? 0) * 100);
+
+    const userType = session?.user ? 'auth' : 'guest';
+
+    track('checkout_cancelled', {
+      tenantSlug,
+      itemCount,
+      cartTotalCents,
+      userType
+    });
+
+    sentCancelEventRef.current = true;
+  }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
+
+  // ----- Renders -----
 
   // Loading: show spinner if there are items to fetch
   if (productIds.length > 0 && isLoading) {
@@ -143,19 +177,15 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             }}
           />
         )}
-        <div
-          className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg"
-          role="alert"
-          aria-live="assertive"
-        >
+        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg">
           <InboxIcon />
           <p className="text-sm font-medium">
             We couldn’t load your cart. Please retry.
           </p>
           <button
             className="underline text-sm"
-            onClick={() => refetch()}
             type="button"
+            onClick={() => refetch()}
           >
             Retry
           </button>
@@ -233,7 +263,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             total={totalCents / 100}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
-            disabled={disablePurchase}
+            disabled={purchase.isPending || isFetching}
           />
         </div>
       </div>
