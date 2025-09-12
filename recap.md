@@ -2317,13 +2317,50 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # (add) Shipping to confirmation view 09/11/25
 
+## Walkthrough
+
+- Adds shipping and normalized currency through the Stripe webhook and Orders schema, propagates shipping into order types, mapping, and UI, introduces cents-based formatting and server-side auth/hydration for order pages, plus related utility and guard functions.
+
 ## New Features
 
-- Shipping address is now captured at checkout and shown on order pages and confirmation when present.
-- Order confirmation layout updated: each order is a card with header, items, Shipping section, and consolidated action links (View all orders, Visit seller, Continue shopping).
-- “Returns accepted through” now displayed at the order level.
-- Prices display consistently using cents-based currency formatting.
+- Shipping address captured at checkout and shown on order pages/confirmation (name and full address when present).
+- Order confirmation layout updated: each order is a card with items, Shipping section, Returns block, and consolidated action links.
+- Prices displayed via cents-based formatting; currency codes normalized to uppercase.
+
+## UX Improvements
+
+- Unauthorized users prompted to sign in where applicable; order pages hydrate data server-side for faster, more reliable loads.
 
 ## UX Improvements
 
 - Unauthorized users are prompted to sign in where applicable; order pages hydrate data server-side for faster load.
+
+## File changes
+
+- Stripe webhook & persistence
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Uppercases currency (expandedSession.currency?.toUpperCase()) and adds shipping object to order payload stored in orders (name, address lines, city, state, postalCode, country).
+- Orders collection schema
+  - src/collections/Orders.ts
+    - Adds optional shipping group field with name, line1, line2, city, state, postalCode, country (all optional).
+- Payload & DB types
+  - src/payload-types.ts, src/modules/orders/types.ts
+    - Adds shipping shape to Order and OrdersSelect; defines exported ShippingAddress, extends OrderConfirmationDTO and OrderSummaryDTO, adds cents/dollars union types for order summaries.
+- Order mapping & utilities
+  - src/modules/orders/utils.ts, src/modules/orders/ui/utils-client.ts
+    - Adds readShippingFromOrder(shippingRaw) and helpers (asOptionalString, isNonEmptyString); updates mapOrderToSummary / mapOrderToConfirmation to validate items, derive productId, and include shipping. Adds runtime guards hasTotalCents / hasTotalPaid.
+- Order UI components & views
+  - src/modules/orders/ui/OrderSummaryCard.tsx, src/modules/checkout/ui/views/order-confirmation-view.tsx, src/modules/library/ui/views/product-view.tsx
+    - Prop types refactored to external OrderSummaryCardProps; shipping rendered where present (card-level shipping block). Confirmation view reworked (cards, items, returns, actions); uses formatCents for currency. Product view passes order.shipping into summary card.
+- Server-side order page hydration
+  - src/app/(app)/(orders)/orders/[orderId]/page.tsx
+    - Adds server-side auth gating, prefetches session and order data, hydrates client cache for the order query, and prefetches related product/review data with Promise.allSettled.
+- Formatting helper
+  -src/lib/utils.ts
+  - Adds formatCents(cents, currency = 'USD') wrapper that converts cents → dollars and calls formatCurrency.
+- Server procedures
+- src/modules/orders/server/procedures.ts
+  - Tightens input validation and centralizes summary mapping by returning mapOrderToSummary(doc); minor schema change: productId z.string().min(1).
+- Documentation / recap
+  - recap.md
+    - Adds a recap entry describing shipping-to-confirmation changes and UX/UI updates.

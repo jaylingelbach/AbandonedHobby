@@ -4,7 +4,7 @@ import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { getRelId } from '@/lib/server/utils';
 import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
-import { mapOrderToConfirmation, mapOrderToSummary } from '../utils';
+import { mapOrderToConfirmation, mapOrderToSummary } from './utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure

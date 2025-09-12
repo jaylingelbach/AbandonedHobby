@@ -1,7 +1,7 @@
 'use client';
 import { toast } from 'sonner';
-import { useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { useTRPC } from '@/trpc/client';
@@ -12,6 +12,7 @@ import { CheckoutItem } from '../components/checkout-item';
 import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
 import CheckoutSidebar from '../components/checkout-sidebar';
+import CheckoutBanner from './checkout-banner';
 
 import { buildSignInUrl } from '@/lib/utils';
 
@@ -22,11 +23,13 @@ interface CheckoutViewProps {
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { productIds, removeProduct, clearCart } = useCart(tenantSlug);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+
+  // Load products in cart (localStorage-driven, so no SSR/hydration needed)
   const { data, error, isLoading } = useQuery(
-    // useQuery bc no prefetching no hydration no suspense. All localstorage.
     trpc.checkout.getProducts.queryOptions({ ids: productIds })
   );
 
@@ -45,6 +48,26 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       }
     })
   );
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const isCanceled = searchParams.get('cancel') === 'true';
+    if (!isCanceled) return;
+    setStates({ cancel: true, success: false });
+    // Remove ?cancel=true so the banner doesn't persist on refresh
+    const url = new URL(window.location.href);
+    url.searchParams.delete('cancel');
+    router.replace(url.pathname + (url.search ? `?${url.searchParams}` : ''), {
+      scroll: false
+    });
+  }, []);
+
+  useEffect(() => {
+    if (error?.data?.code === 'NOT_FOUND') {
+      clearCart();
+      toast.warning('Invalid products found, your cart has been cleared');
+    }
+  }, [error, clearCart]);
 
   useEffect(() => {
     if (states.success) {
@@ -70,32 +93,45 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     }
   }, [error, clearCart]);
 
-  if (isLoading) {
+  if (!data || data.totalDocs === 0) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg">
-          <LoaderIcon className="text-muted-foreground animate-spin" />
-        </div>
-      </div>
-    );
-  }
-  if (data?.totalDocs === 0) {
-    return (
-      <div className="lg:pt-12 pt-4 px-4 lg:px-12">
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg">
+        {states.cancel && (
+          <CheckoutBanner
+            onReturnToCheckout={() => purchase.mutate({ productIds })}
+            onDismiss={() => setStates({ cancel: false, success: false })}
+            onClearCart={() => {
+              clearCart();
+              setStates({ cancel: false, success: false });
+            }}
+          />
+        )}
+        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg mt-4">
           <InboxIcon />
-          <p className="text-base font-medium">No products found</p>
+          <p className="text-base font-medium">Your cart is empty</p>
         </div>
       </div>
     );
   }
+
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 lg:gap-16">
-        {/* render items in first column */}
-        <div className="lg:col-span-4 ">
+      {states.cancel && (
+        <CheckoutBanner
+          onReturnToCheckout={() => purchase.mutate({ productIds })}
+          onDismiss={() => setStates({ cancel: false, success: false })}
+          onClearCart={() => {
+            clearCart();
+            setStates({ cancel: false, success: false });
+          }}
+        />
+      )}
+
+      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 lg:gap-16 mt-4">
+        {/* Items */}
+        <div className="lg:col-span-4">
           <div className="border rounded-md overflow-hidden bg-white">
-            {data?.docs.map((product, index) => (
+            {data.docs.map((product, index) => (
               <CheckoutItem
                 key={product.id}
                 isLast={index === data.docs.length - 1}
@@ -110,10 +146,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             ))}
           </div>
         </div>
-        {/* Checkout sidebar */}
+
+        {/* Sidebar */}
         <div className="lg:col-span-3">
           <CheckoutSidebar
-            total={data?.totalPrice || 0}
+            total={data.totalPrice || 0}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={purchase.isPending}
