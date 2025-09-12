@@ -48,7 +48,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       },
       onError: (err) => {
         console.error('checkout.purchase failed:', err);
-        const code = (err as any)?.data?.code;
+        const code = err?.data?.code;
         if (code === 'UNAUTHORIZED') {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
