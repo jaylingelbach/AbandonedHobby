@@ -243,3 +243,33 @@ export function resolveReturnToFromHeaders(
 export function getTrpcCode(error: unknown): string | undefined {
   return error instanceof TRPCClientError ? error.data?.code : undefined;
 }
+
+// NO imports from 'payload', '@payload-config', 'mongoose', 'fs', nodemailer, etc.
+// Only tiny utils and relationship coercion.
+
+export function isObjectRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === 'object' && v !== null && !Array.isArray(v);
+}
+
+export function hasStringId(v: unknown): v is { id: string } {
+  return isObjectRecord(v) && typeof v.id === 'string';
+}
+
+// Relationship<T> is string | {id} | undefined
+export type Relationship<T extends { id: string }> = string | T | undefined;
+
+export function getRelId<T extends { id: string }>(
+  rel: Relationship<T>
+): string | undefined {
+  if (typeof rel === 'string') return rel;
+  if (hasStringId(rel)) return rel.id;
+  return undefined;
+}
+
+export function toRelationship<T extends { id: string }>(
+  value: unknown
+): Relationship<T> {
+  if (typeof value === 'string') return value;
+  if (hasStringId(value)) return value as T;
+  return undefined;
+}

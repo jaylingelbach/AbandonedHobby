@@ -1,47 +1,86 @@
-'use client';
-
 import { useEffect, useRef } from 'react';
 import posthog from 'posthog-js';
-
-export type UserRole = 'buyer' | 'seller' | 'admin';
+import { isObjectRecord, getRelId, toRelationship } from '@/lib/utils';
 
 export interface AppUserIdentity {
   id: string;
-  role?: string; // ← optional, any string
-  tenantSlug?: string | null;
+  role?: string;
+  tenantSlug?: string | null; // may contain slug OR id string as fallback
 }
 
-export function toIdentity(value: unknown): AppUserIdentity | null {
-  if (!value || typeof value !== 'object') return null;
-  const obj = value as Record<string, any>;
+const getString = (
+  o: Record<string, unknown>,
+  key: string
+): string | undefined => {
+  const v = o[key];
+  return typeof v === 'string' ? v : undefined;
+};
 
-  // pick a stable id (prefer your app's user id)
+export function toIdentity(value: unknown): AppUserIdentity | null {
+  if (!isObjectRecord(value)) return null;
+
+  // Some apps return { user: {...} }; others return the user shape directly.
+  const maybeUser = isObjectRecord(value.user)
+    ? (value.user as Record<string, unknown>)
+    : value;
+
+  // ---- id (required) ----
   const id =
-    (typeof obj.id === 'string' && obj.id) ||
-    (typeof obj.userId === 'string' && obj.userId) ||
-    (typeof obj._id === 'string' && obj._id) ||
+    getString(maybeUser, 'id') ??
+    getString(maybeUser, 'userId') ??
+    getString(maybeUser, '_id') ??
     null;
   if (!id) return null;
 
-  // role: accept whatever your app returns, normalize to lowercase
-  const roleSrc =
-    (typeof obj.role === 'string' && obj.role) ||
-    (typeof obj.type === 'string' && obj.type) ||
-    undefined;
-  const role = roleSrc ? String(roleSrc).toLowerCase() : undefined;
+  // ---- role (optional) ----
+  const roleRaw = getString(maybeUser, 'role') ?? getString(maybeUser, 'type');
+  const role = roleRaw ? roleRaw.toLowerCase() : undefined;
 
-  // tenantSlug: look in common places
-  let tenantSlug: string | null = null;
-  if (typeof obj.tenantSlug === 'string') {
-    tenantSlug = obj.tenantSlug;
-  } else if (obj.tenant && typeof obj.tenant.slug === 'string') {
-    tenantSlug = obj.tenant.slug;
-  } else if (Array.isArray(obj.tenants)) {
-    for (const t of obj.tenants) {
-      const slug = t?.tenant?.slug ?? t?.slug ?? t?.tenantSlug;
-      if (typeof slug === 'string') {
-        tenantSlug = slug;
-        break;
+  // ---- tenant slug/id (optional) ----
+  // 1) direct slug
+  let tenantSlug: string | null = getString(maybeUser, 'tenantSlug') ?? null;
+
+  // 2) single relationship field like `tenant` (string | { id })
+  if (!tenantSlug) {
+    const tenantRel = (maybeUser as { tenant?: unknown }).tenant;
+    const tid = tenantRel
+      ? getRelId<{ id: string }>(toRelationship<{ id: string }>(tenantRel))
+      : null;
+    if (tid) tenantSlug = tid; // fall back to id
+  }
+
+  // 3) array of memberships/tenants with possible shapes:
+  //    [{ tenant: { slug } }] or [{ slug }] or [{ tenantSlug }] or relationship
+  if (!tenantSlug) {
+    const tenants = (maybeUser as { tenants?: unknown }).tenants;
+    if (Array.isArray(tenants)) {
+      for (const item of tenants) {
+        if (!isObjectRecord(item)) continue;
+
+        // direct strings
+        const s = getString(item, 'tenantSlug') ?? getString(item, 'slug');
+        if (s) {
+          tenantSlug = s;
+          break;
+        }
+
+        // nested { tenant: { slug } }
+        const nested = isObjectRecord(item.tenant)
+          ? getString(item.tenant as Record<string, unknown>, 'slug')
+          : undefined;
+        if (nested) {
+          tenantSlug = nested;
+          break;
+        }
+
+        // relationship fallback to id
+        const relId = getRelId<{ id: string }>(
+          toRelationship<{ id: string }>(item as unknown)
+        );
+        if (relId) {
+          tenantSlug = relId;
+          break;
+        }
       }
     }
   }
@@ -49,9 +88,6 @@ export function toIdentity(value: unknown): AppUserIdentity | null {
   return { id, role, tenantSlug };
 }
 
-/**
- * Identifies the logged-in user in PostHog and resets on logout.
- */
 export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
   const lastIdRef = useRef<string | null>(null);
   // JSON string of props to detect changes
@@ -67,7 +103,7 @@ export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
       return;
     }
 
-    const props: Record<string, any> = {};
+    const props: Record<string, unknown> = {};
     if (user.role) props.role = user.role;
     if (user.tenantSlug) props.tenantSlug = user.tenantSlug;
     const propsKey = JSON.stringify(props);
