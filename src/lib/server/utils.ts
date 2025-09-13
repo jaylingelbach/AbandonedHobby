@@ -29,7 +29,9 @@ export function isObjectRecord(
 
 /** Type guard: true if `value` is an object with a string `id` property. */
 export function hasStringId(value: unknown): value is { id: string } {
-  return isObjectRecord(value) && typeof value.id === 'string';
+  return (
+    isObjectRecord(value) && typeof value.id === 'string' && value.id.length > 0
+  );
 }
 
 /** Convert unknown into a Payload-style Relationship<T> (string id or {id}) or return undefined. */

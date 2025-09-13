@@ -48,7 +48,7 @@ export const ProductCard = (props: ProductCardProps) => {
             fill
             src={imageURL || '/placeholder.png'}
             className="object-cover"
-            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
+            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 100vw"
           />
         </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">
@@ -61,7 +61,6 @@ export const ProductCard = (props: ProductCardProps) => {
                 width={16}
                 height={16}
                 className="rounded-full border shrink-0 size-[16px]"
-                sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
               />
             )}
             <p className="text-sm underline font-medium">

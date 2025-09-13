@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 import { toast } from 'sonner';
@@ -42,6 +42,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     placeholderData: (prev) => prev,
     retry: 1
   });
+
+  const libraryFilter = useMemo(
+    () => trpc.library.getMany.infiniteQueryFilter(),
+    [trpc.library.getMany]
+  );
 
   // Session (to label userType)
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
@@ -102,7 +107,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     clearCart();
 
     // Refresh library queries
-    queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
+    queryClient.invalidateQueries(libraryFilter);
     router.push('/orders');
   }, [
     states.success,
@@ -110,7 +115,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     router,
     setStates,
     queryClient,
-    trpc.library.getMany
+    libraryFilter
   ]);
 
   // ---- Analytics: checkout_canceled on page load with cancel=true ----
