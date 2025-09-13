@@ -68,9 +68,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   );
 
   // Single flag for disabling “Return to checkout”
-  const disableResume =
-    productIds.length === 0 || purchase.isPending || isFetching;
-
+  const isBusy = purchase.isPending || isFetching;
+  const disableResume = productIds.length === 0 || isBusy;
   // Handle ?cancel=true (Stripe cancel_url) — set state and clean URL
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
@@ -107,7 +106,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     router.push('/orders');
   }, [states.success, clearCart, router, setStates, queryClient]);
 
-  // ---- Analytics: checkout_cancelled on page load with cancel=true ----
+  // ---- Analytics: checkout_canceled on page load with cancel=true ----
   const sentCancelEventRef = useRef(false);
   useEffect(() => {
     if (!states.cancel || sentCancelEventRef.current) return;
@@ -256,7 +255,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             total={totalCents / 100}
             onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
-            disabled={purchase.isPending || isFetching}
+            disabled={isBusy}
           />
         </div>
       </div>
