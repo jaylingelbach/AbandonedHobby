@@ -20,6 +20,8 @@ import { Fragment, useEffect, useRef, useState } from 'react';
 import { Progress } from '@/components/ui/progress';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
+import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
+
 const CartButton = dynamic(
   () =>
     import('../components/cart-button').then((mod) => ({
@@ -65,6 +67,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       id: productId
     })
   );
+
+  const productForUseProductViewed = {
+    id: data.id,
+    tenantSlug: data.tenant.slug,
+    price: data.price,
+    sellerId: data.tenant.id,
+    currency: 'USD'
+  };
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [chatState, setChatState] = useState<{
     conversationId: string;
@@ -82,6 +92,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       }
     };
   }, []);
+
+  useProductViewed(productForUseProductViewed);
 
   return (
     <div className="px-4 lg:px-12 py-10">

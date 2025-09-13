@@ -1,15 +1,16 @@
 'use client';
 
+import { useEffect, useMemo, useRef } from 'react';
 import { InboxIcon } from 'lucide-react';
 import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
 
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
-
 import { ProductCard, ProductCardSkeleton } from './product-card';
 import { useProductFilters } from '../../hooks/use-product-filters';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_LIMIT } from '@/constants';
+import { capture } from '@/lib/analytics/ph-utils/ph';
 
 interface Props {
   category?: string;
@@ -26,25 +27,78 @@ export const ProductList = ({
 }: Props) => {
   const [filters] = useProductFilters();
   const trpc = useTRPC();
+  const lastSigRef = useRef<string>('');
+
+  const input = useMemo(
+    () => ({
+      ...filters,
+      category,
+      subcategory,
+      tenantSlug,
+      limit: DEFAULT_LIMIT
+    }),
+    [filters, category, subcategory, tenantSlug]
+  );
+
+  const queryOpts = trpc.products.getMany.infiniteQueryOptions(input, {
+    getNextPageParam: (lastPage) =>
+      lastPage.docs.length > 0 ? lastPage.nextPage : undefined
+  });
 
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
-    useSuspenseInfiniteQuery(
-      trpc.products.getMany.infiniteQueryOptions(
-        {
-          ...filters,
-          category,
-          subcategory,
-          tenantSlug,
-          limit: DEFAULT_LIMIT
-        },
-        {
-          getNextPageParam: (lastPage) =>
-            lastPage.docs.length > 0 ? lastPage.nextPage : undefined
-        }
-      )
-    );
+    useSuspenseInfiniteQuery(queryOpts);
 
+  // Fire analytics ONLY for the first page of a search/filter combo
+  useEffect(() => {
+    const pages = data?.pages ?? [];
+    if (pages.length !== 1) return; // ignore "Load more" etc.
+
+    const first = pages[0] as { totalDocs?: number; docs: unknown[] };
+
+    const q = (input.search ?? '') as string;
+    const hasFilters =
+      Boolean(input.category) ||
+      Boolean(input.subcategory) ||
+      Boolean(input.minPrice) ||
+      Boolean(input.maxPrice) ||
+      (Array.isArray(input.tags) && input.tags.length > 0) ||
+      Boolean(input.sort) ||
+      Boolean(input.tenantSlug);
+
+    const resultCount =
+      typeof first.totalDocs === 'number' ? first.totalDocs : first.docs.length;
+
+    const sig = JSON.stringify({
+      qLen: q.length,
+      hasFilters,
+      tenant: input.tenantSlug ?? undefined,
+      resultCount
+    });
+    if (sig === lastSigRef.current) return;
+    lastSigRef.current = sig;
+
+    capture('searchPerformed', {
+      queryLength: q.length,
+      hasFilters,
+      tenantSlug: input.tenantSlug ?? undefined,
+      resultCount
+    });
+  }, [data, input]);
+
+  // Optional: explicit "no results" event
   if (data?.pages?.[0]?.docs.length === 0) {
+    capture('searchNoResults', {
+      queryLength: (input.search ?? '').length,
+      hasFilters:
+        Boolean(input.category) ||
+        Boolean(input.subcategory) ||
+        Boolean(input.minPrice) ||
+        Boolean(input.maxPrice) ||
+        (Array.isArray(input.tags) && input.tags.length > 0) ||
+        Boolean(input.sort) ||
+        Boolean(input.tenantSlug),
+      tenantSlug: input.tenantSlug ?? undefined
+    });
     return (
       <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg">
         <InboxIcon />
@@ -81,7 +135,13 @@ export const ProductList = ({
         {hasNextPage && (
           <Button
             disabled={isFetchingNextPage}
-            onClick={() => fetchNextPage()}
+            onClick={() => {
+              capture('searchLoadMore', {
+                queryLength: (input.search ?? '').length,
+                tenantSlug: input.tenantSlug ?? undefined
+              });
+              fetchNextPage();
+            }}
             className="font-medium disabled:opacity-50 text-base bg-white"
             variant="elevated"
           >

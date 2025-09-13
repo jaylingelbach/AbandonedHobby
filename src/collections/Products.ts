@@ -7,8 +7,7 @@ import {
   incTenantProductCount,
   swapTenantCountsAtomic
 } from '@/lib/server/utils';
-
-/* ───────── Products collection ───────── */
+import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 
 export const Products: CollectionConfig = {
   slug: 'products',
@@ -47,6 +46,51 @@ export const Products: CollectionConfig = {
               // attach: null → B
               await incTenantProductCount(req.payload, nextTenantId, +1);
             }
+          }
+        }
+      },
+      async ({ req, doc, previousDoc, operation }) => {
+        // fire only when a product is first created
+        if (operation !== 'create') return;
+
+        // who created it?
+        const user = req.user as User | undefined;
+        const distinctId = user?.id ?? 'system';
+
+        // tenant relationship can be string id or { id, slug, … }
+        const tenantRel = doc.tenant as
+          | string
+          | { id?: string; slug?: string }
+          | null
+          | undefined;
+        const tenantId =
+          typeof tenantRel === 'string' ? tenantRel : tenantRel?.id;
+        const tenantSlug =
+          typeof tenantRel === 'object' ? tenantRel?.slug : undefined;
+
+        try {
+          // optional: attach group identity so you can analyze by tenant
+          if (ph && tenantId) {
+            await ph.groupIdentify({
+              groupType: 'tenant',
+              groupKey: tenantId,
+              properties: tenantSlug ? { tenantSlug } : {}
+            });
+          }
+
+          await captureProductListed(
+            distinctId,
+            {
+              productId: doc.id,
+              price: typeof doc.price === 'number' ? doc.price : undefined,
+              currency: 'USD', // or omit if you truly don’t have it
+              tenantSlug
+            },
+            tenantId ? { tenant: tenantId } : undefined
+          );
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] productListed failed:', err);
           }
         }
       }

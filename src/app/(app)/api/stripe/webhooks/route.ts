@@ -13,6 +13,7 @@ import {
 
 import type { Tenant, User, Product } from '@/payload-types';
 import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
+import { posthogServer } from '@/lib/server/posthog-server';
 
 export const runtime = 'nodejs';
 
@@ -430,6 +431,8 @@ export async function POST(req: Request) {
         const sellerEmail: string | null =
           tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
 
+        const tenantId = tenantDoc.id;
+
         const sellerNameFinal: string =
           tenantDoc.notificationName ??
           primaryContactUser?.firstName ??
@@ -477,6 +480,19 @@ export async function POST(req: Request) {
           shipping_country: address.country!,
           support_url:
             process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+        });
+
+        posthogServer?.capture({
+          distinctId: user.id ?? session.customer_email ?? 'unknown',
+          event: 'purchaseCompleted',
+          properties: {
+            stripeSessionId: session.id,
+            amountTotal: session.amount_total, // cents
+            currency: session.currency?.toUpperCase(),
+            productIdsFromLines,
+            tenantId
+          },
+          groups: tenantId ? { tenant: tenantId } : undefined
         });
 
         return NextResponse.json({ received: true }, { status: 200 });
