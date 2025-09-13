@@ -489,14 +489,18 @@ export async function POST(req: Request) {
             properties: {
               stripeSessionId: session.id,
               amountTotal: totalCents,
-              currency: session.currency?.toUpperCase(),
+              currency,
               productIdsFromLines,
               tenantId,
               $insert_id: `purchase:${session.id}`
             },
             groups: tenantId ? { tenant: tenantId } : undefined
           });
-          if (process.env.NODE_ENV !== 'production') {
+          const isServerless =
+            !!process.env.VERCEL ||
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+            !!process.env.NETLIFY;
+          if (isServerless || process.env.NODE_ENV !== 'production') {
             await posthogServer?.flush?.();
           }
         } catch (err) {

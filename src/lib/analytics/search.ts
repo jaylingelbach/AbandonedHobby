@@ -1,6 +1,6 @@
 'use client';
 
-import posthog from 'posthog-js';
+import { capture } from '@/lib/analytics/ph-utils/ph';
 
 export type SearchPerformedProps = {
   queryLength: number;
@@ -10,6 +10,5 @@ export type SearchPerformedProps = {
 };
 
 export function captureSearchPerformed(props: SearchPerformedProps): void {
-  if (typeof window === 'undefined') return; // client-only
-  posthog.capture('searchPerformed', props);
+  capture('searchPerformed', props);
 }

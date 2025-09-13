@@ -2,7 +2,7 @@
 import { useEffect, useMemo } from 'react';
 import { capture } from '@/lib/analytics/ph-utils/ph';
 
-type ProductViewedPayload = {
+export type ProductViewedPayload = {
   id: string;
   sellerId?: string;
   price?: number;

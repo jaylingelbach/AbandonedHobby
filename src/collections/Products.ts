@@ -83,7 +83,7 @@ export const Products: CollectionConfig = {
             {
               productId: doc.id,
               price: typeof doc.price === 'number' ? doc.price : undefined,
-              currency: doc.currency ?? 'USD',
+              currency: 'USD',
               tenantSlug
             },
             tenantId ? { tenant: tenantId } : undefined

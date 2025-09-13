@@ -69,6 +69,8 @@ export const ProductList = ({
     const resultCount =
       typeof first.totalDocs === 'number' ? first.totalDocs : first.docs.length;
 
+    if (resultCount === 0) return;
+
     const sig = JSON.stringify({
       q: q,
       category: input.category,

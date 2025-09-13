@@ -298,8 +298,12 @@ export const checkoutRouter = createTRPCRouter({
             timestamp: new Date()
           });
 
-          // In dev/serverless, flush so you actually see the event immediately
-          if (process.env.NODE_ENV !== 'production') {
+          // In serverless, always flush to avoid drops
+          const isServerless =
+            !!process.env.VERCEL ||
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+            !!process.env.NETLIFY;
+          if (isServerless || process.env.NODE_ENV !== 'production') {
             await posthogServer?.flush?.();
           }
         } catch (err) {

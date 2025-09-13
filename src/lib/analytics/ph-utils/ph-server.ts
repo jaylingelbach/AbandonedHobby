@@ -1,17 +1,6 @@
-import { PostHog } from 'posthog-node';
+import { posthogServer } from '@/lib/server/posthog-server';
 
-const POSTHOG_KEY = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-const POSTHOG_HOST = process.env.POSTHOG_HOST ?? 'https://us.posthog.com';
-
-if (!POSTHOG_KEY && process.env.NODE_ENV === 'production') {
-  console.warn(
-    '[Analytics] PostHog key not configured - analytics will be disabled'
-  );
-}
-
-export const ph = POSTHOG_KEY
-  ? new PostHog(POSTHOG_KEY, { host: POSTHOG_HOST })
-  : null;
+export const ph = posthogServer;
 
 export type ProductListedProps = {
   productId: string;
