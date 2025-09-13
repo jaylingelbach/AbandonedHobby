@@ -1,9 +1,22 @@
-import posthog from "posthog-js"
+import posthog from 'posthog-js';
 
-posthog.init(process.env.NEXT_PUBLIC_POSTHOG_KEY!, {
-  api_host: "/ingest",
-  ui_host: "https://us.posthog.com",
-  defaults: '2025-05-24',
-  capture_exceptions: true, // This enables capturing exceptions using Error Tracking
-  debug: process.env.NODE_ENV === "development",
-});
+const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+
+if (typeof window !== 'undefined' && key) {
+  posthog.init(key, {
+    api_host: '/_phx_a1b2c3',
+    ui_host: 'https://us.posthog.com',
+    capture_exceptions: {
+      capture_unhandled_errors: true,
+      capture_unhandled_rejections: true,
+      capture_console_errors: false
+    },
+    debug: process.env.NODE_ENV === 'development'
+  });
+} else if (process.env.NODE_ENV === 'development') {
+  console.warn(
+    'PostHog not initialized: missing NEXT_PUBLIC_POSTHOG_KEY or non-browser environment'
+  );
+}
+
+export default posthog;
