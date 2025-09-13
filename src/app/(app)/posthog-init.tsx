@@ -28,5 +28,9 @@ export default function PostHogInit() {
     });
   }, []);
 
+  if (process.env.NODE_ENV === 'development' && typeof window !== 'undefined') {
+    (window as unknown as { posthog: typeof posthog }).posthog = posthog;
+  }
+
   return null;
 }
