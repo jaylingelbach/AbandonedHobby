@@ -1,3 +1,5 @@
+'use client';
+
 import { useEffect, useRef } from 'react';
 import posthog from 'posthog-js';
 import { isObjectRecord, getRelId, toRelationship } from '@/lib/utils';

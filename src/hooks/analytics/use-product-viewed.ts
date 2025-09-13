@@ -1,5 +1,5 @@
 'use client';
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { capture } from '@/lib/analytics/ph-utils/ph';
 
 type ProductViewedPayload = {
@@ -11,21 +11,25 @@ type ProductViewedPayload = {
 };
 
 export function useProductViewed(product: ProductViewedPayload) {
-  useEffect(() => {
-    if (!product?.id) return;
-
-    capture('productViewed', {
+  const eventPayload = useMemo(
+    () => ({
       productId: product.id,
       sellerId: product.sellerId,
       price: product.price,
       currency: product.currency ?? 'USD',
       tenantSlug: product.tenantSlug
-    });
-  }, [
-    product?.id,
-    product.sellerId,
-    product.price,
-    product.currency,
-    product.tenantSlug
-  ]);
+    }),
+    [
+      product?.id,
+      product.sellerId,
+      product.price,
+      product.currency,
+      product.tenantSlug
+    ]
+  );
+  useEffect(() => {
+    if (!product?.id) return;
+
+    capture('productViewed', eventPayload);
+  }, [eventPayload, product?.id]);
 }

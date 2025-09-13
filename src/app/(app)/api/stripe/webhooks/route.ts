@@ -482,18 +482,28 @@ export async function POST(req: Request) {
             process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
         });
 
-        posthogServer?.capture({
-          distinctId: user.id ?? session.customer_email ?? 'unknown',
-          event: 'purchaseCompleted',
-          properties: {
-            stripeSessionId: session.id,
-            amountTotal: session.amount_total, // cents
-            currency: session.currency?.toUpperCase(),
-            productIdsFromLines,
-            tenantId
-          },
-          groups: tenantId ? { tenant: tenantId } : undefined
-        });
+        try {
+          posthogServer?.capture({
+            distinctId: user.id ?? session.customer_email ?? 'unknown',
+            event: 'purchaseCompleted',
+            properties: {
+              stripeSessionId: session.id,
+              amountTotal: totalCents,
+              currency: session.currency?.toUpperCase(),
+              productIdsFromLines,
+              tenantId,
+              $insert_id: `purchase:${session.id}`
+            },
+            groups: tenantId ? { tenant: tenantId } : undefined
+          });
+          if (process.env.NODE_ENV !== 'production') {
+            await posthogServer?.flush?.();
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] purchaseCompleted capture failed:', err);
+          }
+        }
 
         return NextResponse.json({ received: true }, { status: 200 });
       }

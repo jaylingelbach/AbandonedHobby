@@ -50,26 +50,32 @@ export const ProductList = ({
 
   // Fire analytics ONLY for the first page of a search/filter combo
   useEffect(() => {
+    const computeHasFilters = (i: typeof input) =>
+      Boolean(i.category) ||
+      Boolean(i.subcategory) ||
+      Boolean(i.minPrice) ||
+      Boolean(i.maxPrice) ||
+      (Array.isArray(i.tags) && i.tags.length > 0) ||
+      Boolean(i.sort) ||
+      Boolean(i.tenantSlug);
     const pages = data?.pages ?? [];
     if (pages.length !== 1) return; // ignore "Load more" etc.
 
     const first = pages[0] as { totalDocs?: number; docs: unknown[] };
 
     const q = (input.search ?? '') as string;
-    const hasFilters =
-      Boolean(input.category) ||
-      Boolean(input.subcategory) ||
-      Boolean(input.minPrice) ||
-      Boolean(input.maxPrice) ||
-      (Array.isArray(input.tags) && input.tags.length > 0) ||
-      Boolean(input.sort) ||
-      Boolean(input.tenantSlug);
+    const hasFilters = computeHasFilters(input);
 
     const resultCount =
       typeof first.totalDocs === 'number' ? first.totalDocs : first.docs.length;
 
     const sig = JSON.stringify({
-      qLen: q.length,
+      q: q,
+      category: input.category,
+      subcategory: input.subcategory,
+      priceRange: [input.minPrice, input.maxPrice],
+      tags: input.tags,
+      sort: input.sort,
       hasFilters,
       tenant: input.tenantSlug ?? undefined,
       resultCount
@@ -86,19 +92,33 @@ export const ProductList = ({
   }, [data, input]);
 
   // Optional: explicit "no results" event
+  const lastNoResultsSigRef = useRef<string>('');
+
+  useEffect(() => {
+    if (data?.pages?.[0]?.docs.length === 0) {
+      const sig = JSON.stringify({
+        q: input.search ?? '',
+        filters: input
+      });
+      if (sig === lastNoResultsSigRef.current) return;
+      lastNoResultsSigRef.current = sig;
+
+      capture('searchNoResults', {
+        queryLength: (input.search ?? '').length,
+        hasFilters:
+          Boolean(input.category) ||
+          Boolean(input.subcategory) ||
+          Boolean(input.minPrice) ||
+          Boolean(input.maxPrice) ||
+          (Array.isArray(input.tags) && input.tags.length > 0) ||
+          Boolean(input.sort) ||
+          Boolean(input.tenantSlug),
+        tenantSlug: input.tenantSlug ?? undefined
+      });
+    }
+  }, [data, input]);
+
   if (data?.pages?.[0]?.docs.length === 0) {
-    capture('searchNoResults', {
-      queryLength: (input.search ?? '').length,
-      hasFilters:
-        Boolean(input.category) ||
-        Boolean(input.subcategory) ||
-        Boolean(input.minPrice) ||
-        Boolean(input.maxPrice) ||
-        (Array.isArray(input.tags) && input.tags.length > 0) ||
-        Boolean(input.sort) ||
-        Boolean(input.tenantSlug),
-      tenantSlug: input.tenantSlug ?? undefined
-    });
     return (
       <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg">
         <InboxIcon />

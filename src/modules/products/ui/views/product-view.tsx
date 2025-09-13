@@ -70,7 +70,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const productForUseProductViewed = {
     id: data.id,
-    tenantSlug: data.tenant.slug,
+    tenantSlug,
     price: data.price,
     sellerId: data.tenant.id,
     currency: 'USD'

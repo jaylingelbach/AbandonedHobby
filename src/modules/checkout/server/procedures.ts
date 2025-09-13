@@ -290,6 +290,7 @@ export const checkoutRouter = createTRPCRouter({
               stripeSessionId: checkout.id,
               sellerStripeAccountId: sellerTenant.stripeAccountId,
               tenantSlug: sellerTenant.slug,
+              tenantId: String(sellerTenantId),
               currency: 'USD',
               $insert_id: `checkout:${checkout.id}` // <- dedupe key (safe to reuse)
             },

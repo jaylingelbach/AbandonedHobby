@@ -71,7 +71,7 @@ export const Products: CollectionConfig = {
         try {
           // optional: attach group identity so you can analyze by tenant
           if (ph && tenantId) {
-            await ph.groupIdentify({
+            ph.groupIdentify({
               groupType: 'tenant',
               groupKey: tenantId,
               properties: tenantSlug ? { tenantSlug } : {}
@@ -83,7 +83,7 @@ export const Products: CollectionConfig = {
             {
               productId: doc.id,
               price: typeof doc.price === 'number' ? doc.price : undefined,
-              currency: 'USD', // or omit if you truly don’t have it
+              currency: doc.currency ?? 'USD',
               tenantSlug
             },
             tenantId ? { tenant: tenantId } : undefined
