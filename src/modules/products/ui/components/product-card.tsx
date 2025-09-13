@@ -42,6 +42,7 @@ export const ProductCard = ({
             fill
             src={imageURL || '/placeholder.png'}
             className="object-cover"
+            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
           />
         </div>
         <div className="p-4 border-y flex flex-col gap-3 flex-1">

@@ -7,6 +7,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 import './globals.css';
 import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
 import PostHogInit from './posthog-init';
+import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identity-bridge';
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
@@ -28,6 +29,7 @@ export default function RootLayout({
         <PostHogInit />
         <NuqsAdapter>
           <TRPCReactProvider>
+            <AnalyticsIdentityBridge />
             <LiveblocksWrapper>{children}</LiveblocksWrapper>
             <Toaster />
           </TRPCReactProvider>

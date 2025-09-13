@@ -92,6 +92,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
             alt={data?.name || 'Product image'}
             fill
             className="object-cover"
+            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
           />
         </div>
         <div className="grid grid-cols-1 lg:grid-cols-6">
@@ -123,6 +124,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       width={20}
                       height={20}
                       className="rounded-full border shrink-0 size-[20px]"
+                      sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                     />
                   )}
                   <p className="text-base underline font-medium">
