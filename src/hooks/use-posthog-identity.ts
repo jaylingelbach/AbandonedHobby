@@ -34,6 +34,8 @@ export function toIdentity(value: unknown): AppUserIdentity | null {
   let tenantSlug: string | null = null;
   if (typeof obj.tenantSlug === 'string') {
     tenantSlug = obj.tenantSlug;
+  } else if (obj.tenant && typeof obj.tenant.slug === 'string') {
+    tenantSlug = obj.tenant.slug;
   } else if (Array.isArray(obj.tenants)) {
     for (const t of obj.tenants) {
       const slug = t?.tenant?.slug ?? t?.slug ?? t?.tenantSlug;
@@ -78,7 +80,9 @@ export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
       if (user.tenantSlug) {
         posthog.group('tenant', user.tenantSlug);
       }
-      posthog.capture('dev_identity_check', { afterIdentify: true });
+      if (process.env.NODE_ENV === 'development') {
+        posthog.capture('dev_identity_check', { afterIdentify: true });
+      }
     }
   }, [user]);
 }
