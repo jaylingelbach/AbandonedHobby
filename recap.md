@@ -2403,3 +2403,39 @@ Added recap covering the Orders transition and onboarding behavior.
 - Orders Server
   - src/modules/orders/server/procedures.ts
     - Updated import path for mapping utils from ../utils to ./utils.
+
+# Cancel analytics
+
+## Walkthrough
+
+- Introduces client-side analytics via PostHog, adds a lightweight tracking utility, wires Next.js rewrites for PostHog asset/API hosts, updates dependencies, and integrates a cancel-flow analytics event and related control-flow adjustments in the checkout view.
+
+## New Features
+
+- Added client-side analytics to capture key checkout events for a better experience.
+
+## Bug Fixes
+
+- Improved checkout reliability: prevents duplicate actions during purchase and resume flows.
+- Cleans up “cancel” query parameter from the URL after handling cancellations.
+- Handles missing items more gracefully by clearing the cart and showing a warning with a retry option.
+- Ensures orders refresh correctly after successful purchase and redirects to the orders page.
+
+## Chores
+
+- Added analytics libraries and supporting configuration.
+
+## File changes
+
+- Analytics utility
+  - src/lib/analytics.ts
+    - New track(event, props?) helper: no-op on server, uses window.posthog.capture if available; otherwise logs in non-production; errors are swallowed.
+- Next.js config for PostHog
+  - next.config.ts
+    - Adds rewrites() for PostHog asset/API proxy paths (/\_phx_a1b2c3/... → https://us\*.i.posthog.com/...); sets skipTrailingSlashRedirect: true; quote style normalized.
+- Dependencies
+  - package.json
+    - Adds posthog-js, posthog-node deps; adds @tanstack/react-query-devtools in devDeps (reordered).
+- Checkout cancel flow + analytics
+  - src/modules/checkout/ui/views/checkout-view.tsx
+    - Imports track; emits checkout_cancelled once when cancel=true with itemCount, cartTotalCents, userType; integrates session lookup; stabilizes product query options; consolidates disable logic; handles cancel param removal; adjusts success/error flows and UI semantics; no public API changes.

@@ -75,6 +75,8 @@
     "nodemailer-postmark-transport": "^6.0.1",
     "nuqs": "^2.4.3",
     "payload": "^3.37.0",
+    "posthog-js": "^1.265.0",
+    "posthog-node": "^5.8.4",
     "postmark": "^4.0.5",
     "react": "^19.0.0",
     "react-day-picker": "^9.0.0",
@@ -96,6 +98,7 @@
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@tanstack/react-query-devtools": "^5.87.3",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
@@ -107,7 +110,6 @@
     "eslint-plugin-import": "^2.32.0",
     "lightningcss-wasm": "^1.29.3",
     "tailwindcss": "^4",
-    "@tanstack/react-query-devtools": "^5.87.3",
     "ts-node": "^10.9.2",
     "typescript": "5.8.3"
   }

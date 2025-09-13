@@ -6,6 +6,10 @@ export const config = {
 
 export default async function middleware(req: NextRequest) {
   const url = req.nextUrl;
+  // short circuit so the post hog prefix never rewrites.
+  if (url.pathname.startsWith('/_phx_a1b2c3')) {
+    return NextResponse.next();
+  }
   const hostHeader = req.headers.get('host') || '';
   let rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN || '';
   if (!rootDomain) {
@@ -14,6 +18,7 @@ export default async function middleware(req: NextRequest) {
     }
     return NextResponse.next();
   }
+
   // Strip any protocol or leading dots:
   rootDomain = rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '');
 
