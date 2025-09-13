@@ -6,6 +6,7 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 import './globals.css';
 import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
+import PostHogInit from './posthog-init';
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
@@ -24,6 +25,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className={`${dmSans.className} antialiased`}>
+        <PostHogInit />
         <NuqsAdapter>
           <TRPCReactProvider>
             <LiveblocksWrapper>{children}</LiveblocksWrapper>

@@ -6,6 +6,14 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       {
+        source: '/tenants/:slug/_phx_a1b2c3/static/:path*',
+        destination: 'https://us-assets.i.posthog.com/static/:path*'
+      },
+      {
+        source: '/tenants/:slug/_phx_a1b2c3/:path*',
+        destination: 'https://us.i.posthog.com/:path*'
+      },
+      {
         source: '/_phx_a1b2c3/static/:path*',
         destination: 'https://us-assets.i.posthog.com/static/:path*'
       },

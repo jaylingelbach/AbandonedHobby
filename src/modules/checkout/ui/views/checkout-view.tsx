@@ -105,14 +105,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     // Refresh library queries
     queryClient.invalidateQueries(trpc.library.getMany.infiniteQueryFilter());
     router.push('/orders');
-  }, [
-    states.success,
-    clearCart,
-    router,
-    setStates,
-    queryClient,
-    trpc.library.getMany
-  ]);
+  }, [states.success, clearCart, router, setStates, queryClient]);
 
   // ---- Analytics: checkout_cancelled on page load with cancel=true ----
   const sentCancelEventRef = useRef(false);
@@ -128,7 +121,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     const userType = session?.user ? 'auth' : 'guest';
 
-    track('checkout_cancelled', {
+    track('checkout_canceled', {
       tenantSlug,
       itemCount,
       cartTotalCents,

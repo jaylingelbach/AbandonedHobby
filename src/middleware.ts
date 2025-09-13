@@ -14,6 +14,11 @@ export default async function middleware(req: NextRequest) {
     }
     return NextResponse.next();
   }
+
+  // short circuit so the post hog prefix never rewrites.
+  if (url.pathname.startsWith('/_phx_a1b2c3')) {
+    return NextResponse.next();
+  }
   // Strip any protocol or leading dots:
   rootDomain = rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '');
 
