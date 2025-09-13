@@ -2488,3 +2488,20 @@ Added recap covering the Orders transition and onboarding behavior.
 - Checkout effect dependency
   - src/modules/checkout/ui/views/checkout-view.tsx
     - Adds trpc.library.getMany to the post-success effect dependency array so the effect reruns when that reference changes.
+
+# MVP Analytics event capture
+
+## New Features
+
+- Added analytics for product views, search activity (performed, load more, no results), checkout initiation, and payment completion via webhooks.
+- Tenant-aware event grouping to improve multi-tenant insights.
+- Client and server analytics utilities for reliable event capture.
+
+## Refactor
+
+- Consolidated product list query configuration for clearer logic without changing UI or behavior.
+
+## Chores
+
+- Updated analytics identity hook to a client component and adjusted imports for consistency.
+- Ensured analytics operations are non-blocking and safely disabled when not configured.

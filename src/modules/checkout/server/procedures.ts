@@ -15,6 +15,7 @@ import { TRPCError } from '@trpc/server';
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { asId } from '@/lib/server/utils';
+import { posthogServer } from '@/lib/server/posthog-server';
 
 export const runtime = 'nodejs';
 
@@ -272,9 +273,45 @@ export const checkoutRouter = createTRPCRouter({
             shipping_address_collection: { allowed_countries: ['US'] },
             billing_address_collection: 'required'
           },
+
           // Execute against the seller’s connected account → direct charge.
           { stripeAccount: sellerTenant.stripeAccountId }
         );
+
+        try {
+          posthogServer?.capture({
+            distinctId: user.id, // <- the buyer
+            event: 'checkoutStarted',
+            properties: {
+              productIds: input.productIds,
+              itemCount: products.length,
+              totalCents,
+              platformFeeCents: platformFeeAmount,
+              stripeSessionId: checkout.id,
+              sellerStripeAccountId: sellerTenant.stripeAccountId,
+              tenantSlug: sellerTenant.slug,
+              tenantId: String(sellerTenantId),
+              currency: 'USD',
+              $insert_id: `checkout:${checkout.id}` // <- dedupe key (safe to reuse)
+            },
+            groups: { tenant: String(sellerTenantId) }, // <- top-level groups, not in properties
+            timestamp: new Date()
+          });
+
+          // In serverless, always flush to avoid drops
+          const isServerless =
+            !!process.env.VERCEL ||
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+            !!process.env.NETLIFY;
+          if (isServerless || process.env.NODE_ENV !== 'production') {
+            await posthogServer?.flush?.();
+          }
+        } catch (err) {
+          // Never break checkout because analytics failed
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] checkoutStarted capture failed:', err);
+          }
+        }
       } catch (err: unknown) {
         // 13) Surface Stripe-specific errors with useful context.
         if (err instanceof Stripe.errors.StripeError) {

@@ -13,6 +13,7 @@ import {
 
 import type { Tenant, User, Product } from '@/payload-types';
 import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
+import { posthogServer } from '@/lib/server/posthog-server';
 
 export const runtime = 'nodejs';
 
@@ -430,6 +431,8 @@ export async function POST(req: Request) {
         const sellerEmail: string | null =
           tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
 
+        const tenantId = tenantDoc.id;
+
         const sellerNameFinal: string =
           tenantDoc.notificationName ??
           primaryContactUser?.firstName ??
@@ -478,6 +481,33 @@ export async function POST(req: Request) {
           support_url:
             process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
         });
+
+        try {
+          posthogServer?.capture({
+            distinctId: user.id ?? session.customer_email ?? 'unknown',
+            event: 'purchaseCompleted',
+            properties: {
+              stripeSessionId: session.id,
+              amountTotal: totalCents,
+              currency,
+              productIdsFromLines,
+              tenantId,
+              $insert_id: `purchase:${session.id}`
+            },
+            groups: tenantId ? { tenant: tenantId } : undefined
+          });
+          const isServerless =
+            !!process.env.VERCEL ||
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+            !!process.env.NETLIFY;
+          if (isServerless || process.env.NODE_ENV !== 'production') {
+            await posthogServer?.flush?.();
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] purchaseCompleted capture failed:', err);
+          }
+        }
 
         return NextResponse.json({ received: true }, { status: 200 });
       }
