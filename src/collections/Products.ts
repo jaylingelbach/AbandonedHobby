@@ -49,7 +49,7 @@ export const Products: CollectionConfig = {
           }
         }
       },
-      async ({ req, doc, previousDoc, operation }) => {
+      async ({ req, doc, operation }) => {
         // fire only when a product is first created
         if (operation !== 'create') return;
 

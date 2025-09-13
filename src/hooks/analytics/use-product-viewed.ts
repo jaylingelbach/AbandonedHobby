@@ -21,5 +21,11 @@ export function useProductViewed(product: ProductViewedPayload) {
       currency: product.currency ?? 'USD',
       tenantSlug: product.tenantSlug
     });
-  }, [product?.id]);
+  }, [
+    product?.id,
+    product.sellerId,
+    product.price,
+    product.currency,
+    product.tenantSlug
+  ]);
 }
