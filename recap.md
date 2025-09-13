@@ -2361,7 +2361,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - recap.md
     - Adds a recap entry describing shipping-to-confirmation changes and UX/UI updates.
 
-# Checkout cancel
+# Checkout cancel 09/12/25
 
 ## Walkthrough
 
@@ -2404,7 +2404,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/modules/orders/server/procedures.ts
     - Updated import path for mapping utils from ../utils to ./utils.
 
-# Cancel analytics
+# Cancel analytics 09/12/25
 
 ## Walkthrough
 
@@ -2439,3 +2439,52 @@ Added recap covering the Orders transition and onboarding behavior.
 - Checkout cancel flow + analytics
   - src/modules/checkout/ui/views/checkout-view.tsx
     - Imports track; emits checkout_cancelled once when cancel=true with itemCount, cartTotalCents, userType; integrates session lookup; stabilizes product query options; consolidates disable logic; handles cancel param removal; adjusts success/error flows and UI semantics; no public API changes.
+
+# Posthog identity 09/13/25
+
+## Walkthrough
+
+- Adds a PostHog identity bridge component into the app layout, a new hook to derive/apply user identity to PostHog, exposes posthog on window in development, converts use-user to a client module, adds relationship helpers in utils, introduces responsive Next/Image sizes, and updates a checkout effect dependency.
+
+## New Features
+
+- Integrated an analytics identity bridge into the app layout to keep analytics identity in sync.
+
+## Performance
+
+- Improved image loading with responsive sizes across product cards, product view, and tenant navbar avatars.
+
+## Bug Fixes
+
+- Refined logged-in detection to rely on the user presence; fixed post-success effect dependency to ensure correct refresh/navigation.
+
+## Chores
+
+- Exposes analytics instance in dev for debugging; added small utility helpers and a new dependency for build consistency.
+
+## File changes
+
+- Layout integration
+  - src/app/(app)/layout.tsx
+    - Imports and renders AnalyticsIdentityBridge between TRPCReactProvider and LiveblocksWrapper.
+- Analytics identity bridge
+  - src/components/analytics/analytics-identity-bridge.tsx
+    - New client component that reads current user, converts to identity, and invokes the PostHog identity hook; renders null.
+- PostHog identity hook
+  - src/hooks/use-posthog-identity.ts
+    - New hook and types: AppUserIdentity, toIdentity, and usePostHogIdentity — synchronizes posthog.identify/group/reset, avoids redundant identifies, emits dev identity check.
+- PostHog dev exposure
+  - src/app/(app)/posthog-init.tsx
+    - Adds dev-only effect to attach the posthog instance to window.posthog on mount in browser.
+- User hook
+  - src/hooks/use-user.ts
+    - Module marked 'use client'; isLoggedIn now !!data?.user and returns user: data?.user ?? null.
+- Image sizing hints
+  - src/modules/library/ui/components/product-card.tsx, src/modules/products/ui/components/product-card.tsx, src/modules/products/ui/views/product-view.tsx, src/modules/tenants/ui/components/navbar.tsx
+    - Adds responsive sizes attributes to Next/Image instances to guide loading across viewports; no logic changes.
+- Utils: relationship helpers
+  - src/lib/utils.ts
+    - Adds type guards and helpers: isObjectRecord, hasStringId, exported Relationship type, getRelId, and toRelationship.
+- Checkout effect dependency
+  - src/modules/checkout/ui/views/checkout-view.tsx
+    - Adds trpc.library.getMany to the post-success effect dependency array so the effect reruns when that reference changes.
