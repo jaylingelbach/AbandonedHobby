@@ -19,10 +19,29 @@ interface Props {
   onConversationCreated?: (s: ChatState) => void;
 }
 
+/**
+ * Returns true if the given value is a TRPCClientError whose server error code is "UNAUTHORIZED".
+ *
+ * @param e - Value to inspect (typically an error thrown by a TRPC call)
+ * @returns `true` when `e` is a `TRPCClientError` and `e.data?.code === 'UNAUTHORIZED'`; otherwise `false`
+ */
 function isUnauthorized(e: unknown): boolean {
   return e instanceof TRPCClientError && e.data?.code === 'UNAUTHORIZED';
 }
 
+/**
+ * Renders a "Message Seller" button that creates or opens a conversation with the seller and (optionally) shows a chat modal.
+ *
+ * Clicking the button will:
+ * - Redirect to the sign-in page (current URL used as `next`) when there is no signed-in user.
+ * - Call the conversations.getOrCreate mutation when signed in; on success it opens the chat modal and invokes `onConversationCreated` with `{ conversationId, roomId }`.
+ *
+ * @param productId - Product identifier used to start or find the conversation.
+ * @param sellerId - Seller (tenant) identifier used to start or find the conversation.
+ * @param username - Display name forwarded to the ChatModal.
+ * @param onConversationCreated - Optional callback invoked with the created/found chat state `{ conversationId, roomId }` after a successful mutation.
+ * @returns A JSX fragment containing the action button and, when active, the ChatModal.
+ */
 export function ChatButtonWithModal({
   productId,
   sellerId,

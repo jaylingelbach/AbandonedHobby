@@ -76,6 +76,15 @@ export const flushIfNeeded = async () => {
   }
 };
 
+/**
+ * Aggregate an array of line items into a map of product ID -> total quantity.
+ *
+ * Each input item must have a `product` id. If `quantity` is missing or not a number,
+ * it defaults to 1. Quantities for the same product id are summed.
+ *
+ * @param items - Array of objects containing `product` (id) and optional `quantity`
+ * @returns A Map where keys are product ids and values are the aggregated quantities
+ */
 export function toQtyMap(
   items: Array<{ product: string; quantity?: number }>
 ): Map<string, number> {
@@ -87,6 +96,17 @@ export function toQtyMap(
   return map;
 }
 
+/**
+ * Decrements stock quantities for multiple products and archives any that reach zero.
+ *
+ * For each entry in `qtyByProductId` this function reads the published `products` document,
+ * skips items with falsy `trackInventory`, computes the new `stockQuantity` (clamped at 0),
+ * updates the published product with the new `stockQuantity`, and sets `isArchived: true`
+ * when the resulting quantity is zero. Updates are performed with write-through access
+ * (published document, `overrideAccess: true`, `draft: false`).
+ *
+ * @param qtyByProductId - Map from product ID to the quantity to subtract (total purchased quantity).
+ */
 export async function decrementInventoryBatch(args: {
   payload: Payload;
   qtyByProductId: Map<string, number>;

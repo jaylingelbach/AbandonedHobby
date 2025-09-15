@@ -314,7 +314,19 @@ export async function incTenantProductCount(
   }
 }
 
-/** Atomically do -1 on previous and +1 on next in a transaction (swap). */
+/**
+ * Atomically swap product-counts between two tenants by decrementing the previous tenant and incrementing the next.
+ *
+ * If `previousTenantId` and `nextTenantId` are equal the function returns immediately. When the Payload database
+ * supports MongoDB sessions this runs both increments inside a transaction so the two updates are applied atomically.
+ * If sessions are not supported, behavior depends on the AH_RECOUNT_FALLBACK environment variable:
+ * - If AH_RECOUNT_FALLBACK === 'true', performs full recounts for the affected tenants to avoid drifting counts.
+ * - Otherwise, no updates are performed and a warning is emitted in non-production environments.
+ *
+ * @param previousTenantId - ID of the tenant to decrement (may be an empty string to skip).
+ * @param nextTenantId - ID of the tenant to increment (may be an empty string to skip).
+ * @returns A promise that resolves when the operation completes.
+ */
 export async function swapTenantCountsAtomic(
   payload: Payload,
   previousTenantId: string,
@@ -346,6 +358,16 @@ export async function swapTenantCountsAtomic(
   }
 }
 
+/**
+ * Type guard that validates an object has tenant Stripe-related fields with expected types.
+ *
+ * Checks that `value` is a plain object and that:
+ * - `stripeAccountId` is `string`, `null`, or `undefined`
+ * - `stripeDetailsSubmitted` is `boolean`, `null`, or `undefined`
+ *
+ * @param value - Value to test
+ * @returns `true` if `value` can be treated as `Pick<Tenant, 'stripeAccountId' | 'stripeDetailsSubmitted'>`; otherwise `false`
+ */
 export function isTenantWithStripeFields(
   value: unknown
 ): value is Pick<Tenant, 'stripeAccountId' | 'stripeDetailsSubmitted'> {
