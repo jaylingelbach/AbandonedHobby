@@ -65,14 +65,13 @@ export const ordersRouter = createTRPCRouter({
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
       const userId = ctx.session.user?.id;
 
-      // Find the most recent order for this buyer & product
       const res = (await ctx.db.find({
         collection: 'orders',
         depth: 0,
         where: {
           and: [
             { buyer: { equals: userId } },
-            { product: { equals: input.productId } } // uses your back-compat field
+            { product: { equals: input.productId } } // legacy top-level field
           ]
         },
         sort: '-createdAt',
@@ -83,9 +82,32 @@ export const ordersRouter = createTRPCRouter({
 
       const doc = res.docs[0];
       if (!doc) throw new TRPCError({ code: 'NOT_FOUND' });
-      // Sum item quantities (defaults to 1 if missing)
-      return mapOrderToSummary(doc);
+
+      const items = Array.isArray(doc.items) ? doc.items : [];
+
+      // 📌 Per-product quantity for the requested productId
+      const quantityForProduct =
+        items.reduce<number>((sum, item) => {
+          const rel =
+            typeof item.product === 'string'
+              ? item.product
+              : ((item.product as Product | null)?.id ?? '');
+          const q = typeof item.quantity === 'number' ? item.quantity : 1;
+          return rel === input.productId ? sum + q : sum;
+        }, 0) || 1;
+
+      return {
+        orderId: String(doc.id),
+        orderNumber: doc.orderNumber,
+        orderDateISO: doc.createdAt,
+        returnsAcceptedThroughISO: doc.returnsAcceptedThrough ?? null,
+        currency: doc.currency,
+        totalCents: doc.total,
+        quantity: quantityForProduct, // ← per-product
+        productId: input.productId
+      };
     }),
+
   getForBuyerById: protectedProcedure
     .input(z.object({ orderId: z.string() }))
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO> => {
@@ -95,19 +117,58 @@ export const ordersRouter = createTRPCRouter({
       const order = (await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId,
-        depth: 0, // mapper expects plain relations or ids
-        overrideAccess: true // bypass collection access rules
+        depth: 0
       })) as Order | null;
 
       if (!order) throw new TRPCError({ code: 'NOT_FOUND' });
 
-      // Safe buyer check (string or populated object)
+      // safe buyer check
       const buyerId =
         typeof order.buyer === 'string' ? order.buyer : order.buyer?.id;
       if (buyerId !== user.id) throw new TRPCError({ code: 'FORBIDDEN' });
 
-      // ✅ Single source of truth: includes shipping, productIds, etc.
-      return mapOrderToSummary(order);
+      const items = Array.isArray(order.items) ? order.items : [];
+
+      // Resolve the "primary" productId this order page is for
+      // (prefer item.product, fallback to legacy order.product)
+
+      let productId: string | null = null;
+      for (const item of items) {
+        const id = getRelId(item.product);
+        if (id) {
+          productId = id;
+          break;
+        }
+      }
+      if (!productId) {
+        const legacy = getRelId(order.product);
+        if (legacy) productId = legacy;
+      }
+      if (!productId) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Order has no product'
+        });
+      }
+
+      // 📌 Per-product quantity (sum only the lines matching productId)
+      const quantityForProduct =
+        items.reduce<number>((sum, item) => {
+          const id = getRelId(item.product);
+          const q = typeof item.quantity === 'number' ? item.quantity : 1;
+          return id === productId ? sum + q : sum;
+        }, 0) || 1; // default to 1 if no explicit match (back-compat)
+
+      return {
+        orderId: String(order.id),
+        orderNumber: order.orderNumber,
+        orderDateISO: order.createdAt,
+        returnsAcceptedThroughISO: order.returnsAcceptedThrough ?? null,
+        currency: order.currency,
+        totalCents: order.total,
+        quantity: quantityForProduct, // ← per-product
+        productId
+      };
     }),
 
   listForBuyer: protectedProcedure
@@ -149,8 +210,7 @@ export const ordersRouter = createTRPCRouter({
         sort: '-createdAt',
         page,
         limit,
-        depth: 2,
-        overrideAccess: true
+        depth: 2
       })) as {
         docs: Order[];
         page: number;

@@ -2560,9 +2560,11 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/modules/checkout/server/procedures.ts
     - Adds purchase protected mutation: validates input, enforces single-seller items, builds Stripe line items with metadata/pricing, computes platform fees, creates Checkout session on connected account with dynamic success/cancel URLs (subdomain-aware), emits analytics (PostHog/flush), and returns { url } with Stripe error handling.
 
-# Bug - duplicate orders v2
+# Bug - duplicate orders v2 09/15/25
 
 ## Walkthrough
+
+- Centralizes Stripe webhook helpers into a new utils module, hardens idempotency by pre-checking and persisting both stripeCheckoutSessionId and stripeEventId, catches unique-violation races as success, adds telemetry flush utility, extends Orders with Stripe fields, and adds checkout success layout/page/loading plus idempotencyKey & attemptId on session creation.
 
 ## New Features
 
@@ -2581,3 +2583,49 @@ Added recap covering the Orders transition and onboarding behavior.
 - Updated to reflect idempotency-focused behavior.
 
 ## File changes
+
+- Stripe webhook idempotency & refactor
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Replaced inline helpers with imports from utils;
+    - added fast pre-check by stripeCheckoutSessionId OR stripeEventId;
+    - persist stripeEventId and stripePaymentIntentId when creating Orders;
+    - catch unique-violation errors (Mongo 11000 / PG 23505) and return 200 for duplicates;
+    - include Stripe event.id in logs; added pre-check before expanding Checkout Session.
+- Webhooks utilities
+  - src/app/(app)/api/stripe/webhooks/utils/utils.ts
+    - New helpers exported: isStringValue, itemHasProductId, requireStripeProductId, isUniqueViolation (multi-DB unique-violation detection), and flushIfNeeded (conditional PostHog flush).
+- Orders schema & types
+  - src/collections/Orders.ts, src/payload-types.ts
+    - Added stripeEventId field to Orders (text, indexed, admin.readOnly) and added optional stripeEventId to Order and OrdersSelect types;
+    - added stripePaymentIntentId persistence (code-level changes in webhook).
+- Checkout success UI & page
+  - src/app/(app)/checkout/layout.tsx, src/app/(app)/checkout/success/page.tsx, src/app/(app)/checkout/success/loading.tsx
+    - Added checkout layout with metadata, success page that derives session_id and prefetches order confirmation (TRPC hydration), and a presentational loading component.
+- Checkout session creation
+  - src/modules/checkout/server/procedures.ts
+    - Generate attemptId (randomUUID) and set as client_reference_id and metadata;
+    - construct time-bucketed deterministic idempotencyKey (user + sorted productIds + tenant + 10-min bucket) and pass to Stripe sessions.create;
+    - replaced analytics flush calls with flushIfNeeded(); fixed minor product-tenant error message.
+- Analytics flush helper
+  - src/lib/server/analytics.ts
+    - New flushIfNeeded exported: conditionally calls posthogServer.flush() in serverless or non-production environments.
+- Docs
+  - recap.md
+    - Added "Bug - duplicate orders v2" recap describing UI changes and idempotency improvements (documentation-only).
+
+# Bug order summary card quantity
+
+## New Features
+
+- Tenant-aware, idempotent checkout with deterministic idempotency keys.
+- New Checkout Success page with prefetching of order confirmation.
+- Orders now include shipping details and persist Stripe payment identifiers.
+
+## Bug Fixes
+
+- Idempotent webhook handling prevents duplicate event processing and race conditions across databases.
+- Order summaries now correctly report per-product quantities, including legacy/mixed product references.
+
+## Documentation
+
+- Updated recap covering idempotency, webhook refactor, and the new checkout success flow.
