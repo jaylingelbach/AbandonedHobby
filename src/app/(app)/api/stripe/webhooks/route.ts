@@ -377,7 +377,8 @@ export async function POST(req: Request) {
               product: firstProductId, // back-compat field
               stripeAccountId: event.account,
               stripeCheckoutSessionId: session.id, // <-- unique in schema
-              stripeEventId: event.id, // <-- NEW: also persist event id (make unique in schema)
+              stripeEventId: event.id,
+              stripePaymentIntentId: paymentIntent.id,
               stripeChargeId: charge.id,
               items: orderItems,
               returnsAcceptedThrough: returnsAcceptedThroughISO,
