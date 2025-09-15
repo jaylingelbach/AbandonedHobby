@@ -2505,3 +2505,20 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Updated analytics identity hook to a client component and adjusted imports for consistency.
 - Ensured analytics operations are non-blocking and safely disabled when not configured.
+
+# Bug/double order and urls 09/14/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Start checkout for selected products and get a redirect link to Stripe.
+- Supports multiple items from a single seller with automatic taxes and platform fees.
+- Success page URLs now adapt to seller subdomains when enabled.
+
+## Bug Fixes
+
+- Improved reliability after payment: prevents duplicate orders during concurrent events.
+- More robust handling of duplicate checkout sessions to avoid repeated emails or charges.

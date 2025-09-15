@@ -215,9 +215,8 @@ export const checkoutRouter = createTRPCRouter({
       );
 
       // --- SUBDOMAIN / PATH ROUTING DECISION ---
-      const useSubdomains = ['1', 'true', 'TRUE'].includes(
-        process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING ?? ''
-      );
+      const useSubdomains =
+        process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
       const appBase = process.env.NEXT_PUBLIC_APP_URL!; // e.g. https://abandonedhobby.com
       const slug = sellerTenant.slug;
       const tenantURL = generateTenantURL(slug); // e.g. https://<slug>.abandonedhobby.com
