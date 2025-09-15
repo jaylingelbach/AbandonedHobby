@@ -1,6 +1,9 @@
 import { ExpandedLineItem } from '@/modules/checkout/types';
 import type Stripe from 'stripe';
 import { posthogServer } from '@/lib/server/posthog-server';
+import type { Payload } from 'payload';
+
+console.log('[utils] decrementInventoryBatch loaded');
 
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';
@@ -71,3 +74,72 @@ export const flushIfNeeded = async () => {
     await posthogServer?.flush?.();
   }
 };
+
+export function toQtyMap(
+  items: Array<{ product: string; quantity?: number }>
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    const qty = typeof item.quantity === 'number' ? item.quantity : 1;
+    map.set(item.product, (map.get(item.product) ?? 0) + qty);
+  }
+  return map;
+}
+
+export async function decrementInventoryBatch(args: {
+  payload: Payload;
+  qtyByProductId: Map<string, number>;
+}): Promise<void> {
+  const { payload, qtyByProductId } = args;
+
+  // Log what we were asked to decrement
+  console.log('[inv] start', {
+    size: qtyByProductId.size,
+    entries: [...qtyByProductId.entries()]
+  });
+
+  for (const [productId, purchasedQty] of qtyByProductId) {
+    // Read PUBLISHED doc
+    const product = await payload.findByID({
+      collection: 'products',
+      id: productId,
+      depth: 0,
+      overrideAccess: true,
+      draft: false
+    });
+
+    const trackInventory = Boolean(
+      (product as { trackInventory?: unknown }).trackInventory
+    );
+    if (!trackInventory) {
+      console.log('[inv] skip (trackInventory=false)', { productId });
+      continue;
+    }
+
+    const rawQty = (product as { stockQuantity?: unknown }).stockQuantity;
+    const current = typeof rawQty === 'number' ? rawQty : 0;
+    const nextQty = Math.max(0, current - purchasedQty);
+
+    // Write PUBLISHED doc
+    const updated = await payload.update({
+      collection: 'products',
+      id: productId,
+      data: {
+        stockQuantity: nextQty,
+        ...(nextQty === 0 ? { isArchived: true } : {})
+      },
+      overrideAccess: true,
+      draft: false
+    });
+
+    console.log('[inv] updated', {
+      productId,
+      purchasedQty,
+      before: current,
+      after: (updated as any).stockQuantity,
+      archived: (updated as any).isArchived
+    });
+  }
+
+  console.log('[inv] done');
+}

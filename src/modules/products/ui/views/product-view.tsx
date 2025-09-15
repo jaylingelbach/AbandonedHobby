@@ -10,6 +10,7 @@ import { useTRPC } from '@/trpc/client';
 import { useSuspenseQuery } from '@tanstack/react-query';
 
 import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
 
@@ -63,10 +64,35 @@ interface ProductViewProps {
 export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(
-    trpc.products.getOne.queryOptions({
-      id: productId
-    })
+    trpc.products.getOne.queryOptions({ id: productId })
   );
+
+  // ✅ Defensive availability derivation (works with or without server-computed fields)
+  const trackInventory =
+    (data as { trackInventory?: unknown })?.trackInventory === true;
+  const stockQuantityRaw = (data as { stockQuantity?: unknown })?.stockQuantity;
+  const stockQuantity =
+    typeof stockQuantityRaw === 'number' ? stockQuantityRaw : 0;
+
+  const inStock =
+    (data as { inStock?: unknown })?.inStock === true
+      ? true
+      : !trackInventory || stockQuantity > 0;
+
+  const isSoldOut =
+    (data as { isSoldOut?: unknown })?.isSoldOut === true
+      ? true
+      : trackInventory && stockQuantity <= 0;
+
+  const availabilityLabel =
+    typeof (data as { availabilityLabel?: unknown })?.availabilityLabel ===
+    'string'
+      ? (data as { availabilityLabel: string }).availabilityLabel
+      : isSoldOut
+        ? 'Sold out'
+        : trackInventory
+          ? `${stockQuantity} in stock`
+          : 'Available';
 
   const productForUseProductViewed = {
     id: data.id,
@@ -75,21 +101,18 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     sellerId: data.tenant.id,
     currency: 'USD'
   };
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+
   const [chatState, setChatState] = useState<{
     conversationId: string;
     roomId: string;
   } | null>(null);
 
   const [isCopied, setIsCopied] = useState(false);
-
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
-      if (timeoutRef.current) {
-        clearTimeout(timeoutRef.current);
-      }
+      if (timeoutRef.current) clearTimeout(timeoutRef.current);
     };
   }, []);
 
@@ -111,8 +134,20 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           <div className="col-span-4">
             {/* Product name */}
             <div className="p-6">
-              <h1 className="text-4xl font-medium ">{data.name}</h1>
+              {/* ✅ Add Sold out badge */}
+              <div className="flex items-center gap-3">
+                <h1 className="text-4xl font-medium">{data.name}</h1>
+                {isSoldOut && (
+                  <Badge
+                    variant="destructive"
+                    className="uppercase tracking-wide"
+                  >
+                    Sold out
+                  </Badge>
+                )}
+              </div>
             </div>
+
             {/* Holds price, shop and ratings */}
             <div className="border-y flex">
               {/* Price */}
@@ -154,6 +189,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 </div>
               </div>
             </div>
+
             {/* Mobile hidden on desktop */}
             <div className="block lg:hidden px-6 py-4 items-center">
               <div className="flex items-center gap-2 ">
@@ -163,6 +199,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 </p>
               </div>
             </div>
+
             {/* Product Description */}
             <div className="p-6">
               {data.description ? (
@@ -174,17 +211,26 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               )}
             </div>
           </div>
+
           <div className="col-span-2">
             {/* Div around add to cart and ratings */}
             <div className="border-t lg:border-t-0 lg:border-l h-full">
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
-                  <CartButton
-                    isPurchased={data.isPurchased}
-                    tenantSlug={tenantSlug}
-                    productId={productId}
-                  />
+                  {/* ✅ Disable buy when sold out (swap CartButton for a disabled button) */}
+                  {inStock ? (
+                    <CartButton
+                      isPurchased={data.isPurchased}
+                      tenantSlug={tenantSlug}
+                      productId={productId}
+                    />
+                  ) : (
+                    <Button disabled className="flex-1 cursor-not-allowed">
+                      Unavailable
+                    </Button>
+                  )}
+
                   <Button
                     className="size-12"
                     variant="elevated"
@@ -211,6 +257,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   </Button>
                 </div>
 
+                {/* ✅ Availability label */}
+                {trackInventory && (
+                  <p className="text-center text-sm text-muted-foreground">
+                    {availabilityLabel}
+                  </p>
+                )}
+
                 <ChatButtonWithModal
                   productId={productId}
                   sellerId={data.tenant.id}
@@ -223,6 +276,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     : `${data.refundPolicy} money back guarantee`}
                 </p>
               </div>
+
               {/* Ratings */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
@@ -233,13 +287,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     <p className="text-based">{data.reviewCount} ratings</p>
                   </div>
                 </div>
-                {/* % of customers that give specific rating via progress bar */}
+
                 <ProductRatingsBreakdown
                   ratings={[5, 4, 3, 2, 1].map((stars) => ({
                     stars,
                     percentage: Number(data.ratingDistribution[stars])
                   }))}
                 />
+
                 {chatState && (
                   <div className="mt-6">
                     <ChatRoom

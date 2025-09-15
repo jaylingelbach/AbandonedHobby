@@ -191,6 +191,27 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      // Enforce available stock (you sell quantity=1 per product)
+      const soldOutNames: string[] = [];
+      for (const product of products) {
+        const trackInventory = Boolean(
+          (product as { trackInventory?: unknown }).trackInventory
+        );
+        const rawQty = (product as { stockQuantity?: unknown }).stockQuantity;
+        const stockQuantity = typeof rawQty === 'number' ? rawQty : 0;
+
+        if (trackInventory && stockQuantity <= 0) {
+          soldOutNames.push(product.name ?? 'Item');
+        }
+      }
+
+      if (soldOutNames.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `These items are sold out: ${soldOutNames.join(', ')}`
+        });
+      }
+
       // Build Stripe line items
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
         products.map((product) => {
@@ -264,7 +285,10 @@ export const checkoutRouter = createTRPCRouter({
               tenantId: String(sellerTenantId),
               tenantSlug: String(sellerTenant.slug),
               sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-              productIds: input.productIds.join(',')
+              productIds: input.productIds.join(','),
+              productItems: JSON.stringify(
+                products.map((p) => ({ productId: p.id, quantity: 1 }))
+              )
             } as CheckoutMetadata,
 
             payment_intent_data: {

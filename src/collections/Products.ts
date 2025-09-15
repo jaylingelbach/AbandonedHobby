@@ -93,6 +93,37 @@ export const Products: CollectionConfig = {
             console.warn('[analytics] productListed failed:', err);
           }
         }
+      },
+
+      async ({ req, doc }) => {
+        // Prevent loop if we've already set archived in this request
+        if (req.context?.ahSkipAutoArchive) return;
+        const track = Boolean(doc.trackInventory);
+        const qty =
+          typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
+        const archived = Boolean((doc as Record<string, unknown>).isArchived);
+
+        if (track && qty === 0 && !archived) {
+          // Auto-archive sold out listings so they disappear from the store
+          await req.payload.update({
+            collection: 'products',
+            id: doc.id,
+            data: { isArchived: true },
+            overrideAccess: true,
+            context: { ahSkipAutoArchive: true }
+          });
+        }
+
+        // If quantity was increased from 0, optionally unarchive:
+        if (track && qty > 0 && archived) {
+          await req.payload.update({
+            collection: 'products',
+            id: doc.id,
+            data: { isArchived: false },
+            overrideAccess: true,
+            context: { ahSkipAutoArchive: true }
+          });
+        }
       }
     ],
     afterDelete: [
@@ -147,32 +178,36 @@ export const Products: CollectionConfig = {
     ],
     beforeChange: [
       async ({ req, operation, data }) => {
-        if (operation === 'create' || operation === 'update') {
-          const user = req.user as User;
-          if (user?.roles?.includes('super-admin')) return data;
+        if (operation !== 'create' && operation !== 'update') return data;
 
-          const rel = user?.tenants?.[0]?.tenant;
-          const tenantId = typeof rel === 'string' ? rel : rel?.id;
-          if (!tenantId) throw new Error('Tenant not found on user.');
+        // ✅ allow system/webhook updates and other server-initiated writes
+        if (req.context?.ahSystem) return data;
+        if (!req.user) return data;
 
-          const tenant = await req.payload.findByID({
-            collection: 'tenants',
-            id: tenantId,
-            depth: 0
-          });
+        const user = req.user as User;
+        if (user.roles?.includes('super-admin')) return data;
 
-          const stripeReady =
-            isObjectRecord(tenant) &&
-            typeof tenant.stripeAccountId === 'string' &&
-            tenant.stripeAccountId.length > 0 &&
-            tenant.stripeDetailsSubmitted === true;
+        const rel = user.tenants?.[0]?.tenant;
+        const tenantId = typeof rel === 'string' ? rel : rel?.id;
+        if (!tenantId) throw new Error('Tenant not found on user.');
 
-          if (!stripeReady) {
-            throw new Error(
-              'You must complete Stripe verification before creating or editing products.'
-            );
-          }
+        const tenant = await req.payload.findByID({
+          collection: 'tenants',
+          id: tenantId,
+          depth: 0
+        });
+
+        const stripeReady =
+          typeof (tenant as any)?.stripeAccountId === 'string' &&
+          (tenant as any).stripeAccountId.length > 0 &&
+          (tenant as any).stripeDetailsSubmitted === true;
+
+        if (!stripeReady) {
+          throw new Error(
+            'You must complete Stripe verification before creating or editing products.'
+          );
         }
+
         return data;
       }
     ]
@@ -269,6 +304,30 @@ export const Products: CollectionConfig = {
       admin: {
         description:
           'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
+      }
+    },
+    // Inventory
+    {
+      name: 'trackInventory',
+      type: 'checkbox',
+      label: 'Track inventory',
+      defaultValue: true
+    },
+    {
+      name: 'stockQuantity',
+      type: 'number',
+      label: 'Quantity',
+      min: 0,
+      defaultValue: 1,
+      admin: {
+        condition: (_: unknown, siblingData?: Record<string, unknown>) =>
+          Boolean((siblingData?.trackInventory as boolean) ?? true)
+      },
+      validate: (value?: unknown) => {
+        if (typeof value !== 'number') return 'Quantity is required';
+        if (!Number.isInteger(value) || value < 0)
+          return 'Must be an integer ≥ 0';
+        return true;
       }
     }
   ]
