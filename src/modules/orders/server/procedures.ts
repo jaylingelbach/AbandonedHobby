@@ -96,11 +96,6 @@ export const ordersRouter = createTRPCRouter({
           return rel === input.productId ? sum + q : sum;
         }, 0) || 1;
 
-      const productId =
-        typeof doc.product === 'string'
-          ? doc.product
-          : ((doc.product as Product | null)?.id ?? '');
-
       return {
         orderId: String(doc.id),
         orderNumber: doc.orderNumber,
@@ -109,7 +104,7 @@ export const ordersRouter = createTRPCRouter({
         currency: doc.currency,
         totalCents: doc.total,
         quantity: quantityForProduct, // ← per-product
-        productId
+        productId: input.productId
       };
     }),
 
@@ -122,8 +117,7 @@ export const ordersRouter = createTRPCRouter({
       const order = (await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId,
-        depth: 0,
-        overrideAccess: true
+        depth: 0
       })) as Order | null;
 
       if (!order) throw new TRPCError({ code: 'NOT_FOUND' });
@@ -216,8 +210,7 @@ export const ordersRouter = createTRPCRouter({
         sort: '-createdAt',
         page,
         limit,
-        depth: 2,
-        overrideAccess: true
+        depth: 2
       })) as {
         docs: Order[];
         page: number;

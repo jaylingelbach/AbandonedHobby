@@ -2612,3 +2612,20 @@ Added recap covering the Orders transition and onboarding behavior.
 - Docs
   - recap.md
     - Added "Bug - duplicate orders v2" recap describing UI changes and idempotency improvements (documentation-only).
+
+# Bug order summary card quantity
+
+## New Features
+
+- Tenant-aware, idempotent checkout with deterministic idempotency keys.
+- New Checkout Success page with prefetching of order confirmation.
+- Orders now include shipping details and persist Stripe payment identifiers.
+
+## Bug Fixes
+
+- Idempotent webhook handling prevents duplicate event processing and race conditions across databases.
+- Order summaries now correctly report per-product quantities, including legacy/mixed product references.
+
+## Documentation
+
+- Updated recap covering idempotency, webhook refactor, and the new checkout success flow.
