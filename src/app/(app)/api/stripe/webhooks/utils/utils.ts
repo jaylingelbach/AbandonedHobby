@@ -1,11 +1,11 @@
-import { ExpandedLineItem } from '@/modules/checkout/types';
-import type Stripe from 'stripe';
-import { posthogServer } from '@/lib/server/posthog-server';
 import type { Payload } from 'payload';
-import {
-  decProductStockAtomic,
-  type DecProductStockResult
-} from '@/lib/server/utils';
+import type Stripe from 'stripe';
+
+import { ExpandedLineItem } from '@/modules/checkout/types';
+import { posthogServer } from '@/lib/server/posthog-server';
+import { decProductStockAtomic } from '@/lib/server/utils';
+
+import type { DecProductStockResult } from '@/lib/server/types';
 
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';

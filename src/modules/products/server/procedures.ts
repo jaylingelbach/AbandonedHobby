@@ -116,7 +116,7 @@ export const productsRouter = createTRPCRouter({
         availabilityLabel: isSoldOut
           ? 'Sold out'
           : trackInventory
-            ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : 's'}`
+            ? `${stockQuantity} in stock`
             : 'Available',
         isPurchased,
         image: (product.image as Media) || null,
