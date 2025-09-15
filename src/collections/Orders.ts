@@ -51,6 +51,12 @@ export const Orders: CollectionConfig = {
       }
     },
     {
+      name: 'stripeEventId',
+      type: 'text',
+      index: true,
+      admin: { readOnly: true }
+    },
+    {
       name: 'total',
       type: 'number',
       required: true,

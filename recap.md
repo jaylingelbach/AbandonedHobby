@@ -2559,3 +2559,25 @@ Added recap covering the Orders transition and onboarding behavior.
 - Checkout purchase mutation
   - src/modules/checkout/server/procedures.ts
     - Adds purchase protected mutation: validates input, enforces single-seller items, builds Stripe line items with metadata/pricing, computes platform fees, creates Checkout session on connected account with dynamic success/cancel URLs (subdomain-aware), emits analytics (PostHog/flush), and returns { url } with Stripe error handling.
+
+# Bug - duplicate orders v2
+
+## Walkthrough
+
+## New Features
+
+- Dedicated Checkout Success page with prefetching for faster confirmation.
+- New loading screen (“Finalizing your order…”) for a smoother post-checkout experience.
+- Added SEO metadata for the checkout page.
+
+## Improvements
+
+- Stronger idempotency for payments to prevent duplicate orders and ensure reliable confirmations.
+- Idempotent checkout session creation for safer retries.
+- Enhanced event logging for better traceability.
+
+## Documentation
+
+- Updated to reflect idempotency-focused behavior.
+
+## File changes

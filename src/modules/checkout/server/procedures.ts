@@ -11,11 +11,13 @@ import {
 } from '@/trpc/init';
 import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
+import { randomUUID } from 'crypto';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { asId } from '@/lib/server/utils';
 import { posthogServer } from '@/lib/server/posthog-server';
+import { flushIfNeeded } from '@/lib/server/analytics';
 
 export const runtime = 'nodejs';
 
@@ -120,7 +122,7 @@ export const checkoutRouter = createTRPCRouter({
         if (!tenant) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: ' Product is missing a tenant reference'
+            message: 'Product is missing a tenant reference'
           });
         }
         if (typeof tenant === 'string') return tenant;
@@ -243,11 +245,13 @@ export const checkoutRouter = createTRPCRouter({
         ]);
 
         const isTaxReady = settings.status === 'active' && regs.data.length > 0;
+        const attemptId = randomUUID();
 
         checkout = await stripe.checkout.sessions.create(
           {
             mode: 'payment',
             line_items: lineItems,
+            client_reference_id: attemptId,
             automatic_tax: { enabled: isTaxReady },
             invoice_creation: { enabled: true },
             customer_email: user.email ?? undefined,
@@ -256,6 +260,7 @@ export const checkoutRouter = createTRPCRouter({
 
             metadata: {
               userId: user.id,
+              attemptId,
               tenantId: String(sellerTenantId),
               tenantSlug: String(sellerTenant.slug),
               sellerStripeAccountId: String(sellerTenant.stripeAccountId),
@@ -269,7 +274,11 @@ export const checkoutRouter = createTRPCRouter({
             shipping_address_collection: { allowed_countries: ['US'] },
             billing_address_collection: 'required'
           },
-          { stripeAccount: sellerTenant.stripeAccountId } // Direct charge on connected account
+          {
+            stripeAccount: sellerTenant.stripeAccountId,
+            // 10‑minute window bucket; prevents immediate duplicates but allows later re‑orders
+            idempotencyKey: `checkout:${user.id}:${[...input.productIds].sort().join(',')}:${sellerTenantId}:t${Math.floor(Date.now() / (10 * 60 * 1000))}`
+          }
         );
 
         // Analytics (non-blocking)
@@ -293,13 +302,7 @@ export const checkoutRouter = createTRPCRouter({
             timestamp: new Date()
           });
 
-          const isServerless =
-            !!process.env.VERCEL ||
-            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-            !!process.env.NETLIFY;
-          if (isServerless || process.env.NODE_ENV !== 'production') {
-            await posthogServer?.flush?.();
-          }
+          await flushIfNeeded();
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn('[analytics] checkoutStarted capture failed:', err);
