@@ -6,6 +6,15 @@ import type { ClientSession } from 'mongoose';
 import config from '@payload-config';
 import type { Category, Product, Review, Tenant } from '@/payload-types';
 import { relId, type Relationship } from '@/lib/relationshipHelpers';
+import type {
+  DecProductStockResult,
+  DraftStatus,
+  FindOneAndUpdateCapable,
+  FindOneAndUpdateReturn,
+  HasStartSession,
+  IdRef,
+  PayloadDbWithConnection
+} from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic guards & relationship coercion
@@ -42,9 +51,6 @@ export function toRelationship<T extends { id: string }>(
   if (hasStringId(value)) return value as T;
   return undefined;
 }
-
-/** Payload-style relationship reference: string id or { id }, optionally null/undefined. */
-type IdRef = string | { id: string } | null | undefined;
 
 /** Normalize a relationship ref to a string id; throws TRPC BAD_REQUEST if missing/invalid. */
 export function asId(ref: IdRef): string {
@@ -174,9 +180,6 @@ export function summarizeReviews(
 // ─────────────────────────────────────────────────────────────────────────────
 // Mongo atomic counter utilities (Payload mongooseAdapter)
 // ─────────────────────────────────────────────────────────────────────────────
-type PayloadDbWithConnection = {
-  connection: { startSession: () => Promise<ClientSession> };
-};
 
 /** Internal: get the Tenants collection handle from Payload's db. */
 type UpdateOneCapable = {
@@ -216,11 +219,6 @@ function getTenantsCollection(
   }
   return null;
 }
-
-/** Internal: start a mongoose session if supported by the current adapter. */
-type HasStartSession = {
-  startSession: () => Promise<ClientSession>;
-};
 
 function hasStartSession(value: unknown): value is HasStartSession {
   return (
@@ -393,19 +391,6 @@ export function isTenantWithStripeFields(
   return okId && okSubmitted;
 }
 
-type FindOneAndUpdateReturn =
-  | Record<string, unknown>
-  | { value: Record<string, unknown> | null }
-  | null;
-
-type FindOneAndUpdateCapable = {
-  findOneAndUpdate: (
-    filter: Record<string, unknown>,
-    update: Record<string, unknown> | Record<string, unknown>[],
-    options: Record<string, unknown>
-  ) => Promise<FindOneAndUpdateReturn>;
-};
-
 function getProductsCollection(
   payload: Payload
 ): FindOneAndUpdateCapable | null {
@@ -435,10 +420,6 @@ function getProductsCollection(
   }
   return null;
 }
-
-export type DecProductStockResult =
-  | { ok: true; after: number; archived: boolean }
-  | { ok: false; reason: 'not-found' | 'not-tracked' | 'insufficient' };
 
 export async function decProductStockAtomic(
   payload: Payload,
@@ -535,7 +516,12 @@ export async function decProductStockAtomic(
   return { ok: true, after, archived };
 }
 
-export type DraftStatus = 'draft' | 'published';
+/**
+ * Safely extract a draft status from an unknown value containing a `_status` field.
+ *
+ * @param value - Unknown object that may include `_status`.
+ * @returns `'draft' | 'published'` if recognized; otherwise `undefined`.
+ */
 
 export function getDraftStatus(value: unknown): DraftStatus | undefined {
   if (
@@ -547,6 +533,15 @@ export function getDraftStatus(value: unknown): DraftStatus | undefined {
   }
   return undefined;
 }
+
+/**
+ * Type guard for the adapter return value of `findOneAndUpdate` that normalizes
+ * different adapter shapes: some wrap the document in `{ value: ... }`, others
+ * return the document directly.
+ *
+ * @param v - A `FindOneAndUpdateReturn` candidate.
+ * @returns True if `v` has a `value` key (wrapping the document).
+ */
 
 export function hasValueKey(
   v: FindOneAndUpdateReturn
