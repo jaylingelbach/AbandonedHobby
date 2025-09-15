@@ -558,45 +558,45 @@ export async function POST(req: Request) {
           tenantDoc.name ??
           'Seller';
 
-        // await sendOrderConfirmationEmail({
-        //   to: 'jay@abandonedhobby.com', // replace with user.email when ready
-        //   name: user.firstName,
-        //   creditCardStatement: charge.statement_descriptor ?? 'ABANDONED HOBBY',
-        //   creditCardBrand: charge.payment_method_details?.card?.brand ?? 'N/A',
-        //   creditCardLast4: charge.payment_method_details?.card?.last4 ?? '0000',
-        //   receiptId: String(orderDoc.id),
-        //   orderDate: new Date().toLocaleDateString('en-US'),
-        //   lineItems: receiptLineItems,
-        //   total: `$${(totalCents / 100).toFixed(2)}`,
-        //   support_url:
-        //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-        //   item_summary: summary
-        // });
+        await sendOrderConfirmationEmail({
+          to: 'jay@abandonedhobby.com', // replace with user.email when ready
+          name: user.firstName,
+          creditCardStatement: charge.statement_descriptor ?? 'ABANDONED HOBBY',
+          creditCardBrand: charge.payment_method_details?.card?.brand ?? 'N/A',
+          creditCardLast4: charge.payment_method_details?.card?.last4 ?? '0000',
+          receiptId: String(orderDoc.id),
+          orderDate: new Date().toLocaleDateString('en-US'),
+          lineItems: receiptLineItems,
+          total: `$${(totalCents / 100).toFixed(2)}`,
+          support_url:
+            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+          item_summary: summary
+        });
 
-        // if (!sellerEmail) {
-        //   throw new Error(
-        //     `No seller notification email configured for tenant ${tenantDoc.id}`
-        //   );
-        // }
+        if (!sellerEmail) {
+          throw new Error(
+            `No seller notification email configured for tenant ${tenantDoc.id}`
+          );
+        }
 
-        // await sendSaleNotificationEmail({
-        //   to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
-        //   sellerName: sellerNameFinal,
-        //   receiptId: String(orderDoc.id),
-        //   orderDate: new Date().toLocaleDateString('en-US'),
-        //   lineItems: receiptLineItems,
-        //   total: `$${(totalCents / 100).toFixed(2)}`,
-        //   item_summary: summary,
-        //   shipping_name: customer.name!,
-        //   shipping_address_line1: address.line1!,
-        //   shipping_address_line2: address.line2 ?? undefined,
-        //   shipping_city: address.city!,
-        //   shipping_state: address.state!,
-        //   shipping_zip: address.postal_code!,
-        //   shipping_country: address.country!,
-        //   support_url:
-        //     process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
-        // });
+        await sendSaleNotificationEmail({
+          to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
+          sellerName: sellerNameFinal,
+          receiptId: String(orderDoc.id),
+          orderDate: new Date().toLocaleDateString('en-US'),
+          lineItems: receiptLineItems,
+          total: `$${(totalCents / 100).toFixed(2)}`,
+          item_summary: summary,
+          shipping_name: customer.name!,
+          shipping_address_line1: address.line1!,
+          shipping_address_line2: address.line2 ?? undefined,
+          shipping_city: address.city!,
+          shipping_state: address.state!,
+          shipping_zip: address.postal_code!,
+          shipping_country: address.country!,
+          support_url:
+            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+        });
 
         try {
           posthogServer?.capture({

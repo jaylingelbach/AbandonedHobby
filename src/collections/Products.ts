@@ -1,6 +1,6 @@
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { Product, User } from '@/payload-types';
+import { User } from '@/payload-types';
 import {
   getCategoryIdFromSibling,
   incTenantProductCount,
