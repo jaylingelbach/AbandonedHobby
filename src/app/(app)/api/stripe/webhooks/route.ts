@@ -18,37 +18,27 @@ import { posthogServer } from '@/lib/server/posthog-server';
 export const runtime = 'nodejs';
 
 /**
- * Next.js POST handler for Stripe Connect webhooks from connected accounts.
+ * Next.js API route handler for Stripe webhooks for connected accounts.
  *
- * Processes a small set of Stripe events: `checkout.session.completed`,
- * `payment_intent.payment_failed`, `checkout.session.expired`, and
- * `account.updated`. Validates the Stripe signature (STRIPE_WEBHOOK_SECRET),
- * loads payload CMS, and performs domain operations depending on the event:
- * - checkout.session.completed: creates an Order in Payload, sends buyer and
- *   seller emails, records PostHog analytics, and is idempotent for repeated
- *   sessions (skips if an order with the same Stripe session ID already
- *   exists).
- * - payment_intent.payment_failed and checkout.session.expired: captures a
- *   checkoutFailed event to PostHog (with tenant/product context) and flushes
- *   analytics in serverless/non-production environments.
- * - account.updated: updates the tenant record's `stripeDetailsSubmitted`
- *   flag based on the Stripe Account payload.
+ * Verifies the Stripe webhook signature then processes a restricted set of events:
+ * - `checkout.session.completed`: creates an idempotent Order in Payload CMS for a connected account (race-safe via a unique stripeCheckoutSessionId), sends buyer and seller emails, and records a purchase analytics event.
+ * - `payment_intent.payment_failed`: records a checkoutFailed analytics event.
+ * - `checkout.session.expired`: records a checkoutFailed analytics event with reason `expired`.
+ * - `account.updated`: syncs `stripeDetailsSubmitted` to the matching Tenant document.
  *
- * Side effects: creates/updates Payload CMS records (orders, tenants),
- * sends emails, calls Stripe APIs to retrieve expanded session/payment details,
- * and emits analytics events to PostHog.
+ * Behavior and notes:
+ * - Signature verification uses STRIPE_WEBHOOK_SECRET; a failed verification returns 400.
+ * - Only the four event types above are acted on; other events return 200 with `{ message: "Ignored" }`.
+ * - Order creation is guarded against duplicates in two ways: a pre-check query for existing orders with the same Stripe session ID, and a race-proof catch that treats duplicate-key errors (Mongo 11000 or Postgres 23505 / related messages) as successful no-ops (returns 200).
+ * - The handler expects Checkout Session metadata to include buyer and (optionally) tenant information; it will attempt tenant lookup by metadata or by connected Stripe account.
+ * - Sends emails via configured helpers; required customer shipping fields are validated before sending seller notifications.
+ * - Emits PostHog analytics events and attempts to flush them when appropriate (serverless or non-production).
  *
- * Error handling / responses:
- * - Returns 400 if webhook signature verification fails or required Stripe
- *   data is missing.
- * - Returns 200 for ignored or successfully processed events.
- * - Returns 500 for unhandled/internal errors.
- *
- * Environment expectations: requires STRIPE_WEBHOOK_SECRET and integrates with
- * configured Stripe client, Payload CMS (getPayload), email helpers, and
- * optional PostHog server instance.
- *
- * @returns A NextResponse representing the webhook result (200, 400, or 500).
+ * @param req - Incoming Next.js Request representing the Stripe webhook POST.
+ * @returns A NextResponse JSON result. Typical status codes:
+ *  - 200 for successfully processed events, ignored events, or detected duplicate orders,
+ *  - 400 for signature/verification errors,
+ *  - 500 for unexpected processing errors.
  */
 export async function POST(req: Request) {
   type TenantWithContact = Tenant & {
@@ -74,6 +64,18 @@ export async function POST(req: Request) {
       throw new Error('Missing product id in Stripe product metadata.');
     }
     return id;
+  }
+
+  function isUniqueViolation(err: unknown): boolean {
+    const anyErr = err as { code?: number | string; message?: string };
+    if (anyErr?.code === 11000 || anyErr?.code === '23505') return true; // Mongo / Postgres
+    if (typeof anyErr?.message === 'string') {
+      return (
+        anyErr.message.includes('E11000 duplicate key error') || // Mongo message
+        anyErr.message.toLowerCase().includes('duplicate key value') // PG message
+      );
+    }
+    return false;
   }
 
   const flushIfNeeded = async () => {
@@ -190,7 +192,6 @@ export async function POST(req: Request) {
         });
 
         // PI = payment intent
-        // Total cents from lines (fallback to PI below if 0)
         const totalCentsFromLines = lineItems.reduce<number>((sum, line) => {
           const lineTotal =
             (typeof line.amount_total === 'number'
@@ -279,7 +280,6 @@ export async function POST(req: Request) {
         }
 
         // --- build normalized items array for Orders schema ---
-        // Ensure every item gets a product id (string), not undefined.
         const productIdsFromLines = lineItems.map(requireStripeProductId);
 
         const productsResult = (
@@ -297,7 +297,6 @@ export async function POST(req: Request) {
           productsResult.docs.map((productDoc) => [productDoc.id, productDoc])
         );
 
-        // derive items
         const now = new Date();
         type RefundPolicyOption = Exclude<Product['refundPolicy'], null>;
 
@@ -342,7 +341,6 @@ export async function POST(req: Request) {
           const nameSnapshot =
             stripeProduct?.name ?? line.description ?? 'Item';
 
-          // IMPORTANT: product is guaranteed string here
           return {
             product: productId,
             nameSnapshot,
@@ -352,11 +350,10 @@ export async function POST(req: Request) {
             amountTax,
             amountTotal,
             refundPolicy: policy,
-            returnsAcceptedThrough: returnsISO // string | undefined
+            returnsAcceptedThrough: returnsISO
           };
         });
 
-        // order-level returns cutoff (earliest accepting item) -> ISO string
         const itemReturnDates = orderItems
           .map((item) =>
             item.returnsAcceptedThrough
@@ -372,13 +369,11 @@ export async function POST(req: Request) {
               ).toISOString()
             : undefined;
 
-        // first defined product id for back-compat required field
         const firstProductId = orderItems.find(itemHasProductId)?.product;
         if (!firstProductId) {
           throw new Error('No product id resolved from Stripe line items.');
         }
 
-        // order number & display name
         const orderNumber = `AH-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
         const firstName = orderItems[0]?.nameSnapshot ?? 'Order';
         const orderName =
@@ -386,7 +381,7 @@ export async function POST(req: Request) {
             ? `${firstName} (+${orderItems.length - 1} more)`
             : firstName;
 
-        // Guard against duplicate orders on stripe retry.
+        // Fast-path guard against duplicates (non-race)
         const existing = await payload.find({
           collection: 'orders',
           where: { stripeCheckoutSessionId: { equals: session.id } },
@@ -396,43 +391,60 @@ export async function POST(req: Request) {
         });
 
         if (existing.totalDocs > 0) {
-          console.log('[webhook] duplicate session, skipping create', {
-            sessionId: session.id
-          });
+          console.log(
+            '[webhook] duplicate session (pre-check), skipping create',
+            {
+              sessionId: session.id
+            }
+          );
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
-        // --- create one order (items array, total in cents) ---
-        const orderDoc = await payload.create({
-          collection: 'orders',
-          data: {
-            name: orderName,
-            orderNumber,
-            buyer: user.id, // schema requires both buyer and user
-            user: user.id,
-            sellerTenant: tenantDoc.id,
-            currency,
-            product: firstProductId, // back-compat field
-            stripeAccountId: event.account,
-            stripeCheckoutSessionId: session.id,
-            stripeChargeId: charge.id,
-            items: orderItems,
-            returnsAcceptedThrough: returnsAcceptedThroughISO, // string | undefined (OK for string | null | undefined)
-            buyerEmail: customer.email ?? undefined,
-            status: 'paid',
-            total: totalCents,
-            shipping: {
-              name: customer.name ?? 'Customer',
-              line1: customer.address?.line1,
-              line2: customer.address?.line2,
-              city: customer.address?.city,
-              state: customer.address?.state,
-              postalCode: customer.address?.postal_code,
-              country: customer.address?.country
-            }
-          },
-          overrideAccess: true
-        });
+        // --- idempotent create (race-proof via unique index & catch) ---
+        let orderDoc;
+        try {
+          orderDoc = await payload.create({
+            collection: 'orders',
+            data: {
+              name: orderName,
+              orderNumber,
+              buyer: user.id,
+              user: user.id,
+              sellerTenant: tenantDoc.id,
+              currency,
+              product: firstProductId, // back-compat field
+              stripeAccountId: event.account,
+              stripeCheckoutSessionId: session.id, // <-- must be unique in schema
+              stripeChargeId: charge.id,
+              items: orderItems,
+              returnsAcceptedThrough: returnsAcceptedThroughISO,
+              buyerEmail: customer.email ?? undefined,
+              status: 'paid',
+              total: totalCents,
+              shipping: {
+                name: customer.name ?? 'Customer',
+                line1: customer.address?.line1,
+                line2: customer.address?.line2,
+                city: customer.address?.city,
+                state: customer.address?.state,
+                postalCode: customer.address?.postal_code,
+                country: customer.address?.country
+              }
+            },
+            overrideAccess: true
+          });
+        } catch (err) {
+          if (isUniqueViolation(err)) {
+            console.log(
+              '[webhook] duplicate session (unique violation), skipping create',
+              { sessionId: session.id }
+            );
+            // Another concurrent handler got there first.
+            return NextResponse.json({ received: true }, { status: 200 });
+          }
+          throw err; // real error bubbles to outer catch → 500
+        }
+
         // ---- emails ----
         const summary = receiptLineItems.map((i) => i.description).join(', ');
 
@@ -454,7 +466,6 @@ export async function POST(req: Request) {
             'Cannot send sale email: shipping country is missing'
           );
 
-        // figure seller notification target
         const primaryRef = tenantDoc.primaryContact;
         let primaryContactUser: User | null = null;
 
@@ -485,7 +496,6 @@ export async function POST(req: Request) {
           tenantDoc.name ??
           'Seller';
 
-        // Buyer email
         await sendOrderConfirmationEmail({
           to: 'jay@abandonedhobby.com', // replace with user.email when ready
           name: user.firstName,
@@ -507,7 +517,6 @@ export async function POST(req: Request) {
           );
         }
 
-        // Seller email
         await sendSaleNotificationEmail({
           to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
           sellerName: sellerNameFinal,
@@ -554,6 +563,7 @@ export async function POST(req: Request) {
 
         return NextResponse.json({ received: true }, { status: 200 });
       }
+
       case 'payment_intent.payment_failed': {
         // Event comes from a connected account; no extra retrieve needed.
         // PI = payment intent MD = metadata

@@ -45,6 +45,7 @@ export const Orders: CollectionConfig = {
       name: 'stripeCheckoutSessionId',
       type: 'text',
       index: true,
+      unique: true,
       admin: {
         description: 'The Stripe checkout session associated with the order. '
       }
