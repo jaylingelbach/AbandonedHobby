@@ -17,6 +17,29 @@ import { posthogServer } from '@/lib/server/posthog-server';
 
 export const runtime = 'nodejs';
 
+/**
+ * Next.js API route handler for Stripe webhooks for connected accounts.
+ *
+ * Verifies the Stripe webhook signature then processes a restricted set of events:
+ * - `checkout.session.completed`: creates an idempotent Order in Payload CMS for a connected account (race-safe via a unique stripeCheckoutSessionId), sends buyer and seller emails, and records a purchase analytics event.
+ * - `payment_intent.payment_failed`: records a checkoutFailed analytics event.
+ * - `checkout.session.expired`: records a checkoutFailed analytics event with reason `expired`.
+ * - `account.updated`: syncs `stripeDetailsSubmitted` to the matching Tenant document.
+ *
+ * Behavior and notes:
+ * - Signature verification uses STRIPE_WEBHOOK_SECRET; a failed verification returns 400.
+ * - Only the four event types above are acted on; other events return 200 with `{ message: "Ignored" }`.
+ * - Order creation is guarded against duplicates in two ways: a pre-check query for existing orders with the same Stripe session ID, and a race-proof catch that treats duplicate-key errors (Mongo 11000 or Postgres 23505 / related messages) as successful no-ops (returns 200).
+ * - The handler expects Checkout Session metadata to include buyer and (optionally) tenant information; it will attempt tenant lookup by metadata or by connected Stripe account.
+ * - Sends emails via configured helpers; required customer shipping fields are validated before sending seller notifications.
+ * - Emits PostHog analytics events and attempts to flush them when appropriate (serverless or non-production).
+ *
+ * @param req - Incoming Next.js Request representing the Stripe webhook POST.
+ * @returns A NextResponse JSON result. Typical status codes:
+ *  - 200 for successfully processed events, ignored events, or detected duplicate orders,
+ *  - 400 for signature/verification errors,
+ *  - 500 for unexpected processing errors.
+ */
 export async function POST(req: Request) {
   type TenantWithContact = Tenant & {
     notificationEmail?: string | null;
