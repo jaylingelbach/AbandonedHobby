@@ -378,7 +378,7 @@ export async function POST(req: Request) {
         }
 
         // --- idempotent create (race-proof via unique index & catch) ---
-        let orderDoc: any;
+        let orderDoc;
         try {
           orderDoc = await payload.create({
             collection: 'orders',
