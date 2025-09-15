@@ -3,11 +3,12 @@ import { headers as getHeaders } from 'next/headers';
 import z from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { Media, Product, Tenant } from '@/payload-types';
+import type { Media, Product, Tenant, Review } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';
 import { sortValues } from '@/modules/products/search-params';
+import { summarizeReviews } from '@/lib/server/utils';
 
 interface ProductWithInventory extends Product {
   trackInventory?: boolean;
@@ -301,13 +302,13 @@ export const productsRouter = createTRPCRouter({
       });
 
       const ids = data.docs.map((d) => d.id);
-      const reviewsData = await ctx.db.find({
+      const reviewsData = (await ctx.db.find({
         collection: 'reviews',
         pagination: false,
         where: { product: { in: ids } }
-      });
-      const { summarizeReviews } = await import('@/lib/server/utils');
-      const summary = summarizeReviews(reviewsData.docs as any);
+      })) as { docs: Review[] };
+
+      const summary = summarizeReviews(reviewsData.docs);
       const dataWithSummarizedReviews = data.docs.map((doc) => {
         const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
         return { ...doc, reviewCount: s.count, reviewRating: s.avg };

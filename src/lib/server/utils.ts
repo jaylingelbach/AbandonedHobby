@@ -503,3 +503,13 @@ export async function decProductStockAtomic(
   );
   return { ok: true, after, archived };
 }
+
+export type DraftStatus = 'draft' | 'published';
+
+export function getDraftStatus(value: unknown): DraftStatus | undefined {
+  if (typeof value === 'object' && value !== null && '_status' in value) {
+    const s = (value as { _status?: unknown })._status;
+    if (s === 'draft' || s === 'published') return s;
+  }
+  return undefined;
+}

@@ -1,11 +1,12 @@
-import { CollectionConfig } from 'payload';
+import { CollectionConfig, type Payload } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
 import { User } from '@/payload-types';
 import {
   getCategoryIdFromSibling,
   incTenantProductCount,
   swapTenantCountsAtomic,
-  isTenantWithStripeFields
+  isTenantWithStripeFields,
+  getDraftStatus
 } from '@/lib/server/utils';
 import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 
@@ -100,10 +101,7 @@ export const Products: CollectionConfig = {
         if (req.context?.ahSkipAutoArchive) return;
 
         // If drafts are enabled, do not auto-publish
-        const status = (doc as any)?._status as
-          | 'draft'
-          | 'published'
-          | undefined;
+        const status = getDraftStatus(doc);
         if (status && status !== 'published') return;
 
         if (operation === 'update') {
@@ -207,7 +205,7 @@ export const Products: CollectionConfig = {
         req: {
           user?: User | null;
           context?: Record<string, unknown>;
-          payload: any;
+          payload: Payload;
         }; // payload type is provided by Payload; leave as-is from your file
         operation: 'create' | 'update' | 'delete';
         data: Record<string, unknown>;
