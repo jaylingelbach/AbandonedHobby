@@ -269,7 +269,12 @@ export const checkoutRouter = createTRPCRouter({
             shipping_address_collection: { allowed_countries: ['US'] },
             billing_address_collection: 'required'
           },
-          { stripeAccount: sellerTenant.stripeAccountId } // Direct charge on connected account
+          {
+            stripeAccount: sellerTenant.stripeAccountId, // Direct charge on connected account
+            idempotencyKey: `checkout:${user.id}:${[...input.productIds]
+              .sort()
+              .join(',')}:${sellerTenantId}`
+          }
         );
 
         // Analytics (non-blocking)

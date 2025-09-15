@@ -14,6 +14,13 @@ import {
 import type { Tenant, User, Product } from '@/payload-types';
 import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
 import { posthogServer } from '@/lib/server/posthog-server';
+import {
+  isStringValue,
+  flushIfNeeded,
+  isUniqueViolation,
+  itemHasProductId,
+  requireStripeProductId
+} from './utils/utils';
 
 export const runtime = 'nodejs';
 
@@ -26,66 +33,16 @@ export const runtime = 'nodejs';
  * - `checkout.session.expired`: records a checkoutFailed analytics event with reason `expired`.
  * - `account.updated`: syncs `stripeDetailsSubmitted` to the matching Tenant document.
  *
- * Behavior and notes:
- * - Signature verification uses STRIPE_WEBHOOK_SECRET; a failed verification returns 400.
- * - Only the four event types above are acted on; other events return 200 with `{ message: "Ignored" }`.
- * - Order creation is guarded against duplicates in two ways: a pre-check query for existing orders with the same Stripe session ID, and a race-proof catch that treats duplicate-key errors (Mongo 11000 or Postgres 23505 / related messages) as successful no-ops (returns 200).
- * - The handler expects Checkout Session metadata to include buyer and (optionally) tenant information; it will attempt tenant lookup by metadata or by connected Stripe account.
- * - Sends emails via configured helpers; required customer shipping fields are validated before sending seller notifications.
- * - Emits PostHog analytics events and attempts to flush them when appropriate (serverless or non-production).
- *
- * @param req - Incoming Next.js Request representing the Stripe webhook POST.
- * @returns A NextResponse JSON result. Typical status codes:
- *  - 200 for successfully processed events, ignored events, or detected duplicate orders,
- *  - 400 for signature/verification errors,
- *  - 500 for unexpected processing errors.
+ * Idempotency hardening:
+ * - Fast pre-check by BOTH `stripeCheckoutSessionId` AND `stripeEventId` (Stripe event id).
+ * - Persist `stripeEventId` on the Order.
+ * - Catch duplicate-key errors (Mongo 11000 / PG 23505) and treat as success.
  */
 export async function POST(req: Request) {
   type TenantWithContact = Tenant & {
     notificationEmail?: string | null;
     notificationName?: string | null;
     primaryContact?: string | User | null; // id or populated
-  };
-
-  // ---- helpers  ----
-  const isStringValue = (value: unknown): value is string =>
-    typeof value === 'string';
-
-  function itemHasProductId(item: { product?: string }): item is {
-    product: string;
-  } {
-    return typeof item.product === 'string' && item.product.length > 0;
-  }
-
-  function requireStripeProductId(line: ExpandedLineItem): string {
-    const stripeProduct = line.price?.product as Stripe.Product | undefined;
-    const id = stripeProduct?.metadata?.id;
-    if (!id) {
-      throw new Error('Missing product id in Stripe product metadata.');
-    }
-    return id;
-  }
-
-  function isUniqueViolation(err: unknown): boolean {
-    const anyErr = err as { code?: number | string; message?: string };
-    if (anyErr?.code === 11000 || anyErr?.code === '23505') return true; // Mongo / Postgres
-    if (typeof anyErr?.message === 'string') {
-      return (
-        anyErr.message.includes('E11000 duplicate key error') || // Mongo message
-        anyErr.message.toLowerCase().includes('duplicate key value') // PG message
-      );
-    }
-    return false;
-  }
-
-  const flushIfNeeded = async () => {
-    const isServerless =
-      !!process.env.VERCEL ||
-      !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-      !!process.env.NETLIFY;
-    if (isServerless || process.env.NODE_ENV !== 'production') {
-      await posthogServer?.flush?.();
-    }
   };
 
   let event: Stripe.Event;
@@ -99,6 +56,7 @@ export async function POST(req: Request) {
     );
     console.log('[webhook] event', {
       type: event.type,
+      id: event.id,
       account: event.account ?? null
     });
   } catch (error) {
@@ -142,6 +100,29 @@ export async function POST(req: Request) {
         })) as User | null;
         if (!user) {
           throw new Error('User is required');
+        }
+
+        // --- FAST PATH IDEMPOTENCY PRE-CHECK ---
+        // Check by BOTH the Checkout Session id and the Stripe event id.
+        // (Make `stripeCheckoutSessionId` and `stripeEventId` unique in schema.)
+        const existingPre = await payload.find({
+          collection: 'orders',
+          where: {
+            or: [
+              { stripeCheckoutSessionId: { equals: session.id } },
+              { stripeEventId: { equals: event.id } }
+            ]
+          },
+          limit: 1,
+          depth: 0,
+          overrideAccess: true
+        });
+        if (existingPre.totalDocs > 0) {
+          console.log('[webhook] duplicate detected (pre-check)', {
+            sessionId: session.id,
+            eventId: event.id
+          });
+          return NextResponse.json({ received: true }, { status: 200 });
         }
 
         // expanded session (from connected account)
@@ -381,25 +362,6 @@ export async function POST(req: Request) {
             ? `${firstName} (+${orderItems.length - 1} more)`
             : firstName;
 
-        // Fast-path guard against duplicates (non-race)
-        const existing = await payload.find({
-          collection: 'orders',
-          where: { stripeCheckoutSessionId: { equals: session.id } },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true
-        });
-
-        if (existing.totalDocs > 0) {
-          console.log(
-            '[webhook] duplicate session (pre-check), skipping create',
-            {
-              sessionId: session.id
-            }
-          );
-          return NextResponse.json({ received: true }, { status: 200 });
-        }
-
         // --- idempotent create (race-proof via unique index & catch) ---
         let orderDoc;
         try {
@@ -414,7 +376,8 @@ export async function POST(req: Request) {
               currency,
               product: firstProductId, // back-compat field
               stripeAccountId: event.account,
-              stripeCheckoutSessionId: session.id, // <-- must be unique in schema
+              stripeCheckoutSessionId: session.id, // <-- unique in schema
+              stripeEventId: event.id, // <-- NEW: also persist event id (make unique in schema)
               stripeChargeId: charge.id,
               items: orderItems,
               returnsAcceptedThrough: returnsAcceptedThroughISO,
@@ -435,14 +398,31 @@ export async function POST(req: Request) {
           });
         } catch (err) {
           if (isUniqueViolation(err)) {
+            // Another concurrent handler created it first.
+            const existing = await payload.find({
+              collection: 'orders',
+              where: {
+                or: [
+                  { stripeCheckoutSessionId: { equals: session.id } },
+                  { stripeEventId: { equals: event.id } }
+                ]
+              },
+              limit: 1,
+              depth: 0,
+              overrideAccess: true
+            });
             console.log(
-              '[webhook] duplicate session (unique violation), skipping create',
-              { sessionId: session.id }
+              '[webhook] duplicate detected (unique-violation catch)',
+              {
+                sessionId: session.id,
+                eventId: event.id
+              }
             );
-            // Another concurrent handler got there first.
+            // Return success (idempotent)
             return NextResponse.json({ received: true }, { status: 200 });
           }
-          throw err; // real error bubbles to outer catch → 500
+          // real error
+          throw err;
         }
 
         // ---- emails ----
