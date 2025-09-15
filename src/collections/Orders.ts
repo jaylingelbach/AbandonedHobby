@@ -210,7 +210,12 @@ export const Orders: CollectionConfig = {
     {
       name: 'inventoryAdjustedAt',
       type: 'date',
-      admin: { readOnly: true, description: 'Set when stock was decremented' }
+      admin: { readOnly: true, description: 'Set when stock was decremented' },
+      index: true,
+      access: {
+        create: () => false,
+        update: () => false
+      }
     }
   ]
 };

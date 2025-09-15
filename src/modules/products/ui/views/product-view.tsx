@@ -91,7 +91,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       : isSoldOut
         ? 'Sold out'
         : trackInventory
-          ? `${stockQuantity} in stock`
+          ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
           : 'Available';
 
   const productForUseProductViewed = {
@@ -226,7 +226,12 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       productId={productId}
                     />
                   ) : (
-                    <Button disabled className="flex-1 cursor-not-allowed">
+                    <Button
+                      disabled
+                      aria-disabled="true"
+                      title="This item is unavailable"
+                      className="flex-1 cursor-not-allowed"
+                    >
                       Unavailable
                     </Button>
                   )}
@@ -257,7 +262,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   </Button>
                 </div>
 
-                {/* ✅ Availability label */}
+                {/* Availability label */}
                 {trackInventory && (
                   <p className="text-center text-sm text-muted-foreground">
                     {availabilityLabel}

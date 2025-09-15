@@ -146,11 +146,11 @@ export async function POST(req: Request) {
                 }))
             );
 
-            console.log('[webhook] decrement on primary path', {
+            console.log('[webhook] decrement on duplicate path', {
               entries: [...qtyByProductId.entries()]
             });
-            await decrementInventoryBatch({ payload, qtyByProductId });
 
+            await decrementInventoryBatch({ payload, qtyByProductId });
             // Re-read one of the products to verify persisted result immediately
             const [firstId] = qtyByProductId.keys();
             if (firstId) {
@@ -165,6 +165,7 @@ export async function POST(req: Request) {
                   ahSkipAutoArchive: true // <-- prevents your auto-archive hook from looping
                 }
               });
+
               console.log('[webhook] post-update check', {
                 productId: firstId,
                 stockQuantity: (after as Product).stockQuantity,
@@ -186,9 +187,12 @@ export async function POST(req: Request) {
               orderId: existing.id
             });
           } else {
-            console.log('[webhook] inventory adjusted on duplicate path', {
-              orderId: existing.id
-            });
+            console.log(
+              '[webhook] duplicate path: inventory already adjusted',
+              {
+                orderId: existing.id
+              }
+            );
           }
           return NextResponse.json({ received: true }, { status: 200 });
         }

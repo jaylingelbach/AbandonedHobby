@@ -122,6 +122,7 @@ export const Products: CollectionConfig = {
             id: doc.id,
             data: { isArchived: true },
             overrideAccess: true,
+            draft: false,
             context: { ahSkipAutoArchive: true }
           });
         }
@@ -133,6 +134,7 @@ export const Products: CollectionConfig = {
             id: doc.id,
             data: { isArchived: false },
             overrideAccess: true,
+            draft: false,
             context: { ahSkipAutoArchive: true }
           });
         }

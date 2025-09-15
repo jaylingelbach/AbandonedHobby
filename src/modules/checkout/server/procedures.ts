@@ -138,19 +138,19 @@ export const checkoutRouter = createTRPCRouter({
           message: 'Product is missing a valid tenant reference.'
         });
       }
-
+      const uniqueProductIds = Array.from(new Set(input.productIds));
       const productsRes = await ctx.db.find({
         collection: 'products',
         depth: 2,
         where: {
           and: [
-            { id: { in: input.productIds } },
+            { id: { in: uniqueProductIds } },
             { isArchived: { not_equals: true } }
           ]
         }
       });
 
-      if (productsRes.totalDocs !== input.productIds.length) {
+      if (productsRes.totalDocs !== uniqueProductIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found'
@@ -292,10 +292,7 @@ export const checkoutRouter = createTRPCRouter({
               tenantId: String(sellerTenantId),
               tenantSlug: String(sellerTenant.slug),
               sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-              productIds: input.productIds.join(','),
-              productItems: JSON.stringify(
-                products.map((p) => ({ productId: p.id, quantity: 1 }))
-              )
+              productIds: input.productIds.join(',')
             } as CheckoutMetadata,
 
             payment_intent_data: {

@@ -2654,3 +2654,26 @@ Added recap covering the Orders transition and onboarding behavior.
 - Docs / Recap
   - recap.md
     - Updated recap to document idempotency, webhook refactor, expanded Orders metadata, new checkout success flow, and analytics/webhook utilities.
+
+# Product inventory 09/15/25
+
+## Walkthrough
+
+## New Features
+
+- Inventory tracking for products with stock quantity.
+- Product pages show availability labels and a Sold out badge.
+- Add to Cart is disabled when unavailable; listings hide sold-out items.
+- Checkout blocks sold-out items and reports which items are unavailable.
+
+## Improvements
+
+- More reliable stock updates after purchases to reduce overselling.
+- Chat opens with conversation context for a smoother start.
+
+## Admin
+
+- New product fields to manage stock and automatic archiving at zero.
+- Orders display when inventory was adjusted.
+
+## File changes

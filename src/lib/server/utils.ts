@@ -315,6 +315,20 @@ export async function incTenantProductCount(
 }
 
 /** Atomically do -1 on previous and +1 on next in a transaction (swap). */
+/**
+ * Atomically swap product-counts between two tenants by decrementing the previous tenant and incrementing the next.
+ *
+ * If `previousTenantId` and `nextTenantId` are equal the function returns immediately. When the Payload database
+ * supports MongoDB sessions this runs both increments inside a transaction so the two updates are applied atomically.
+ * If sessions are not supported, behavior depends on the AH_RECOUNT_FALLBACK environment variable:
+ * - If AH_RECOUNT_FALLBACK === 'true', performs full recounts for the affected tenants to avoid drifting counts.
+ * - Otherwise, no updates are performed and a warning is emitted in non-production environments.
+ *
+ * @param previousTenantId - ID of the tenant to decrement (may be an empty string to skip).
+ * @param nextTenantId - ID of the tenant to increment (may be an empty string to skip).
+ * @returns A promise that resolves when the operation completes.
+ */
+
 export async function swapTenantCountsAtomic(
   payload: Payload,
   previousTenantId: string,
@@ -346,6 +360,17 @@ export async function swapTenantCountsAtomic(
   }
 }
 
+/**
+ * Type guard that validates an object has tenant Stripe-related fields with expected types.
+ *
+ * Checks that `value` is a plain object and that:
+ * - `stripeAccountId` is `string`, `null`, or `undefined`
+ * - `stripeDetailsSubmitted` is `boolean`, `null`, or `undefined`
+ *
+ * @param value - Value to test
+ * @returns `true` if `value` can be treated as `Pick<Tenant, 'stripeAccountId' | 'stripeDetailsSubmitted'>`; otherwise `false`
+ */
+
 export function isTenantWithStripeFields(
   value: unknown
 ): value is Pick<Tenant, 'stripeAccountId' | 'stripeDetailsSubmitted'> {
@@ -366,4 +391,122 @@ export function isTenantWithStripeFields(
     typeof stripeDetailsSubmitted === 'boolean';
 
   return okId && okSubmitted;
+}
+
+type FindOneAndUpdateResult = { value: Record<string, unknown> | null };
+
+type FindOneAndUpdateCapable = {
+  findOneAndUpdate: (
+    filter: Record<string, unknown>,
+    update: Record<string, unknown> | Record<string, unknown>[],
+    options: Record<string, unknown>
+  ) => Promise<FindOneAndUpdateResult>;
+};
+
+function getProductsCollection(
+  payload: Payload
+): FindOneAndUpdateCapable | null {
+  const db = (payload as { db?: unknown }).db;
+  if (!isObjectRecord(db)) return null;
+  const collections = (db as { collections?: unknown }).collections;
+  if (!isObjectRecord(collections)) return null;
+
+  const products = (collections as Record<string, unknown>).products;
+  if (!products) return null;
+
+  // Try common shapes: mongoose model (.Model), native collection (.collection), or wrapper itself
+  const candidates: unknown[] = [
+    (products as { Model?: unknown }).Model,
+    (products as { collection?: unknown }).collection,
+    products
+  ];
+
+  for (const c of candidates) {
+    if (
+      isObjectRecord(c) &&
+      typeof (c as { findOneAndUpdate?: unknown }).findOneAndUpdate ===
+        'function'
+    ) {
+      return c as FindOneAndUpdateCapable;
+    }
+  }
+  return null;
+}
+
+export type DecProductStockResult =
+  | { ok: true; after: number; archived: boolean }
+  | { ok: false; reason: 'not-found' | 'not-tracked' | 'insufficient' };
+
+export async function decProductStockAtomic(
+  payload: Payload,
+  productId: string,
+  qty: number,
+  opts: { autoArchive?: boolean } = {}
+): Promise<DecProductStockResult> {
+  if (qty <= 0) return { ok: true, after: Number.NaN, archived: false }; // no-op
+
+  const handle = getProductsCollection(payload);
+  if (!handle) {
+    // Fallback: if adapter doesn’t expose native ops, let caller keep their non-atomic path or log it.
+    return { ok: false, reason: 'not-found' };
+  }
+
+  // We require `trackInventory: true` and `stockQuantity >= qty` to avoid overselling.
+  const filter: Record<string, unknown> = {
+    _id: productId,
+    trackInventory: true,
+    stockQuantity: { $gte: qty }
+  };
+
+  // Aggregation pipeline update to compute new qty and optional auto-archive.
+  const setStage: Record<string, unknown> = {
+    $set: {
+      stockQuantity: { $subtract: ['$stockQuantity', qty] }
+    }
+  };
+
+  if (opts.autoArchive) {
+    (setStage.$set as Record<string, unknown>).isArchived = {
+      $cond: [
+        { $eq: [{ $subtract: ['$stockQuantity', qty] }, 0] },
+        true,
+        '$isArchived'
+      ]
+    };
+  }
+
+  const update: Record<string, unknown>[] = [setStage];
+
+  const result = await handle.findOneAndUpdate(
+    filter,
+    update,
+    // Return the post-update document so we can read the new stock & archive flag
+    { returnDocument: 'after' }
+  );
+
+  if (!result.value) {
+    // Distinguish a bit if possible by probing a minimal read (not modifying):
+    // (Optional: skip if you’re happy with a single generic reason)
+    const peek = await handle.findOneAndUpdate({ _id: productId }, [], {
+      returnDocument: 'after'
+    });
+
+    if (!peek.value) return { ok: false, reason: 'not-found' };
+
+    const tracked = Boolean(
+      (peek.value as { trackInventory?: unknown }).trackInventory === true
+    );
+    if (!tracked) return { ok: false, reason: 'not-tracked' };
+
+    // Tracked, but our >= qty precondition failed ⇒ insufficient stock
+    return { ok: false, reason: 'insufficient' };
+  }
+
+  const afterRaw = (result.value as { stockQuantity?: unknown }).stockQuantity;
+  const after = typeof afterRaw === 'number' ? afterRaw : 0;
+  const archived = Boolean(
+    (result.value as { isArchived?: unknown }).isArchived === true
+  );
+
+  return { ok: true, after, archived };
 }

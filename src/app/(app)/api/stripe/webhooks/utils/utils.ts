@@ -2,9 +2,10 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 import type Stripe from 'stripe';
 import { posthogServer } from '@/lib/server/posthog-server';
 import type { Payload } from 'payload';
-import { Product } from '@/payload-types';
-
-console.log('[utils] decrementInventoryBatch loaded');
+import {
+  decProductStockAtomic,
+  type DecProductStockResult
+} from '@/lib/server/utils';
 
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';
@@ -76,6 +77,16 @@ export const flushIfNeeded = async () => {
   }
 };
 
+/**
+ * Aggregate an array of line items into a map of product ID -> total quantity.
+ *
+ * Each input item must have a `product` id. If `quantity` is missing or not a number,
+ * it defaults to 1. Quantities for the same product id are summed.
+ *
+ * @param items - Array of objects containing `product` (id) and optional `quantity`
+ * @returns A Map where keys are product ids and values are the aggregated quantities
+ */
+
 export function toQtyMap(
   items: Array<{ product: string; quantity?: number }>
 ): Map<string, number> {
@@ -87,6 +98,18 @@ export function toQtyMap(
   return map;
 }
 
+/**
+ * Decrements stock quantities for multiple products and archives any that reach zero.
+ *
+ * For each entry in `qtyByProductId` this function reads the published `products` document,
+ * skips items with falsy `trackInventory`, computes the new `stockQuantity` (clamped at 0),
+ * updates the published product with the new `stockQuantity`, and sets `isArchived: true`
+ * when the resulting quantity is zero. Updates are performed with write-through access
+ * (published document, `overrideAccess: true`, `draft: false`).
+ *
+ * @param qtyByProductId - Map from product ID to the quantity to subtract (total purchased quantity).
+ */
+
 export async function decrementInventoryBatch(args: {
   payload: Payload;
   qtyByProductId: Map<string, number>;
@@ -94,41 +117,38 @@ export async function decrementInventoryBatch(args: {
   const { payload, qtyByProductId } = args;
 
   for (const [productId, purchasedQty] of qtyByProductId) {
-    // Read the published doc
-    const product = (await payload.findByID({
-      collection: 'products',
-      id: productId,
-      depth: 0,
-      overrideAccess: true,
-      draft: false
-    })) as Product;
-
-    const trackInventory = Boolean(product.trackInventory);
-    if (!trackInventory) continue;
-
-    const current =
-      typeof product.stockQuantity === 'number' ? product.stockQuantity : 0;
-    const nextQty = Math.max(0, current - purchasedQty);
-
-    // Write the published doc
-    const updatedProduct = (await payload.update({
-      collection: 'products',
-      id: productId,
-      data: {
-        stockQuantity: nextQty,
-        ...(nextQty === 0 ? { isArchived: true } : {})
-      },
-      overrideAccess: true,
-      draft: false,
-      // optional but nice to have if you keep the bypass in hooks:
-      context: { ahSystem: true, ahSkipAutoArchive: true }
-    })) as Product;
-
-    // Typed log
-    console.log('[inv] updated', {
+    const res: DecProductStockResult = await decProductStockAtomic(
+      payload,
       productId,
-      after: updatedProduct.stockQuantity,
-      archived: updatedProduct.isArchived
+      purchasedQty,
+      {
+        autoArchive: true
+      }
+    );
+
+    if (res.ok) {
+      // Typed log with post-update values
+      // eslint-disable-next-line no-console
+      console.log('[inv] dec-atomic', {
+        productId,
+        purchasedQty,
+        after: res.after,
+        archived: res.archived
+      });
+      continue;
+    }
+
+    // Failure paths are explicit and typed
+    // eslint-disable-next-line no-console
+    console.warn('[inv] dec-atomic failed', {
+      productId,
+      purchasedQty,
+      reason: res.reason
     });
+
+    // Optional: decide your policy here
+    // - 'insufficient': you could mark the order for manual review or issue a refund
+    // - 'not-tracked': ignore (product doesn’t track inventory)
+    // - 'not-found': log / alert
   }
 }

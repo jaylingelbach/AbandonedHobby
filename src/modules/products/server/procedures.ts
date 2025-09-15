@@ -59,7 +59,8 @@ export const productsRouter = createTRPCRouter({
           where: {
             and: [
               { product: { equals: input.id } },
-              { user: { equals: session.user.id } }
+              { user: { equals: session.user.id } },
+              { status: { in: ['paid', 'partially_refunded'] } }
             ]
           }
         });
@@ -294,7 +295,7 @@ export const productsRouter = createTRPCRouter({
         }
       });
 
-      const dataWithSummaizedReviews = await Promise.all(
+      const dataWithSummarizedReviews = await Promise.all(
         data.docs.map(async (doc) => {
           const reviewsData = await ctx.db.find({
             collection: 'reviews',
@@ -321,7 +322,7 @@ export const productsRouter = createTRPCRouter({
 
       return {
         ...data,
-        docs: dataWithSummaizedReviews.map((doc) => ({
+        docs: dataWithSummarizedReviews.map((doc) => ({
           ...doc,
           image: doc.image as Media | null,
           tenant: doc.tenant as Tenant & { image: Media | null }
