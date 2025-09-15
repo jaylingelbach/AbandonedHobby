@@ -99,6 +99,13 @@ export const Products: CollectionConfig = {
         // Prevent loop if we've already set archived in this request
         if (req.context?.ahSkipAutoArchive) return;
 
+        // If drafts are enabled, do not auto-publish
+        const status = (doc as any)?._status as
+          | 'draft'
+          | 'published'
+          | undefined;
+        if (status && status !== 'published') return;
+
         if (operation === 'update') {
           const prevTrack = Boolean(previousDoc?.trackInventory);
           const prevQty =
@@ -191,20 +198,75 @@ export const Products: CollectionConfig = {
       }
     ],
     beforeChange: [
-      async ({ req, operation, data }) => {
+      async ({
+        req,
+        operation,
+        data,
+        originalDoc
+      }: {
+        req: {
+          user?: User | null;
+          context?: Record<string, unknown>;
+          payload: any;
+        }; // payload type is provided by Payload; leave as-is from your file
+        operation: 'create' | 'update' | 'delete';
+        data: Record<string, unknown>;
+        originalDoc?: Record<string, unknown>;
+      }) => {
         if (operation !== 'create' && operation !== 'update') return data;
 
         // Allow system/webhook writes and other server-initiated writes
         if (req.context?.ahSystem) return data;
-        if (!req.user) return data;
 
-        const user = req.user as User;
+        const user = req.user as User | undefined;
+        if (!user) return data; // unauthenticated server-side writes
+
         if (user.roles?.includes('super-admin')) return data;
 
-        const rel = user.tenants?.[0]?.tenant;
-        const tenantId = typeof rel === 'string' ? rel : rel?.id;
-        if (!tenantId) throw new Error('Tenant not found on user.');
+        // Helper: normalize relationship to string id
+        const relToId = (rel: unknown): string | null => {
+          if (typeof rel === 'string') return rel;
+          if (
+            rel &&
+            typeof rel === 'object' &&
+            'id' in (rel as { id?: unknown })
+          ) {
+            const id = (rel as { id?: unknown }).id;
+            return typeof id === 'string' ? id : null;
+          }
+          return null;
+        };
 
+        // 1) Try incoming product tenant first
+        let tenantId: string | null = relToId(
+          (data as { tenant?: unknown }).tenant
+        );
+
+        // 2) If missing on create/update, prefer original doc’s tenant (on update)
+        if (!tenantId && originalDoc) {
+          tenantId = relToId((originalDoc as { tenant?: unknown }).tenant);
+        }
+
+        // 3) Finally, fall back to the user’s first tenant
+        if (!tenantId) {
+          const first = user.tenants?.[0]?.tenant;
+          tenantId = relToId(first);
+        }
+
+        if (!tenantId) {
+          throw new Error('A tenant must be specified for this product.');
+        }
+
+        // Ensure the user is a member of the resolved tenant
+        const isMember =
+          Array.isArray(user.tenants) &&
+          user.tenants.some((t) => relToId(t?.tenant) === tenantId);
+
+        if (!isMember) {
+          throw new Error('You are not a member of the selected tenant.');
+        }
+
+        // Stripe readiness check for the resolved tenant
         const tenantRaw = await req.payload.findByID({
           collection: 'tenants',
           id: tenantId,
@@ -222,7 +284,7 @@ export const Products: CollectionConfig = {
 
         if (!stripeReady) {
           throw new Error(
-            'You must complete Stripe verification before creating or editing products.'
+            'This tenant must complete Stripe verification before creating or editing products.'
           );
         }
 
@@ -339,16 +401,32 @@ export const Products: CollectionConfig = {
       defaultValue: 1,
       admin: {
         condition: (_: unknown, siblingData?: Record<string, unknown>) =>
-          Boolean((siblingData?.trackInventory as boolean) ?? true)
+          Boolean(siblingData?.trackInventory ?? true)
       },
       validate: (
-        value?: unknown,
-        { siblingData }: { siblingData?: Record<string, unknown> }
+        value: unknown,
+        {
+          siblingData,
+          originalDoc
+        }: {
+          siblingData?: Partial<{ trackInventory?: boolean }>;
+          originalDoc?: Partial<{ trackInventory?: boolean }>;
+        }
       ) => {
-        const tracking = Boolean((siblingData?.trackInventory as boolean) ?? true);
-        if (!tracking) return true;
+        // Prefer the value being saved; fall back to the current doc; default to true only if unknown.
+        const tracking =
+          typeof siblingData?.trackInventory === 'boolean'
+            ? siblingData.trackInventory
+            : typeof originalDoc?.trackInventory === 'boolean'
+              ? originalDoc.trackInventory
+              : true;
+
+        if (!tracking) return true; // When not tracking, allow undefined/null/omitted
+
         if (typeof value !== 'number') return 'Quantity is required';
-        if (!Number.isInteger(value) || value < 0) return 'Must be an integer ≥ 0';
+        if (!Number.isInteger(value) || value < 0)
+          return 'Must be an integer ≥ 0';
+
         return true;
       }
     }

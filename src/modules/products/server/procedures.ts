@@ -58,9 +58,14 @@ export const productsRouter = createTRPCRouter({
           limit: 1,
           where: {
             and: [
-              { product: { equals: input.id } },
               { user: { equals: session.user.id } },
-              { status: { in: ['paid', 'partially_refunded'] } }
+              { status: { in: ['paid', 'partially_refunded'] } },
+              {
+                or: [
+                  { product: { equals: input.id } },
+                  { 'items.product': { equals: input.id } }
+                ]
+              }
             ]
           }
         });
@@ -110,7 +115,7 @@ export const productsRouter = createTRPCRouter({
         availabilityLabel: isSoldOut
           ? 'Sold out'
           : trackInventory
-            ? `${stockQuantity} in stock`
+            ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : 's'}`
             : 'Available',
         isPurchased,
         image: (product.image as Media) || null,
@@ -295,30 +300,18 @@ export const productsRouter = createTRPCRouter({
         }
       });
 
-      const dataWithSummarizedReviews = await Promise.all(
-        data.docs.map(async (doc) => {
-          const reviewsData = await ctx.db.find({
-            collection: 'reviews',
-            pagination: false, // load all
-            where: {
-              product: {
-                equals: doc.id
-              }
-            }
-          });
-          return {
-            ...doc,
-            reviewCount: reviewsData.totalDocs,
-            reviewRating:
-              reviewsData.docs.length === 0
-                ? 0
-                : reviewsData.docs.reduce(
-                    (acc, review) => acc + review.rating,
-                    0
-                  ) / reviewsData.totalDocs
-          };
-        })
-      );
+      const ids = data.docs.map((d) => d.id);
+      const reviewsData = await ctx.db.find({
+        collection: 'reviews',
+        pagination: false,
+        where: { product: { in: ids } }
+      });
+      const { summarizeReviews } = await import('@/lib/server/utils');
+      const summary = summarizeReviews(reviewsData.docs as any);
+      const dataWithSummarizedReviews = data.docs.map((doc) => {
+        const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
+        return { ...doc, reviewCount: s.count, reviewRating: s.avg };
+      });
 
       return {
         ...data,

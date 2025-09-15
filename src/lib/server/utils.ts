@@ -444,27 +444,23 @@ export async function decProductStockAtomic(
   opts: { autoArchive?: boolean } = {}
 ): Promise<DecProductStockResult> {
   if (qty <= 0) return { ok: true, after: Number.NaN, archived: false }; // no-op
-
   const handle = getProductsCollection(payload);
   if (!handle) {
     // Fallback: if adapter doesn’t expose native ops, let caller keep their non-atomic path or log it.
     return { ok: false, reason: 'not-found' };
   }
-
   // We require `trackInventory: true` and `stockQuantity >= qty` to avoid overselling.
   const filter: Record<string, unknown> = {
     _id: productId,
     trackInventory: true,
     stockQuantity: { $gte: qty }
   };
-
   // Aggregation pipeline update to compute new qty and optional auto-archive.
   const setStage: Record<string, unknown> = {
     $set: {
       stockQuantity: { $subtract: ['$stockQuantity', qty] }
     }
   };
-
   if (opts.autoArchive) {
     (setStage.$set as Record<string, unknown>).isArchived = {
       $cond: [
@@ -474,39 +470,36 @@ export async function decProductStockAtomic(
       ]
     };
   }
-
   const update: Record<string, unknown>[] = [setStage];
-
   const result = await handle.findOneAndUpdate(
     filter,
     update,
     // Return the post-update document so we can read the new stock & archive flag
     { returnDocument: 'after' }
   );
-
   if (!result.value) {
-    // Distinguish a bit if possible by probing a minimal read (not modifying):
-    // (Optional: skip if you’re happy with a single generic reason)
-    const peek = await handle.findOneAndUpdate({ _id: productId }, [], {
-      returnDocument: 'after'
-    });
-
-    if (!peek.value) return { ok: false, reason: 'not-found' };
-
-    const tracked = Boolean(
-      (peek.value as { trackInventory?: unknown }).trackInventory === true
-    );
-    if (!tracked) return { ok: false, reason: 'not-tracked' };
-
-    // Tracked, but our >= qty precondition failed ⇒ insufficient stock
-    return { ok: false, reason: 'insufficient' };
+    // Distinguish reason with a safe high-level read; avoids invalid empty update.
+    try {
+      const peek = await (payload as Payload).findByID({
+        collection: 'products',
+        id: productId,
+        depth: 0,
+        overrideAccess: true,
+        draft: false
+      });
+      if (!peek) return { ok: false, reason: 'not-found' };
+      const tracked =
+        (peek as { trackInventory?: unknown }).trackInventory === true;
+      if (!tracked) return { ok: false, reason: 'not-tracked' };
+      return { ok: false, reason: 'insufficient' };
+    } catch {
+      return { ok: false, reason: 'not-found' };
+    }
   }
-
   const afterRaw = (result.value as { stockQuantity?: unknown }).stockQuantity;
   const after = typeof afterRaw === 'number' ? afterRaw : 0;
   const archived = Boolean(
     (result.value as { isArchived?: unknown }).isArchived === true
   );
-
   return { ok: true, after, archived };
 }

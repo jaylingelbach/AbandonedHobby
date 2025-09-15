@@ -91,7 +91,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       : isSoldOut
         ? 'Sold out'
         : trackInventory
-          ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
+          ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : 's'}`
           : 'Available';
 
   const productForUseProductViewed = {
@@ -290,7 +290,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <div className="flex items-center gap-x-1 font-medium">
                     <StarIcon className="size-4 fill-black" />
                     <p>({data.reviewRating})</p>
-                    <p className="text-based">{data.reviewCount} ratings</p>
+                    <p className="text-base">{data.reviewCount} ratings</p>
                   </div>
                 </div>
 

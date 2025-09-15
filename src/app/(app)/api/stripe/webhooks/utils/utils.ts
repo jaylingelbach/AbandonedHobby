@@ -101,11 +101,10 @@ export function toQtyMap(
 /**
  * Decrements stock quantities for multiple products and archives any that reach zero.
  *
- * For each entry in `qtyByProductId` this function reads the published `products` document,
- * skips items with falsy `trackInventory`, computes the new `stockQuantity` (clamped at 0),
- * updates the published product with the new `stockQuantity`, and sets `isArchived: true`
- * when the resulting quantity is zero. Updates are performed with write-through access
- * (published document, `overrideAccess: true`, `draft: false`).
+ * For each entry, performs a single atomic decrement at the DB layer via
+ * `decProductStockAtomic(payload, productId, qty, { autoArchive: true })`.
+ * On success logs `{ after, archived }`. On failure logs a typed `reason`
+ * ('not-found' | 'not-tracked' | 'insufficient').
  *
  * @param qtyByProductId - Map from product ID to the quantity to subtract (total purchased quantity).
  */
@@ -128,7 +127,6 @@ export async function decrementInventoryBatch(args: {
 
     if (res.ok) {
       // Typed log with post-update values
-      // eslint-disable-next-line no-console
       console.log('[inv] dec-atomic', {
         productId,
         purchasedQty,
@@ -139,7 +137,6 @@ export async function decrementInventoryBatch(args: {
     }
 
     // Failure paths are explicit and typed
-    // eslint-disable-next-line no-console
     console.warn('[inv] dec-atomic failed', {
       productId,
       purchasedQty,
