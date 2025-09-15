@@ -67,6 +67,8 @@ export async function POST(req: Request) {
 
   const permittedEvents: ReadonlyArray<string> = [
     'checkout.session.completed',
+    'payment_intent.payment_failed',
+    'checkout.session.expired',
     'account.updated'
   ];
 
@@ -145,6 +147,7 @@ export async function POST(req: Request) {
           };
         });
 
+        // PI = payment intent
         // Total cents from lines (fallback to PI below if 0)
         const totalCentsFromLines = lineItems.reduce<number>((sum, line) => {
           const lineTotal =
@@ -496,6 +499,117 @@ export async function POST(req: Request) {
             },
             groups: tenantId ? { tenant: tenantId } : undefined
           });
+          const flushAnalytics = async () => {
+            const isServerless =
+              !!process.env.VERCEL ||
+              !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+              !!process.env.NETLIFY;
+            if (isServerless || process.env.NODE_ENV !== 'production') {
+              await posthogServer?.flush?.();
+            }
+          };
+
+          await flushAnalytics();
+        } catch (error) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[analytics] purchaseCompleted capture failed:',
+              error
+            );
+          }
+        }
+
+        return NextResponse.json({ received: true }, { status: 200 });
+      }
+      case 'payment_intent.payment_failed': {
+        // Event comes from a connected account; no extra retrieve needed.
+        // PI = payment intent MD = metadata
+        const pi = event.data.object as Stripe.PaymentIntent;
+
+        // Metadata you set when creating the Checkout Session is copied to the PI.
+        const md: Stripe.Metadata = (pi.metadata ?? {}) as Stripe.Metadata;
+        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
+        const tenantId = md.tenantId;
+        const tenantSlug = md.tenantSlug;
+        const productIds =
+          typeof md.productIds === 'string' && md.productIds.length
+            ? md.productIds
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .filter((id, index, self) => self.indexOf(id) === index) // Remove duplicates
+            : undefined;
+
+        try {
+          posthogServer?.capture({
+            distinctId: buyerId,
+            event: 'checkoutFailed',
+            properties: {
+              stripePaymentIntentId: pi.id,
+              failureCode: pi.last_payment_error?.code,
+              failureMessage: pi.last_payment_error?.message,
+              tenantId,
+              tenantSlug,
+              productIds,
+              $insert_id: event.id // idempotency
+            },
+            // Grouping (PostHog Node uses `groups`, not `$groups`)
+            groups: tenantId ? { tenant: tenantId } : undefined,
+            timestamp: new Date(event.created * 1000)
+          });
+
+          const isServerless =
+            !!process.env.VERCEL ||
+            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+            !!process.env.NETLIFY;
+
+          if (isServerless || process.env.NODE_ENV !== 'production') {
+            await posthogServer?.flush?.();
+          }
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] checkoutFailed capture failed:', err);
+          }
+        }
+
+        return NextResponse.json({ received: true }, { status: 200 });
+      }
+
+      case 'checkout.session.expired': {
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        // Metadata set when you created the Checkout Session
+        const md = (session.metadata ?? {}) as Record<string, string>;
+        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
+        const tenantId = md.tenantId;
+        const tenantSlug = md.tenantSlug;
+        const productIds =
+          typeof md.productIds === 'string' && md.productIds.length
+            ? md.productIds
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+            : undefined;
+
+        try {
+          posthogServer?.capture({
+            distinctId: buyerId,
+            event: 'checkoutFailed',
+            properties: {
+              reason: 'expired',
+              productIds,
+              tenantId,
+              tenantSlug,
+              stripeSessionId: session.id,
+              expiresAt: session.expires_at
+                ? new Date(session.expires_at * 1000).toISOString()
+                : undefined,
+              $insert_id: event.id // idempotency
+            },
+            groups: tenantId ? { tenant: tenantId } : undefined,
+            timestamp: new Date(event.created * 1000)
+          });
+
           const isServerless =
             !!process.env.VERCEL ||
             !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
@@ -505,7 +619,10 @@ export async function POST(req: Request) {
           }
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn('[analytics] purchaseCompleted capture failed:', err);
+            console.warn(
+              '[analytics] checkoutFailed(expired) capture failed:',
+              err
+            );
           }
         }
 
