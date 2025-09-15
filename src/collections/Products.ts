@@ -341,10 +341,14 @@ export const Products: CollectionConfig = {
         condition: (_: unknown, siblingData?: Record<string, unknown>) =>
           Boolean((siblingData?.trackInventory as boolean) ?? true)
       },
-      validate: (value?: unknown) => {
+      validate: (
+        value?: unknown,
+        { siblingData }: { siblingData?: Record<string, unknown> }
+      ) => {
+        const tracking = Boolean((siblingData?.trackInventory as boolean) ?? true);
+        if (!tracking) return true;
         if (typeof value !== 'number') return 'Quantity is required';
-        if (!Number.isInteger(value) || value < 0)
-          return 'Must be an integer ≥ 0';
+        if (!Number.isInteger(value) || value < 0) return 'Must be an integer ≥ 0';
         return true;
       }
     }
