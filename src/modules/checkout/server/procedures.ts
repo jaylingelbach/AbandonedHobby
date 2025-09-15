@@ -11,12 +11,13 @@ import {
 } from '@/trpc/init';
 import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
+import { randomUUID } from 'crypto';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { asId } from '@/lib/server/utils';
 import { posthogServer } from '@/lib/server/posthog-server';
-import { flushIfNeeded } from '@/app/(app)/api/stripe/webhooks/utils/utils';
+import { flushIfNeeded } from '@/lib/server/analytics';
 
 export const runtime = 'nodejs';
 
@@ -244,12 +245,13 @@ export const checkoutRouter = createTRPCRouter({
         ]);
 
         const isTaxReady = settings.status === 'active' && regs.data.length > 0;
+        const attemptId = randomUUID();
 
         checkout = await stripe.checkout.sessions.create(
           {
             mode: 'payment',
             line_items: lineItems,
-            client_reference_id: user.id,
+            client_reference_id: attemptId,
             automatic_tax: { enabled: isTaxReady },
             invoice_creation: { enabled: true },
             customer_email: user.email ?? undefined,
@@ -258,6 +260,7 @@ export const checkoutRouter = createTRPCRouter({
 
             metadata: {
               userId: user.id,
+              attemptId,
               tenantId: String(sellerTenantId),
               tenantSlug: String(sellerTenant.slug),
               sellerStripeAccountId: String(sellerTenant.stripeAccountId),
