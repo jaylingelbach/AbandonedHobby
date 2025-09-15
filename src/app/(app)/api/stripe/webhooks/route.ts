@@ -17,7 +17,39 @@ import { posthogServer } from '@/lib/server/posthog-server';
 
 export const runtime = 'nodejs';
 
-// Stripe Connect webhook handler (events originate from connected accounts)
+/**
+ * Next.js POST handler for Stripe Connect webhooks from connected accounts.
+ *
+ * Processes a small set of Stripe events: `checkout.session.completed`,
+ * `payment_intent.payment_failed`, `checkout.session.expired`, and
+ * `account.updated`. Validates the Stripe signature (STRIPE_WEBHOOK_SECRET),
+ * loads payload CMS, and performs domain operations depending on the event:
+ * - checkout.session.completed: creates an Order in Payload, sends buyer and
+ *   seller emails, records PostHog analytics, and is idempotent for repeated
+ *   sessions (skips if an order with the same Stripe session ID already
+ *   exists).
+ * - payment_intent.payment_failed and checkout.session.expired: captures a
+ *   checkoutFailed event to PostHog (with tenant/product context) and flushes
+ *   analytics in serverless/non-production environments.
+ * - account.updated: updates the tenant record's `stripeDetailsSubmitted`
+ *   flag based on the Stripe Account payload.
+ *
+ * Side effects: creates/updates Payload CMS records (orders, tenants),
+ * sends emails, calls Stripe APIs to retrieve expanded session/payment details,
+ * and emits analytics events to PostHog.
+ *
+ * Error handling / responses:
+ * - Returns 400 if webhook signature verification fails or required Stripe
+ *   data is missing.
+ * - Returns 200 for ignored or successfully processed events.
+ * - Returns 500 for unhandled/internal errors.
+ *
+ * Environment expectations: requires STRIPE_WEBHOOK_SECRET and integrates with
+ * configured Stripe client, Payload CMS (getPayload), email helpers, and
+ * optional PostHog server instance.
+ *
+ * @returns A NextResponse representing the webhook result (200, 400, or 500).
+ */
 export async function POST(req: Request) {
   type TenantWithContact = Tenant & {
     notificationEmail?: string | null;

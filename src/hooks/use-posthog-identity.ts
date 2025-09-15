@@ -18,6 +18,18 @@ const getString = (
   return typeof v === 'string' ? v : undefined;
 };
 
+/**
+ * Normalize a loosely-shaped user object into an AppUserIdentity or return `null`.
+ *
+ * Attempts to extract a required stable `id` (from `id`, `userId`, or `_id`) and optional
+ * `role` and `tenantSlug`. `role` is taken from `role` or `type` and lowercased. `tenantSlug`
+ * is resolved in this order: a direct `tenantSlug` property; a `tenant` relationship (id or string);
+ * or from a `tenants` array where items may be `{ tenantSlug }`, `{ slug }`, `{ tenant: { slug } }`
+ * or a relationship id fallback.
+ *
+ * @param value - Arbitrary input that may be the user object or an envelope like `{ user: ... }`.
+ * @returns A normalized AppUserIdentity when a valid `id` is found; otherwise `null`.
+ */
 export function toIdentity(value: unknown): AppUserIdentity | null {
   if (!isObjectRecord(value)) return null;
 
@@ -90,6 +102,16 @@ export function toIdentity(value: unknown): AppUserIdentity | null {
   return { id, role, tenantSlug };
 }
 
+/**
+ * Synchronizes the provided application user identity with PostHog.
+ *
+ * When `user` is non-null, identifies that user in PostHog (with optional `role` and `tenantSlug`
+ * properties) and assigns the user to a tenant group when `tenantSlug` is present. When `user` is
+ * nullish and a previous identity was set, the hook resets PostHog's identity. Identification is
+ * skipped if both the user id and the serialized identity props have not changed since the last run.
+ *
+ * @param user - Normalized user identity (`id` required). Pass `null`/`undefined` to clear PostHog identity.
+ */
 export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
   const lastIdRef = useRef<string | null>(null);
   // JSON string of props to detect changes
