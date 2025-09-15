@@ -44,6 +44,16 @@ export async function POST(req: Request) {
     return id;
   }
 
+  const flushIfNeeded = async () => {
+    const isServerless =
+      !!process.env.VERCEL ||
+      !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
+      !!process.env.NETLIFY;
+    if (isServerless || process.env.NODE_ENV !== 'production') {
+      await posthogServer?.flush?.();
+    }
+  };
+
   let event: Stripe.Event;
 
   try {
@@ -499,17 +509,8 @@ export async function POST(req: Request) {
             },
             groups: tenantId ? { tenant: tenantId } : undefined
           });
-          const flushAnalytics = async () => {
-            const isServerless =
-              !!process.env.VERCEL ||
-              !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-              !!process.env.NETLIFY;
-            if (isServerless || process.env.NODE_ENV !== 'production') {
-              await posthogServer?.flush?.();
-            }
-          };
 
-          await flushAnalytics();
+          await flushIfNeeded();
         } catch (error) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(
@@ -558,14 +559,7 @@ export async function POST(req: Request) {
             timestamp: new Date(event.created * 1000)
           });
 
-          const isServerless =
-            !!process.env.VERCEL ||
-            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-            !!process.env.NETLIFY;
-
-          if (isServerless || process.env.NODE_ENV !== 'production') {
-            await posthogServer?.flush?.();
-          }
+          await flushIfNeeded();
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn('[analytics] checkoutFailed capture failed:', err);
@@ -589,6 +583,7 @@ export async function POST(req: Request) {
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean)
+                .filter((id, i, a) => a.indexOf(id) === i)
             : undefined;
 
         try {
@@ -610,13 +605,7 @@ export async function POST(req: Request) {
             timestamp: new Date(event.created * 1000)
           });
 
-          const isServerless =
-            !!process.env.VERCEL ||
-            !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-            !!process.env.NETLIFY;
-          if (isServerless || process.env.NODE_ENV !== 'production') {
-            await posthogServer?.flush?.();
-          }
+          await flushIfNeeded();
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(
