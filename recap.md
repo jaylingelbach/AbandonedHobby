@@ -2506,11 +2506,36 @@ Added recap covering the Orders transition and onboarding behavior.
 - Updated analytics identity hook to a client component and adjusted imports for consistency.
 - Ensured analytics operations are non-blocking and safely disabled when not configured.
 
-# Bug/double order and urls 09/14/25
+# Update webhooks to capture more posthog events (PR #89) 09/14/25
 
 ## Walkthrough
 
--
+- Adds Stripe Connect webhook handling for four events (checkout.session.completed, payment_intent.payment_failed, checkout.session.expired, account.updated) with signature verification, CMS/email/Stripe side effects, and PostHog analytics (idempotent $insert_id and serverless-aware flush). Also adds a new PostHog identity React hook to normalize/identify/group/reset user identity
+
+## Bug Fixes
+
+- Improved handling and reporting for failed payments, expired checkout sessions, and duplicate webhooks to make checkout outcomes clearer and more reliable.
+- Account updates now correctly set tenant Stripe submission status for affected tenants.
+
+## Chores
+
+- Enhanced analytics: tenant-aware grouping, idempotent event captures, and explicit flushes in serverless/non-production environments for timely, accurate recording.
+- Added user identity normalization and automatic syncing with analytics for consistent user/tenant tracking.
+
+## File changes
+
+- Stripe Webhook Analytics & Handlers
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Added comprehensive docstring for POST handler; verify Stripe signature and load payload; handle checkout.session.completed, payment_intent.payment_failed, checkout.session.expired, and account.updated; perform CMS updates, email sending, Stripe data retrieval; capture PostHog events with $insert_id: event.id, group by tenant when available, and use centralized flushIfNeeded for serverless/non-prod flushing; improved analytics error logs and idempotency returns.
+- PostHog Identity Hook
+  - src/hooks/use-posthog-identity.ts
+    -     New module exporting AppUserIdentity interface, toIdentity(value) normalizer, and usePostHogIdentity(user) hook; normalizes varied user shapes, calls posthog.identify/group/reset, avoids redundant identifies, and emits a dev-only sanity capture.
+
+# Bug/double order and urls 09/14/25 (PR #91)
+
+## Walkthrough
+
+- Adds idempotent order creation to the Stripe webhook (pre-check + unique-violation handling), makes Orders.stripeCheckoutSessionId unique, and introduces a protected purchase mutation that builds Stripe Checkout sessions with dynamic URLs, fees, metadata, analytics, and error handling.
 
 ## New Features
 
@@ -2522,3 +2547,15 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - Improved reliability after payment: prevents duplicate orders during concurrent events.
 - More robust handling of duplicate checkout sessions to avoid repeated emails or charges.
+
+## File changes
+
+- Stripe webhook idempotency
+  - src/app/(app)/api/stripe/webhooks/route.ts
+    - Adds isUniqueViolation helper; augments local TenantWithContact type; makes checkout.session.completed idempotent with pre-check and unique-violation catch paths; refines log messages; retains POST(req: Request) signature.
+- Orders schema uniqueness
+  - src/collections/Orders.ts
+    - Changes stripeCheckoutSessionId from index: true to unique: true to support race-proof order creation.
+- Checkout purchase mutation
+  - src/modules/checkout/server/procedures.ts
+    - Adds purchase protected mutation: validates input, enforces single-seller items, builds Stripe line items with metadata/pricing, computes platform fees, creates Checkout session on connected account with dynamic success/cancel URLs (subdomain-aware), emits analytics (PostHog/flush), and returns { url } with Stripe error handling.
