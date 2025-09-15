@@ -2613,7 +2613,11 @@ Added recap covering the Orders transition and onboarding behavior.
   - recap.md
     - Added "Bug - duplicate orders v2" recap describing UI changes and idempotency improvements (documentation-only).
 
-# Bug order summary card quantity
+# Bug order summary card quantity 09/15/25
+
+## Walkthrough
+
+- Refactors Stripe webhook handling for idempotency and centralizes helpers; extends Orders schema/types with stripeEventId, stripePaymentIntentId, and shipping; makes stripeCheckoutSessionId unique; adds deterministic checkout idempotency and attemptId, analytics flushIfNeeded, and a Checkout Success UI with order prefetch. Orders endpoints now compute per-product quantities.
 
 ## New Features
 
@@ -2629,3 +2633,24 @@ Added recap covering the Orders transition and onboarding behavior.
 ## Documentation
 
 - Updated recap covering idempotency, webhook refactor, and the new checkout success flow.
+
+## File changes
+
+- Stripe webhook utils & idempotency
+  - src/app/(app)/api/stripe/webhooks/utils/utils.ts, src/app/(app)/api/stripe/webhooks/...
+    - Moved inline webhook helpers into a utils module and exported isStringValue, itemHasProductId, requireStripeProductId, isUniqueViolation;
+    - pre-check persists stripeCheckoutSessionId and stripeEventId; duplicate events return 200; pre-checks run before expanding Checkout Session.
+- Checkout flow & analytics
+  - src/modules/checkout/server/procedures.ts, src/lib/server/analytics.ts
+    - Checkout session creation now generates a random attemptId (client_reference_id/metadata) and a deterministic idempotencyKey (user, productIds, tenant, 10‑min bucket) passed to Stripe;
+    - analytics calls use exported flushIfNeeded (idempotency-aware).
+- Orders server procedures
+  - src/modules/orders/server/procedures.ts
+    - getLatestForProduct and getForBuyerById changed to explicitly derive productId (legacy/modern references) and compute per-product quantityForProduct/quantity;
+    - throw NOT_FOUND if no product; removed reliance on mapOrderToSummary. Public signatures unchanged.
+- Checkout Success UI
+  - src/app/(app)/checkout/success/\*
+    - Added success page, layout, and loading states with server prefetch for order confirmation by checkoutSessionId.
+- Docs / Recap
+  - recap.md
+    - Updated recap to document idempotency, webhook refactor, expanded Orders metadata, new checkout success flow, and analytics/webhook utilities.
