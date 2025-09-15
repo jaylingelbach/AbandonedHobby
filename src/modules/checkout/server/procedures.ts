@@ -223,20 +223,11 @@ export const checkoutRouter = createTRPCRouter({
         (totalCents * PLATFORM_FEE_PERCENTAGE) / 100
       );
 
-      // --- SUBDOMAIN / PATH ROUTING DECISION ---
-      const useSubdomains =
-        process.env.NEXT_PUBLIC_ENABLE_SUBDOMAIN_ROUTING === 'true';
-      const appBase = process.env.NEXT_PUBLIC_APP_URL!; // e.g. https://abandonedhobby.com
-      const slug = sellerTenant.slug;
-      const tenantURL = generateTenantURL(slug); // e.g. https://<slug>.abandonedhobby.com
-
       // Success uses subdomain when enabled; otherwise path-based
-      const success_url = useSubdomains
-        ? `${tenantURL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`
-        : `${appBase}/tenants/${slug}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
+      const success_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
 
       // Keep cancel path-based so you don't need a subdomain checkout page
-      const cancel_url = `${appBase}/tenants/${slug}/checkout?cancel=true`;
+      const cancel_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout?cancel=true`;
 
       let checkout: Stripe.Checkout.Session;
       try {
