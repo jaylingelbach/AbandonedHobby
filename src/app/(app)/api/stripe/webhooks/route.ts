@@ -399,19 +399,6 @@ export async function POST(req: Request) {
           });
         } catch (err) {
           if (isUniqueViolation(err)) {
-            // Another concurrent handler created it first.
-            const existing = await payload.find({
-              collection: 'orders',
-              where: {
-                or: [
-                  { stripeCheckoutSessionId: { equals: session.id } },
-                  { stripeEventId: { equals: event.id } }
-                ]
-              },
-              limit: 1,
-              depth: 0,
-              overrideAccess: true
-            });
             console.log(
               '[webhook] duplicate detected (unique-violation catch)',
               {
