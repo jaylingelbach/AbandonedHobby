@@ -2659,6 +2659,8 @@ Added recap covering the Orders transition and onboarding behavior.
 
 ## Walkthrough
 
+- Adds product inventory tracking and automatic archiving, blocks checkout for sold-out items, and implements idempotent, batched atomic stock decrements in the Stripe webhook. Also adds utilities and server helpers, collection fields, UI availability indicators, and payload-type extensions.
+
 ## New Features
 
 - Inventory tracking for products with stock quantity.
@@ -2677,3 +2679,33 @@ Added recap covering the Orders transition and onboarding behavior.
 - Orders display when inventory was adjusted.
 
 ## File changes
+
+- Stripe webhook & utils
+  - src/app/(app)/api/stripe/webhooks/route.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts
+    - Introduces toQtyMap and decrementInventoryBatch, uses system/webhook context to atomically decrement stock for new and duplicate checkout.session.completed events, sets inventoryAdjustedAt on orders, and adds detailed logging and idempotent behavior.
+- Products collection (schema & hooks)
+  - src/collections/Products.ts
+    - Adds trackInventory (checkbox) and stockQuantity (number) fields; adds an afterChange hook that auto-archives/unarchives based on stock with an ahSkipAutoArchive guard;
+    - tightens create/update checks to require tenant Stripe readiness via a tenant-based guard.
+- Orders collection (schema)
+  - src/collections/Orders.ts
+    - Adds inventoryAdjustedAt (date, readOnly, indexed, non-creatable/updatable) to record when stock was decremented.
+- Server utilities & atomic ops
+  - src/lib/server/utils.ts
+    - Adds isTenantWithStripeFields type guard, decProductStockAtomic plus DecProductStockResult for atomic stock updates (with optional auto-archive), and helpers to locate findOneAndUpdate-capable product handles.
+- Checkout server validation
+  - src/modules/checkout/server/procedures.ts
+    - Deduplicates product IDs and blocks checkout with BAD_REQUEST when any requested product is sold out (trackInventory && stockQuantity ≤ 0);
+    - otherwise retains existing Stripe session creation flow.
+- Products procedures (read-time enrichment & filters)
+  - src/modules/products/server/procedures.ts
+    - Makes getOne/getMany inventory-aware: exposes trackInventory, stockQuantity, inStock, isSoldOut, availabilityLabel; getMany filters out sold-out items and enriches review metrics per doc.
+- Product UI & chat integration
+  - src/modules/products/ui/views/product-view.tsx, src/modules/conversations/ui/chat-button-with-modal.tsx
+    - Product view shows Sold out badge and availability label, disables Add to Cart when out of stock; ChatButtonWithModal adds ChatState and optional onConversationCreated callback invoked on conversation creation.
+- Payload types
+  - src/payload-types.ts
+    - Adds optional trackInventory and stockQuantity to Product, and inventoryAdjustedAt to Order; updates select interfaces accordingly.
+- Docs
+  - recap.md
+    - Appends "Product inventory" recap documenting stock tracking, checkout checks, UI/ admin changes, and webhook behavior.

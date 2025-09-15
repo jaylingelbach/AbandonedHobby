@@ -393,14 +393,17 @@ export function isTenantWithStripeFields(
   return okId && okSubmitted;
 }
 
-type FindOneAndUpdateResult = { value: Record<string, unknown> | null };
+type FindOneAndUpdateReturn =
+  | Record<string, unknown>
+  | { value: Record<string, unknown> | null }
+  | null;
 
 type FindOneAndUpdateCapable = {
   findOneAndUpdate: (
     filter: Record<string, unknown>,
     update: Record<string, unknown> | Record<string, unknown>[],
     options: Record<string, unknown>
-  ) => Promise<FindOneAndUpdateResult>;
+  ) => Promise<FindOneAndUpdateReturn>;
 };
 
 function getProductsCollection(
@@ -443,24 +446,45 @@ export async function decProductStockAtomic(
   qty: number,
   opts: { autoArchive?: boolean } = {}
 ): Promise<DecProductStockResult> {
-  if (qty <= 0) return { ok: true, after: Number.NaN, archived: false }; // no-op
+  if (qty <= 0) {
+    try {
+      const peek = (await payload.findByID({
+        collection: 'products',
+        id: productId,
+        depth: 0,
+        overrideAccess: true,
+        draft: false
+      })) as Product | null;
+
+      if (!peek) return { ok: false, reason: 'not-found' };
+
+      const after =
+        typeof peek.stockQuantity === 'number' ? peek.stockQuantity : 0;
+      const archived = Boolean(peek.isArchived === true);
+      return { ok: true, after, archived };
+    } catch {
+      return { ok: false, reason: 'not-found' };
+    }
+  }
+
   const handle = getProductsCollection(payload);
   if (!handle) {
-    // Fallback: if adapter doesn’t expose native ops, let caller keep their non-atomic path or log it.
+    // Fallback: adapter doesn’t expose native ops
     return { ok: false, reason: 'not-found' };
   }
+
   // We require `trackInventory: true` and `stockQuantity >= qty` to avoid overselling.
   const filter: Record<string, unknown> = {
     _id: productId,
     trackInventory: true,
     stockQuantity: { $gte: qty }
   };
+
   // Aggregation pipeline update to compute new qty and optional auto-archive.
   const setStage: Record<string, unknown> = {
-    $set: {
-      stockQuantity: { $subtract: ['$stockQuantity', qty] }
-    }
+    $set: { stockQuantity: { $subtract: ['$stockQuantity', qty] } }
   };
+
   if (opts.autoArchive) {
     (setStage.$set as Record<string, unknown>).isArchived = {
       $cond: [
@@ -470,46 +494,62 @@ export async function decProductStockAtomic(
       ]
     };
   }
+
   const update: Record<string, unknown>[] = [setStage];
-  const result = await handle.findOneAndUpdate(
-    filter,
-    update,
-    // Return the post-update document so we can read the new stock & archive flag
-    { returnDocument: 'after' }
-  );
-  if (!result.value) {
-    // Distinguish reason with a safe high-level read; avoids invalid empty update.
+
+  const raw = await handle.findOneAndUpdate(filter, update, {
+    returnDocument: 'after',
+    new: true
+  });
+
+  const updated: Record<string, unknown> | null = hasValueKey(raw)
+    ? raw.value
+    : raw;
+
+  if (!updated) {
+    // Distinguish reason with a safe high-level read.
     try {
-      const peek = await (payload as Payload).findByID({
+      const peek = (await payload.findByID({
         collection: 'products',
         id: productId,
         depth: 0,
         overrideAccess: true,
         draft: false
-      });
+      })) as Product | null;
+
       if (!peek) return { ok: false, reason: 'not-found' };
-      const tracked =
-        (peek as { trackInventory?: unknown }).trackInventory === true;
+      const tracked = peek.trackInventory === true;
       if (!tracked) return { ok: false, reason: 'not-tracked' };
       return { ok: false, reason: 'insufficient' };
     } catch {
       return { ok: false, reason: 'not-found' };
     }
   }
-  const afterRaw = (result.value as { stockQuantity?: unknown }).stockQuantity;
+
+  const afterRaw = (updated as { stockQuantity?: unknown }).stockQuantity;
   const after = typeof afterRaw === 'number' ? afterRaw : 0;
   const archived = Boolean(
-    (result.value as { isArchived?: unknown }).isArchived === true
+    (updated as { isArchived?: unknown }).isArchived === true
   );
+
   return { ok: true, after, archived };
 }
 
 export type DraftStatus = 'draft' | 'published';
 
 export function getDraftStatus(value: unknown): DraftStatus | undefined {
-  if (typeof value === 'object' && value !== null && '_status' in value) {
-    const s = (value as { _status?: unknown })._status;
+  if (
+    isObjectRecord(value) &&
+    typeof (value as { _status?: unknown })._status === 'string'
+  ) {
+    const s = (value as { _status?: string })._status;
     if (s === 'draft' || s === 'published') return s;
   }
   return undefined;
+}
+
+export function hasValueKey(
+  v: FindOneAndUpdateReturn
+): v is { value: Record<string, unknown> | null } {
+  return !!v && isObjectRecord(v) && 'value' in v;
 }
