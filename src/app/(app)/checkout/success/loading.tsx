@@ -1,3 +1,12 @@
+/**
+ * Renders a static full-page loading screen shown while the checkout is being finalized.
+ *
+ * The component displays a header ("Finalizing your order…", "We’re preparing your receipt.") and
+ * a centered dashed panel with a short waiting message. Purely presentational — no props,
+ * state, or side effects.
+ *
+ * @returns The JSX for the checkout finalizing/loading UI.
+ */
 export default function Loading() {
   return (
     <div className="min-h-screen bg-white">

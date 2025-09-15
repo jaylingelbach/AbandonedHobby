@@ -4,6 +4,21 @@ import type { SearchParams } from 'nuqs/server';
 import { trpc, getQueryClient } from '@/trpc/server';
 import OrderConfirmationView from '@/modules/checkout/ui/views/order-confirmation-view';
 
+/**
+ * Server component page that renders the order confirmation view for a Stripe session.
+ *
+ * Resolves route props, extracts `session_id` from `searchParams` (handles string or array),
+ * and returns the OrderConfirmationView wrapped with a HydrationBoundary containing
+ * server-prefetched query state for that session.
+ *
+ * If `session_id` is missing or empty, this triggers a 404 via `notFound()`.
+ * The function attempts to prefetch the `orders.getConfirmationBySession` tRPC query;
+ * prefetch failures do not abort rendering (a warning is logged) but may result in
+ * missing client-side cache.
+ *
+ * @param searchParams - Promise resolving to search parameters; `searchParams.session_id` is used to determine the session to show.
+ * @returns A React element containing the hydrated OrderConfirmationView for the resolved session.
+ */
 export default async function Page({
   params,
   searchParams
