@@ -542,17 +542,108 @@ export async function POST(req: Request) {
       }
 
       case 'payment_intent.payment_failed': {
-        // ... unchanged ...
+        // Event comes from a connected account; no extra retrieve needed.
+        // PI = payment intent MD = metadata
+        const pi = event.data.object as Stripe.PaymentIntent;
+
+        // Metadata you set when creating the Checkout Session is copied to the PI.
+        const md: Stripe.Metadata = (pi.metadata ?? {}) as Stripe.Metadata;
+        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
+        const tenantId = md.tenantId;
+        const tenantSlug = md.tenantSlug;
+        const productIds =
+          typeof md.productIds === 'string' && md.productIds.length
+            ? md.productIds
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .filter((id, index, self) => self.indexOf(id) === index) // Remove duplicates
+            : undefined;
+
+        try {
+          posthogServer?.capture({
+            distinctId: buyerId,
+            event: 'checkoutFailed',
+            properties: {
+              stripePaymentIntentId: pi.id,
+              failureCode: pi.last_payment_error?.code,
+              failureMessage: pi.last_payment_error?.message,
+              tenantId,
+              tenantSlug,
+              productIds,
+              $insert_id: event.id // idempotency
+            },
+            // Grouping (PostHog Node uses `groups`, not `$groups`)
+            groups: tenantId ? { tenant: tenantId } : undefined,
+            timestamp: new Date(event.created * 1000)
+          });
+
+          await flushIfNeeded();
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] checkoutFailed capture failed:', err);
+          }
+        }
+
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'checkout.session.expired': {
-        // ... unchanged ...
+        const session = event.data.object as Stripe.Checkout.Session;
+
+        // Metadata set when you created the Checkout Session
+        const md = (session.metadata ?? {}) as Record<string, string>;
+        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
+        const tenantId = md.tenantId;
+        const tenantSlug = md.tenantSlug;
+        const productIds =
+          typeof md.productIds === 'string' && md.productIds.length
+            ? md.productIds
+                .split(',')
+                .map((s) => s.trim())
+                .filter(Boolean)
+                .filter((id, i, a) => a.indexOf(id) === i)
+            : undefined;
+
+        try {
+          posthogServer?.capture({
+            distinctId: buyerId,
+            event: 'checkoutFailed',
+            properties: {
+              reason: 'expired',
+              productIds,
+              tenantId,
+              tenantSlug,
+              stripeSessionId: session.id,
+              expiresAt: session.expires_at
+                ? new Date(session.expires_at * 1000).toISOString()
+                : undefined,
+              $insert_id: event.id // idempotency
+            },
+            groups: tenantId ? { tenant: tenantId } : undefined,
+            timestamp: new Date(event.created * 1000)
+          });
+
+          await flushIfNeeded();
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[analytics] checkoutFailed(expired) capture failed:',
+              err
+            );
+          }
+        }
+
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'account.updated': {
-        // ... unchanged ...
+        const account = event.data.object as Stripe.Account;
+        await payload.update({
+          collection: 'tenants',
+          where: { stripeAccountId: { equals: account.id } },
+          data: { stripeDetailsSubmitted: account.details_submitted }
+        });
         return NextResponse.json({ updated: true }, { status: 200 });
       }
     }
