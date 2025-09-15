@@ -4,7 +4,7 @@ import type { Payload } from 'payload';
 import type { ClientSession } from 'mongoose';
 
 import config from '@payload-config';
-import type { Category, Product, Review } from '@/payload-types';
+import type { Category, Product, Review, Tenant } from '@/payload-types';
 import { relId, type Relationship } from '@/lib/relationshipHelpers';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -344,4 +344,26 @@ export async function swapTenantCountsAtomic(
       );
     }
   }
+}
+
+export function isTenantWithStripeFields(
+  value: unknown
+): value is Pick<Tenant, 'stripeAccountId' | 'stripeDetailsSubmitted'> {
+  if (!isObjectRecord(value)) return false;
+
+  const stripeAccountId = (value as Record<string, unknown>).stripeAccountId;
+  const stripeDetailsSubmitted = (value as Record<string, unknown>)
+    .stripeDetailsSubmitted;
+
+  const okId =
+    stripeAccountId === null ||
+    stripeAccountId === undefined ||
+    typeof stripeAccountId === 'string';
+
+  const okSubmitted =
+    stripeDetailsSubmitted === null ||
+    stripeDetailsSubmitted === undefined ||
+    typeof stripeDetailsSubmitted === 'boolean';
+
+  return okId && okSubmitted;
 }

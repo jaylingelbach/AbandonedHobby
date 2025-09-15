@@ -3,11 +3,16 @@ import { headers as getHeaders } from 'next/headers';
 import z from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { Media, Tenant } from '@/payload-types';
+import { Media, Product, Tenant } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';
 import { sortValues } from '@/modules/products/search-params';
+
+interface ProductWithInventory extends Product {
+  trackInventory?: boolean;
+  stockQuantity?: number;
+}
 
 export const productsRouter = createTRPCRouter({
   getOne: baseProcedure
@@ -16,12 +21,12 @@ export const productsRouter = createTRPCRouter({
       const headers = await getHeaders();
       const session = await ctx.db.auth({ headers });
 
-      const product = await ctx.db.findByID({
+      const product = (await ctx.db.findByID({
         collection: 'products',
         depth: 2, // image, cover, tenant & tenant.image
         id: input.id,
         select: { content: false }
-      });
+      })) as ProductWithInventory;
 
       if (!product) {
         throw new TRPCError({
@@ -38,11 +43,8 @@ export const productsRouter = createTRPCRouter({
       }
 
       // ── Availability (do NOT 404 on sold-out) ──────────────────
-      const trackInventory = Boolean(
-        (product as { trackInventory?: unknown }).trackInventory
-      );
-      const rawQty = (product as { stockQuantity?: unknown }).stockQuantity;
-      const stockQuantity = typeof rawQty === 'number' ? rawQty : 0;
+      const trackInventory = Boolean(product.trackInventory);
+      const stockQuantity = product.stockQuantity ?? 0;
 
       const inStock = !trackInventory || stockQuantity > 0;
       const isSoldOut = trackInventory && stockQuantity <= 0;

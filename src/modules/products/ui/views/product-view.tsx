@@ -67,7 +67,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     trpc.products.getOne.queryOptions({ id: productId })
   );
 
-  // ✅ Defensive availability derivation (works with or without server-computed fields)
+  // Defensive availability derivation (works with or without server-computed fields)
   const trackInventory =
     (data as { trackInventory?: unknown })?.trackInventory === true;
   const stockQuantityRaw = (data as { stockQuantity?: unknown })?.stockQuantity;
@@ -268,6 +268,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   productId={productId}
                   sellerId={data.tenant.id}
                   username={data.tenant.name}
+                  onConversationCreated={(s) => setChatState(s)}
                 />
 
                 <p className="text-center font-medium">

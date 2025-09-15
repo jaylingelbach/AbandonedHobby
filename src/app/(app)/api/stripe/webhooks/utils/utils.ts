@@ -2,6 +2,7 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 import type Stripe from 'stripe';
 import { posthogServer } from '@/lib/server/posthog-server';
 import type { Payload } from 'payload';
+import { Product } from '@/payload-types';
 
 console.log('[utils] decrementInventoryBatch loaded');
 
@@ -92,36 +93,25 @@ export async function decrementInventoryBatch(args: {
 }): Promise<void> {
   const { payload, qtyByProductId } = args;
 
-  // Log what we were asked to decrement
-  console.log('[inv] start', {
-    size: qtyByProductId.size,
-    entries: [...qtyByProductId.entries()]
-  });
-
   for (const [productId, purchasedQty] of qtyByProductId) {
-    // Read PUBLISHED doc
-    const product = await payload.findByID({
+    // Read the published doc
+    const product = (await payload.findByID({
       collection: 'products',
       id: productId,
       depth: 0,
       overrideAccess: true,
       draft: false
-    });
+    })) as Product;
 
-    const trackInventory = Boolean(
-      (product as { trackInventory?: unknown }).trackInventory
-    );
-    if (!trackInventory) {
-      console.log('[inv] skip (trackInventory=false)', { productId });
-      continue;
-    }
+    const trackInventory = Boolean(product.trackInventory);
+    if (!trackInventory) continue;
 
-    const rawQty = (product as { stockQuantity?: unknown }).stockQuantity;
-    const current = typeof rawQty === 'number' ? rawQty : 0;
+    const current =
+      typeof product.stockQuantity === 'number' ? product.stockQuantity : 0;
     const nextQty = Math.max(0, current - purchasedQty);
 
-    // Write PUBLISHED doc
-    const updated = await payload.update({
+    // Write the published doc
+    const updatedProduct = (await payload.update({
       collection: 'products',
       id: productId,
       data: {
@@ -129,17 +119,16 @@ export async function decrementInventoryBatch(args: {
         ...(nextQty === 0 ? { isArchived: true } : {})
       },
       overrideAccess: true,
-      draft: false
-    });
+      draft: false,
+      // optional but nice to have if you keep the bypass in hooks:
+      context: { ahSystem: true, ahSkipAutoArchive: true }
+    })) as Product;
 
+    // Typed log
     console.log('[inv] updated', {
       productId,
-      purchasedQty,
-      before: current,
-      after: (updated as any).stockQuantity,
-      archived: (updated as any).isArchived
+      after: updatedProduct.stockQuantity,
+      archived: updatedProduct.isArchived
     });
   }
-
-  console.log('[inv] done');
 }

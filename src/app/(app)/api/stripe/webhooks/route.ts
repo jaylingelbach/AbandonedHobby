@@ -167,8 +167,8 @@ export async function POST(req: Request) {
               });
               console.log('[webhook] post-update check', {
                 productId: firstId,
-                stockQuantity: (after as any).stockQuantity,
-                isArchived: (after as any).isArchived
+                stockQuantity: (after as Product).stockQuantity,
+                isArchived: (after as Product).isArchived
               });
             }
 

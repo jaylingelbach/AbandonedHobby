@@ -1,11 +1,11 @@
 import { CollectionConfig } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { User } from '@/payload-types';
+import { Product, User } from '@/payload-types';
 import {
-  isObjectRecord,
   getCategoryIdFromSibling,
   incTenantProductCount,
-  swapTenantCountsAtomic
+  swapTenantCountsAtomic,
+  isTenantWithStripeFields
 } from '@/lib/server/utils';
 import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 
@@ -95,13 +95,25 @@ export const Products: CollectionConfig = {
         }
       },
 
-      async ({ req, doc }) => {
+      async ({ req, doc, previousDoc, operation }) => {
         // Prevent loop if we've already set archived in this request
         if (req.context?.ahSkipAutoArchive) return;
+
+        if (operation === 'update') {
+          const prevTrack = Boolean(previousDoc?.trackInventory);
+          const prevQty =
+            typeof previousDoc?.stockQuantity === 'number'
+              ? previousDoc.stockQuantity
+              : 0;
+          const track = Boolean(doc.trackInventory);
+          const qty =
+            typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
+          if (prevTrack === track && prevQty === qty) return;
+        }
         const track = Boolean(doc.trackInventory);
         const qty =
           typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
-        const archived = Boolean((doc as Record<string, unknown>).isArchived);
+        const archived = Boolean(doc.isArchived);
 
         if (track && qty === 0 && !archived) {
           // Auto-archive sold out listings so they disappear from the store
@@ -180,7 +192,7 @@ export const Products: CollectionConfig = {
       async ({ req, operation, data }) => {
         if (operation !== 'create' && operation !== 'update') return data;
 
-        // ✅ allow system/webhook updates and other server-initiated writes
+        // Allow system/webhook writes and other server-initiated writes
         if (req.context?.ahSystem) return data;
         if (!req.user) return data;
 
@@ -191,16 +203,20 @@ export const Products: CollectionConfig = {
         const tenantId = typeof rel === 'string' ? rel : rel?.id;
         if (!tenantId) throw new Error('Tenant not found on user.');
 
-        const tenant = await req.payload.findByID({
+        const tenantRaw = await req.payload.findByID({
           collection: 'tenants',
           id: tenantId,
           depth: 0
         });
 
+        if (!isTenantWithStripeFields(tenantRaw)) {
+          throw new Error('Invalid tenant record.');
+        }
+
         const stripeReady =
-          typeof (tenant as any)?.stripeAccountId === 'string' &&
-          (tenant as any).stripeAccountId.length > 0 &&
-          (tenant as any).stripeDetailsSubmitted === true;
+          typeof tenantRaw.stripeAccountId === 'string' &&
+          tenantRaw.stripeAccountId.length > 0 &&
+          tenantRaw.stripeDetailsSubmitted === true;
 
         if (!stripeReady) {
           throw new Error(

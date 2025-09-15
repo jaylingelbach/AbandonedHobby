@@ -10,17 +10,25 @@ import { useTRPC } from '@/trpc/client';
 import { toast } from 'sonner';
 import { buildSignInUrl } from '@/lib/utils';
 
+export type ChatState = { conversationId: string; roomId: string };
+
 interface Props {
   productId: string;
   sellerId: string; // Tenant ID
   username: string;
+  onConversationCreated?: (s: ChatState) => void;
 }
 
 function isUnauthorized(e: unknown): boolean {
   return e instanceof TRPCClientError && e.data?.code === 'UNAUTHORIZED';
 }
 
-export function ChatButtonWithModal({ productId, sellerId, username }: Props) {
+export function ChatButtonWithModal({
+  productId,
+  sellerId,
+  username,
+  onConversationCreated
+}: Props) {
   const { user } = useUser();
   const trpc = useTRPC();
 
@@ -34,6 +42,7 @@ export function ChatButtonWithModal({ productId, sellerId, username }: Props) {
     trpc.conversations.getOrCreate.mutationOptions({
       onSuccess: ({ id, roomId }) => {
         setChatInfo({ conversationId: id, roomId });
+        onConversationCreated?.({ conversationId: id, roomId });
         setOpen(true);
       },
       onError: (err) => {

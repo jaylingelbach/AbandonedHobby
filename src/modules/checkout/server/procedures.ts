@@ -191,15 +191,22 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
+      const getInventoryInfo = (product: (typeof products)[0]) => {
+        const p = product as {
+          trackInventory?: boolean;
+          stockQuantity?: number;
+        };
+        return {
+          trackInventory: Boolean(p.trackInventory),
+          stockQuantity:
+            typeof p.stockQuantity === 'number' ? p.stockQuantity : 0
+        };
+      };
+
       // Enforce available stock (you sell quantity=1 per product)
       const soldOutNames: string[] = [];
       for (const product of products) {
-        const trackInventory = Boolean(
-          (product as { trackInventory?: unknown }).trackInventory
-        );
-        const rawQty = (product as { stockQuantity?: unknown }).stockQuantity;
-        const stockQuantity = typeof rawQty === 'number' ? rawQty : 0;
-
+        const { trackInventory, stockQuantity } = getInventoryInfo(product);
         if (trackInventory && stockQuantity <= 0) {
           soldOutNames.push(product.name ?? 'Item');
         }
