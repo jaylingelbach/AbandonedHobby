@@ -548,3 +548,19 @@ export function hasValueKey(
 ): v is { value: Record<string, unknown> | null } {
   return !!v && isObjectRecord(v) && 'value' in v;
 }
+
+// helper to detect "not found" from Payload errors
+export const isNotFound = (err: unknown): boolean => {
+  if (typeof err !== 'object' || err === null) return false;
+  const status =
+    typeof (err as { status?: unknown }).status === 'number'
+      ? (err as { status: number }).status
+      : typeof (err as { statusCode?: unknown }).statusCode === 'number'
+        ? (err as { statusCode: number }).statusCode
+        : undefined;
+  const message =
+    typeof (err as { message?: unknown }).message === 'string'
+      ? (err as { message: string }).message
+      : undefined;
+  return status === 404 || (message ? /not found/i.test(message) : false);
+};

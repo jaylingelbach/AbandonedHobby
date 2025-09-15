@@ -8,7 +8,7 @@ import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';
 import { sortValues } from '@/modules/products/search-params';
-import { summarizeReviews } from '@/lib/server/utils';
+import { isNotFound, summarizeReviews } from '@/lib/server/utils';
 
 interface ProductWithInventory extends Product {
   trackInventory?: boolean;
@@ -22,18 +22,22 @@ export const productsRouter = createTRPCRouter({
       const headers = await getHeaders();
       const session = await ctx.db.auth({ headers });
 
-      const product = (await ctx.db.findByID({
-        collection: 'products',
-        depth: 2, // image, cover, tenant & tenant.image
-        id: input.id,
-        select: { content: false }
-      })) as ProductWithInventory;
-
-      if (!product) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `ProductID with ID: ${input.id} not found`
-        });
+      let product: ProductWithInventory;
+      try {
+        product = (await ctx.db.findByID({
+          collection: 'products',
+          depth: 2, // image, cover, tenant & tenant.image
+          id: input.id,
+          select: { content: false }
+        })) as ProductWithInventory;
+      } catch (error) {
+        if (isNotFound(error)) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Product with ID: ${input.id} not found`
+          });
+        }
+        throw error; // rethrow non-404 errors
       }
 
       if (product.isArchived) {
@@ -70,7 +74,7 @@ export const productsRouter = createTRPCRouter({
             ]
           }
         });
-        isPurchased = ordersData.totalDocs > 0;
+        isPurchased = ordersData.docs.length > 0;
       }
 
       // ── Reviews summary ─────────────────────────────────────────
@@ -93,7 +97,6 @@ export const productsRouter = createTRPCRouter({
         2: 0,
         1: 0
       };
-
       if (reviews.totalDocs > 0) {
         for (const review of reviews.docs) {
           const r = review.rating;
@@ -302,13 +305,17 @@ export const productsRouter = createTRPCRouter({
       });
 
       const ids = data.docs.map((d) => d.id);
-      const reviewsData = (await ctx.db.find({
-        collection: 'reviews',
-        pagination: false,
-        where: { product: { in: ids } }
-      })) as { docs: Review[] };
-
-      const summary = summarizeReviews(reviewsData.docs);
+      const reviewDocs =
+        ids.length > 0
+          ? (
+              await ctx.db.find({
+                collection: 'reviews',
+                pagination: false,
+                where: { product: { in: ids } }
+              })
+            ).docs
+          : [];
+      const summary = summarizeReviews(reviewDocs as Review[]);
       const dataWithSummarizedReviews = data.docs.map((doc) => {
         const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
         return { ...doc, reviewCount: s.count, reviewRating: s.avg };
