@@ -107,6 +107,15 @@ export const checkoutRouter = createTRPCRouter({
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
+      /**
+       * Extracts a tenant ID from a Tenant object or tenant ID string.
+       *
+       * Accepts a Tenant object (with an `id` string) or a plain tenant ID string and returns the tenant ID.
+       *
+       * @param tenant - A Tenant object, a tenant ID string, or null/undefined.
+       * @returns The tenant ID as a string.
+       * @throws TRPCError with code `BAD_REQUEST` when `tenant` is null/undefined or does not contain a valid string `id`.
+       */
       function getTenantId(tenant: Tenant | string | null | undefined): string {
         if (!tenant) {
           throw new TRPCError({
