@@ -59,7 +59,7 @@ export const ordersRouter = createTRPCRouter({
       return { orders };
     }),
   getLatestForProduct: protectedProcedure
-    .input(z.object({ productId: z.string() }))
+    .input(z.object({ productId: z.string().min(1) }))
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO | null> => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -137,23 +137,17 @@ export const ordersRouter = createTRPCRouter({
 
       // Resolve the "primary" productId this order page is for
       // (prefer item.product, fallback to legacy order.product)
-      const relId = (rel: unknown) =>
-        typeof rel === 'string'
-          ? rel
-          : rel && typeof rel === 'object' && 'id' in rel
-            ? ((rel as { id?: string }).id ?? '')
-            : '';
 
       let productId: string | null = null;
       for (const item of items) {
-        const id = relId(item.product);
+        const id = getRelId(item.product);
         if (id) {
           productId = id;
           break;
         }
       }
       if (!productId) {
-        const legacy = relId(order.product);
+        const legacy = getRelId(order.product);
         if (legacy) productId = legacy;
       }
       if (!productId) {
@@ -166,7 +160,7 @@ export const ordersRouter = createTRPCRouter({
       // 📌 Per-product quantity (sum only the lines matching productId)
       const quantityForProduct =
         items.reduce<number>((sum, item) => {
-          const id = relId(item.product);
+          const id = getRelId(item.product);
           const q = typeof item.quantity === 'number' ? item.quantity : 1;
           return id === productId ? sum + q : sum;
         }, 0) || 1; // default to 1 if no explicit match (back-compat)
