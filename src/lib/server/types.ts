@@ -33,3 +33,18 @@ export type FindOneAndUpdateCapable = {
 export type DecProductStockResult =
   | { ok: true; after: number; archived: boolean }
   | { ok: false; reason: 'not-found' | 'not-tracked' | 'insufficient' };
+
+/** Internal: get the Tenants collection handle from Payload's db. */
+export type UpdateOneCapable = {
+  updateOne: (
+    filter: Record<string, unknown>,
+    // allow both classic update docs and aggregation pipeline updates
+    update: Record<string, unknown> | Record<string, unknown>[], // or: | PipelineStage[]
+    options?: { session?: ClientSession }
+  ) => Promise<unknown>;
+};
+
+export type PriceBounds = {
+  greater_than_equal?: number;
+  less_than_equal?: number;
+};

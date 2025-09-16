@@ -9,6 +9,7 @@ import { TRPCError } from '@trpc/server';
 import { DEFAULT_LIMIT } from '@/constants';
 import { sortValues } from '@/modules/products/search-params';
 import { isNotFound, summarizeReviews } from '@/lib/server/utils';
+import type { PriceBounds } from '@/lib/server/types';
 
 interface ProductWithInventory extends Product {
   trackInventory?: boolean;
@@ -119,7 +120,7 @@ export const productsRouter = createTRPCRouter({
         availabilityLabel: isSoldOut
           ? 'Sold out'
           : trackInventory
-            ? `${stockQuantity} in stock`
+            ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
             : 'Available',
         isPurchased,
         image: (product.image as Media) || null,
@@ -181,17 +182,25 @@ export const productsRouter = createTRPCRouter({
         sort = '-createdAt';
       }
 
-      if (input.minPrice) {
-        where.price = {
-          greater_than_equal: input.minPrice
-        };
+      const minPrice =
+        input.minPrice != null ? Number(input.minPrice) : undefined;
+      const maxPrice =
+        input.maxPrice != null ? Number(input.maxPrice) : undefined;
+
+      const priceFilter: PriceBounds = {};
+      if (typeof minPrice === 'number' && Number.isFinite(minPrice)) {
+        priceFilter.greater_than_equal = minPrice;
+      }
+      if (typeof maxPrice === 'number' && Number.isFinite(maxPrice)) {
+        priceFilter.less_than_equal = maxPrice;
       }
 
-      if (input.maxPrice) {
-        // NOTE: this overwrites min if both are set, matching your current behavior
-        where.price = {
-          less_than_equal: input.maxPrice
-        };
+      if (
+        priceFilter.greater_than_equal !== undefined ||
+        priceFilter.less_than_equal !== undefined
+      ) {
+        // `Where` uses dynamic fields; assign safely without `any`
+        (where as Record<string, unknown>).price = priceFilter;
       }
 
       // Loads products for a specific shop (tenant).

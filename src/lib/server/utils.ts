@@ -13,7 +13,8 @@ import type {
   FindOneAndUpdateReturn,
   HasStartSession,
   IdRef,
-  PayloadDbWithConnection
+  PayloadDbWithConnection,
+  UpdateOneCapable
 } from './types';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -181,16 +182,6 @@ export function summarizeReviews(
 // Mongo atomic counter utilities (Payload mongooseAdapter)
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Internal: get the Tenants collection handle from Payload's db. */
-type UpdateOneCapable = {
-  updateOne: (
-    filter: Record<string, unknown>,
-    // allow both classic update docs and aggregation pipeline updates
-    update: Record<string, unknown> | Record<string, unknown>[], // or: | PipelineStage[]
-    options?: { session?: ClientSession }
-  ) => Promise<unknown>;
-};
-
 function hasUpdateOne(v: unknown): v is UpdateOneCapable {
   return isObjectRecord(v) && typeof v.updateOne === 'function';
 }
@@ -264,8 +255,9 @@ export async function recountTenantProductCount(
   return count;
 }
 
-/** Single atomic increment for a tenant’s `productCount`. (Mongo-first; with optional fallback) */
-// drop-in replacement for incTenantProductCount
+/** Single atomic increment for a tenant’s `productCount`.
+ * (Mongo-first; with optional fallback)
+ **/
 export async function incTenantProductCount(
   payload: Payload,
   tenantId: string,
@@ -306,7 +298,7 @@ export async function incTenantProductCount(
     // Fallback if the adapter/version doesn't support pipeline updates
     await handle.updateOne(
       { _id: tenantId },
-      { $inc: { productCount: delta } },
+      { $inc: { productCount: delta, $max: { productCount: 0 } } },
       options
     );
   }
@@ -391,7 +383,46 @@ export function isTenantWithStripeFields(
   return okId && okSubmitted;
 }
 
-function getProductsCollection(
+/**
+ * Best-effort helper to obtain a low-level "products" collection handle that
+ * supports `findOneAndUpdate(...)` from the current Payload DB adapter.
+ *
+ * Why:
+ * - Some operations (e.g., atomic stock decrements using an aggregation pipeline)
+ *   require a native collection/model method that Payload’s high-level API
+ *   doesn’t expose directly. This function discovers such a handle, if available.
+ *
+ * How it works:
+ * - Navigates through `payload.db.collections.products` and tests common adapter
+ *   shapes in order:
+ *     1) Mongoose model at `.Model`
+ *     2) Native driver collection at `.collection`
+ *     3) The wrapper object itself
+ * - Returns the first candidate that implements `findOneAndUpdate`.
+ *
+ * Safety & portability:
+ * - Returns `null` when the adapter doesn’t expose a compatible handle. Callers
+ *   must handle this case (e.g., by falling back to a non-atomic path).
+ * - This inspects internal adapter structures and is not part of Payload’s
+ *   public API; future adapter versions may change shapes.
+ *
+ * @param payload - The initialized Payload instance.
+ * @returns A handle implementing `findOneAndUpdate` or `null` if none is found.
+ *
+ * @example
+ * const coll = getProductsCollection(payload);
+ * if (!coll) {
+ *   // Fallback: adapter doesn’t expose native ops
+ *   return { ok: false, reason: 'not-found' };
+ * }
+ * const res = await coll.findOneAndUpdate(
+ *   { _id: productId, stockQuantity: { $gte: qty } },
+ *   [{ $set: { stockQuantity: { $subtract: ['$stockQuantity', qty] } } }],
+ *   { returnDocument: 'after', new: true }
+ * );
+ */
+
+export function getProductsCollection(
   payload: Payload
 ): FindOneAndUpdateCapable | null {
   const db = (payload as { db?: unknown }).db;
@@ -409,17 +440,65 @@ function getProductsCollection(
     products
   ];
 
-  for (const c of candidates) {
+  for (const candidate of candidates) {
     if (
-      isObjectRecord(c) &&
-      typeof (c as { findOneAndUpdate?: unknown }).findOneAndUpdate ===
+      isObjectRecord(candidate) &&
+      typeof (candidate as { findOneAndUpdate?: unknown }).findOneAndUpdate ===
         'function'
     ) {
-      return c as FindOneAndUpdateCapable;
+      return candidate as FindOneAndUpdateCapable;
     }
   }
   return null;
 }
+
+/**
+ * Atomically decrements a product's `stockQuantity` and (optionally) auto-archives
+ * the product when it reaches zero, using the database adapter's native
+ * `findOneAndUpdate` with an aggregation pipeline.
+ *
+ * Concurrency & safety:
+ * - The update runs atomically with a filter that requires `trackInventory: true`
+ *   and `stockQuantity >= qty`, preventing oversells under concurrent webhooks.
+ * - If the adapter cannot expose a native collection with `findOneAndUpdate`,
+ *   the function returns `{ ok: false, reason: 'not-found' }` (non-atomic fallback).
+ *
+ * Behavior:
+ * - If `qty <= 0`, no write is performed; the function returns a snapshot
+ *   `{ ok: true, after, archived }` of the current product (or `'not-found'`).
+ * - On successful decrement, returns `{ ok: true, after, archived }` where:
+ *     - `after` is the new `stockQuantity`
+ *     - `archived` reflects the current `isArchived` flag
+ * - If the decrement cannot be applied, returns `{ ok: false, reason }` with:
+ *     - `'not-found'`   → product does not exist (or adapter unsupported)
+ *     - `'not-tracked'` → product has `trackInventory !== true`
+ *     - `'insufficient'`→ `stockQuantity < qty` at the time of update
+ *
+ * Auto-archive:
+ * - When `opts.autoArchive === true`, `isArchived` is set to `true` if the
+ *   post-decrement stock is exactly `0`; otherwise it is left unchanged.
+ *
+ * @param payload - The initialized Payload instance.
+ * @param productId - The `_id` of the product to update.
+ * @param qty - The quantity to subtract (must be > 0 to perform a write).
+ * @param opts - Optional settings.
+ * @param opts.autoArchive - If `true`, archive when stock hits zero (default: `false`).
+ * @returns A `DecProductStockResult`:
+ *   - `{ ok: true, after, archived }` on success (or snapshot for `qty <= 0`)
+ *   - `{ ok: false, reason: 'not-found' | 'not-tracked' | 'insufficient' }` on failure
+ *
+ * @example
+ * const res = await decProductStockAtomic(payload, productId, 2, { autoArchive: true });
+ * if (!res.ok) {
+ *   switch (res.reason) {
+ *     case 'not-found':     // handle missing product / unsupported adapter
+ *     case 'not-tracked':   // handle listing that doesn't track inventory
+ *     case 'insufficient':  // handle sold-out / not enough stock
+ *   }
+ * } else {
+ *   console.log('New qty:', res.after, 'Archived:', res.archived);
+ * }
+ */
 
 export async function decProductStockAtomic(
   payload: Payload,
@@ -562,5 +641,13 @@ export const isNotFound = (err: unknown): boolean => {
     typeof (err as { message?: unknown }).message === 'string'
       ? (err as { message: string }).message
       : undefined;
-  return status === 404 || (message ? /not found/i.test(message) : false);
+  const code =
+    typeof (err as { code?: unknown }).code === 'string'
+      ? (err as { code: string }).code
+      : undefined;
+  return (
+    status === 404 ||
+    code === 'PAYLOAD_NOT_FOUND' ||
+    (message ? /not found/i.test(message) : false)
+  );
 };
