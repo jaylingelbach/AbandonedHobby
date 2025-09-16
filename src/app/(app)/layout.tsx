@@ -6,8 +6,8 @@ import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 import './globals.css';
 import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
-import PostHogInit from './posthog-init';
-import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identity-bridge';
+import PostHogInit from './posthog-init'; // client
+import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identity-bridge'; // client
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
