@@ -363,16 +363,16 @@ export default function SupportClient() {
           onValueChange={handleTabChange}
           className="w-full"
         >
-          <TabsList className="mb-6 grid w-full grid-cols-2 rounded-2xl border-4 border-black bg-white p-1 shadow-[6px_6px_0_#000]">
+          <TabsList className="cursor-pointer mb-6 grid w-full grid-cols-2 rounded-2xl border-4 border-black bg-white p-1 shadow-[6px_6px_0_#000]">
             <TabsTrigger
               value="buyers"
-              className="data-[state=active]:bg-yellow-200 data-[state=active]:shadow-[4px_4px_0_#000]"
+              className="data-[state=active]:bg-yellow-200 data-[state=active]:shadow-[4px_4px_0_#000] cursor-pointer"
             >
               Buyers
             </TabsTrigger>
             <TabsTrigger
               value="sellers"
-              className="data-[state=active]:bg-cyan-200 data-[state=active]:shadow-[4px_4px_0_#000]"
+              className="data-[state=active]:bg-cyan-200 data-[state=active]:shadow-[4px_4px_0_#000] cursor-pointer"
             >
               Sellers
             </TabsTrigger>

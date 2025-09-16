@@ -47,7 +47,7 @@ export default function FaqCard({
               value={`item-${i}`}
               className="rounded-xl border-4 border-black px-3 py-2 shadow-[6px_6px_0_#000] not-first:mt-3"
             >
-              <AccordionTrigger className="text-left">
+              <AccordionTrigger className="text-left cursor-pointer">
                 <span
                   className={`mr-2 rounded-md border-2 border-black ${chip} px-1 text-xs font-black`}
                 >
