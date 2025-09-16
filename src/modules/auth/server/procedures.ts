@@ -203,7 +203,7 @@ export const authRouter = createTRPCRouter({
     posthogServer?.capture({
       distinctId: data.user.id,
       event: 'userLoggedIn',
-      properties: { method: 'password' /* or oauth provider */ }
+      properties: { method: 'password' }
     });
     // cookies.
     await generateAuthCookie({

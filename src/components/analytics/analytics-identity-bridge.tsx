@@ -12,7 +12,8 @@ export function AnalyticsIdentityBridge() {
   const identity = toIdentity(user);
 
   useEffect(() => {
-    console.log('[PH] useUser() →', user, 'toIdentity →', identity);
+    if (process.env.NODE_ENV === 'development')
+      console.log('[PH] useUser() →', user, 'toIdentity →', identity);
   }, [user, identity]);
 
   usePostHogIdentity(identity);

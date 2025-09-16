@@ -97,7 +97,8 @@ export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
   useEffect(() => {
     // log what the bridge sees
     // (keep it — super helpful in prod)
-    console.log('[PH] bridge user snapshot:', user);
+    if (process.env.NODE_ENV === 'development')
+      console.log('[PH] bridge user snapshot:', user);
 
     if (!user) {
       if (lastIdRef.current) {
