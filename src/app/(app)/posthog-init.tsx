@@ -35,7 +35,7 @@ export default function PostHogInit() {
     });
 
     posthog.register({
-      environment: process.env.NODE_ENV === 'production' ? 'prod' : 'dev'
+      environment: env === 'production' ? 'prod' : 'dev'
     });
 
     // Expose for console tests in prod while debugging
