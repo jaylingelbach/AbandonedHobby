@@ -97,36 +97,37 @@ export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
   useEffect(() => {
     // log what the bridge sees
     // (keep it — super helpful in prod)
-    if (process.env.NODE_ENV === 'development')
+    if (process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === '1') {
       console.log('[PH] bridge user snapshot:', user);
 
-    if (!user) {
-      if (lastIdRef.current) {
-        posthog.reset();
-        lastIdRef.current = null;
-        lastPropsRef.current = null;
+      if (!user) {
+        if (lastIdRef.current) {
+          posthog.reset();
+          lastIdRef.current = null;
+          lastPropsRef.current = null;
+        }
+        return;
       }
-      return;
-    }
 
-    const props: Record<string, unknown> = {};
-    if (user.role) props.role = user.role;
-    if (user.tenantSlug) props.tenantSlug = user.tenantSlug;
-    const propsKey = JSON.stringify(props);
+      const props: Record<string, unknown> = {};
+      if (user.role) props.role = user.role;
+      if (user.tenantSlug) props.tenantSlug = user.tenantSlug;
+      const propsKey = JSON.stringify(props);
 
-    if (lastIdRef.current !== user.id || lastPropsRef.current !== propsKey) {
-      posthog.identify(user.id, props);
-      lastIdRef.current = user.id;
-      lastPropsRef.current = propsKey;
+      if (lastIdRef.current !== user.id || lastPropsRef.current !== propsKey) {
+        posthog.identify(user.id, props);
+        lastIdRef.current = user.id;
+        lastPropsRef.current = propsKey;
 
-      if (user.tenantSlug) posthog.group('tenant', user.tenantSlug);
+        if (user.tenantSlug) posthog.group('tenant', user.tenantSlug);
 
-      // emit a diag event you can filter for in PostHog
-      posthog.capture('identity.applied', {
-        userId: user.id,
-        hasRole: Boolean(user.role),
-        hasTenant: Boolean(user.tenantSlug)
-      });
+        // emit a diag event you can filter for in PostHog
+        posthog.capture('identity.applied', {
+          userId: user.id,
+          hasRole: Boolean(user.role),
+          hasTenant: Boolean(user.tenantSlug)
+        });
+      }
     }
   }, [user]);
 }

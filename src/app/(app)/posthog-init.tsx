@@ -1,11 +1,11 @@
 'use client';
 
 import { useEffect } from 'react';
-import posthog, { PostHog } from 'posthog-js';
+import posthog, { type PostHog } from 'posthog-js';
 
 declare global {
   interface Window {
-    posthog: PostHog;
+    posthog?: PostHog;
   }
 }
 
@@ -23,7 +23,8 @@ export default function PostHogInit() {
     // console.log('[PH] init start', { env, keyPresent: Boolean(key) });
 
     if (!key) {
-      console.warn('[PH] missing NEXT_PUBLIC_POSTHOG_KEY');
+      if (env === 'production')
+        console.warn('[PH] missing NEXT_PUBLIC_POSTHOG_KEY');
       return;
     }
 

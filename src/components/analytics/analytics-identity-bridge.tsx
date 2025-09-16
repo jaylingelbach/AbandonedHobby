@@ -12,7 +12,7 @@ export function AnalyticsIdentityBridge() {
   const identity = toIdentity(user);
 
   useEffect(() => {
-    if (process.env.NODE_ENV === 'development')
+    if (process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === '1')
       console.log('[PH] useUser() →', user, 'toIdentity →', identity);
   }, [user, identity]);
 
