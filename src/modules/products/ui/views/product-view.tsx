@@ -262,13 +262,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   </Button>
                 </div>
 
-                {/* Availability label */}
-                {trackInventory && (
-                  <p className="text-center text-sm text-muted-foreground">
-                    {availabilityLabel}
-                  </p>
-                )}
-
                 <ChatButtonWithModal
                   productId={productId}
                   sellerId={data.tenant.id}
@@ -281,6 +274,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     ? 'No refunds'
                     : `${data.refundPolicy} money back guarantee`}
                 </p>
+
+                {/* Availability label */}
+                {trackInventory && (
+                  <p className="text-center text-sm font-bold text-muted-foreground">
+                    {availabilityLabel}
+                  </p>
+                )}
               </div>
 
               {/* Ratings */}

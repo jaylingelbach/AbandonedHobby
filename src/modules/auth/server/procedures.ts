@@ -10,6 +10,8 @@ import {
   toDbUser,
   isSafeReturnTo
 } from '@/modules/onboarding/server/utils';
+import { posthogServer } from '@/lib/server/posthog-server';
+import { flushIfNeeded } from '@/lib/server/analytics';
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
@@ -199,7 +201,22 @@ export const authRouter = createTRPCRouter({
         message: 'Failed to login'
       });
     }
-
+    if (process.env.NODE_ENV === 'production' && posthogServer) {
+      try {
+        void posthogServer.capture({
+          distinctId: data.user.id,
+          event: 'userLoggedIn',
+          properties: {
+            method: 'password', // or oauth provider
+            source: 'server'
+          }
+        });
+        // If deployed on serverless, consider forcing a flush per posthog-node docs.
+        flushIfNeeded();
+      } catch {
+        // Swallow analytics errors to avoid impacting auth.
+      }
+    }
     // cookies.
     await generateAuthCookie({
       prefix: ctx.db.config.cookiePrefix,

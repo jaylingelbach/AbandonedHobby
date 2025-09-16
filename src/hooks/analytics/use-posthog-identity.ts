@@ -92,35 +92,58 @@ export function toIdentity(value: unknown): AppUserIdentity | null {
 
 export function usePostHogIdentity(user: AppUserIdentity | null | undefined) {
   const lastIdRef = useRef<string | null>(null);
-  // JSON string of props to detect changes
   const lastPropsRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!user) {
-      if (lastIdRef.current) {
-        posthog.reset();
-        lastIdRef.current = null;
-        lastPropsRef.current = null;
+    // log what the bridge sees
+    // (keep it — super helpful in prod)
+    if (process.env.NEXT_PUBLIC_ANALYTICS_DEBUG === '1') {
+      console.log('[PH] bridge user snapshot:', user);
+
+      if (!user) {
+        if (lastIdRef.current) {
+          posthog.reset();
+          lastIdRef.current = null;
+          lastPropsRef.current = null;
+        }
+        return;
       }
-      return;
-    }
 
-    const props: Record<string, unknown> = {};
-    if (user.role) props.role = user.role;
-    if (user.tenantSlug) props.tenantSlug = user.tenantSlug;
-    const propsKey = JSON.stringify(props);
+      const props: Record<string, unknown> = {};
+      if (user.role) props.role = user.role;
+      if (user.tenantSlug) props.tenantSlug = user.tenantSlug;
+      const propsKey = JSON.stringify(props);
 
-    if (lastIdRef.current !== user.id || lastPropsRef.current !== propsKey) {
-      posthog.identify(user.id, props);
-      lastIdRef.current = user.id;
-      lastPropsRef.current = propsKey;
+      if (lastIdRef.current !== user.id || lastPropsRef.current !== propsKey) {
+        posthog.identify(user.id, props);
+        lastIdRef.current = user.id;
+        lastPropsRef.current = propsKey;
 
-      if (user.tenantSlug) {
-        posthog.group('tenant', user.tenantSlug);
-      }
-      if (process.env.NODE_ENV === 'development') {
-        posthog.capture('dev_identity_check', { afterIdentify: true });
+        if (user.tenantSlug) posthog.group('tenant', user.tenantSlug);
+
+        // emit a diag event you can filter for in PostHog
+        posthog.capture('identity.applied', {
+          userId: user.id,
+          hasRole: Boolean(user.role),
+          hasTenant: Boolean(user.tenantSlug)
+        });
       }
     }
   }, [user]);
+}
+
+export function useLoginEvent(identity: { id: string } | null | undefined) {
+  const lastIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    const id = identity?.id ?? null;
+    if (id && lastIdRef.current !== id) {
+      // first time we see this user in this tab/session
+      posthog.capture('userLoggedIn', {
+        userId: id,
+        $insert_id: `login:${id}:${new Date().toISOString().slice(0, 10)}` // idempotent for the day
+      });
+    }
+    lastIdRef.current = id;
+  }, [identity?.id]);
 }

@@ -107,7 +107,7 @@ export default function SupportContactForm() {
             name="topic"
             value={topic}
             onChange={(e) => setTopic(e.target.value)}
-            className="h-10 w-full rounded-xl border-4 border-black bg-white px-3 shadow-[4px_4px_0_#000] focus:outline-none"
+            className="h-10 w-full rounded-xl border-4 border-black bg-white px-3 shadow-[4px_4px_0_#000] focus:outline-none cursor-pointer"
           >
             <option>Order</option>
             <option>Listing</option>
