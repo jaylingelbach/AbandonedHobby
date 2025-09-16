@@ -16,6 +16,8 @@
     "send:test": "ts-node --loader ts-node/esm scripts/test-email.ts"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.888.0",
+    "@aws-sdk/s3-request-presigner": "^3.888.0",
     "@hookform/resolvers": "^5.0.1",
     "@liveblocks/client": "^3.0.0",
     "@liveblocks/node": "^3.0.0",

@@ -1,0 +1,46 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { getPresignedPutUrl, publicUrlForKey } from '@/lib/server/s3';
+
+export const runtime = 'nodejs';
+
+// Simple guard so it won't run in production by accident
+function assertDev(): void {
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error('This endpoint is for local/dev testing only.');
+  }
+}
+
+export async function GET(req: NextRequest) {
+  try {
+    assertDev();
+
+    const { searchParams } = new URL(req.url);
+    const tenantSlug = searchParams.get('tenantSlug') ?? 'test-tenant';
+    const productId = searchParams.get('productId') ?? 'test-product';
+    const contentType = searchParams.get('contentType') ?? 'image/jpeg';
+
+    const ext =
+      contentType === 'image/png'
+        ? 'png'
+        : contentType === 'image/webp'
+          ? 'webp'
+          : contentType === 'image/avif'
+            ? 'avif'
+            : 'jpg';
+
+    const id = crypto.randomUUID();
+    const key = `products/${tenantSlug}/${productId}/${id}.${ext}`;
+
+    const url = await getPresignedPutUrl({
+      key,
+      contentType,
+      expiresSeconds: 300
+    });
+
+    const publicUrl = publicUrlForKey(key);
+    return NextResponse.json({ url, key, publicUrl, contentType });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    return NextResponse.json({ error: message }, { status: 500 });
+  }
+}

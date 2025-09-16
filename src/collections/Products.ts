@@ -427,6 +427,19 @@ export const Products: CollectionConfig = {
 
         return true;
       }
+    },
+    {
+      name: 'images',
+      type: 'array',
+      label: 'Images (first = primary)',
+      admin: { description: 'Reorder to change the primary image' },
+      fields: [
+        { name: 'key', type: 'text', required: true },
+        { name: 'url', type: 'text', required: true },
+        { name: 'alt', type: 'text' },
+        { name: 'width', type: 'number' },
+        { name: 'height', type: 'number' }
+      ]
     }
   ]
 };
