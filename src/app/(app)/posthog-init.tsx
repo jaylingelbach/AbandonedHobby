@@ -5,6 +5,12 @@ import posthog from 'posthog-js';
 
 let initialized = false;
 
+declare global {
+  interface Window {
+    posthog: typeof posthog;
+  }
+}
+
 export default function PostHogInit() {
   useEffect(() => {
     if (initialized) return;
@@ -26,6 +32,15 @@ export default function PostHogInit() {
       capture_exceptions: true,
       debug: process.env.NODE_ENV === 'development'
     });
+
+    // TEMP: expose for console debugging in prod
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      typeof window !== 'undefined'
+    ) {
+      window.posthog = posthog;
+      // e.g. now you can run:  posthog.capture('test')
+    }
   }, []);
 
   useEffect(() => {
