@@ -10,6 +10,7 @@ import {
   toDbUser,
   isSafeReturnTo
 } from '@/modules/onboarding/server/utils';
+import { posthogServer } from '@/lib/server/posthog-server';
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {
@@ -199,7 +200,11 @@ export const authRouter = createTRPCRouter({
         message: 'Failed to login'
       });
     }
-
+    posthogServer?.capture({
+      distinctId: data.user.id,
+      event: 'userLoggedIn',
+      properties: { method: 'password' /* or oauth provider */ }
+    });
     // cookies.
     await generateAuthCookie({
       prefix: ctx.db.config.cookiePrefix,
