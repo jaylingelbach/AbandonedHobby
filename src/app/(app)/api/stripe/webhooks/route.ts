@@ -19,7 +19,9 @@ import {
   flushIfNeeded,
   isUniqueViolation,
   itemHasProductId,
-  requireStripeProductId
+  requireStripeProductId,
+  toQtyMap,
+  decrementInventoryBatch
 } from './utils/utils';
 
 export const runtime = 'nodejs';
@@ -117,11 +119,81 @@ export async function POST(req: Request) {
           depth: 0,
           overrideAccess: true
         });
+
         if (existingPre.totalDocs > 0) {
-          console.log('[webhook] duplicate detected (pre-check)', {
-            sessionId: session.id,
-            eventId: event.id
+          const existing = existingPre.docs[0] as {
+            id: string;
+            items?: { product?: string; quantity?: number }[];
+            inventoryAdjustedAt?: string | null;
+          };
+
+          console.log('[webhook] dup-precheck hit (before)', {
+            orderId: existing.id,
+            hasItems: Array.isArray(existing.items),
+            itemsCount: Array.isArray(existing.items)
+              ? existing.items.length
+              : 0,
+            inventoryAdjustedAt: existing.inventoryAdjustedAt ?? null
           });
+
+          if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
+            const qtyByProductId = toQtyMap(
+              existing.items
+                .filter((i) => typeof i.product === 'string')
+                .map((i) => ({
+                  product: i.product as string,
+                  quantity: i.quantity
+                }))
+            );
+
+            console.log('[webhook] decrement on duplicate path', {
+              entries: [...qtyByProductId.entries()]
+            });
+
+            await decrementInventoryBatch({ payload, qtyByProductId });
+            // Re-read one of the products to verify persisted result immediately
+            const [firstId] = qtyByProductId.keys();
+            if (firstId) {
+              const after = await payload.findByID({
+                collection: 'products',
+                id: firstId,
+                depth: 0,
+                overrideAccess: true,
+                draft: false,
+                context: {
+                  ahSystem: true, // <-- tell hooks this is a system/webhook write
+                  ahSkipAutoArchive: true // <-- prevents your auto-archive hook from looping
+                }
+              });
+
+              console.log('[webhook] post-update check', {
+                productId: firstId,
+                stockQuantity: (after as Product).stockQuantity,
+                isArchived: (after as Product).isArchived
+              });
+            }
+
+            await payload.update({
+              collection: 'orders',
+              id: existing.id,
+              data: {
+                inventoryAdjustedAt: new Date().toISOString(),
+                stripeEventId: event.id
+              },
+              overrideAccess: true
+            });
+
+            console.log('[webhook] inventory adjusted on duplicate path', {
+              orderId: existing.id
+            });
+          } else {
+            console.log(
+              '[webhook] duplicate path: inventory already adjusted',
+              {
+                orderId: existing.id
+              }
+            );
+          }
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
@@ -269,7 +341,12 @@ export async function POST(req: Request) {
                 collection: 'products',
                 depth: 0,
                 where: { id: { in: productIdsFromLines } },
-                overrideAccess: true
+                overrideAccess: true,
+                draft: false,
+                context: {
+                  ahSystem: true, // <-- tell hooks this is a system/webhook write
+                  ahSkipAutoArchive: true // <-- prevents your auto-archive hook from looping
+                }
               })
             : { docs: [] }
         ) as { docs: Product[] };
@@ -412,6 +489,27 @@ export async function POST(req: Request) {
           // real error
           throw err;
         }
+
+        // Aggregate purchased quantities from the order items
+        const qtyByProductId = toQtyMap(
+          orderItems.map((i) => ({ product: i.product, quantity: i.quantity }))
+        );
+
+        console.log('[webhook] decrement on primary path');
+        // Decrement inventory & auto-archive at 0
+        await decrementInventoryBatch({ payload, qtyByProductId });
+
+        // ✅ Mark the order so retries won’t adjust again
+        await payload.update({
+          collection: 'orders',
+          id: orderDoc.id,
+          data: { inventoryAdjustedAt: new Date().toISOString() },
+          overrideAccess: true
+        });
+
+        console.log('[webhook] inventory adjusted on primary path', {
+          orderId: orderDoc.id
+        });
 
         // ---- emails ----
         const summary = receiptLineItems.map((i) => i.description).join(', ');

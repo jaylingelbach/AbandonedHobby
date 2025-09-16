@@ -206,6 +206,16 @@ export const Orders: CollectionConfig = {
       type: 'select',
       defaultValue: 'paid',
       options: ['paid', 'refunded', 'partially_refunded', 'canceled']
+    },
+    {
+      name: 'inventoryAdjustedAt',
+      type: 'date',
+      admin: { readOnly: true, description: 'Set when stock was decremented' },
+      index: true,
+      access: {
+        create: () => false,
+        update: () => false
+      }
     }
   ]
 };

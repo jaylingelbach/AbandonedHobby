@@ -231,6 +231,8 @@ export interface Product {
    * Check this box if you want to hide this item from the marketplace and only show in your personal storefront.
    */
   isPrivate?: boolean | null;
+  trackInventory?: boolean | null;
+  stockQuantity?: number | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -425,6 +427,10 @@ export interface Order {
   }[];
   returnsAcceptedThrough?: string | null;
   status?: ('paid' | 'refunded' | 'partially_refunded' | 'canceled') | null;
+  /**
+   * Set when stock was decremented
+   */
+  inventoryAdjustedAt?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -663,6 +669,7 @@ export interface OrdersSelect<T extends boolean = true> {
       };
   returnsAcceptedThrough?: T;
   status?: T;
+  inventoryAdjustedAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
@@ -684,6 +691,8 @@ export interface ProductsSelect<T extends boolean = true> {
   content?: T;
   isArchived?: T;
   isPrivate?: T;
+  trackInventory?: T;
+  stockQuantity?: T;
   updatedAt?: T;
   createdAt?: T;
 }

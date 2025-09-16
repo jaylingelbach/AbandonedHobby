@@ -138,19 +138,19 @@ export const checkoutRouter = createTRPCRouter({
           message: 'Product is missing a valid tenant reference.'
         });
       }
-
+      const uniqueProductIds = Array.from(new Set(input.productIds));
       const productsRes = await ctx.db.find({
         collection: 'products',
         depth: 2,
         where: {
           and: [
-            { id: { in: input.productIds } },
+            { id: { in: uniqueProductIds } },
             { isArchived: { not_equals: true } }
           ]
         }
       });
 
-      if (productsRes.totalDocs !== input.productIds.length) {
+      if (productsRes.totalDocs !== uniqueProductIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found'
@@ -188,6 +188,34 @@ export const checkoutRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'Seller has no Stripe account configured.'
+        });
+      }
+
+      const getInventoryInfo = (product: (typeof products)[0]) => {
+        const p = product as {
+          trackInventory?: boolean;
+          stockQuantity?: number;
+        };
+        return {
+          trackInventory: Boolean(p.trackInventory),
+          stockQuantity:
+            typeof p.stockQuantity === 'number' ? p.stockQuantity : 0
+        };
+      };
+
+      // Enforce available stock (you sell quantity=1 per product)
+      const soldOutNames: string[] = [];
+      for (const product of products) {
+        const { trackInventory, stockQuantity } = getInventoryInfo(product);
+        if (trackInventory && stockQuantity <= 0) {
+          soldOutNames.push(product.name ?? 'Item');
+        }
+      }
+
+      if (soldOutNames.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `These items are sold out: ${soldOutNames.join(', ')}`
         });
       }
 

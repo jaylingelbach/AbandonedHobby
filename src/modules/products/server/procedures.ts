@@ -3,31 +3,43 @@ import { headers as getHeaders } from 'next/headers';
 import z from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { Media, Tenant } from '@/payload-types';
+import type { Media, Product, Tenant, Review } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';
 import { sortValues } from '@/modules/products/search-params';
+import { isNotFound, summarizeReviews } from '@/lib/server/utils';
+import type { PriceBounds } from '@/lib/server/types';
+
+interface ProductWithInventory extends Product {
+  trackInventory?: boolean;
+  stockQuantity?: number;
+}
 
 export const productsRouter = createTRPCRouter({
   getOne: baseProcedure
-    .input(
-      z.object({
-        id: z.string()
-      })
-    )
+    .input(z.object({ id: z.string() }))
     .query(async ({ ctx, input }) => {
       const headers = await getHeaders();
       const session = await ctx.db.auth({ headers });
 
-      const product = await ctx.db.findByID({
-        collection: 'products',
-        depth: 2, // Load product.image, product.cover, product.tenant & product.tenant.image
-        id: input.id,
-        select: {
-          content: false
+      let product: ProductWithInventory;
+      try {
+        product = (await ctx.db.findByID({
+          collection: 'products',
+          depth: 2, // image, cover, tenant & tenant.image
+          id: input.id,
+          select: { content: false }
+        })) as ProductWithInventory;
+      } catch (error) {
+        if (isNotFound(error)) {
+          throw new TRPCError({
+            code: 'NOT_FOUND',
+            message: `Product with ID: ${input.id} not found`
+          });
         }
-      });
+        throw error; // rethrow non-404 errors
+      }
 
       if (product.isArchived) {
         throw new TRPCError({
@@ -36,8 +48,15 @@ export const productsRouter = createTRPCRouter({
         });
       }
 
-      let isPurchased = false;
+      // ── Availability (do NOT 404 on sold-out) ──────────────────
+      const trackInventory = Boolean(product.trackInventory);
+      const stockQuantity = product.stockQuantity ?? 0;
 
+      const inStock = !trackInventory || stockQuantity > 0;
+      const isSoldOut = trackInventory && stockQuantity <= 0;
+
+      // ── Has current user purchased? ─────────────────────────────
+      let isPurchased = false;
       if (session.user) {
         const ordersData = await ctx.db.find({
           collection: 'orders',
@@ -45,36 +64,25 @@ export const productsRouter = createTRPCRouter({
           limit: 1,
           where: {
             and: [
+              { user: { equals: session.user.id } },
+              { status: { in: ['paid', 'partially_refunded'] } },
               {
-                product: {
-                  equals: input.id
-                }
-              },
-              {
-                user: {
-                  equals: session.user.id
-                }
+                or: [
+                  { product: { equals: input.id } },
+                  { 'items.product': { equals: input.id } }
+                ]
               }
             ]
           }
         });
-        isPurchased = ordersData.totalDocs > 0;
-      }
-      if (!product) {
-        throw new TRPCError({
-          code: 'NOT_FOUND',
-          message: `ProductID with ID: ${input.id} not found`
-        });
+        isPurchased = ordersData.docs.length > 0;
       }
 
+      // ── Reviews summary ─────────────────────────────────────────
       const reviews = await ctx.db.find({
         collection: 'reviews',
         pagination: false,
-        where: {
-          product: {
-            equals: input.id
-          }
-        }
+        where: { product: { equals: input.id } }
       });
 
       const reviewRating =
@@ -90,27 +98,30 @@ export const productsRouter = createTRPCRouter({
         2: 0,
         1: 0
       };
-
       if (reviews.totalDocs > 0) {
-        reviews.docs.forEach((review) => {
-          const rating = review.rating;
-
-          if (rating >= 1 && rating <= 5) {
-            ratingDistribution[rating] = (ratingDistribution[rating] || 0) + 1;
-          }
-        });
-
-        // Convert counts to percentages after all reviews are processed
-        Object.keys(ratingDistribution).forEach((key) => {
-          const rating = Number(key);
-          const count = ratingDistribution[rating] || 0;
-          ratingDistribution[rating] = Math.round(
-            (count / reviews.totalDocs) * 100
-          );
-        });
+        for (const review of reviews.docs) {
+          const r = review.rating;
+          if (r >= 1 && r <= 5)
+            ratingDistribution[r] = (ratingDistribution[r] || 0) + 1;
+        }
+        for (const key of Object.keys(ratingDistribution)) {
+          const k = Number(key);
+          const count = ratingDistribution[k] || 0;
+          ratingDistribution[k] = Math.round((count / reviews.totalDocs) * 100);
+        }
       }
+
       return {
         ...product,
+        trackInventory,
+        stockQuantity,
+        inStock,
+        isSoldOut,
+        availabilityLabel: isSoldOut
+          ? 'Sold out'
+          : trackInventory
+            ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
+            : 'Available',
         isPurchased,
         image: (product.image as Media) || null,
         cover: (product.cover as Media) || null,
@@ -120,6 +131,7 @@ export const productsRouter = createTRPCRouter({
         ratingDistribution
       };
     }),
+
   getMany: baseProcedure
     .input(
       z.object({
@@ -142,6 +154,20 @@ export const productsRouter = createTRPCRouter({
         }
       };
 
+      // Availability filter:
+      // (trackInventory=false) OR (trackInventory=true AND stockQuantity>0)
+      const availabilityFilter: Where = {
+        or: [
+          { trackInventory: { not_equals: true } },
+          {
+            and: [
+              { trackInventory: { equals: true } },
+              { stockQuantity: { greater_than: 0 } }
+            ]
+          }
+        ]
+      };
+
       let sort: Sort = '-createdAt';
 
       if (input.sort === 'curated') {
@@ -156,17 +182,25 @@ export const productsRouter = createTRPCRouter({
         sort = '-createdAt';
       }
 
-      if (input.minPrice) {
-        where.price = {
-          greater_than_equal: input.minPrice
-        };
+      const minPrice =
+        input.minPrice != null ? Number(input.minPrice) : undefined;
+      const maxPrice =
+        input.maxPrice != null ? Number(input.maxPrice) : undefined;
+
+      const priceFilter: PriceBounds = {};
+      if (typeof minPrice === 'number' && Number.isFinite(minPrice)) {
+        priceFilter.greater_than_equal = minPrice;
+      }
+      if (typeof maxPrice === 'number' && Number.isFinite(maxPrice)) {
+        priceFilter.less_than_equal = maxPrice;
       }
 
-      if (input.maxPrice) {
-        // NOTE: this overwrites min if both are set, matching your current behavior
-        where.price = {
-          less_than_equal: input.maxPrice
-        };
+      if (
+        priceFilter.greater_than_equal !== undefined ||
+        priceFilter.less_than_equal !== undefined
+      ) {
+        // `Where` uses dynamic fields; assign safely without `any`
+        (where as Record<string, unknown>).price = priceFilter;
       }
 
       // Loads products for a specific shop (tenant).
@@ -262,10 +296,15 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
+      const finalWhere: Where = {
+        ...where,
+        and: [...(where.and ?? []), availabilityFilter]
+      };
+
       const data = await ctx.db.find({
         collection: 'products',
         depth: 2, // populate category, image, tenant & tenant.image
-        where,
+        where: finalWhere,
         sort,
         page: input.cursor,
         limit: input.limit,
@@ -274,34 +313,26 @@ export const productsRouter = createTRPCRouter({
         }
       });
 
-      const dataWithSummaizedReviews = await Promise.all(
-        data.docs.map(async (doc) => {
-          const reviewsData = await ctx.db.find({
-            collection: 'reviews',
-            pagination: false, // load all
-            where: {
-              product: {
-                equals: doc.id
-              }
-            }
-          });
-          return {
-            ...doc,
-            reviewCount: reviewsData.totalDocs,
-            reviewRating:
-              reviewsData.docs.length === 0
-                ? 0
-                : reviewsData.docs.reduce(
-                    (acc, review) => acc + review.rating,
-                    0
-                  ) / reviewsData.totalDocs
-          };
-        })
-      );
+      const ids = data.docs.map((d) => d.id);
+      const reviewDocs =
+        ids.length > 0
+          ? (
+              await ctx.db.find({
+                collection: 'reviews',
+                pagination: false,
+                where: { product: { in: ids } }
+              })
+            ).docs
+          : [];
+      const summary = summarizeReviews(reviewDocs as Review[]);
+      const dataWithSummarizedReviews = data.docs.map((doc) => {
+        const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
+        return { ...doc, reviewCount: s.count, reviewRating: s.avg };
+      });
 
       return {
         ...data,
-        docs: dataWithSummaizedReviews.map((doc) => ({
+        docs: dataWithSummarizedReviews.map((doc) => ({
           ...doc,
           image: doc.image as Media | null,
           tenant: doc.tenant as Tenant & { image: Media | null }

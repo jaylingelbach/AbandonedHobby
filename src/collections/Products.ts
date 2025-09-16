@@ -1,11 +1,12 @@
-import { CollectionConfig } from 'payload';
+import { CollectionConfig, type Payload } from 'payload';
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
 import { User } from '@/payload-types';
 import {
-  isObjectRecord,
   getCategoryIdFromSibling,
   incTenantProductCount,
-  swapTenantCountsAtomic
+  swapTenantCountsAtomic,
+  isTenantWithStripeFields,
+  getDraftStatus
 } from '@/lib/server/utils';
 import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 
@@ -93,6 +94,55 @@ export const Products: CollectionConfig = {
             console.warn('[analytics] productListed failed:', err);
           }
         }
+      },
+
+      async ({ req, doc, previousDoc, operation }) => {
+        // Prevent loop if we've already set archived in this request
+        if (req.context?.ahSkipAutoArchive) return;
+
+        // If drafts are enabled, do not auto-publish
+        const status = getDraftStatus(doc);
+        if (status && status !== 'published') return;
+
+        if (operation === 'update') {
+          const prevTrack = Boolean(previousDoc?.trackInventory);
+          const prevQty =
+            typeof previousDoc?.stockQuantity === 'number'
+              ? previousDoc.stockQuantity
+              : 0;
+          const track = Boolean(doc.trackInventory);
+          const qty =
+            typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
+          if (prevTrack === track && prevQty === qty) return;
+        }
+        const track = Boolean(doc.trackInventory);
+        const qty =
+          typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
+        const archived = Boolean(doc.isArchived);
+
+        if (track && qty === 0 && !archived) {
+          // Auto-archive sold out listings so they disappear from the store
+          await req.payload.update({
+            collection: 'products',
+            id: doc.id,
+            data: { isArchived: true },
+            overrideAccess: true,
+            draft: false,
+            context: { ahSkipAutoArchive: true }
+          });
+        }
+
+        // If quantity was increased from 0, optionally unarchive:
+        if (track && qty > 0 && archived) {
+          await req.payload.update({
+            collection: 'products',
+            id: doc.id,
+            data: { isArchived: false },
+            overrideAccess: true,
+            draft: false,
+            context: { ahSkipAutoArchive: true }
+          });
+        }
       }
     ],
     afterDelete: [
@@ -146,33 +196,96 @@ export const Products: CollectionConfig = {
       }
     ],
     beforeChange: [
-      async ({ req, operation, data }) => {
-        if (operation === 'create' || operation === 'update') {
-          const user = req.user as User;
-          if (user?.roles?.includes('super-admin')) return data;
+      async ({
+        req,
+        operation,
+        data,
+        originalDoc
+      }: {
+        req: {
+          user?: User | null;
+          context?: Record<string, unknown>;
+          payload: Payload;
+        }; // payload type is provided by Payload; leave as-is from your file
+        operation: 'create' | 'update' | 'delete';
+        data: Record<string, unknown>;
+        originalDoc?: Record<string, unknown>;
+      }) => {
+        if (operation !== 'create' && operation !== 'update') return data;
 
-          const rel = user?.tenants?.[0]?.tenant;
-          const tenantId = typeof rel === 'string' ? rel : rel?.id;
-          if (!tenantId) throw new Error('Tenant not found on user.');
+        // Allow system/webhook writes and other server-initiated writes
+        if (req.context?.ahSystem) return data;
 
-          const tenant = await req.payload.findByID({
-            collection: 'tenants',
-            id: tenantId,
-            depth: 0
-          });
+        const user = req.user as User | undefined;
+        if (!user) return data; // unauthenticated server-side writes
 
-          const stripeReady =
-            isObjectRecord(tenant) &&
-            typeof tenant.stripeAccountId === 'string' &&
-            tenant.stripeAccountId.length > 0 &&
-            tenant.stripeDetailsSubmitted === true;
+        if (user.roles?.includes('super-admin')) return data;
 
-          if (!stripeReady) {
-            throw new Error(
-              'You must complete Stripe verification before creating or editing products.'
-            );
+        // Helper: normalize relationship to string id
+        const relToId = (rel: unknown): string | null => {
+          if (typeof rel === 'string') return rel;
+          if (
+            rel &&
+            typeof rel === 'object' &&
+            'id' in (rel as { id?: unknown })
+          ) {
+            const id = (rel as { id?: unknown }).id;
+            return typeof id === 'string' ? id : null;
           }
+          return null;
+        };
+
+        // 1) Try incoming product tenant first
+        let tenantId: string | null = relToId(
+          (data as { tenant?: unknown }).tenant
+        );
+
+        // 2) If missing on create/update, prefer original doc’s tenant (on update)
+        if (!tenantId && originalDoc) {
+          tenantId = relToId((originalDoc as { tenant?: unknown }).tenant);
         }
+
+        // 3) Finally, fall back to the user’s first tenant
+        if (!tenantId) {
+          const first = user.tenants?.[0]?.tenant;
+          tenantId = relToId(first);
+        }
+
+        if (!tenantId) {
+          throw new Error('A tenant must be specified for this product.');
+        }
+
+        // Ensure the user is a member of the resolved tenant
+        const isMember =
+          Array.isArray(user.tenants) &&
+          user.tenants.some((t) => relToId(t?.tenant) === tenantId);
+
+        if (!isMember) {
+          throw new Error('You are not a member of the selected tenant.');
+        }
+
+        // Stripe readiness check for the resolved tenant
+        const tenantRaw = await req.payload.findByID({
+          collection: 'tenants',
+          id: tenantId,
+          depth: 0
+        });
+
+        if (!isTenantWithStripeFields(tenantRaw)) {
+          throw new Error('Invalid tenant record.');
+        }
+
+        const stripeReady =
+          typeof tenantRaw.stripeAccountId === 'string' &&
+          tenantRaw.stripeAccountId.length > 0 &&
+          tenantRaw.stripeDetailsSubmitted === true;
+
+        if (!stripeReady) {
+          throw new Error(
+            'This tenant must complete Stripe verification before creating or editing products.'
+          );
+        }
+
         return data;
       }
     ]
@@ -269,6 +382,50 @@ export const Products: CollectionConfig = {
       admin: {
         description:
           'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
+      }
+    },
+    // Inventory
+    {
+      name: 'trackInventory',
+      type: 'checkbox',
+      label: 'Track inventory',
+      defaultValue: true
+    },
+    {
+      name: 'stockQuantity',
+      type: 'number',
+      label: 'Quantity',
+      min: 0,
+      defaultValue: 1,
+      admin: {
+        condition: (_: unknown, siblingData?: Record<string, unknown>) =>
+          Boolean(siblingData?.trackInventory ?? true)
+      },
+      validate: (
+        value: unknown,
+        {
+          siblingData,
+          originalDoc
+        }: {
+          siblingData?: Partial<{ trackInventory?: boolean }>;
+          originalDoc?: Partial<{ trackInventory?: boolean }>;
+        }
+      ) => {
+        // Prefer the value being saved; fall back to the current doc; default to true only if unknown.
+        const tracking =
+          typeof siblingData?.trackInventory === 'boolean'
+            ? siblingData.trackInventory
+            : typeof originalDoc?.trackInventory === 'boolean'
+              ? originalDoc.trackInventory
+              : true;
+
+        if (!tracking) return true; // When not tracking, allow undefined/null/omitted
+
+        if (typeof value !== 'number') return 'Quantity is required';
+        if (!Number.isInteger(value) || value < 0)
+          return 'Must be an integer ≥ 0';
+
+        return true;
       }
     }
   ]

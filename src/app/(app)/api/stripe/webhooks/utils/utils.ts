@@ -1,6 +1,11 @@
-import { ExpandedLineItem } from '@/modules/checkout/types';
+import type { Payload } from 'payload';
 import type Stripe from 'stripe';
+
+import { ExpandedLineItem } from '@/modules/checkout/types';
 import { posthogServer } from '@/lib/server/posthog-server';
+import { decProductStockAtomic } from '@/lib/server/utils';
+
+import type { DecProductStockResult } from '@/lib/server/types';
 
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';
@@ -71,3 +76,76 @@ export const flushIfNeeded = async () => {
     await posthogServer?.flush?.();
   }
 };
+
+/**
+ * Aggregate an array of line items into a map of product ID -> total quantity.
+ *
+ * Each input item must have a `product` id. If `quantity` is missing or not a number,
+ * it defaults to 1. Quantities for the same product id are summed.
+ *
+ * @param items - Array of objects containing `product` (id) and optional `quantity`
+ * @returns A Map where keys are product ids and values are the aggregated quantities
+ */
+
+export function toQtyMap(
+  items: Array<{ product: string; quantity?: number }>
+): Map<string, number> {
+  const map = new Map<string, number>();
+  for (const item of items) {
+    const qty = typeof item.quantity === 'number' ? item.quantity : 1;
+    map.set(item.product, (map.get(item.product) ?? 0) + qty);
+  }
+  return map;
+}
+
+/**
+ * Decrements stock quantities for multiple products and archives any that reach zero.
+ *
+ * For each entry, performs a single atomic decrement at the DB layer via
+ * `decProductStockAtomic(payload, productId, qty, { autoArchive: true })`.
+ * On success logs `{ after, archived }`. On failure logs a typed `reason`
+ * ('not-found' | 'not-tracked' | 'insufficient').
+ *
+ * @param qtyByProductId - Map from product ID to the quantity to subtract (total purchased quantity).
+ */
+
+export async function decrementInventoryBatch(args: {
+  payload: Payload;
+  qtyByProductId: Map<string, number>;
+}): Promise<void> {
+  const { payload, qtyByProductId } = args;
+
+  for (const [productId, purchasedQty] of qtyByProductId) {
+    const res: DecProductStockResult = await decProductStockAtomic(
+      payload,
+      productId,
+      purchasedQty,
+      {
+        autoArchive: true
+      }
+    );
+
+    if (res.ok) {
+      // Typed log with post-update values
+      console.log('[inv] dec-atomic', {
+        productId,
+        purchasedQty,
+        after: res.after,
+        archived: res.archived
+      });
+      continue;
+    }
+
+    // Failure paths are explicit and typed
+    console.warn('[inv] dec-atomic failed', {
+      productId,
+      purchasedQty,
+      reason: res.reason
+    });
+
+    // Optional: decide your policy here
+    // - 'insufficient': you could mark the order for manual review or issue a refund
+    // - 'not-tracked': ignore (product doesn’t track inventory)
+    // - 'not-found': log / alert
+  }
+}
