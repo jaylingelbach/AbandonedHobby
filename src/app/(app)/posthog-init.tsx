@@ -26,6 +26,12 @@ export default function PostHogInit() {
       capture_exceptions: true,
       debug: process.env.NODE_ENV === 'development'
     });
+
+    // TEMP: expose for console debugging in prod
+    if (typeof window !== 'undefined') {
+      (window as any).posthog = posthog;
+      console.log('[PH] window.posthog exposed');
+    }
   }, []);
 
   useEffect(() => {
