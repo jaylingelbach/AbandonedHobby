@@ -40,9 +40,23 @@ export async function GET(req: NextRequest) {
     assertDev();
 
     const { searchParams } = new URL(req.url);
-    const tenantSlug = searchParams.get('tenantSlug') ?? 'test-tenant';
-    const productId = searchParams.get('productId') ?? 'test-product';
-    const contentType = searchParams.get('contentType') ?? 'image/jpeg';
+    const sanitize = (s: string) =>
+      s
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9-_]/g, '');
+    const tenantSlug = sanitize(
+      searchParams.get('tenantSlug') ?? 'test-tenant'
+    );
+    const productId = sanitize(searchParams.get('productId') ?? 'test-product');
+    const allowed = new Set([
+      'image/jpeg',
+      'image/png',
+      'image/webp',
+      'image/avif'
+    ]);
+    const ctRaw = searchParams.get('contentType') ?? 'image/jpeg';
+    const contentType = allowed.has(ctRaw) ? ctRaw : 'image/jpeg';
 
     const ext =
       contentType === 'image/png'

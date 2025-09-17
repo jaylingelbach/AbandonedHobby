@@ -1,3 +1,5 @@
+import { getBestUrlFromMedia } from '@/lib/utils';
+
 export type MediaLike = {
   url?: string | null;
   sizes?: {
@@ -5,32 +7,6 @@ export type MediaLike = {
     thumbnail?: { url?: string | null };
   };
 };
-
-/** Prefer a sized URL when available, else fall back to original. */
-/**
- * Returns the best available image URL from a media-like object, preferring a sized variant when present.
- *
- * If `media` is falsy or not an object, `undefined` is returned. Behavior by `preferred`:
- * - `'medium'`: return `sizes.medium.url` if present, otherwise `url`.
- * - `'thumbnail'`: return `sizes.thumbnail.url` if present, otherwise `url`.
- * - `'original'`: return `url`.
- *
- * @param media - The media-like value to resolve (expected shape matches `MediaLike`).
- * @param preferred - Which size to prefer when available; defaults to `'medium'`.
- * @returns The resolved URL string, or `undefined` if no suitable URL is found.
- */
-
-export function getBestUrlFromMedia(
-  media: unknown,
-  preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
-): string | undefined {
-  if (!media || typeof media !== 'object') return undefined;
-  const m = media as MediaLike;
-  if (preferred === 'medium') return m.sizes?.medium?.url ?? m.url ?? undefined;
-  if (preferred === 'thumbnail')
-    return m.sizes?.thumbnail?.url ?? m.url ?? undefined;
-  return m.url ?? undefined;
-}
 
 /** Choose a single card image: cover first, else first gallery image. */
 /**

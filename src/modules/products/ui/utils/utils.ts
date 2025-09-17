@@ -1,37 +1,4 @@
-import { isObjectRecord } from '@/lib/utils';
-
-// Prefer "medium" if available
-/**
- * Selects the best available URL from a media-like object, preferring a specified size.
- *
- * Attempts to return a size-specific URL (medium or thumbnail) when present, falling back to the top-level
- * `url` property if the preferred size is missing. If `preferred` is `original`, only the top-level `url`
- * is considered. Returns `undefined` when `media` is falsy or no URL is available.
- *
- * @param media - A media-like object which may have a top-level `url` and an optional `sizes` object
- *   with `medium` and `thumbnail` entries containing `url` fields.
- * @param preferred - Which URL size to prefer: `'medium'` (default), `'thumbnail'`, or `'original'`.
- * @returns The selected URL string, or `undefined` if none is available.
- */
-
-function getBestUrlFromMedia(
-  media: unknown,
-  preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
-): string | undefined {
-  if (!media || typeof media !== 'object') return undefined;
-  const m = media as {
-    url?: string | null;
-    alt?: string | null;
-    sizes?: {
-      medium?: { url?: string | null };
-      thumbnail?: { url?: string | null };
-    };
-  };
-  if (preferred === 'medium') return m.sizes?.medium?.url ?? m.url ?? undefined;
-  if (preferred === 'thumbnail')
-    return m.sizes?.thumbnail?.url ?? m.url ?? undefined;
-  return m.url ?? undefined;
-}
+import { isObjectRecord, getBestUrlFromMedia } from '@/lib/utils';
 
 /**
  * Returns the best-available card image URL for a product, preferring the product cover.
