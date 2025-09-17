@@ -20,17 +20,27 @@ export interface MappedGalleryItem {
   alt?: string;
 }
 
-/** Type guard: does this look like a populated Payload Media doc? */
+/**
+ * Type guard that checks whether a value resembles a PayloadMediaDoc.
+ *
+ * A value is considered a media doc if it is an object record and has an `id` property.
+ */
 function isMediaDoc(value: unknown): value is PayloadMediaDoc {
   return isObjectRecord(value) && 'id' in value;
 }
 
 /**
- * Safely map a Payload `products.images` field (at any depth) to gallery items.
- * Accepts `unknown` so you can pass `data.images` directly without fussy casting.
+ * Map a raw Payload `products.images` field to gallery items, safely handling unknown input.
  *
- * - If a row's `image` is an ID (string) because of low depth, it's skipped.
- * - Prefers the `medium` size URL when available, falls back to original `url`.
+ * Returns an array of objects with a usable image `url` and optional `alt`. Non-array input,
+ * non-object rows, image IDs (string), or media entries without a resolvable URL are skipped.
+ *
+ * @param imagesInput - Raw value from a product's `images` field (may be any depth or unknown).
+ * @param preferredSize - Which size to prefer when picking a URL: `medium` (default), `thumbnail`, or `original`.
+ *   - `medium`: uses `media.sizes?.medium?.url` then falls back to `media.url`
+ *   - `thumbnail`: uses `media.sizes?.thumbnail?.url` then falls back to `media.url`
+ *   - `original`: uses `media.url`
+ * @returns An array of MappedGalleryItem with `{ url, alt? }` for each media that yielded a URL.
  */
 export function mapProductImagesFromPayload(
   imagesInput: unknown,
