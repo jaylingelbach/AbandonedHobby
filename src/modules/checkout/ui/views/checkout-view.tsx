@@ -8,7 +8,13 @@ import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { useTRPC } from '@/trpc/client';
-import { buildSignInUrl, generateTenantURL } from '@/lib/utils';
+import {
+  buildSignInUrl,
+  generateTenantURL,
+  getPrimaryCardImageUrl,
+  getTenantNameSafe,
+  getTenantSlugSafe
+} from '@/lib/utils';
 import { track } from '@/lib/analytics';
 
 import { useCart } from '../../hooks/use-cart';
@@ -17,6 +23,7 @@ import { useCheckoutState } from '../../hooks/use-checkout-states';
 import { CheckoutItem } from '../components/checkout-item';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import CheckoutBanner from './checkout-banner';
+import { Product } from '@/payload-types';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -245,19 +252,39 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {/* Items */}
         <div className="lg:col-span-4">
           <div className="border rounded-md overflow-hidden bg-white">
-            {docs.map((product, index) => (
-              <CheckoutItem
-                key={product.id}
-                isLast={index === docs.length - 1}
-                imageURL={product.image?.url}
-                name={product.name}
-                productURL={`${generateTenantURL(product.tenant.slug)}/products/${product.id}`}
-                tenantURL={`${generateTenantURL(product.tenant.slug)}`}
-                tenantName={product.tenant.name}
-                price={product.price}
-                onRemove={() => removeProduct(product.id)}
-              />
-            ))}
+            {docs.map((product, index) => {
+              const imageURL =
+                (product as { cardImageUrl?: string | null }).cardImageUrl ??
+                getPrimaryCardImageUrl(product);
+
+              const tenantSlugSafe = getTenantSlugSafe(
+                (product as Product).tenant
+              );
+              const tenantNameSafe =
+                getTenantNameSafe((product as Product).tenant) ?? 'Shop';
+
+              const productURL = tenantSlugSafe
+                ? `${generateTenantURL(tenantSlugSafe)}/products/${product.id}`
+                : `/products/${product.id}`;
+
+              const tenantURL = tenantSlugSafe
+                ? `${generateTenantURL(tenantSlugSafe)}`
+                : '#';
+
+              return (
+                <CheckoutItem
+                  key={product.id}
+                  isLast={index === docs.length - 1}
+                  imageURL={imageURL ?? undefined}
+                  name={product.name}
+                  productURL={productURL}
+                  tenantURL={tenantURL}
+                  tenantName={tenantNameSafe}
+                  price={product.price}
+                  onRemove={() => removeProduct(product.id)}
+                />
+              );
+            })}
           </div>
         </div>
 

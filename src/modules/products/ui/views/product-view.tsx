@@ -97,6 +97,10 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           ? `${stockQuantity} in stock`
           : 'Available';
 
+  const productImages = (
+    data as { images?: Array<{ image?: unknown; alt?: string }> }
+  ).images;
+
   const productForUseProductViewed = {
     id: data.id,
     tenantSlug,
@@ -219,16 +223,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               */}
               <ProductGallery
                 items={useMemo(
-                  () =>
-                    mapProductImagesFromPayload(
-                      (
-                        data as {
-                          images?: Array<{ image?: unknown; alt?: string }>;
-                        }
-                      ).images,
-                      'medium'
-                    ),
-                  [data?.images]
+                  () => mapProductImagesFromPayload(productImages, 'medium'),
+                  [productImages]
                 )}
                 className="mt-2"
                 thumbColsDesktop={8}
@@ -242,7 +238,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
-                  {/* ✅ Disable buy when sold out (swap CartButton for a disabled button) */}
+                  {/*  Disable buy when sold out (swap CartButton for a disabled button) */}
                   {inStock ? (
                     <CartButton
                       isPurchased={data.isPurchased}
