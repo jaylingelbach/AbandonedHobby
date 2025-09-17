@@ -28,7 +28,7 @@ import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977
 import { CurrentUserBadge as CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2 } from '@/components/custom-payload/current-user-badge.tsx'
 import { TenantSelector as TenantSelector_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { TRPCAdminProvider as TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b } from '@/payload/providers/trpc-admin-provider.tsx'
-import { VercelBlobClientUploadHandler as VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e } from '@payloadcms/storage-vercel-blob/client'
+import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 
 export const importMap = {
@@ -62,6 +62,6 @@ export const importMap = {
   "@/components/custom-payload/current-user-badge.tsx#CurrentUserBadge": CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2,
   "@payloadcms/plugin-multi-tenant/client#TenantSelector": TenantSelector_1d0591e3cf4f332c83a86da13a0de59a,
   "@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider": TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b,
-  "@payloadcms/storage-vercel-blob/client#VercelBlobClientUploadHandler": VercelBlobClientUploadHandler_16c82c5e25f430251a3e3ba57219ff4e,
+  "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62
 }

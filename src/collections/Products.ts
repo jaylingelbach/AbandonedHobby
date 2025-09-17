@@ -348,7 +348,7 @@ export const Products: CollectionConfig = {
     },
 
     { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
-    { name: 'image', type: 'upload', relationTo: 'media' },
+    //{ name: 'image', type: 'upload', relationTo: 'media' },
     { name: 'cover', type: 'upload', relationTo: 'media' },
     {
       name: 'refundPolicy',
@@ -433,12 +433,28 @@ export const Products: CollectionConfig = {
       type: 'array',
       label: 'Images (first = primary)',
       admin: { description: 'Reorder to change the primary image' },
+      maxRows: 10,
+      // Ensure there’s at least one valid image overall (not every row)
+      validate: (value: unknown) => {
+        const rows = Array.isArray(value) ? value : [];
+        const hasAtLeastOne = rows.some((row) => {
+          const img = (row as { image?: unknown })?.image;
+          // when depth=0 this is the ID string; with depth>0 it can be a doc
+          return (
+            typeof img === 'string' ||
+            (img && typeof (img as { id?: unknown }).id === 'string')
+          );
+        });
+        return hasAtLeastOne ? true : 'Add at least one image';
+      },
       fields: [
-        { name: 'key', type: 'text', required: true },
-        { name: 'url', type: 'text', required: true },
-        { name: 'alt', type: 'text' },
-        { name: 'width', type: 'number' },
-        { name: 'height', type: 'number' }
+        {
+          name: 'image',
+          type: 'upload',
+          relationTo: 'media',
+          required: false // <= important
+        },
+        { name: 'alt', type: 'text' }
       ]
     }
   ]

@@ -10,6 +10,25 @@ export const Media: CollectionConfig = {
   admin: {
     hidden: ({ user }) => !isSuperAdmin(user)
   },
+  upload: {
+    mimeTypes: ['image/*'],
+    // Optional thumbnails/sizes (Payload will generate, then the plugin stores them on S3)
+    imageSizes: [
+      {
+        name: 'thumbnail',
+        width: 300,
+        height: 300,
+        position: 'centre'
+      },
+      {
+        name: 'medium',
+        width: 1000,
+        height: 1000,
+        position: 'centre'
+      }
+    ],
+    adminThumbnail: 'thumbnail'
+  },
   fields: [
     {
       name: 'alt',
@@ -20,6 +39,5 @@ export const Media: CollectionConfig = {
           'Adds text for those who use screen readers or are visually impaired'
       }
     }
-  ],
-  upload: true
+  ]
 };

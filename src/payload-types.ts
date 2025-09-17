@@ -202,7 +202,6 @@ export interface Product {
    */
   subcategory?: (string | null) | Category;
   tags?: (string | Tag)[] | null;
-  image?: (string | null) | Media;
   cover?: (string | null) | Media;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
   /**
@@ -233,6 +232,16 @@ export interface Product {
   isPrivate?: boolean | null;
   trackInventory?: boolean | null;
   stockQuantity?: number | null;
+  /**
+   * Reorder to change the primary image
+   */
+  images?:
+    | {
+        image?: (string | null) | Media;
+        alt?: string | null;
+        id?: string | null;
+      }[]
+    | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -288,6 +297,7 @@ export interface Media {
    * Adds text for those who use screen readers or are visually impaired
    */
   alt?: string | null;
+  prefix?: string | null;
   updatedAt: string;
   createdAt: string;
   url?: string | null;
@@ -299,6 +309,24 @@ export interface Media {
   height?: number | null;
   focalX?: number | null;
   focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    medium?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -597,6 +625,7 @@ export interface ConversationsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  prefix?: T;
   updatedAt?: T;
   createdAt?: T;
   url?: T;
@@ -608,6 +637,30 @@ export interface MediaSelect<T extends boolean = true> {
   height?: T;
   focalX?: T;
   focalY?: T;
+  sizes?:
+    | T
+    | {
+        thumbnail?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+        medium?:
+          | T
+          | {
+              url?: T;
+              width?: T;
+              height?: T;
+              mimeType?: T;
+              filesize?: T;
+              filename?: T;
+            };
+      };
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -685,7 +738,6 @@ export interface ProductsSelect<T extends boolean = true> {
   category?: T;
   subcategory?: T;
   tags?: T;
-  image?: T;
   cover?: T;
   refundPolicy?: T;
   content?: T;
@@ -693,6 +745,13 @@ export interface ProductsSelect<T extends boolean = true> {
   isPrivate?: T;
   trackInventory?: T;
   stockQuantity?: T;
+  images?:
+    | T
+    | {
+        image?: T;
+        alt?: T;
+        id?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }
