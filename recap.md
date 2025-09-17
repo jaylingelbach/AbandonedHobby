@@ -2747,3 +2747,89 @@ Added recap covering the Orders transition and onboarding behavior.
 - Server-side login telemetry
   - src/modules/auth/server/procedures.ts
     - After successful login, in production and guarded with server utilities, captures a server-side userLoggedIn event via posthogServer.capture(...) and calls flushIfNeeded(); wrapped in try/catch to avoid affecting auth flow.
+
+# Add aws s3
+
+## Walkthrough
+
+- Adds S3 storage and runtime helpers, a dev presign API, multi-tenant media schema and types, migrates products to an images array with gallery flow and UI/gallery components, updates Next.js image remotePatterns from S3_PUBLIC_BASE_URL, and pins/upgrades Payload and AWS SDK packages.
+
+## New Features
+
+- Multi-image product support with reorderable images and an accessible product gallery (thumbnails, keyboard nav); first image is primary.
+- Dev presigned S3 upload endpoint and server helpers for S3 uploads/public URLs.
+
+## Performance
+
+- Media now served from S3 with thumbnail/medium variants and env-driven Next.js image host config for optimized delivery.
+- Product listings include derived card image URLs and rating summaries for faster, consistent thumbnails.
+
+## Chores
+
+- Switched storage backend to S3 and pinned/upgraded CMS and AWS SDK dependencies.
+
+## Documentation
+
+- Added analytics instrumentation notes and UI cue tweaks in docs.
+
+## File changes
+
+- Package changes
+  - package.json
+    - Pins many Payload packages to 3.49.1, replaces @payloadcms/storage-vercel-blob with @payloadcms/storage-s3, and adds @aws-sdk/client-s3 and @aws-sdk/s3-request-presigner.
+
+- Next.js config
+  - next.config.ts
+    - Adds env-driven images.remotePatterns by parsing S3_PUBLIC_BASE_URL (defaults if invalid); keeps rewrites and skipTrailingSlashRedirect; exports withPayload(nextConfig).
+
+- S3 runtime helpers
+  - src/lib/server/s3.ts
+    - New S3 client module with env validation; exports s3, AWS_REGION, S3_BUCKET, S3_PUBLIC_BASE_URL, getPresignedPutUrl, and publicUrlForKey.
+
+- Dev presign route
+  - src/app/(app)/api/dev/presign/route.ts
+    - New runtime = 'nodejs' GET route (dev-only) that builds product key, returns presigned PUT URL and publicUrl; guarded by assertDev.
+
+- Payload storage config
+  - src/payload.config.ts
+    - Switches storage backend to S3, configures per-collection prefix and generateFileURL using S3_PUBLIC_BASE_URL, and wires AWS env vars.
+
+- Admin import map
+  - src/app/(payload)/admin/importMap.js
+    - Replaces Vercel blob client import/mapping with S3 client import/mapping (S3ClientUploadHandler) and updates importMap keys to storage-s3.
+
+- Media collection & types
+  - src/collections/Media.ts, src/payload-types.ts
+    - Makes Media tenant-aware: adds tenant, uploadedBy, prefix, sizes (thumbnail/medium), upload settings, hooks, tenant-scoped access controls, and corresponding type additions.
+
+- Products schema & types
+  - src/collections/Products.ts, src/payload-types.ts
+    - Removes top-level image (commented), adds images array (maxRows 10) with image upload + alt and validation requiring at least one image; updates types to include images[].
+
+- Product server logic
+  - src/modules/products/server/procedures.ts
+    - Adds MediaDoc/ProductImagesRow types and mapGalleryFromImages; getOne now returns gallery derived from images; getMany relies on depth-based population and adds review aggregates; category/filter/sort refactors.
+
+- Product gallery UI & mappers
+  - src/modules/products/ui/components/product-gallery.tsx, src/modules/products/ui/utils/product-gallery-mappers.ts
+    - New ProductGallery component (keyboard, thumbnails, hero) and mapProductImagesFromPayload to produce {url,alt} items preferring medium size.
+
+- Product views & list utilities
+  - src/modules/products/ui/views/product-view.tsx, src/modules/products/ui/components/product-list.tsx, src/modules/products/ui/utils/utils.ts, src/lib/utils.ts
+    - Product view inserts ProductGallery (uses mapper + useMemo); product list uses helpers to compute card/tenant image URLs and tenant slug; added safe media/tenant helper functions.
+
+- Checkout producers & utilities
+  - src/modules/checkout/server/procedures.ts, src/modules/checkout/server/utils.ts, src/modules/checkout/ui/views/checkout-view.tsx
+    - Replaces legacy image with cover and adds cardImageUrl (via getPrimaryCardImageUrl); introduces server & UI helpers to resolve best media URL.
+
+- Library & orders utilities
+  - src/modules/library/server/utils.ts, src/modules/library/server/procedures.ts, src/modules/orders/server/procedures.ts
+    - Adds pickPrimaryMedia helper and centralizes primary-media/card-image resolution via shared utility functions; replaces inline media-resolution logic.
+
+- Admin/imports & other UI adjustments
+  - src/app/(payload)/admin/importMap.js, src/modules/products/ui/components/product-list.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+    - Wire storage adapter and update image/tenant resolution usage across list and checkout UIs.
+
+- Recap / docs
+  - recap.md
+    - Adds "Add posthog to prod" doc section describing analytics initialization, identity bridging, server login telemetry, and minor UI tweaks.
