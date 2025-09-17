@@ -96,15 +96,11 @@ export const usersRouter = createTRPCRouter({
       const prev: UIState = parsed.success ? parsed.data : {};
 
       // Persist only the “forever” preference; session-only dismiss happens client-side
-      const nextUiState: UIState = input.forever
-        ? { ...prev, hideOnboardingBanner: true }
-        : prev;
-
-      if (nextUiState !== prev) {
+      if (input.forever === true && prev.hideOnboardingBanner !== true) {
         await ctx.db.update({
           collection: 'users',
           id,
-          data: { uiState: nextUiState }
+          data: { uiState: { ...prev, hideOnboardingBanner: true } }
         });
       }
 
