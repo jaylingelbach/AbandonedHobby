@@ -42,11 +42,15 @@ export interface ProductGalleryProps {
 }
 
 /**
- * Product gallery:
- * - Big hero image with thick border and offset shadow
- * - Clickable thumbnails with clear selected state
- * - Keyboard navigation (← → Home End)
- * - All hooks called unconditionally to satisfy the Rules of Hooks
+ * Render a client-side product image gallery with a large hero image and a row of clickable thumbnails.
+ *
+ * The component supports keyboard navigation (ArrowLeft / ArrowRight with wrap, Home, End), click-to-select
+ * thumbnails, aria attributes for accessibility, and a responsive thumbnail grid. The hero image aspect ratio
+ * is selectable via the `heroAspect` prop and the desktop thumbnail column count via `thumbColsDesktop`.
+ *
+ * If no valid image URLs are provided, the component returns `null` (renders nothing).
+ *
+ * @returns The gallery DOM (JSX.Element) or `null` when there are no valid images.
  */
 export default function ProductGallery(
   props: ProductGalleryProps

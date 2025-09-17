@@ -244,7 +244,14 @@ export function getTrpcCode(error: unknown): string | undefined {
   return error instanceof TRPCClientError ? error.data?.code : undefined;
 }
 
-// Only tiny utils and relationship coercion.
+/**
+ * Type guard that checks whether a value is a plain object (non-null, non-array).
+ *
+ * Treats any non-null object that is not an array as a Record<string, unknown>.
+ *
+ * @param v - Value to test
+ * @returns True if `v` is an object record; otherwise false
+ */
 
 export function isObjectRecord(v: unknown): v is Record<string, unknown> {
   return typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -265,6 +272,14 @@ export function getRelId<T extends { id: string }>(
   return undefined;
 }
 
+/**
+ * Normalize an unknown value into a Relationship<T> (string id, T, or undefined).
+ *
+ * If `value` is a string it is returned as the id. If `value` is an object with a string
+ * `id` property, the object is returned as `T`. Otherwise `undefined` is returned.
+ *
+ * @param value - The value to coerce into a relationship (string id or object with `id`)
+ */
 export function toRelationship<T extends { id: string }>(
   value: unknown
 ): Relationship<T> {
@@ -277,14 +292,31 @@ export function toRelationship<T extends { id: string }>(
 // Safe readers
 // ─────────────────────────────────────────────────────────────
 
-/** Read a string prop from an unknown object safely. */
+/**
+ * Safely reads a string property from an unknown value.
+ *
+ * If `obj` is a plain object (non-null and not an array) and the property at `key` is a string, returns that string.
+ * Otherwise returns `undefined`.
+ *
+ * @param obj - The value to read from (can be any type).
+ * @param key - The property name to read.
+ * @returns The string value at `key`, or `undefined` if the property is missing or not a string.
+ */
 function readStringProp(obj: unknown, key: string): string | undefined {
   if (!isObjectRecord(obj)) return undefined;
   const val = (obj as Record<string, unknown>)[key];
   return typeof val === 'string' ? val : undefined;
 }
 
-/** Read a nested object prop (record) from an unknown object safely. */
+/**
+ * Safely reads a nested object property and returns it if it's an object (record).
+ *
+ * If `obj` is not an object or the property at `key` is missing or not an object, returns `undefined`.
+ *
+ * @param obj - The unknown value to read from.
+ * @param key - The property name to read.
+ * @returns The nested record at `key`, or `undefined` if not present or not an object.
+ */
 function readRecordProp(
   obj: unknown,
   key: string
@@ -294,7 +326,16 @@ function readRecordProp(
   return isObjectRecord(val) ? (val as Record<string, unknown>) : undefined;
 }
 
-/** Read an array prop from an unknown object safely. */
+/**
+ * Safely reads a property as an array from an unknown value.
+ *
+ * Returns the property value as an array if `obj` is a plain object and the
+ * named property exists and is an array; otherwise returns `undefined`.
+ *
+ * @param obj - Value that may be an object containing the property
+ * @param key - Property name to read
+ * @returns The property's array value, or `undefined` if missing or not an array
+ */
 function readArrayProp(obj: unknown, key: string): unknown[] | undefined {
   if (!isObjectRecord(obj)) return undefined;
   const val = (obj as Record<string, unknown>)[key];
@@ -306,8 +347,21 @@ function readArrayProp(obj: unknown, key: string): unknown[] | undefined {
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Resolve the best display URL from a Media-like object, preferring a given size.
- * Accepts unknown and performs full runtime guards.
+ * Return the best image URL from a media-like value, preferring a specified size.
+ *
+ * Performs runtime-safe checks on an unknown input and supports media shapes that
+ * either provide a top-level `url` (original) or a `sizes` object with `medium`
+ * and/or `thumbnail` entries (each may contain a `url`).
+ *
+ * Preference order:
+ * - If `preferred` is "medium" or "thumbnail", attempt that size's `url`, then fall
+ *   back to the top-level `url` if present.
+ * - If `preferred` is "original", return the top-level `url` if present.
+ *
+ * @param media - An unknown value that may be a media object. The function returns
+ *                undefined for non-object inputs or when no URL can be found.
+ * @param preferred - Which size to prefer when choosing a URL; defaults to "medium".
+ * @returns The selected URL string, or `undefined` if none is available.
  */
 export function getBestUrlFromMedia(
   media: unknown,
@@ -336,9 +390,17 @@ export function getBestUrlFromMedia(
 }
 
 /**
- * Pick a single representative image URL for product cards:
- * 1) product.cover (preferred size), else
- * 2) first populated product.images[].image
+ * Returns a single representative image URL for a product card.
+ *
+ * Tries, in order:
+ * 1. `product.cover` (preferred size), then
+ * 2. the first populated `product.images[][].image`.
+ *
+ * Accepts a product value of unknown shape; if the value is not an object or no suitable image is found, returns `undefined`.
+ *
+ * @param product - The product value (may be an ID string or a populated object). When passed a populated object the function reads `cover` and `images` properties.
+ * @param preferred - Which size to prefer when resolving media URLs: `'medium'`, `'thumbnail'`, or `'original'`. Defaults to `'medium'`.
+ * @returns The best image URL for displaying a product card, or `undefined` if none is available.
  */
 export function getPrimaryCardImageUrl(
   product: unknown,
@@ -373,7 +435,12 @@ export function getPrimaryCardImageUrl(
 // ─────────────────────────────────────────────────────────────
 
 /**
- * Safely read tenant.slug when tenant may be a string ID or a populated object.
+ * Safely returns a tenant's slug when `tenant` is a populated object.
+ *
+ * If `tenant` is a string (an ID), null, or does not have a string `slug` property, this returns `undefined`.
+ *
+ * @param tenant - A tenant value that may be a string ID or an object containing tenant fields
+ * @returns The `slug` string if present and valid; otherwise `undefined`
  */
 export function getTenantSlugSafe(tenant: unknown): string | undefined {
   if (typeof tenant === 'string' || tenant == null) return undefined;
@@ -395,7 +462,15 @@ export function getTenantNameSafe(tenant: unknown): string | undefined {
 }
 
 /**
- * Safely read a tenant's image URL (thumbnail by default) when tenant may be a string ID or a populated object.
+ * Return a best-available image URL for a tenant, or undefined if none is available.
+ *
+ * Safely handles a tenant value that may be a string ID, null/undefined, or a populated object.
+ * If `tenant` is an object and contains an `image` record, this returns the URL selected by the
+ * `preferred` size (prefers `thumbnail` by default). Returns `undefined` for string IDs,
+ * missing/invalid tenant objects, or when no suitable image URL can be resolved.
+ *
+ * @param preferred - Which image size to prefer when resolving a URL: `"thumbnail"`, `"medium"`, or `"original"`.
+ * @returns The resolved image URL, or `undefined` if no image is available.
  */
 export function getTenantImageURLSafe(
   tenant: unknown,

@@ -32,7 +32,18 @@ interface ProductWithInventory extends Product {
   images?: ProductImagesRow[];
 }
 
-/** Map images[] to clean gallery items, preferring the "medium" size. */
+/**
+ * Convert a product images array into a sanitized gallery of URL/alt pairs.
+ *
+ * Accepts the ProductImagesRow[] structure produced by the data layer and returns
+ * an array of objects each containing a resolved image `url` and optional `alt`.
+ * For each populated image entry this prefers the `sizes.medium.url` value, falls
+ * back to the top-level `url` on the media object, and skips entries that are
+ * unpopulated or lack any usable URL.
+ *
+ * @param images - Array of product image rows (may be undefined or contain unpopulated entries)
+ * @returns An array of `{ url, alt? }` objects suitable for frontend galleries; returns an empty array if input is not a valid array or contains no usable images.
+ */
 function mapGalleryFromImages(
   images: ProductImagesRow[] | undefined
 ): Array<{ url: string; alt?: string }> {
