@@ -11,9 +11,52 @@ import { sortValues } from '@/modules/products/search-params';
 import { isNotFound, summarizeReviews } from '@/lib/server/utils';
 import type { PriceBounds } from '@/lib/server/types';
 
+/** Media doc shape we care about (URL + optional sizes). */
+type MediaDoc = Media & {
+  url?: string | null;
+  sizes?: {
+    thumbnail?: { url?: string | null };
+    medium?: { url?: string | null };
+  };
+};
+
+/** Row in Products.images array. */
+type ProductImagesRow = {
+  image?: string | MediaDoc | null;
+  alt?: string | null;
+};
+
 interface ProductWithInventory extends Product {
   trackInventory?: boolean;
   stockQuantity?: number;
+  images?: ProductImagesRow[];
+}
+
+/** Is this a populated Media doc (not just an ID string)? */
+function isMediaDoc(value: unknown): value is MediaDoc {
+  return Boolean(
+    value &&
+      typeof value === 'object' &&
+      'id' in (value as Record<string, unknown>)
+  );
+}
+
+/** Map images[] to clean gallery items, preferring the "medium" size. */
+function mapGalleryFromImages(
+  images: ProductImagesRow[] | undefined
+): Array<{ url: string; alt?: string }> {
+  if (!Array.isArray(images)) return [];
+  const out: Array<{ url: string; alt?: string }> = [];
+  for (const row of images) {
+    if (!row?.image) continue;
+    if (typeof row.image === 'string') continue; // not populated at this depth
+    const media = row.image as MediaDoc;
+    const url = media.sizes?.medium?.url ?? media.url ?? undefined;
+    if (!url) continue;
+    const alt = (row.alt ?? media.alt ?? undefined) || undefined;
+    out.push({ url, alt });
+  }
+  return out;
 }
 
 export const productsRouter = createTRPCRouter({
@@ -27,7 +70,8 @@ export const productsRouter = createTRPCRouter({
       try {
         product = (await ctx.db.findByID({
           collection: 'products',
-          depth: 2, // image, cover, tenant & tenant.image
+          // depth 2 -> images.image (media), cover (media), tenant.image (media)
+          depth: 2,
           id: input.id,
           select: { content: false }
         })) as ProductWithInventory;
@@ -38,7 +82,7 @@ export const productsRouter = createTRPCRouter({
             message: `Product with ID: ${input.id} not found`
           });
         }
-        throw error; // rethrow non-404 errors
+        throw error;
       }
 
       if (product.isArchived) {
@@ -48,14 +92,13 @@ export const productsRouter = createTRPCRouter({
         });
       }
 
-      // ── Availability (do NOT 404 on sold-out) ──────────────────
+      // Availability
       const trackInventory = Boolean(product.trackInventory);
       const stockQuantity = product.stockQuantity ?? 0;
-
       const inStock = !trackInventory || stockQuantity > 0;
       const isSoldOut = trackInventory && stockQuantity <= 0;
 
-      // ── Has current user purchased? ─────────────────────────────
+      // Has current user purchased?
       let isPurchased = false;
       if (session.user) {
         const ordersData = await ctx.db.find({
@@ -78,7 +121,7 @@ export const productsRouter = createTRPCRouter({
         isPurchased = ordersData.docs.length > 0;
       }
 
-      // ── Reviews summary ─────────────────────────────────────────
+      // Reviews summary
       const reviews = await ctx.db.find({
         collection: 'reviews',
         pagination: false,
@@ -87,7 +130,7 @@ export const productsRouter = createTRPCRouter({
 
       const reviewRating =
         reviews.docs.length > 0
-          ? reviews.docs.reduce((acc, review) => acc + review.rating, 0) /
+          ? reviews.docs.reduce((sum, r) => sum + r.rating, 0) /
             reviews.totalDocs
           : 0;
 
@@ -99,10 +142,10 @@ export const productsRouter = createTRPCRouter({
         1: 0
       };
       if (reviews.totalDocs > 0) {
-        for (const review of reviews.docs) {
-          const r = review.rating;
-          if (r >= 1 && r <= 5)
-            ratingDistribution[r] = (ratingDistribution[r] || 0) + 1;
+        for (const r of reviews.docs) {
+          if (r.rating >= 1 && r.rating <= 5)
+            ratingDistribution[r.rating] =
+              (ratingDistribution[r.rating] || 0) + 1;
         }
         for (const key of Object.keys(ratingDistribution)) {
           const k = Number(key);
@@ -110,6 +153,9 @@ export const productsRouter = createTRPCRouter({
           ratingDistribution[k] = Math.round((count / reviews.totalDocs) * 100);
         }
       }
+
+      // ✅ Use new images[] for gallery; keep cover for hero
+      const gallery = mapGalleryFromImages(product.images);
 
       return {
         ...product,
@@ -123,12 +169,13 @@ export const productsRouter = createTRPCRouter({
             ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
             : 'Available',
         isPurchased,
-        image: (product.image as Media) || null,
-        cover: (product.cover as Media) || null,
+        // keep cover (populated by depth: 2)
+        cover: (product.cover as Media | null) ?? null,
         tenant: product.tenant as Tenant & { image: Media | null },
         reviewRating,
         reviewCount: reviews.totalDocs,
-        ratingDistribution
+        ratingDistribution,
+        gallery // Array<{ url, alt? }> for the component under the description
       };
     }),
 
@@ -143,19 +190,14 @@ export const productsRouter = createTRPCRouter({
         maxPrice: z.string().nullable().optional(),
         tags: z.array(z.string()).nullable().optional(),
         sort: z.enum(sortValues).nullable().optional(),
-        tenantSlug: z.string().nullable().optional(), // sort by tenant (shop)
+        tenantSlug: z.string().nullable().optional(),
         search: z.string().nullable().optional()
       })
     )
     .query(async ({ ctx, input }) => {
-      const where: Where = {
-        isArchived: {
-          not_equals: true
-        }
-      };
+      const where: Where = { isArchived: { not_equals: true } };
 
-      // Availability filter:
-      // (trackInventory=false) OR (trackInventory=true AND stockQuantity>0)
+      // Availability filter
       const availabilityFilter: Where = {
         or: [
           { trackInventory: { not_equals: true } },
@@ -169,18 +211,9 @@ export const productsRouter = createTRPCRouter({
       };
 
       let sort: Sort = '-createdAt';
-
-      if (input.sort === 'curated') {
-        sort = '-createdAt';
-      }
-
-      if (input.sort === 'hot_and_new') {
-        sort = '+createdAt';
-      }
-
-      if (input.sort === 'trending') {
-        sort = '-createdAt';
-      }
+      if (input.sort === 'curated') sort = '-createdAt';
+      if (input.sort === 'hot_and_new') sort = '+createdAt';
+      if (input.sort === 'trending') sort = '-createdAt';
 
       const minPrice =
         input.minPrice != null ? Number(input.minPrice) : undefined;
@@ -194,36 +227,24 @@ export const productsRouter = createTRPCRouter({
       if (typeof maxPrice === 'number' && Number.isFinite(maxPrice)) {
         priceFilter.less_than_equal = maxPrice;
       }
-
       if (
         priceFilter.greater_than_equal !== undefined ||
         priceFilter.less_than_equal !== undefined
       ) {
-        // `Where` uses dynamic fields; assign safely without `any`
         (where as Record<string, unknown>).price = priceFilter;
       }
 
-      // Loads products for a specific shop (tenant).
       if (input.tenantSlug) {
-        where['tenant.slug'] = {
-          equals: input.tenantSlug
-        };
+        where['tenant.slug'] = { equals: input.tenantSlug };
       } else {
-        // Filters products for the main marketplace. Filters out private products.
-        where['isPrivate'] = {
-          not_equals: true
-        };
+        where['isPrivate'] = { not_equals: true };
       }
 
       if (input.search) {
-        where['name'] = {
-          like: input.search
-        };
+        where['name'] = { like: input.search };
       }
 
-      // ──────────────────────────────────────────────────────────
-      // ✅ Subcategory-first filter (by subcategory relationship ID)
-      // ──────────────────────────────────────────────────────────
+      // Subcategory-first
       if (input.subcategory) {
         const subRes = await ctx.db.find({
           collection: 'categories',
@@ -234,39 +255,28 @@ export const productsRouter = createTRPCRouter({
         const sub = subRes.docs[0];
 
         if (!sub) {
-          // Force no results if subcategory slug doesn't exist
           where.id = { equals: '__no_results__' };
-        } else {
-          // Optional sanity: if category is also provided, ensure parent matches
-          if (input.category) {
-            const parentId =
-              typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
+        } else if (input.category) {
+          const parentId =
+            typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
+          const parentRes = await ctx.db.find({
+            collection: 'categories',
+            limit: 1,
+            depth: 0,
+            where: { slug: { equals: input.category } }
+          });
+          const parentCat = parentRes.docs[0];
 
-            const parentRes = await ctx.db.find({
-              collection: 'categories',
-              limit: 1,
-              depth: 0,
-              where: { slug: { equals: input.category } }
-            });
-            const parentCat = parentRes.docs[0];
-
-            if (!parentCat || String(parentId) !== String(parentCat.id)) {
-              // Mismatch → force no results
-              where.id = { equals: '__no_results__' };
-            } else {
-              where.subcategory = { equals: sub.id };
-              // (Optional) also enforce category match for belt-and-suspenders:
-              // where.category = { equals: parentCat.id };
-            }
+          if (!parentCat || String(parentId) !== String(parentCat.id)) {
+            where.id = { equals: '__no_results__' };
           } else {
             where.subcategory = { equals: sub.id };
           }
+        } else {
+          where.subcategory = { equals: sub.id };
         }
-      }
-      // ──────────────────────────────────────────────────────────
-      // ✅ Category-only: include products in the category OR any of its children
-      // ──────────────────────────────────────────────────────────
-      else if (input.category) {
+      } else if (input.category) {
+        // Category-only (include children)
         const catRes = await ctx.db.find({
           collection: 'categories',
           limit: 1,
@@ -283,15 +293,11 @@ export const productsRouter = createTRPCRouter({
             where: { parent: { equals: cat.id } }
           });
           const childIds = childrenRes.docs.map((d) => d.id);
-
-          // IMPORTANT: filter by relationship fields (category/subcategory),
-          // not by 'category.slug' on products.
           where.or = [
             { category: { equals: cat.id } },
             ...(childIds.length ? [{ subcategory: { in: childIds } }] : [])
           ];
         } else {
-          // Unknown category slug → force no results
           where.id = { equals: '__no_results__' };
         }
       }
@@ -303,14 +309,12 @@ export const productsRouter = createTRPCRouter({
 
       const data = await ctx.db.find({
         collection: 'products',
-        depth: 2, // populate category, image, tenant & tenant.image
+        depth: 2, // cover + images.image + tenant.image populated
         where: finalWhere,
         sort,
         page: input.cursor,
         limit: input.limit,
-        select: {
-          content: false
-        }
+        select: { content: false }
       });
 
       const ids = data.docs.map((d) => d.id);
@@ -324,19 +328,16 @@ export const productsRouter = createTRPCRouter({
               })
             ).docs
           : [];
+
       const summary = summarizeReviews(reviewDocs as Review[]);
-      const dataWithSummarizedReviews = data.docs.map((doc) => {
+      const docsWithRatings = data.docs.map((doc) => {
         const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
         return { ...doc, reviewCount: s.count, reviewRating: s.avg };
       });
 
       return {
         ...data,
-        docs: dataWithSummarizedReviews.map((doc) => ({
-          ...doc,
-          image: doc.image as Media | null,
-          tenant: doc.tenant as Tenant & { image: Media | null }
-        }))
+        docs: docsWithRatings
       };
     })
 });

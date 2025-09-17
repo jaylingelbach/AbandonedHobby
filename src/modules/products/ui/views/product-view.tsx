@@ -22,6 +22,8 @@ import { Progress } from '@/components/ui/progress';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
+import ProductGallery from '../components/product-gallery';
+import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 
 const CartButton = dynamic(
   () =>
@@ -209,6 +211,20 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   No description provided
                 </p>
               )}
+            </div>
+            <div className="p-6 pt-0">
+              <ProductGallery
+                items={mapProductImagesFromPayload(
+                  (
+                    data as {
+                      images?: Array<{ image?: unknown; alt?: string }>;
+                    }
+                  ).images,
+                  'medium' // try 'medium' first for perf; switch to 'original' if you prefer
+                )}
+                className="mt-2"
+                thumbColsDesktop={8}
+              />
             </div>
           </div>
 
