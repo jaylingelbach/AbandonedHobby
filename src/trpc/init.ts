@@ -1,13 +1,12 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-import config from '@payload-config';
-import { getPayload } from 'payload';
 import { headers as getHeaders } from 'next/headers';
+import { getPayloadClient } from '@/lib/payload';
 
 export async function createTRPCContext() {
   const raw = await getHeaders();
   const headers = new Headers(raw);
 
-  const db = await getPayload({ config });
+  const db = await getPayloadClient();
 
   return { db, headers };
 }
