@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import type { OnboardingStep, UIState } from './types';
+import { toast } from 'sonner';
 
 export function useOnboardingBanner() {
   const trpc = useTRPC();
@@ -22,6 +23,9 @@ export function useOnboardingBanner() {
     trpc.users.dismissOnboardingBanner.mutationOptions({
       onSuccess: async () => {
         await qc.invalidateQueries(trpc.users.me.queryFilter());
+      },
+      onError: async (error) => {
+        toast.error(error.message);
       }
     })
   );
@@ -71,6 +75,9 @@ export function useOnboardingBanner() {
       if (!step || dismissPersisted.isPending) return;
       dismissPersisted.mutate({ step, forever: true });
     },
-    isDismissing: dismissPersisted.isPending
+
+    // mutation state
+    isDismissing: dismissPersisted.isPending,
+    dismissError: dismissPersisted.error
   };
 }

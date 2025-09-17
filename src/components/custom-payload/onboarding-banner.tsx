@@ -1,6 +1,7 @@
 'use client';
 
 import { useOnboardingBanner } from '@/hooks/use-onboarding-banner';
+import { useEffect } from 'react';
 
 export function OnboardingBannerAdmin() {
   const {
@@ -11,8 +12,16 @@ export function OnboardingBannerAdmin() {
     next,
     dismissForever,
     dismissOnce,
-    isDismissing
+    isDismissing,
+    dismissError
   } = useOnboardingBanner();
+
+  useEffect(() => {
+    if (dismissError) {
+      // toast.error(dismissError.message);
+      console.error('Dismiss failed:', dismissError);
+    }
+  }, [dismissError]);
 
   if (isError) return null;
 
