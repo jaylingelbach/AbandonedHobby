@@ -1,5 +1,4 @@
 import { initTRPC, TRPCError } from '@trpc/server';
-
 import { headers as getHeaders } from 'next/headers';
 import { getPayloadClient } from '@/lib/payload';
 

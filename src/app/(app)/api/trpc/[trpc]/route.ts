@@ -4,7 +4,6 @@ import { appRouter } from '@/trpc/routers/_app';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
-export const revalidate = 0;
 
 const handler = (req: Request) =>
   fetchRequestHandler({
