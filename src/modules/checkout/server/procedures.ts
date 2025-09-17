@@ -18,6 +18,7 @@ import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { asId } from '@/lib/server/utils';
 import { posthogServer } from '@/lib/server/posthog-server';
 import { flushIfNeeded } from '@/lib/server/analytics';
+import { getPrimaryCardImageUrl } from './utils';
 
 export const runtime = 'nodejs';
 
@@ -36,7 +37,7 @@ export const checkoutRouter = createTRPCRouter({
       if (!dbUser)
         throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found.' });
 
-      // ✅ Use dbUser (depth:0) and normalize to an id
+      // Use dbUser (depth:0) and normalize to an id
       const tenantRel = dbUser.tenants?.[0]?.tenant;
       const tenantId = asId(tenantRel);
 
@@ -391,12 +392,14 @@ export const checkoutRouter = createTRPCRouter({
 
       return {
         ...data,
-        totalPrice, // existing consumers
-        totalCents, // precise integer for new consumers
+        totalPrice,
+        totalCents,
         docs: data.docs.map((doc) => ({
           ...doc,
-          image: doc.image as Media | null,
-          tenant: doc.tenant as Tenant & { image: Media | null }
+          // legacy image removed
+          cover: doc.cover as Media | null,
+          tenant: doc.tenant as Tenant & { image: Media | null },
+          cardImageUrl: getPrimaryCardImageUrl(doc)
         }))
       };
     })

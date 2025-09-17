@@ -2709,3 +2709,41 @@ Added recap covering the Orders transition and onboarding behavior.
 - Docs
   - recap.md
     - Appends "Product inventory" recap documenting stock tracking, checkout checks, UI/ admin changes, and webhook behavior.
+
+# Add posthog to prod
+
+## Walkthrough
+
+- Adds cursor-pointer classes to several UI elements; replaces PostHog init with a typed, environment-aware implementation (Window.posthog made optional, early return if key missing, environment registered); augments identity analytics with logging and a new useLoginEvent hook; emits server-side userLoggedIn capture after successful login; repositions and bolds product availability label.
+
+## Style
+
+- Improved cursor feedback (pointer) on FAQ accordion triggers, support topic selector, and Support tabs for clearer interactivity.
+- Product page: availability label moved below the refund policy and styled bolder for better visibility.
+
+## Chores
+
+- Analytics init made environment-aware and quieter at runtime.
+- Added identity/login tracking (debuggable diagnostics and daily idempotent login signal) and server-side login event capture; no UI changes.
+
+## File changes
+
+- Support UI cursor tweaks
+  - src/app/(app)/(home)/support/components/faq-card.tsx, src/app/(app)/(home)/support/components/support-contact-form.tsx, src/app/(app)/(home)/support/support-client.tsx
+    - Added Tailwind cursor-pointer to AccordionTrigger, a <select>, TabsList, and TabsTrigger. Purely presentational cursor changes; no logic or event handling modified.
+
+- PostHog init & global typing
+  - src/app/(app)/posthog-init.tsx
+    - Replaced prior init with a TypeScript-friendly implementation: import posthog, { type PostHog }, Window.posthog made optional (posthog?: PostHog), key read from NEXT_PUBLIC_POSTHOG_KEY with early return if missing, debug set from NODE_ENV === 'development', and posthog.register({ environment }) added. Removed runtime window exposure/logging paths.
+
+- Analytics bridge & hooks
+  - src/components/analytics/analytics-identity-bridge.tsx, src/hooks/analytics/use-posthog-identity.ts
+    - analytics-identity-bridge imports useLoginEvent(identity) and adds a debug-gated useEffect to log mapping. use-posthog-identity: gates debug logging behind NEXT_PUBLIC_ANALYTICS_DEBUG, resets on sign-out, emits identity.applied diag event, groups by tenant when present, and adds a new exported useLoginEvent(identity) hook that emits an idempotent daily userLoggedIn event when identity.id changes.
+
+- Product availability UI
+  - src/modules/products/ui/views/product-view.tsx
+    - Moved availability label position (now after refund-policy paragraph) and added font-bold to its classes; rendering remains conditional on trackInventory and uses the same label text.
+
+- Server-side login telemetry
+  - src/modules/auth/server/procedures.ts
+    - After successful login, in production and guarded with server utilities, captures a server-side userLoggedIn event via posthogServer.capture(...) and calls flushIfNeeded(); wrapped in try/catch to avoid affecting auth flow.

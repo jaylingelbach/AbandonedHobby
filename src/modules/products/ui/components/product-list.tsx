@@ -11,6 +11,11 @@ import { useProductFilters } from '../../hooks/use-product-filters';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_LIMIT } from '@/constants';
 import { capture } from '@/lib/analytics/ph-utils/ph';
+import {
+  getCardImageURL,
+  getTenantImageURL,
+  getTenantSlug
+} from '../utils/utils';
 
 interface Props {
   category?: string;
@@ -139,19 +144,25 @@ export const ProductList = ({
       >
         {data?.pages
           .flatMap((page) => page.docs)
-          .map((product) => (
-            <ProductCard
-              key={product.id}
-              id={product.id}
-              name={product.name}
-              imageURL={product.image?.url}
-              tenantSlug={product.tenant?.slug}
-              tenantImageURL={product.tenant?.image?.url}
-              reviewRating={product.reviewRating}
-              reviewCount={product.reviewCount}
-              price={product.price}
-            />
-          ))}
+          .map((product) => {
+            const cardImageURL = getCardImageURL(product);
+            const tenantSlugSafe = getTenantSlug(product);
+            const tenantImageURLSafe = getTenantImageURL(product);
+
+            return (
+              <ProductCard
+                key={product.id}
+                id={product.id}
+                name={product.name}
+                imageURL={cardImageURL}
+                tenantSlug={tenantSlugSafe ?? ''} // pass empty string if missing
+                tenantImageURL={tenantImageURLSafe ?? null} // null if no image
+                reviewRating={product.reviewRating}
+                reviewCount={product.reviewCount}
+                price={product.price}
+              />
+            );
+          })}
       </div>
       <div className="flex justify-center pt-8">
         {hasNextPage && (

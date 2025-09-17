@@ -244,7 +244,6 @@ export function getTrpcCode(error: unknown): string | undefined {
   return error instanceof TRPCClientError ? error.data?.code : undefined;
 }
 
-// NO imports from 'payload', '@payload-config', 'mongoose', 'fs', nodemailer, etc.
 // Only tiny utils and relationship coercion.
 
 export function isObjectRecord(v: unknown): v is Record<string, unknown> {
@@ -272,4 +271,141 @@ export function toRelationship<T extends { id: string }>(
   if (typeof value === 'string') return value;
   if (hasStringId(value)) return value as T;
   return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Safe readers
+// ─────────────────────────────────────────────────────────────
+
+/** Read a string prop from an unknown object safely. */
+function readStringProp(obj: unknown, key: string): string | undefined {
+  if (!isObjectRecord(obj)) return undefined;
+  const val = (obj as Record<string, unknown>)[key];
+  return typeof val === 'string' ? val : undefined;
+}
+
+/** Read a nested object prop (record) from an unknown object safely. */
+function readRecordProp(
+  obj: unknown,
+  key: string
+): Record<string, unknown> | undefined {
+  if (!isObjectRecord(obj)) return undefined;
+  const val = (obj as Record<string, unknown>)[key];
+  return isObjectRecord(val) ? (val as Record<string, unknown>) : undefined;
+}
+
+/** Read an array prop from an unknown object safely. */
+function readArrayProp(obj: unknown, key: string): unknown[] | undefined {
+  if (!isObjectRecord(obj)) return undefined;
+  const val = (obj as Record<string, unknown>)[key];
+  return Array.isArray(val) ? (val as unknown[]) : undefined;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Media helpers
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Resolve the best display URL from a Media-like object, preferring a given size.
+ * Accepts unknown and performs full runtime guards.
+ */
+export function getBestUrlFromMedia(
+  media: unknown,
+  preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
+): string | undefined {
+  if (!isObjectRecord(media)) return undefined;
+
+  // sizes? -> { medium?: { url? }, thumbnail?: { url? } }
+  const sizes = readRecordProp(media, 'sizes');
+  const originalUrl = readStringProp(media, 'url');
+
+  if (preferred === 'medium') {
+    const medium = readRecordProp(sizes, 'medium');
+    const url = readStringProp(medium, 'url');
+    return url ?? originalUrl ?? undefined;
+  }
+
+  if (preferred === 'thumbnail') {
+    const thumb = readRecordProp(sizes, 'thumbnail');
+    const url = readStringProp(thumb, 'url');
+    return url ?? originalUrl ?? undefined;
+  }
+
+  // 'original'
+  return originalUrl ?? undefined;
+}
+
+/**
+ * Pick a single representative image URL for product cards:
+ * 1) product.cover (preferred size), else
+ * 2) first populated product.images[].image
+ */
+export function getPrimaryCardImageUrl(
+  product: unknown,
+  preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
+): string | undefined {
+  if (!isObjectRecord(product)) return undefined;
+
+  // 1) cover
+  const cover = readRecordProp(product, 'cover');
+  const coverUrl = getBestUrlFromMedia(cover, preferred);
+  if (coverUrl) return coverUrl;
+
+  // 2) first gallery image
+  const images = readArrayProp(product, 'images');
+  if (images) {
+    for (const row of images) {
+      const rowObj = isObjectRecord(row)
+        ? (row as Record<string, unknown>)
+        : undefined;
+      if (!rowObj) continue;
+      const imageObj = readRecordProp(rowObj, 'image'); // skip string IDs automatically
+      const url = getBestUrlFromMedia(imageObj, preferred);
+      if (url) return url;
+    }
+  }
+
+  return undefined;
+}
+
+// ─────────────────────────────────────────────────────────────
+// Tenant helpers
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Safely read tenant.slug when tenant may be a string ID or a populated object.
+ */
+export function getTenantSlugSafe(tenant: unknown): string | undefined {
+  if (typeof tenant === 'string' || tenant == null) return undefined;
+  const obj = isObjectRecord(tenant)
+    ? (tenant as Record<string, unknown>)
+    : undefined;
+  return obj ? readStringProp(obj, 'slug') : undefined;
+}
+
+/**
+ * Safely read tenant.name when tenant may be a string ID or a populated object.
+ */
+export function getTenantNameSafe(tenant: unknown): string | undefined {
+  if (typeof tenant === 'string' || tenant == null) return undefined;
+  const obj = isObjectRecord(tenant)
+    ? (tenant as Record<string, unknown>)
+    : undefined;
+  return obj ? readStringProp(obj, 'name') : undefined;
+}
+
+/**
+ * Safely read a tenant's image URL (thumbnail by default) when tenant may be a string ID or a populated object.
+ */
+export function getTenantImageURLSafe(
+  tenant: unknown,
+  preferred: 'thumbnail' | 'medium' | 'original' = 'thumbnail'
+): string | undefined {
+  if (typeof tenant === 'string' || tenant == null) return undefined;
+  const obj = isObjectRecord(tenant)
+    ? (tenant as Record<string, unknown>)
+    : undefined;
+  if (!obj) return undefined;
+  const imageObj = readRecordProp(obj, 'image'); // only returns object, not string IDs
+  return getBestUrlFromMedia(imageObj, preferred);
 }

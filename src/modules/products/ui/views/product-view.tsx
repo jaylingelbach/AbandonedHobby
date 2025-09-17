@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -22,6 +23,8 @@ import { Progress } from '@/components/ui/progress';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
+import ProductGallery from '../components/product-gallery';
+import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 
 const CartButton = dynamic(
   () =>
@@ -91,8 +94,12 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       : isSoldOut
         ? 'Sold out'
         : trackInventory
-          ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : 's'}`
+          ? `${stockQuantity} in stock`
           : 'Available';
+
+  const productImages = (
+    data as { images?: Array<{ image?: unknown; alt?: string }> }
+  ).images;
 
   const productForUseProductViewed = {
     id: data.id,
@@ -134,7 +141,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           <div className="col-span-4">
             {/* Product name */}
             <div className="p-6">
-              {/* ✅ Add Sold out badge */}
+              {/*  Add Sold out badge */}
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-medium">{data.name}</h1>
                 {isSoldOut && (
@@ -210,6 +217,19 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 </p>
               )}
             </div>
+            <div className="p-6 pt-0">
+              {/*
+                Map once; ProductGallery already filters invalid items.
+              */}
+              <ProductGallery
+                items={useMemo(
+                  () => mapProductImagesFromPayload(productImages, 'medium'),
+                  [productImages]
+                )}
+                className="mt-2"
+                thumbColsDesktop={8}
+              />
+            </div>
           </div>
 
           <div className="col-span-2">
@@ -218,7 +238,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
-                  {/* ✅ Disable buy when sold out (swap CartButton for a disabled button) */}
+                  {/*  Disable buy when sold out (swap CartButton for a disabled button) */}
                   {inStock ? (
                     <CartButton
                       isPurchased={data.isPurchased}

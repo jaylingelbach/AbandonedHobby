@@ -7,6 +7,7 @@ import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import { mongooseAdapter } from '@payloadcms/db-mongodb';
 import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant';
 import { payloadCloudPlugin } from '@payloadcms/payload-cloud';
+import { s3Storage } from '@payloadcms/storage-s3';
 
 import { Categories } from './collections/Categories';
 import { isSuperAdmin } from './lib/access';
@@ -17,7 +18,6 @@ import { Reviews } from './collections/Reviews';
 import { Tags } from './collections/Tags';
 import { Tenants } from './collections/Tenants';
 import { Users } from './collections/Users';
-import { vercelBlobStorage } from '@payloadcms/storage-vercel-blob';
 
 import type { Config } from './payload-types';
 import { Messages } from './collections/Messages';
@@ -81,14 +81,25 @@ export default buildConfig({
   }),
   sharp,
   plugins: [
-    vercelBlobStorage({
-      enabled: true, // Optional, defaults to true
-      // Specify which collections should use Vercel Blob
+    s3Storage({
+      // Choose which collections use S3
       collections: {
-        media: true
+        media: {
+          prefix: 'media', // optional folder inside your bucket
+          generateFileURL: ({ filename, prefix }) =>
+            `${process.env.S3_PUBLIC_BASE_URL}/${[prefix, filename].filter(Boolean).join('/')}`
+        }
       },
-      // Token provided by Vercel once Blob storage is added to your Vercel project
-      token: process.env.BLOB_READ_WRITE_TOKEN
+      bucket: process.env.S3_BUCKET as string,
+      config: {
+        region: process.env.AWS_REGION as string,
+        credentials: {
+          accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
+          secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string
+        }
+        // endpoint: 'https://...custom-s3-endpoint', // only if using R2/Spaces/MinIO
+      }
+      // You can also enable presigned download URLs per collection with `signedDownloads`
     }),
     payloadCloudPlugin(),
     multiTenantPlugin<Config>({
