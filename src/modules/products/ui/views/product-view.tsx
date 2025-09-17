@@ -1,5 +1,6 @@
 'use client';
 
+import { useMemo } from 'react';
 import { toast } from 'sonner';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
@@ -93,7 +94,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       : isSoldOut
         ? 'Sold out'
         : trackInventory
-          ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : 's'}`
+          ? `${stockQuantity} in stock`
           : 'Available';
 
   const productForUseProductViewed = {
@@ -136,7 +137,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           <div className="col-span-4">
             {/* Product name */}
             <div className="p-6">
-              {/* ✅ Add Sold out badge */}
+              {/*  Add Sold out badge */}
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-medium">{data.name}</h1>
                 {isSoldOut && (
@@ -213,14 +214,21 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               )}
             </div>
             <div className="p-6 pt-0">
+              {/*
+                Map once; ProductGallery already filters invalid items.
+              */}
               <ProductGallery
-                items={mapProductImagesFromPayload(
-                  (
-                    data as {
-                      images?: Array<{ image?: unknown; alt?: string }>;
-                    }
-                  ).images,
-                  'medium' // try 'medium' first for perf; switch to 'original' if you prefer
+                items={useMemo(
+                  () =>
+                    mapProductImagesFromPayload(
+                      (
+                        data as {
+                          images?: Array<{ image?: unknown; alt?: string }>;
+                        }
+                      ).images,
+                      'medium'
+                    ),
+                  [data?.images]
                 )}
                 className="mt-2"
                 thumbColsDesktop={8}

@@ -43,6 +43,10 @@ export async function getPresignedPutUrl(
   return getSignedUrl(s3, command, { expiresIn: expiresSeconds });
 }
 
+// Encode path segments and normalize slashes.
 export function publicUrlForKey(key: string): string {
-  return `${S3_PUBLIC_BASE_URL}/${encodeURI(key)}`;
+  const base = S3_PUBLIC_BASE_URL.replace(/\/+$/, '');
+  const cleanedKey = key.replace(/^\/+/, '');
+  const encodedKey = cleanedKey.split('/').map(encodeURIComponent).join('/');
+  return `${base}/${encodedKey}`;
 }

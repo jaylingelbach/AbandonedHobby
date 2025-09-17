@@ -452,7 +452,12 @@ export const Products: CollectionConfig = {
           name: 'image',
           type: 'upload',
           relationTo: 'media',
-          required: false // <= important
+          required: false,
+          filterOptions: ({ data }) => {
+            const rel = (data as { tenant?: string | { id?: string } }).tenant;
+            const tenantId = typeof rel === 'string' ? rel : rel?.id;
+            return tenantId ? { tenant: { equals: tenantId } } : true;
+          }
         },
         { name: 'alt', type: 'text' }
       ]

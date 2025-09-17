@@ -1,3 +1,4 @@
+// src/modules/products/ui/components/product-gallery.tsx
 'use client';
 
 import Image from 'next/image';
@@ -12,35 +13,24 @@ import React, {
 } from 'react';
 
 /**
- * Represents a single gallery image item.
+ * A single image for the product gallery.
  */
 export interface GalleryImageItem {
-  /**
-   * Absolute URL to the image (must be allowed in next.config.ts images.remotePatterns).
-   */
+  /** Absolute URL to the image (must be allowed in next.config images.remotePatterns). */
   url: string;
-  /**
-   * Optional alt text for accessibility.
-   */
+  /** Optional alt text for accessibility. */
   alt?: string;
 }
 
 /**
- * Props for the neo-brutalist product gallery component.
+ * Props for the product gallery component.
  */
 export interface ProductGalleryProps {
-  /**
-   * Ordered list of images (first is treated as primary).
-   */
+  /** Ordered list of images (first is treated as primary). */
   items: ReadonlyArray<GalleryImageItem>;
-  /**
-   * Optional extra class names for the root section.
-   */
+  /** Optional extra class names for the root element. */
   className?: string;
-  /**
-   * Number of thumbnail columns on larger screens.
-   * Default: 8.
-   */
+  /** Number of thumbnail columns on larger screens (defaults to 6). */
   thumbColsDesktop?: number;
   /**
    * Aspect ratio for the hero image area.
@@ -49,28 +39,14 @@ export interface ProductGalleryProps {
    * - '16/9'
    */
   heroAspect?: 'square' | '4/3' | '16/9';
-  /**
-   * Show a small “Primary” badge on the selected thumbnail (default true).
-   */
-  showPrimaryBadge?: boolean;
 }
 
 /**
- * Neo-brutalist product gallery:
+ * Product gallery:
  * - Big hero image with thick border and offset shadow
- * - Clickable thumbnails with a bold selected state
+ * - Clickable thumbnails with clear selected state
  * - Keyboard navigation (← → Home End)
- * - Type-safe (no `any`), resilient to prop changes
- *
- * Usage:
- * ```tsx
- * <ProductGalleryBrutalist
- *   items={[
- *     { url: 'https://…/img1.jpg', alt: 'Front' },
- *     { url: 'https://…/img2.jpg', alt: 'Back' },
- *   ]}
- * />
- * ```
+ * - All hooks called unconditionally to satisfy the Rules of Hooks
  */
 export default function ProductGallery(
   props: ProductGalleryProps
@@ -78,55 +54,74 @@ export default function ProductGallery(
   const {
     items,
     className,
-    thumbColsDesktop = 8,
-    heroAspect = 'square',
-    showPrimaryBadge = false
+    thumbColsDesktop = 6,
+    heroAspect = 'square'
   } = props;
 
-  /**
-   * Filter out any invalid entries defensively.
-   */
+  // Filter out any empty entries defensively
   const safeItems = useMemo<GalleryImageItem[]>(
     () => (items ?? []).filter((imageItem) => Boolean(imageItem?.url)),
     [items]
   );
+  const safeCount = safeItems.length;
 
-  /**
-   * Index of the currently active (hero) image.
-   */
+  // Index of the currently active (hero) image.
   const [activeIndex, setActiveIndex] = useState<number>(0);
 
-  /**
-   * Keep activeIndex within range whenever the list length changes.
-   */
+  // Keep activeIndex within range whenever the list length changes.
   useEffect(() => {
-    if (safeItems.length === 0) return;
+    if (safeCount === 0) {
+      // Reset to 0 when empty so we don't carry an out-of-range index.
+      setActiveIndex(0);
+      return;
+    }
     setActiveIndex((currentIndex) =>
-      Math.min(Math.max(0, currentIndex), safeItems.length - 1)
+      Math.min(Math.max(0, currentIndex), safeCount - 1)
     );
-  }, [safeItems.length]);
+  }, [safeCount]);
 
-  /**
-   * Nothing to render if there are no valid images.
-   */
-  if (safeItems.length === 0) {
+  // Keyboard navigation handler (Left/Right/Home/End).
+  // NOTE: Declared before any early return; internally no-op when empty.
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (safeCount === 0) return;
+
+      if (event.key === 'ArrowRight') {
+        event.preventDefault();
+        setActiveIndex((currentIndex) => (currentIndex + 1) % safeCount);
+      } else if (event.key === 'ArrowLeft') {
+        event.preventDefault();
+        setActiveIndex(
+          (currentIndex) => (currentIndex - 1 + safeCount) % safeCount
+        );
+      } else if (event.key === 'Home') {
+        event.preventDefault();
+        setActiveIndex(0);
+      } else if (event.key === 'End') {
+        event.preventDefault();
+        setActiveIndex(safeCount - 1);
+      }
+    },
+    [safeCount]
+  );
+
+  // Select a specific image when a thumbnail is clicked.
+  const handleThumbClick = useCallback(
+    (event: MouseEvent<HTMLButtonElement>, index: number) => {
+      event.preventDefault();
+      if (safeCount === 0) return;
+      const clamped = Math.min(Math.max(0, index), safeCount - 1);
+      setActiveIndex(clamped);
+    },
+    [safeCount]
+  );
+
+  // From here on, we can exit early if there are no images.
+  if (safeCount === 0) {
     return null;
   }
 
-  /**
-   * At this point we know the array is non-empty.
-   * We also ensure `activeImage` is ALWAYS defined by falling back to the first item.
-   * This avoids the “possibly undefined” error even with `noUncheckedIndexedAccess` enabled.
-   */
-  const nonEmptyItems = safeItems as [GalleryImageItem, ...GalleryImageItem[]];
-  const [firstItem] = nonEmptyItems;
-  const boundedIndex = Math.min(activeIndex, nonEmptyItems.length - 1);
-  const activeImage: GalleryImageItem =
-    nonEmptyItems[boundedIndex] ?? firstItem;
-
-  /**
-   * Tailwind aspect class for the hero region.
-   */
+  // Choose a Tailwind aspect class for the hero area.
   const heroAspectClass =
     heroAspect === '4/3'
       ? 'aspect-[4/3]'
@@ -134,43 +129,8 @@ export default function ProductGallery(
         ? 'aspect-video'
         : 'aspect-square';
 
-  /**
-   * Keyboard navigation handler (Left/Right/Home/End).
-   */
-  const handleKeyDown = useCallback(
-    (event: KeyboardEvent<HTMLDivElement>) => {
-      if (event.key === 'ArrowRight') {
-        event.preventDefault();
-        setActiveIndex(
-          (currentIndex) => (currentIndex + 1) % nonEmptyItems.length
-        );
-      } else if (event.key === 'ArrowLeft') {
-        event.preventDefault();
-        setActiveIndex(
-          (currentIndex) =>
-            (currentIndex - 1 + nonEmptyItems.length) % nonEmptyItems.length
-        );
-      } else if (event.key === 'Home') {
-        event.preventDefault();
-        setActiveIndex(0);
-      } else if (event.key === 'End') {
-        event.preventDefault();
-        setActiveIndex(nonEmptyItems.length - 1);
-      }
-    },
-    [nonEmptyItems.length]
-  );
-
-  /**
-   * Select a specific image when a thumbnail is clicked.
-   */
-  const handleThumbClick = useCallback(
-    (event: MouseEvent<HTMLButtonElement>, index: number) => {
-      event.preventDefault();
-      setActiveIndex(index);
-    },
-    []
-  );
+  const boundedIndex = Math.min(activeIndex, safeCount - 1);
+  const activeImage = safeItems[boundedIndex]!; // safe because safeCount > 0
 
   return (
     <section
@@ -197,17 +157,13 @@ export default function ProductGallery(
 
       {/* Thumbnails */}
       <div
-        className={[
-          'grid gap-3',
-          'grid-cols-4 sm:grid-cols-6 md:grid-cols-8'
-        ].join(' ')}
-        // allow easy override of columns via inline style if desired
+        className="grid gap-3 grid-cols-4 sm:grid-cols-6"
         style={{
           gridTemplateColumns: `repeat(${thumbColsDesktop}, minmax(0, 1fr))`
         }}
         aria-label="Product thumbnails"
       >
-        {nonEmptyItems.map((imageItem, imageIndex) => {
+        {safeItems.map((imageItem, imageIndex) => {
           const isSelected = imageIndex === boundedIndex;
           return (
             <button
@@ -234,11 +190,6 @@ export default function ProductGallery(
                 ].join(' ')}
                 sizes="120px"
               />
-              {showPrimaryBadge && isSelected && (
-                <span className="absolute bottom-1 left-1 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-pink-400 border-2 border-black text-black">
-                  Primary
-                </span>
-              )}
             </button>
           );
         })}

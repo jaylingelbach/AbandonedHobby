@@ -1,13 +1,30 @@
+// next.config.ts
 import { withPayload } from '@payloadcms/next/withPayload';
 import type { NextConfig } from 'next';
 
+const DEFAULT_HOSTNAME = 'ah-gallery-bucket.s3.us-east-2.amazonaws.com';
+let imagesHostname = DEFAULT_HOSTNAME as string;
+let imagesProtocol: 'http' | 'https' = 'https';
+
+const base = process.env.S3_PUBLIC_BASE_URL;
+if (base) {
+  try {
+    const u = new URL(base);
+    if (u.hostname) imagesHostname = u.hostname;
+    if (u.protocol === 'http:' || u.protocol === 'https:') {
+      imagesProtocol = u.protocol.replace(':', '') as 'http' | 'https';
+    }
+  } catch {
+    // ignore invalid URL; keep defaults
+  }
+}
+
 const nextConfig: NextConfig = {
-  /* config options here */
   images: {
     remotePatterns: [
       {
-        protocol: 'https',
-        hostname: 'ah-gallery-bucket.s3.us-east-2.amazonaws.com',
+        protocol: imagesProtocol,
+        hostname: imagesHostname,
         pathname: '/**'
       }
     ]

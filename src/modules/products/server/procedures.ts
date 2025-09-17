@@ -32,15 +32,6 @@ interface ProductWithInventory extends Product {
   images?: ProductImagesRow[];
 }
 
-/** Is this a populated Media doc (not just an ID string)? */
-function isMediaDoc(value: unknown): value is MediaDoc {
-  return Boolean(
-    value &&
-      typeof value === 'object' &&
-      'id' in (value as Record<string, unknown>)
-  );
-}
-
 /** Map images[] to clean gallery items, preferring the "medium" size. */
 function mapGalleryFromImages(
   images: ProductImagesRow[] | undefined

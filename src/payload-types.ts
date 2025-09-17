@@ -293,10 +293,9 @@ export interface Tenant {
  */
 export interface Media {
   id: string;
-  /**
-   * Adds text for those who use screen readers or are visually impaired
-   */
   alt?: string | null;
+  tenant: string | Tenant;
+  uploadedBy?: (string | null) | User;
   prefix?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -625,6 +624,8 @@ export interface ConversationsSelect<T extends boolean = true> {
  */
 export interface MediaSelect<T extends boolean = true> {
   alt?: T;
+  tenant?: T;
+  uploadedBy?: T;
   prefix?: T;
   updatedAt?: T;
   createdAt?: T;
