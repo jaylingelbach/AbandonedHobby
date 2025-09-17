@@ -2,6 +2,15 @@ import type { CollectionConfig, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { User } from '@/payload-types';
 
+/**
+ * Extracts tenant ID strings from a user's tenant relations.
+ *
+ * Returns an array of tenant IDs found on `user.tenants`. Each tenant entry may be a string or an object with an `id` property; non-string or missing relations are ignored. If `user` or `user.tenants` is absent, an empty array is returned.
+ *
+ * @param user - Optional user object whose `tenants` relations will be read. Entries are expected to be either tenant ID strings or objects with an `id` field.
+ * @returns An array of tenant ID strings.
+ */
+
 function getTenantIdsFromUser(user?: User | null): string[] {
   if (!user?.tenants) return [];
   return user.tenants

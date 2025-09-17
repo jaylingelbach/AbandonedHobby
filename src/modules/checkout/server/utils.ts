@@ -1,3 +1,5 @@
+import { getBestUrlFromMedia } from '@/lib/utils';
+
 export type MediaLike = {
   url?: string | null;
   sizes?: {
@@ -6,20 +8,17 @@ export type MediaLike = {
   };
 };
 
-/** Prefer a sized URL when available, else fall back to original. */
-export function getBestUrlFromMedia(
-  media: unknown,
-  preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
-): string | undefined {
-  if (!media || typeof media !== 'object') return undefined;
-  const m = media as MediaLike;
-  if (preferred === 'medium') return m.sizes?.medium?.url ?? m.url ?? undefined;
-  if (preferred === 'thumbnail')
-    return m.sizes?.thumbnail?.url ?? m.url ?? undefined;
-  return m.url ?? undefined;
-}
-
 /** Choose a single card image: cover first, else first gallery image. */
+/**
+ * Selects a single card image URL for a product.
+ *
+ * Prefers the product's cover image (medium size) and falls back to the first gallery image's medium URL.
+ * Returns undefined if `product` is not an object or no suitable URL is found.
+ *
+ * @param product - Product-like object that may contain `cover` and an `images` array of `{ image }` entries.
+ * @returns The resolved medium-size image URL, or `undefined` if none is available.
+ */
+
 export function getPrimaryCardImageUrl(product: unknown): string | undefined {
   if (!product || typeof product !== 'object') return undefined;
   const p = product as {
