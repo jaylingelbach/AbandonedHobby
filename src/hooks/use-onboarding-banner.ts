@@ -1,6 +1,6 @@
-// use-onboarding-banner.ts
 'use client';
 
+import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import type { OnboardingStep, UIState } from './types';
@@ -31,10 +31,19 @@ export function useOnboardingBanner() {
   const userId = data?.user.id ?? 'anon';
   const uiState: UIState | undefined = data?.user.uiState;
 
-  // Per-user + per-step session key (so it naturally resets when user/step changes)
-  const sessionKey = `ah:onboarding:dismissed:${userId}:${step ?? ''}`;
-  const dismissedThisStep =
-    typeof window !== 'undefined' && sessionStorage.getItem(sessionKey) === '1';
+  // Per-user + per-step session key (naturally resets when user/step change)
+  const sessionKey = useMemo(
+    () => `ah:onboarding:dismissed:${userId}:${step ?? ''}`,
+    [userId, step]
+  );
+
+  const [dismissedThisStep, setDismissedThisStep] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      setDismissedThisStep(sessionStorage.getItem(sessionKey) === '1');
+    }
+  }, [sessionKey]);
 
   const shouldShow =
     !!data &&
