@@ -2748,7 +2748,7 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/modules/auth/server/procedures.ts
     - After successful login, in production and guarded with server utilities, captures a server-side userLoggedIn event via posthogServer.capture(...) and calls flushIfNeeded(); wrapped in try/catch to avoid affecting auth flow.
 
-# Add aws s3
+# Add AWS S3 09/17/25
 
 ## Walkthrough
 
@@ -2833,3 +2833,30 @@ Added recap covering the Orders transition and onboarding behavior.
 - Recap / docs
   - recap.md
     - Adds "Add posthog to prod" doc section describing analytics initialization, identity bridging, server login telemetry, and minor UI tweaks.
+
+# Bug hydration failure 09/17/25
+
+## Walkthrough
+
+- Introduces per-route revalidation in the TRPC API route, adds a server-only singleton accessor for Payload, and updates TRPC context initialization to use the new Payload client. No public API signatures changed except the new revalidate constant and the new getPayloadClient function.
+
+## Bug Fixes
+
+- Disabled caching on the TRPC API route to ensure fresh responses on every request.
+
+## Refactor
+
+- Introduced a server-only, centralized data client with lazy initialization and caching for reuse.
+- Updated TRPC initialization to consume the new data client for consistent server-side access.
+
+## File changes
+
+- TRPC API Route Revalidation
+  - src/app/(app)/api/trpc/[trpc]/route.ts
+    - Adds export const revalidate = 0 to configure per-route revalidation.
+- Server-only Payload Client Singleton
+  - src/lib/payload.ts
+    - New server-only module exposing getPayloadClient() that lazily initializes and caches a Payload instance via a module-scoped Promise.
+- TRPC Context Initialization Update
+  - src/trpc/init.ts
+    - Replaces direct getPayload({ config }) with getPayloadClient() and removes related imports; context still returns { db, headers }.
