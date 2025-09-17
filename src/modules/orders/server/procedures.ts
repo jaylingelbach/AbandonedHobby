@@ -1,10 +1,11 @@
 import z from 'zod';
-import type { Order, Product, Media, Tenant } from '@/payload-types';
+import type { Order, Product, Tenant } from '@/payload-types';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { getRelId } from '@/lib/server/utils';
 import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
 import { mapOrderToConfirmation, mapOrderToSummary } from './utils';
+import { getPrimaryCardImageUrl } from '@/lib/utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
@@ -190,13 +191,7 @@ export const ordersRouter = createTRPCRouter({
       ): Product | null =>
         rel && typeof rel === 'object' ? (rel as Product) : null;
 
-      const mediaUrl = (
-        rel: string | Media | null | undefined
-      ): string | undefined =>
-        rel && typeof rel === 'object' && typeof rel.url === 'string'
-          ? rel.url
-          : undefined;
-
+      // keep this small guard for tenant slug
       const tenantSlug = (
         rel: string | Tenant | null | undefined
       ): string | undefined =>
@@ -244,9 +239,11 @@ export const ordersRouter = createTRPCRouter({
             : undefined) ??
           'Item';
 
+        // NEW: resolve image from cover → images[0]
         const productImageURL = productDoc
-          ? mediaUrl(productDoc.image)
+          ? (getPrimaryCardImageUrl(productDoc, 'thumbnail') ?? undefined)
           : undefined;
+
         const sellerSlug = productDoc
           ? tenantSlug(productDoc.tenant)
           : undefined;

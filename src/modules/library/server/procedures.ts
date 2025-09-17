@@ -11,11 +11,28 @@ import type {
 } from '../types';
 
 import { getRelId, summarizeReviews } from '@/lib/server/utils';
+import { pickPrimaryMedia } from './utils';
+
+/**
+ * Router: Library (purchased products for the signed-in user)
+ *
+ * Exposes read-only endpoints to fetch products the user owns.
+ * Notes:
+ * - Authorization: all procedures require an authenticated session
+ * - Side-effects: none
+ * - Errors: NOT_FOUND when product/order cannot be located for the user
+ */
 
 export const libraryRouter = createTRPCRouter({
   /**
-   * Return a single product (with ratings) ONLY if the signed-in user
-   * has an order for that product.
+   * getOne
+   * Fetch a single product with ratings **only if** the current user owns it.
+   *
+   * Auth: required
+   * Side-effects: none
+   * Errors:
+   *  - UNAUTHORIZED if no session
+   *  - NOT_FOUND if the user does not own the product or product doesn't exist
    */
   getOne: protectedProcedure
     .input(z.object({ productId: z.string() }))
@@ -95,9 +112,14 @@ export const libraryRouter = createTRPCRouter({
     }),
 
   /**
-   * Return the signed-in user's purchased products (paged by orders),
-   * with computed reviewCount/reviewRating merged into each product.
-   * Shape matches ProductList expectations: { docs, nextPage, totalDocs, totalPages }.
+   * getMany
+   * Return a paginated list of the current user's purchased products.
+   * Ordered by newest orders first. Merges review stats into each product.
+   *
+   * Auth: required
+   * Side-effects: none
+   * Errors:
+   *  - UNAUTHORIZED if no session
    */
   getMany: protectedProcedure
     .input(
@@ -190,14 +212,15 @@ export const libraryRouter = createTRPCRouter({
 
       const docs: ProductCardDTO[] = productIds.flatMap((pid) => {
         const p = productById.get(pid);
-        if (!p) return []; // product was deleted or filtered out — skip
+        if (!p) return []; // product deleted/filtered
 
         const orderId = latestOrderIdByProduct.get(pid);
-        if (!orderId) return []; // safety: should exist from step 2
+        if (!orderId) return []; // safety
 
         const stats = summaries.get(pid) ?? { count: 0, avg: 0 };
 
-        const normalizedImage: Media | null = (p.image as Media | null) ?? null;
+        const normalizedImage: Media | null = pickPrimaryMedia(p);
+
         const tenantObj = (p.tenant as Tenant | null) ?? null;
         const normalizedTenant: (Tenant & { image: Media | null }) | null =
           tenantObj
