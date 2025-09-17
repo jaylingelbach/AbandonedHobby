@@ -1,3 +1,4 @@
+// use-onboarding-banner.ts
 'use client';
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -10,14 +11,14 @@ export function useOnboardingBanner() {
 
   const query = useQuery({
     ...trpc.users.me.queryOptions(),
-    staleTime: 5 * 60_000, // keep ‘fresh’ for 5 minutes
-    refetchOnWindowFocus: false, // ← stop refetching when tab is focused
-    refetchOnReconnect: false, // don’t refetch after reconnection
-    refetchOnMount: false, // if cached, don’t refetch on mount
-    gcTime: 30 * 60_000 // keep cache 30m after unmount
+    staleTime: 5 * 60_000,
+    refetchOnWindowFocus: false,
+    refetchOnReconnect: false,
+    refetchOnMount: false,
+    gcTime: 30 * 60_000
   });
 
-  const dismiss = useMutation(
+  const dismissPersisted = useMutation(
     trpc.users.dismissOnboardingBanner.mutationOptions({
       onSuccess: async () => {
         await qc.invalidateQueries(trpc.users.me.queryFilter());
@@ -27,15 +28,20 @@ export function useOnboardingBanner() {
 
   const data = query.data;
   const step = data?.onboarding.step as OnboardingStep | undefined;
-
+  const userId = data?.user.id ?? 'anon';
   const uiState: UIState | undefined = data?.user.uiState;
+
+  // Per-user + per-step session key (so it naturally resets when user/step changes)
+  const sessionKey = `ah:onboarding:dismissed:${userId}:${step ?? ''}`;
+  const dismissedThisStep =
+    typeof window !== 'undefined' && sessionStorage.getItem(sessionKey) === '1';
 
   const shouldShow =
     !!data &&
     step !== undefined &&
     step !== 'dashboard' &&
-    uiState?.hideOnboardingBanner !== true && // permanent hide
-    uiState?.onboardingDismissedStep !== step;
+    uiState?.hideOnboardingBanner !== true && // "Don't show again" is persisted
+    !dismissedThisStep; // one-time dismiss is session-only
 
   return {
     isLoading: query.isLoading,
@@ -45,14 +51,17 @@ export function useOnboardingBanner() {
     label: data?.onboarding.label,
     step,
     next: data?.onboarding.next,
+    // one-time (session) dismissal
     dismissOnce: () => {
-      if (!step || dismiss.isPending) return;
-      dismiss.mutate({ step });
+      if (!step) return;
+      if (typeof window !== 'undefined')
+        sessionStorage.setItem(sessionKey, '1');
     },
+    // permanent (persisted) dismissal
     dismissForever: () => {
-      if (!step || dismiss.isPending) return;
-      dismiss.mutate({ step, forever: true });
+      if (!step || dismissPersisted.isPending) return;
+      dismissPersisted.mutate({ step, forever: true });
     },
-    isDismissing: dismiss.isPending
+    isDismissing: dismissPersisted.isPending
   };
 }

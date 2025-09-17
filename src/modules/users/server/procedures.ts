@@ -72,6 +72,7 @@ export const usersRouter = createTRPCRouter({
     const onboarding = computeOnboarding(user);
     return { user, onboarding };
   }),
+  // src/modules/users/server/procedures.ts (or where your usersRouter lives)
   dismissOnboardingBanner: protectedProcedure
     .input(
       z.object({
@@ -94,22 +95,19 @@ export const usersRouter = createTRPCRouter({
       );
       const prev: UIState = parsed.success ? parsed.data : {};
 
+      // Persist only the “forever” preference; session-only dismiss happens client-side
       const nextUiState: UIState = input.forever
-        ? {
-            ...prev,
-            hideOnboardingBanner: true
-          }
-        : {
-            ...prev,
-            onboardingDismissedStep: input.step
-          };
+        ? { ...prev, hideOnboardingBanner: true }
+        : prev;
 
-      await ctx.db.update({
-        collection: 'users',
-        id,
-        data: { uiState: nextUiState }
-      });
+      if (nextUiState !== prev) {
+        await ctx.db.update({
+          collection: 'users',
+          id,
+          data: { uiState: nextUiState }
+        });
+      }
 
-      return { onboardingDismissedStep: input.step };
+      return { ok: true };
     })
 });
