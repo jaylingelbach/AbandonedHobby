@@ -31,6 +31,13 @@ export type PresignParams = {
   expiresSeconds?: number;
 };
 
+/**
+ * Returns a presigned PUT URL for uploading an object to the configured S3 bucket.
+ *
+ * @param params - Presign parameters; `expiresSeconds` defaults to 300 seconds.
+ * @returns A promise that resolves to a presigned URL which permits an HTTP PUT of the object with the specified `contentType`.
+ */
+
 export async function getPresignedPutUrl(
   params: PresignParams
 ): Promise<string> {
@@ -44,6 +51,17 @@ export async function getPresignedPutUrl(
 }
 
 // Encode path segments and normalize slashes.
+/**
+ * Build a public HTTP URL for an S3 object key using the configured public base.
+ *
+ * The function trims trailing slashes from the configured S3 public base and leading
+ * slashes from `key`, percent-encodes each path segment (preserving path separators),
+ * and joins them with a single '/' so duplicate slashes are avoided.
+ *
+ * @param key - S3 object key or path (may start with `/`); path segments are encoded with `encodeURIComponent`.
+ * @returns The fully formed public URL for the given object key.
+ */
+
 export function publicUrlForKey(key: string): string {
   const base = S3_PUBLIC_BASE_URL.replace(/\/+$/, '');
   const cleanedKey = key.replace(/^\/+/, '');

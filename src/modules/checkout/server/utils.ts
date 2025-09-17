@@ -7,6 +7,19 @@ export type MediaLike = {
 };
 
 /** Prefer a sized URL when available, else fall back to original. */
+/**
+ * Returns the best available image URL from a media-like object, preferring a sized variant when present.
+ *
+ * If `media` is falsy or not an object, `undefined` is returned. Behavior by `preferred`:
+ * - `'medium'`: return `sizes.medium.url` if present, otherwise `url`.
+ * - `'thumbnail'`: return `sizes.thumbnail.url` if present, otherwise `url`.
+ * - `'original'`: return `url`.
+ *
+ * @param media - The media-like value to resolve (expected shape matches `MediaLike`).
+ * @param preferred - Which size to prefer when available; defaults to `'medium'`.
+ * @returns The resolved URL string, or `undefined` if no suitable URL is found.
+ */
+
 export function getBestUrlFromMedia(
   media: unknown,
   preferred: 'medium' | 'thumbnail' | 'original' = 'medium'
@@ -20,6 +33,16 @@ export function getBestUrlFromMedia(
 }
 
 /** Choose a single card image: cover first, else first gallery image. */
+/**
+ * Selects a single card image URL for a product.
+ *
+ * Prefers the product's cover image (medium size) and falls back to the first gallery image's medium URL.
+ * Returns undefined if `product` is not an object or no suitable URL is found.
+ *
+ * @param product - Product-like object that may contain `cover` and an `images` array of `{ image }` entries.
+ * @returns The resolved medium-size image URL, or `undefined` if none is available.
+ */
+
 export function getPrimaryCardImageUrl(product: unknown): string | undefined {
   if (!product || typeof product !== 'object') return undefined;
   const p = product as {
