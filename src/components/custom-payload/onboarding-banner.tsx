@@ -76,8 +76,14 @@ export function OnboardingBannerAdmin() {
           Don’t show again
         </button>
         {dismissError && (
-          <p className="text-sm text-red-600 mt-2">
-            {dismissError.message ?? 'Could not update your preference.'}
+          <p
+            className="text-sm text-red-600 mt-2"
+            role="status"
+            aria-live="polite"
+          >
+            {dismissError instanceof Error
+              ? dismissError.message
+              : 'Could not update your preference.'}
           </p>
         )}
       </div>

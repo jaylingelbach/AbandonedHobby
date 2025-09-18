@@ -81,6 +81,7 @@ export const usersRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      void input.step;
       const id = ctx.session.user?.id;
       if (!id) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
@@ -90,13 +91,11 @@ export const usersRouter = createTRPCRouter({
         depth: 0
       });
 
-      const parsed = UIStateSchema.safeParse(
-        (current as { uiState?: unknown }).uiState ?? {}
-      );
-      const prev: UIState = parsed.success ? parsed.data : {};
+      if (!current)
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
 
-      const rawPrev =
-        ((current as { uiState?: unknown }).uiState ?? {}) as Record<string, unknown>;
+      const rawPrev = ((current as { uiState?: unknown }).uiState ??
+        {}) as Record<string, unknown>;
       const parsed = UIStateSchema.safeParse(rawPrev);
       const prev: UIState = parsed.success ? parsed.data : {};
 

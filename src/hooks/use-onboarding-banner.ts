@@ -25,7 +25,11 @@ export function useOnboardingBanner() {
         await qc.invalidateQueries(trpc.users.me.queryFilter());
       },
       onError: async (error) => {
-        toast.error(error.message);
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Could not update your preference.';
+        toast.error(message);
       }
     })
   );
@@ -41,7 +45,13 @@ export function useOnboardingBanner() {
     [userId, step]
   );
 
-  const [dismissedThisStep, setDismissedThisStep] = useState(false);
+  // initialize dismissedThisStep from sessionStorage in a lazy initializer to avoid a setState on mount.
+  const [dismissedThisStep, setDismissedThisStep] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem(sessionKey) === '1';
+    }
+    return false;
+  });
 
   useEffect(() => {
     if (typeof window !== 'undefined') {
@@ -79,6 +89,9 @@ export function useOnboardingBanner() {
 
     // mutation state
     isDismissing: dismissPersisted.isPending,
-    dismissError: dismissPersisted.error
+    dismissError:
+      dismissPersisted.error instanceof Error
+        ? dismissPersisted.error
+        : undefined
   };
 }
