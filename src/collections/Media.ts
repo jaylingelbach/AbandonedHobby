@@ -131,12 +131,10 @@ export const Media: CollectionConfig = {
           } as Where)
         : false;
     },
-
-    // Allow authenticated users into the admin UI; what they see is still scoped by read()
-    admin: ({ req: { user } }) => Boolean(user)
+    admin: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
-    // Show Media to super users; contents are scoped by read() above
+    // Show Media to super users;
     hidden: ({ user }) => !isSuperAdmin(user)
   }
 };
