@@ -2860,3 +2860,39 @@ Added recap covering the Orders transition and onboarding behavior.
 - TRPC Context Initialization Update
   - src/trpc/init.ts
     - Replaces direct getPayload({ config }) with getPayloadClient() and removes related imports; context still returns { db, headers }.
+
+# Bug onboarding dismiss 09/17/25
+
+## Walkthrough
+
+- Adds session-scoped dismissal stored in sessionStorage keyed by user+step, introduces a persistent dismissForever mutation that only writes hideOnboardingBanner when forever is true and returns { ok: true }, surfaces dismissError from the onboarding hook, and adds tsx to dependencies and devDependencies.
+
+## New Features
+
+- Onboarding banner supports per-session dismissals plus a separate permanent "Don't show again" option.
+- Visibility tracked per-user and per-step so dismissed steps behave correctly across sessions and users.
+- Inline, accessible error message appears if saving the permanent dismissal fails; banner indicates when a dismissal is in progress.
+
+## Chores
+
+- Added a tooling dependency (tsx) for development/runtime.
+
+## File changes
+
+- Dependencies
+  - package.json
+    - Adds tsx@^4.20.5 to both dependencies and devDependencies.
+
+- Onboarding hook (client)
+  - src/hooks/use-onboarding-banner.ts
+    - Adds per-user/per-step session dismissal using sessionStorage keyed by userId and step; exposes dismissOnce (session), dismissForever (persisted mutation renamed/added), dismissError, and isDismissing; introduces useEffect, useMemo, useState and toast usage;
+    - updates shouldShow logic and synchronizes session flag.
+
+- Onboarding banner component
+  - src/components/custom-payload/onboarding-banner.tsx Destructures and surfaces new dismissError; renders an inline accessible error message (role="status", aria-live="polite") below action buttons when dismissError exists;
+  - adds a descriptive docblock and sets banner aria-busy when dismiss is in progress.
+
+- Users server procedures
+  - src/modules/users/server/procedures.ts
+    - dismissOnboardingBanner mutation now persists only the forever preference by setting uiState.hideOnboardingBanner when input.forever is true (writes only if changed);
+    - adds NOT_FOUND guard; preserves other uiState fields; returns { ok: true } (previously returned { onboardingDismissedStep: ... }).

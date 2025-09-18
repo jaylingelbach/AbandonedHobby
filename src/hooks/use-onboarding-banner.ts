@@ -41,8 +41,6 @@ export function useOnboardingBanner() {
     gcTime: 30 * 60_000
   });
 
-  console.log(`query on me: ${JSON.stringify(query, null, 2)}`);
-
   const dismissPersisted = useMutation(
     trpc.users.dismissOnboardingBanner.mutationOptions({
       onSuccess: async () => {
