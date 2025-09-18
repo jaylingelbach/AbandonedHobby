@@ -26,7 +26,7 @@ import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da1
 import { OnboardingBannerAdmin as OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a } from '@/components/custom-payload/onboarding-banner.tsx'
 import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7 } from '@/components/custom-payload/abandoned-hobby-link.tsx'
 import { CurrentUserBadge as CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2 } from '@/components/custom-payload/current-user-badge.tsx'
-import { TenantSelector as TenantSelector_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { TenantSelector as TenantSelector_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
 import { TRPCAdminProvider as TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b } from '@/payload/providers/trpc-admin-provider.tsx'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
@@ -60,7 +60,7 @@ export const importMap = {
   "@/components/custom-payload/onboarding-banner.tsx#OnboardingBannerAdmin": OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a,
   "@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink": AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7,
   "@/components/custom-payload/current-user-badge.tsx#CurrentUserBadge": CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2,
-  "@payloadcms/plugin-multi-tenant/client#TenantSelector": TenantSelector_1d0591e3cf4f332c83a86da13a0de59a,
+  "@payloadcms/plugin-multi-tenant/rsc#TenantSelector": TenantSelector_d6d5f193a167989e2ee7d14202901e62,
   "@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider": TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62
