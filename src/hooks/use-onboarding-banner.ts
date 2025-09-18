@@ -69,17 +69,30 @@ export function useOnboardingBanner() {
 
   // initialize dismissedThisStep from sessionStorage in a lazy initializer to avoid a setState on mount.
   const [dismissedThisStep, setDismissedThisStep] = useState(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return false;
+    try {
       return sessionStorage.getItem(sessionKey) === '1';
+    } catch {
+      return false;
     }
-    return false;
   });
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (typeof window === 'undefined') return;
+    try {
       setDismissedThisStep(sessionStorage.getItem(sessionKey) === '1');
+    } catch {
+      setDismissedThisStep(false);
     }
   }, [sessionKey]);
+
+  if (typeof window !== 'undefined') {
+    try {
+      sessionStorage.setItem(sessionKey, '1');
+    } catch {
+      // no-op
+    }
+  }
 
   const shouldShow =
     !!data &&
