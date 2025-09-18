@@ -72,7 +72,7 @@ export const usersRouter = createTRPCRouter({
     const onboarding = computeOnboarding(user);
     return { user, onboarding };
   }),
-  // src/modules/users/server/procedures.ts (or where your usersRouter lives)
+
   dismissOnboardingBanner: protectedProcedure
     .input(
       z.object({

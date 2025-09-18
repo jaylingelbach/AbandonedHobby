@@ -1,7 +1,6 @@
 'use client';
 
 import { useOnboardingBanner } from '@/hooks/use-onboarding-banner';
-import { useEffect } from 'react';
 
 export function OnboardingBannerAdmin() {
   const {
@@ -15,13 +14,6 @@ export function OnboardingBannerAdmin() {
     isDismissing,
     dismissError
   } = useOnboardingBanner();
-
-  useEffect(() => {
-    if (dismissError) {
-      // toast.error(dismissError.message);
-      console.error('Dismiss failed:', dismissError);
-    }
-  }, [dismissError]);
 
   if (isError) return null;
 
@@ -83,6 +75,11 @@ export function OnboardingBannerAdmin() {
         >
           Don’t show again
         </button>
+        {dismissError && (
+          <p className="text-sm text-red-600 mt-2">
+            {dismissError.message ?? 'Could not update your preference.'}
+          </p>
+        )}
       </div>
     </div>
   );

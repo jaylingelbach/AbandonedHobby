@@ -69,6 +69,7 @@ export function useOnboardingBanner() {
       if (!step) return;
       if (typeof window !== 'undefined')
         sessionStorage.setItem(sessionKey, '1');
+      setDismissedThisStep(true);
     },
     // permanent (persisted) dismissal
     dismissForever: () => {
