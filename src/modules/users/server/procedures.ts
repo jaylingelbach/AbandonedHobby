@@ -72,6 +72,7 @@ export const usersRouter = createTRPCRouter({
     const onboarding = computeOnboarding(user);
     return { user, onboarding };
   }),
+
   dismissOnboardingBanner: protectedProcedure
     .input(
       z.object({
@@ -80,6 +81,7 @@ export const usersRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
+      void input.step;
       const id = ctx.session.user?.id;
       if (!id) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
@@ -89,27 +91,23 @@ export const usersRouter = createTRPCRouter({
         depth: 0
       });
 
-      const parsed = UIStateSchema.safeParse(
-        (current as { uiState?: unknown }).uiState ?? {}
-      );
+      if (!current)
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+
+      const rawPrev = ((current as { uiState?: unknown }).uiState ??
+        {}) as Record<string, unknown>;
+      const parsed = UIStateSchema.safeParse(rawPrev);
       const prev: UIState = parsed.success ? parsed.data : {};
 
-      const nextUiState: UIState = input.forever
-        ? {
-            ...prev,
-            hideOnboardingBanner: true
-          }
-        : {
-            ...prev,
-            onboardingDismissedStep: input.step
-          };
+      // Persist only the “forever” preference; session-only dismiss happens client-side
+      if (input.forever === true && prev.hideOnboardingBanner !== true) {
+        await ctx.db.update({
+          collection: 'users',
+          id,
+          data: { uiState: { ...rawPrev, hideOnboardingBanner: true } }
+        });
+      }
 
-      await ctx.db.update({
-        collection: 'users',
-        id,
-        data: { uiState: nextUiState }
-      });
-
-      return { onboardingDismissedStep: input.step };
+      return { ok: true };
     })
 });

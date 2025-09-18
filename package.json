@@ -114,6 +114,7 @@
     "lightningcss-wasm": "^1.29.3",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.20.5",
     "typescript": "5.8.3"
   }
 }
