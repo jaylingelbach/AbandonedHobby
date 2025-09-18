@@ -49,6 +49,7 @@ export function OnboardingBannerAdmin() {
       className="ah-onboarding-banner"
       role="region"
       aria-label="Finish getting set up"
+      aria-busy={isDismissing ? 'true' : undefined}
     >
       <div className="ah-onboarding-left">
         <span>Finish getting set up</span>
