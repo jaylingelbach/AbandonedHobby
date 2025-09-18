@@ -136,7 +136,7 @@ export const Media: CollectionConfig = {
     admin: ({ req: { user } }) => Boolean(user)
   },
   admin: {
-    // Show Media to non-super users; contents are scoped by read() above
-    hidden: () => false
+    // Show Media to super users; contents are scoped by read() above
+    hidden: ({ user }) => !isSuperAdmin(user)
   }
 };
