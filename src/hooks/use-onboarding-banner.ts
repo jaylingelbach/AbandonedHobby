@@ -6,6 +6,28 @@ import { useTRPC } from '@/trpc/client';
 import type { OnboardingStep, UIState } from './types';
 import { toast } from 'sonner';
 
+/**
+ * React hook that determines whether to show an onboarding banner and provides dismissal actions.
+ *
+ * The hook reads current user and onboarding state via TRPC/React Query, tracks a per-user/per-step
+ * session dismissal flag (sessionStorage) and exposes a mutation to persist a "don't show again"
+ * preference on the server. Visibility is suppressed when the onboarding step is missing or `dashboard`,
+ * when the user's UI state has `hideOnboardingBanner: true`, or when the banner was dismissed for the
+ * current step during this session.
+ *
+ * @returns An object with:
+ * - `isLoading` — query loading flag.
+ * - `isError` — query error flag.
+ * - `error` — query error (if any).
+ * - `shouldShow` — true when the banner should be shown for the current user/step.
+ * - `label` — onboarding label from the server (if present).
+ * - `step` — current onboarding step (or `undefined`).
+ * - `next` — next onboarding step (if present).
+ * - `dismissOnce` — function that hides the banner for the current session (stores a per-user/per-step key in sessionStorage).
+ * - `dismissForever` — function that persists a "don't show again" preference via a server mutation (`{ step, forever: true }`).
+ * - `isDismissing` — true while the persistent-dismiss mutation is in progress.
+ * - `dismissError` — mutation error (as an `Error`), if any.
+ */
 export function useOnboardingBanner() {
   const trpc = useTRPC();
   const qc = useQueryClient();
