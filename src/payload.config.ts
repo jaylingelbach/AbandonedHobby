@@ -82,12 +82,9 @@ export default buildConfig({
   sharp,
   plugins: [
     s3Storage({
-      // Choose which collections use S3
       collections: {
         media: {
-          prefix: 'media', // optional folder inside your bucket
-          generateFileURL: ({ filename, prefix }) =>
-            `${process.env.S3_PUBLIC_BASE_URL}/${[prefix, filename].filter(Boolean).join('/')}`
+          prefix: 'media'
         }
       },
       bucket: process.env.S3_BUCKET as string,
@@ -97,9 +94,7 @@ export default buildConfig({
           accessKeyId: process.env.AWS_ACCESS_KEY_ID as string,
           secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY as string
         }
-        // endpoint: 'https://...custom-s3-endpoint', // only if using R2/Spaces/MinIO
       }
-      // You can also enable presigned download URLs per collection with `signedDownloads`
     }),
     payloadCloudPlugin(),
     multiTenantPlugin<Config>({

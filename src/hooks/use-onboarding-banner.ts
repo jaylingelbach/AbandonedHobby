@@ -86,14 +86,6 @@ export function useOnboardingBanner() {
     }
   }, [sessionKey]);
 
-  if (typeof window !== 'undefined') {
-    try {
-      sessionStorage.setItem(sessionKey, '1');
-    } catch {
-      // no-op
-    }
-  }
-
   const shouldShow =
     !!data &&
     step !== undefined &&
