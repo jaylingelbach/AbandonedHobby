@@ -434,19 +434,6 @@ export const Products: CollectionConfig = {
       label: 'Images (first = primary)',
       admin: { description: 'Reorder to change the primary image' },
       maxRows: 10,
-      // Ensure there’s at least one valid image overall (not every row)
-      validate: (value: unknown) => {
-        const rows = Array.isArray(value) ? value : [];
-        const hasAtLeastOne = rows.some((row) => {
-          const img = (row as { image?: unknown })?.image;
-          // when depth=0 this is the ID string; with depth>0 it can be a doc
-          return (
-            typeof img === 'string' ||
-            (img && typeof (img as { id?: unknown }).id === 'string')
-          );
-        });
-        return hasAtLeastOne ? true : 'Add at least one image';
-      },
       fields: [
         {
           name: 'image',
