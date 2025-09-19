@@ -361,3 +361,39 @@
     padding: 8px 10px;
   }
 }
+
+/* ===== AH: fix root dashboard white background ===== */
+@layer payload-default {
+  /* your tokens (optional, if you don't already have them) */
+  :root {
+    --ah-paper: #f4f4f0; /* sidebar/body */
+    --ah-sheet: #fafaf8; /* main content */
+  }
+
+  /* Sidebar + body on paper */
+  body,
+  .app-elements,
+  .nav,
+  .app-nav {
+    background: var(--ah-paper);
+  }
+
+  /* The root wrapper that was forcing white */
+  .template-default__wrap {
+    background: var(--ah-sheet); /* lighter than paper */
+  }
+
+  /* Make inner canvases transparent so the sheet shows through */
+  .template-default .dashboard,
+  .template-default .render-dashboard,
+  .template-default .doc,
+  .template-default .collection-list,
+  .template-default main {
+    background: transparent;
+  }
+
+  /* Gutter sometimes paints white — make it transparent too */
+  .template-default :where(.gutter, .payload__gutter) {
+    background: transparent;
+  }
+}
