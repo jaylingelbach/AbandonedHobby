@@ -409,8 +409,19 @@ export interface Message {
 export interface Order {
   id: string;
   name: string;
-  user: string | User;
+  orderNumber: string;
+  buyer: string | User;
+  buyerEmail?: string | null;
+  sellerTenant: string | Tenant;
+  /**
+   * Legacy primary product reference. The authoritative list is in `items[]`.
+   */
   product: string | Product;
+  currency: string;
+  /**
+   * The total amount paid in cents (Stripe amount_total).
+   */
+  total: number;
   /**
    * The Stripe account associated with the order.
    */
@@ -420,15 +431,6 @@ export interface Order {
    */
   stripeCheckoutSessionId?: string | null;
   stripeEventId?: string | null;
-  /**
-   * The total amount paid in cents (Stripe amount_total).
-   */
-  total: number;
-  orderNumber: string;
-  buyer: string | User;
-  sellerTenant: string | Tenant;
-  buyerEmail?: string | null;
-  currency: string;
   stripePaymentIntentId?: string | null;
   stripeChargeId?: string | null;
   shipping?: {
@@ -454,11 +456,11 @@ export interface Order {
   }[];
   returnsAcceptedThrough?: string | null;
   status?: ('paid' | 'refunded' | 'partially_refunded' | 'canceled') | null;
+  fulfillmentStatus?: ('unfulfilled' | 'shipped' | 'delivered' | 'returned') | null;
   /**
    * Set when stock was decremented
    */
   inventoryAdjustedAt?: string | null;
-  fulfillmentStatus?: ('unfulfilled' | 'shipped' | 'delivered' | 'returned') | null;
   shipment?: {
     carrier?: ('usps' | 'ups' | 'fedex' | 'other') | null;
     trackingNumber?: string | null;
@@ -690,17 +692,16 @@ export interface MessagesSelect<T extends boolean = true> {
  */
 export interface OrdersSelect<T extends boolean = true> {
   name?: T;
-  user?: T;
+  orderNumber?: T;
+  buyer?: T;
+  buyerEmail?: T;
+  sellerTenant?: T;
   product?: T;
+  currency?: T;
+  total?: T;
   stripeAccountId?: T;
   stripeCheckoutSessionId?: T;
   stripeEventId?: T;
-  total?: T;
-  orderNumber?: T;
-  buyer?: T;
-  sellerTenant?: T;
-  buyerEmail?: T;
-  currency?: T;
   stripePaymentIntentId?: T;
   stripeChargeId?: T;
   shipping?:
@@ -730,8 +731,8 @@ export interface OrdersSelect<T extends boolean = true> {
       };
   returnsAcceptedThrough?: T;
   status?: T;
-  inventoryAdjustedAt?: T;
   fulfillmentStatus?: T;
+  inventoryAdjustedAt?: T;
   shipment?:
     | T
     | {

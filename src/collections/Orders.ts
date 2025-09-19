@@ -8,6 +8,21 @@ import {
   beforeChangeOrderShipment
 } from '@/lib/server/payload-utils/orders';
 
+/**
+ * Orders
+ *
+ * Canonical buyer field: `buyer`
+ * - We removed the duplicate `user` field (was also a relationship to users).
+ * - Run the migration below to copy `user` -> `buyer` and then drop `user`.
+ *
+ * Seller identity: `sellerTenant`
+ * - This is the tenant that received payment; used for access scoping.
+ *
+ * Primary product reference (legacy): `product`
+ * - Kept for compatibility / quick links. The authoritative list of purchased
+ *   items is the `items[]` array (each with its own `product`).
+ * - You can remove this later once all callers use `items[]`.
+ */
 export const Orders: CollectionConfig = {
   slug: 'orders',
   access: {
@@ -17,34 +32,76 @@ export const Orders: CollectionConfig = {
     delete: ({ req }) => isSuperAdmin(req.user)
   },
   admin: {
-    useAsTitle: 'name' // keep your original title field
+    useAsTitle: 'name' // keep display title separate from orderNumber
   },
   fields: [
+    // ----- Display / identifiers -----
     { name: 'name', type: 'text', required: true },
-
     {
-      name: 'user',
+      name: 'orderNumber',
+      type: 'text',
+      index: true,
+      unique: true,
+      required: true
+    },
+
+    // ----- Buyer (canonical) -----
+    {
+      name: 'buyer',
       type: 'relationship',
       relationTo: 'users',
-      required: true,
-      hasMany: false
+      required: true
     },
+    { name: 'buyerEmail', type: 'email' },
+
+    // ----- Seller (tenant that was paid) -----
+    {
+      name: 'sellerTenant',
+      label: 'Seller (Tenant)',
+      type: 'relationship',
+      relationTo: 'tenants',
+      required: true,
+      index: true // faster access filters
+    },
+
+    // ----- Legacy primary product pointer (keep for compatibility) -----
     {
       name: 'product',
       type: 'relationship',
       relationTo: 'products',
       required: true,
-      hasMany: false
+      hasMany: false,
+      admin: {
+        description:
+          'Legacy primary product reference. The authoritative list is in `items[]`.'
+      }
     },
 
+    // ----- Accounting / Stripe refs -----
+    {
+      name: 'currency',
+      type: 'text',
+      required: true,
+      validate: (value: unknown): true | string =>
+        typeof value === 'string' && /^[A-Z]{3}$/.test(value)
+          ? true
+          : 'Currency must be ISO-4217 (e.g., USD)'
+    },
+    {
+      name: 'total',
+      type: 'number',
+      required: true,
+      min: 0,
+      admin: {
+        description: 'The total amount paid in cents (Stripe amount_total).'
+      }
+    },
     {
       name: 'stripeAccountId',
       type: 'text',
       index: true,
       required: true,
-      admin: {
-        description: 'The Stripe account associated with the order.'
-      }
+      admin: { description: 'The Stripe account associated with the order.' }
     },
     {
       name: 'stripeCheckoutSessionId',
@@ -61,52 +118,6 @@ export const Orders: CollectionConfig = {
       index: true,
       admin: { readOnly: true }
     },
-
-    {
-      name: 'total',
-      type: 'number',
-      required: true,
-      min: 0,
-      admin: {
-        description: 'The total amount paid in cents (Stripe amount_total).'
-      }
-    },
-
-    {
-      name: 'orderNumber',
-      type: 'text',
-      index: true,
-      unique: true,
-      required: true
-    },
-
-    {
-      name: 'buyer',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true
-    },
-
-    {
-      name: 'sellerTenant',
-      label: 'Seller (Tenant)',
-      type: 'relationship',
-      relationTo: 'tenants',
-      required: true,
-      index: true // speeds up access filters
-    },
-
-    { name: 'buyerEmail', type: 'email' },
-    {
-      name: 'currency',
-      type: 'text',
-      required: true,
-      validate: (value: unknown): true | string => {
-        return typeof value === 'string' && /^[A-Z]{3}$/.test(value)
-          ? true
-          : 'Currency must be ISO-4217 (e.g., USD)';
-      }
-    },
     {
       name: 'stripePaymentIntentId',
       type: 'text',
@@ -120,11 +131,10 @@ export const Orders: CollectionConfig = {
       admin: { readOnly: true }
     },
 
-    // Shipping address group (kept for webhook compatibility)
+    // ----- Shipping address (kept for webhook / emails) -----
     {
       name: 'shipping',
       type: 'group',
-      required: false,
       fields: [
         { name: 'name', type: 'text' },
         { name: 'line1', type: 'text' },
@@ -136,7 +146,7 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // Line items with quantity
+    // ----- Line items with quantity -----
     {
       name: 'items',
       type: 'array',
@@ -163,25 +173,16 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // Order-level returns cutoff (earliest eligible item)
+    // order-level returns cutoff (earliest eligible item)
     { name: 'returnsAcceptedThrough', type: 'date' },
 
+    // ----- Statuses -----
     {
       name: 'status',
       type: 'select',
       defaultValue: 'paid',
       options: ['paid', 'refunded', 'partially_refunded', 'canceled']
     },
-
-    {
-      name: 'inventoryAdjustedAt',
-      type: 'date',
-      admin: { readOnly: true, description: 'Set when stock was decremented' },
-      index: true,
-      access: { create: () => false, update: () => false }
-    },
-
-    // Fulfillment (seller can edit)
     {
       name: 'fulfillmentStatus',
       type: 'select',
@@ -195,7 +196,16 @@ export const Orders: CollectionConfig = {
       access: { update: canEditOrderFulfillmentStatus }
     },
 
-    // Shipment / Tracking (seller can edit)
+    // bookkeeping / inventory guard
+    {
+      name: 'inventoryAdjustedAt',
+      type: 'date',
+      admin: { readOnly: true, description: 'Set when stock was decremented' },
+      index: true,
+      access: { create: () => false, update: () => false }
+    },
+
+    // ----- Shipment / Tracking (seller can edit) -----
     {
       type: 'group',
       name: 'shipment',

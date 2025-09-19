@@ -448,7 +448,6 @@ export async function POST(req: Request) {
               name: orderName,
               orderNumber,
               buyer: user.id,
-              user: user.id,
               sellerTenant: tenantDoc.id,
               currency,
               product: firstProductId, // back-compat field
@@ -499,7 +498,7 @@ export async function POST(req: Request) {
         // Decrement inventory & auto-archive at 0
         await decrementInventoryBatch({ payload, qtyByProductId });
 
-        // ✅ Mark the order so retries won’t adjust again
+        // Mark the order so retries won’t adjust again
         await payload.update({
           collection: 'orders',
           id: orderDoc.id,
