@@ -7,13 +7,14 @@ import type {
   Where
 } from 'payload';
 
-// ---------- Helpers ----------
+/* ---------------------------------
+   Helpers
+----------------------------------*/
 function getTenantIdsFromUser(user: unknown): string[] {
   const u = user as { tenants?: Array<{ id: string }> } | undefined;
   return Array.isArray(u?.tenants) ? u.tenants.map((t) => t.id) : [];
 }
 
-// For field-level checks (doc is available here)
 function isSellerOfDoc(doc: unknown, user: unknown): boolean {
   const tenantIds = getTenantIdsFromUser(user);
   if (!tenantIds.length) return false;
@@ -29,13 +30,15 @@ function isSellerOfDoc(doc: unknown, user: unknown): boolean {
   return !!targetTenantId && tenantIds.includes(targetTenantId);
 }
 
-// ---------- Collection-level access (can return Where filter) ----------
+/* ---------------------------------
+   Collection-level access
+   (boolean | Where are valid Access returns)
+----------------------------------*/
 const readAccess: Access = ({ req }) => {
   if (isSuperAdmin(req.user)) return true;
   const tenantIds = getTenantIdsFromUser(req.user);
   if (!tenantIds.length) return false;
-
-  const where: Where = { sellerTenant: { in: tenantIds } }; // ⬅️ typed as `Where`
+  const where: Where = { sellerTenant: { in: tenantIds } };
   return where;
 };
 
@@ -43,19 +46,22 @@ const updateAccess: Access = ({ req }) => {
   if (isSuperAdmin(req.user)) return true;
   const tenantIds = getTenantIdsFromUser(req.user);
   if (!tenantIds.length) return false;
-
-  const where: Where = { sellerTenant: { in: tenantIds } }; // ⬅️ typed as `Where`
+  const where: Where = { sellerTenant: { in: tenantIds } };
   return where;
 };
 
-// Field-level access MUST return boolean
+/* ---------------------------------
+   Field access
+----------------------------------*/
 const canEditShipment: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfDoc(doc, req.user);
 
 const canEditFulfillmentStatus: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfDoc(doc, req.user);
 
-// ---------- Hooks ----------
+/* ---------------------------------
+   Hooks
+----------------------------------*/
 const beforeChangeShipment: FieldHook = ({ data }) => {
   const hasTracking =
     typeof data?.shipment?.trackingNumber === 'string' &&
@@ -79,9 +85,9 @@ const beforeChangeShipment: FieldHook = ({ data }) => {
         number
       )}`;
     }
-
     data.shipment.trackingUrl = url || data.shipment.trackingUrl;
 
+    // Auto-bump status + timestamp if they add tracking
     if (data.fulfillmentStatus === 'unfulfilled') {
       data.fulfillmentStatus = 'shipped';
     }
@@ -93,7 +99,9 @@ const beforeChangeShipment: FieldHook = ({ data }) => {
   return data;
 };
 
-// ---------- Collection ----------
+/* ---------------------------------
+   Collection
+----------------------------------*/
 export const Orders: CollectionConfig = {
   slug: 'orders',
   access: {
@@ -103,42 +111,50 @@ export const Orders: CollectionConfig = {
     delete: ({ req }) => isSuperAdmin(req.user)
   },
   admin: {
-    useAsTitle: 'orderNumber'
+    // ⬅️ back to your original title
+    useAsTitle: 'name'
   },
   fields: [
-    // ----- Core identifiers -----
+    // ----- Your original fields (unchanged) -----
+    { name: 'name', type: 'text', required: true },
+
     {
-      name: 'orderNumber',
+      name: 'user',
+      type: 'relationship',
+      relationTo: 'users',
+      required: true,
+      hasMany: false
+    },
+    {
+      name: 'product',
+      type: 'relationship',
+      relationTo: 'products',
+      required: true,
+      hasMany: false
+    },
+    {
+      name: 'stripeAccountId',
+      type: 'text',
+      index: true,
+      required: true,
+      admin: {
+        description: 'The Stripe account associated with the order. '
+      }
+    },
+    {
+      name: 'stripeCheckoutSessionId',
       type: 'text',
       index: true,
       unique: true,
-      required: true
-    },
-
-    // who is buying / selling
-    {
-      name: 'buyer',
-      type: 'relationship',
-      relationTo: 'users',
-      required: true
+      admin: {
+        description: 'The Stripe checkout session associated with the order. '
+      }
     },
     {
-      name: 'buyerEmail',
-      type: 'email'
-    },
-    {
-      name: 'sellerTenant',
-      label: 'Seller (Tenant)',
-      type: 'relationship',
-      relationTo: 'tenants',
-      required: true
-    },
-
-    // accounting / stripe refs
-    {
-      name: 'currency',
+      name: 'stripeEventId',
       type: 'text',
-      required: true
+      index: true,
+      admin: { readOnly: true }
     },
     {
       name: 'total',
@@ -149,69 +165,33 @@ export const Orders: CollectionConfig = {
       }
     },
     {
-      name: 'stripeAccountId',
-      type: 'text',
-      index: true,
-      required: true,
-      admin: {
-        description: 'The Stripe account associated with the order.'
-      },
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
-    },
-    {
-      name: 'stripeCheckoutSessionId',
+      name: 'orderNumber',
       type: 'text',
       index: true,
       unique: true,
-      admin: {
-        description: 'The Stripe checkout session associated with the order.'
-      },
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
+      required: true
     },
     {
-      name: 'stripeEventId',
-      type: 'text',
-      index: true,
-      admin: { readOnly: true },
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
+      name: 'buyer',
+      type: 'relationship',
+      relationTo: 'users',
+      required: true
     },
     {
-      name: 'stripePaymentIntentId',
-      type: 'text',
-      index: true,
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
+      name: 'sellerTenant',
+      label: 'Seller (Tenant)',
+      type: 'relationship',
+      relationTo: 'tenants',
+      required: true
     },
-    {
-      name: 'stripeChargeId',
-      type: 'text',
-      index: true,
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
-    },
+    { name: 'buyerEmail', type: 'email' },
+    { name: 'currency', type: 'text', required: true },
+    { name: 'stripePaymentIntentId', type: 'text', index: true },
+    { name: 'stripeChargeId', type: 'text', index: true },
 
-    // ----- Statuses -----
+    // original "shipping" address group (kept as-is)
     {
-      name: 'status',
-      type: 'select',
-      defaultValue: 'paid',
-      options: ['paid', 'refunded', 'partially_refunded', 'canceled'],
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
-    },
-    {
-      name: 'fulfillmentStatus',
-      type: 'select',
-      defaultValue: 'unfulfilled',
-      options: [
-        { label: 'Unfulfilled', value: 'unfulfilled' },
-        { label: 'Shipped', value: 'shipped' },
-        { label: 'Delivered', value: 'delivered' },
-        { label: 'Returned', value: 'returned' }
-      ],
-      access: { update: canEditFulfillmentStatus }
-    },
-
-    // ----- Shipping ADDRESS (renamed from "shipping" to avoid name collision) -----
-    {
-      name: 'shippingAddress',
+      name: 'shipping',
       type: 'group',
       required: false,
       fields: [
@@ -222,16 +202,14 @@ export const Orders: CollectionConfig = {
         { name: 'state', type: 'text' },
         { name: 'postalCode', type: 'text' },
         { name: 'country', type: 'text' }
-      ],
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
+      ]
     },
 
-    // ----- Items -----
+    // line items w/ quantity
     {
       name: 'items',
       type: 'array',
       required: true,
-      access: { update: ({ req }) => isSuperAdmin(req.user) },
       fields: [
         {
           name: 'product',
@@ -255,25 +233,38 @@ export const Orders: CollectionConfig = {
     },
 
     // order-level returns cutoff (earliest eligible item)
+    { name: 'returnsAcceptedThrough', type: 'date' },
+
     {
-      name: 'returnsAcceptedThrough',
-      type: 'date',
-      access: { update: ({ req }) => isSuperAdmin(req.user) }
+      name: 'status',
+      type: 'select',
+      defaultValue: 'paid',
+      options: ['paid', 'refunded', 'partially_refunded', 'canceled']
     },
 
-    // bookkeeping
     {
       name: 'inventoryAdjustedAt',
       type: 'date',
       admin: { readOnly: true, description: 'Set when stock was decremented' },
       index: true,
-      access: {
-        create: () => false,
-        update: () => false
-      }
+      access: { create: () => false, update: () => false }
     },
 
-    // ----- Shipment / Tracking (sellers can edit this) -----
+    // ----- Added: fulfillment status (seller can update) -----
+    {
+      name: 'fulfillmentStatus',
+      type: 'select',
+      defaultValue: 'unfulfilled',
+      options: [
+        { label: 'Unfulfilled', value: 'unfulfilled' },
+        { label: 'Shipped', value: 'shipped' },
+        { label: 'Delivered', value: 'delivered' },
+        { label: 'Returned', value: 'returned' }
+      ],
+      access: { update: canEditFulfillmentStatus }
+    },
+
+    // ----- Added: shipment tracking (seller can update) -----
     {
       type: 'group',
       name: 'shipment',
