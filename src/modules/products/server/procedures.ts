@@ -188,13 +188,21 @@ export const productsRouter = createTRPCRouter({
       z.object({
         cursor: z.number().default(1),
         limit: z.number().default(DEFAULT_LIMIT),
+
         category: z.string().nullable().optional(),
         subcategory: z.string().nullable().optional(),
+
         minPrice: z.string().nullable().optional(),
         maxPrice: z.string().nullable().optional(),
+
         tags: z.array(z.string()).nullable().optional(),
+
         sort: z.enum(sortValues).nullable().optional(),
         tenantSlug: z.string().nullable().optional(),
+
+        // ✅ canonical text param
+        q: z.string().nullable().optional(),
+        // ♻️ legacy param (still accepted)
         search: z.string().nullable().optional()
       })
     )
@@ -214,22 +222,28 @@ export const productsRouter = createTRPCRouter({
         ]
       };
 
+      // Sort
       let sort: Sort = '-createdAt';
       if (input.sort === 'curated') sort = '-createdAt';
       if (input.sort === 'hot_and_new') sort = '+createdAt';
       if (input.sort === 'trending') sort = '-createdAt';
 
-      const minPrice =
-        input.minPrice != null ? Number(input.minPrice) : undefined;
-      const maxPrice =
-        input.maxPrice != null ? Number(input.maxPrice) : undefined;
+      // Price bounds
+      const minPriceNum =
+        input.minPrice != null && input.minPrice !== ''
+          ? Number(input.minPrice)
+          : undefined;
+      const maxPriceNum =
+        input.maxPrice != null && input.maxPrice !== ''
+          ? Number(input.maxPrice)
+          : undefined;
 
       const priceFilter: PriceBounds = {};
-      if (typeof minPrice === 'number' && Number.isFinite(minPrice)) {
-        priceFilter.greater_than_equal = minPrice;
+      if (typeof minPriceNum === 'number' && Number.isFinite(minPriceNum)) {
+        priceFilter.greater_than_equal = minPriceNum;
       }
-      if (typeof maxPrice === 'number' && Number.isFinite(maxPrice)) {
-        priceFilter.less_than_equal = maxPrice;
+      if (typeof maxPriceNum === 'number' && Number.isFinite(maxPriceNum)) {
+        priceFilter.less_than_equal = maxPriceNum;
       }
       if (
         priceFilter.greater_than_equal !== undefined ||
@@ -238,17 +252,18 @@ export const productsRouter = createTRPCRouter({
         (where as Record<string, unknown>).price = priceFilter;
       }
 
+      // Tenant/public scope
       if (input.tenantSlug) {
         where['tenant.slug'] = { equals: input.tenantSlug };
       } else {
         where['isPrivate'] = { not_equals: true };
       }
 
-      if (input.search) {
-        where['name'] = { like: input.search };
-      }
+      // ✅ Text search normalization (prefer q, fallback to search)
+      const qRaw = input.q ?? input.search ?? null;
+      const q = typeof qRaw === 'string' ? qRaw.trim() : null;
 
-      // Subcategory-first
+      // Category/Subcategory
       if (input.subcategory) {
         const subRes = await ctx.db.find({
           collection: 'categories',
@@ -280,7 +295,6 @@ export const productsRouter = createTRPCRouter({
           where.subcategory = { equals: sub.id };
         }
       } else if (input.category) {
-        // Category-only (include children)
         const catRes = await ctx.db.find({
           collection: 'categories',
           limit: 1,
@@ -306,9 +320,23 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
+      // ✅ Final where: availability AND (optional) multi-field text search
+      const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
+
+      if (q && q.length > 0) {
+        // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
+        andClauses.push({
+          or: [
+            { name: { like: q } },
+            { description: { like: q } },
+            { 'tenant.name': { like: q } }
+          ]
+        });
+      }
+
       const finalWhere: Where = {
         ...where,
-        and: [...(where.and ?? []), availabilityFilter]
+        and: andClauses
       };
 
       const data = await ctx.db.find({

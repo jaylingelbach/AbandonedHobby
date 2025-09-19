@@ -39,9 +39,10 @@ export const SearchFilters = () => {
     >
       <Suspense>
         <SearchInput
-          defaultValue={filters.search}
+          defaultValue={filters.q || filters.search || ''}
           onChange={(value) => {
-            setFilters({ search: value });
+            const next = value || undefined; // empty clears from URL via nuqs
+            setFilters({ q: next, search: next });
           }}
         />
       </Suspense>
