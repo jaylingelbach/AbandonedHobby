@@ -115,6 +115,7 @@ export const Orders: CollectionConfig = {
     {
       name: 'stripeEventId',
       type: 'text',
+      unique: true,
       index: true,
       admin: { readOnly: true }
     },
@@ -156,7 +157,7 @@ export const Orders: CollectionConfig = {
           name: 'product',
           type: 'relationship',
           relationTo: 'products',
-          required: true
+          required: false
         },
         { name: 'nameSnapshot', type: 'text', required: true },
         { name: 'unitAmount', type: 'number', required: true }, // cents
