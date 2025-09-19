@@ -19,4 +19,5 @@ const params = {
   q: parseAsString.withOptions({ clearOnDefault: true }).withDefault('')
 };
 
-export const useProductFilters = () => useQueryStates(params);
+export const useProductFilters = () =>
+  useQueryStates(params, { history: 'replace' });
