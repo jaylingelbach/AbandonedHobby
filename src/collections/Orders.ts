@@ -1,121 +1,25 @@
 import { isSuperAdmin } from '@/lib/access';
-import type {
-  Access,
-  CollectionConfig,
-  FieldAccess,
-  FieldHook,
-  Where
-} from 'payload';
+import type { CollectionConfig } from 'payload';
+import {
+  readOrdersAccess,
+  updateOrdersAccess,
+  canEditOrderShipment,
+  canEditOrderFulfillmentStatus,
+  beforeChangeOrderShipment
+} from '@/lib/server/payload-utils/orders';
 
-/* ---------------------------------
-   Helpers
-----------------------------------*/
-function getTenantIdsFromUser(user: unknown): string[] {
-  const u = user as { tenants?: Array<{ id: string }> } | undefined;
-  return Array.isArray(u?.tenants) ? u.tenants.map((t) => t.id) : [];
-}
-
-function isSellerOfDoc(doc: unknown, user: unknown): boolean {
-  const tenantIds = getTenantIdsFromUser(user);
-  if (!tenantIds.length) return false;
-
-  const d = doc as
-    | { sellerTenant?: string | { id?: string } }
-    | null
-    | undefined;
-  const sellerTenant = d?.sellerTenant;
-  const targetTenantId =
-    typeof sellerTenant === 'string' ? sellerTenant : sellerTenant?.id;
-
-  return !!targetTenantId && tenantIds.includes(targetTenantId);
-}
-
-/* ---------------------------------
-   Collection-level access
-   (boolean | Where are valid Access returns)
-----------------------------------*/
-const readAccess: Access = ({ req }) => {
-  if (isSuperAdmin(req.user)) return true;
-  const tenantIds = getTenantIdsFromUser(req.user);
-  if (!tenantIds.length) return false;
-  const where: Where = { sellerTenant: { in: tenantIds } };
-  return where;
-};
-
-const updateAccess: Access = ({ req }) => {
-  if (isSuperAdmin(req.user)) return true;
-  const tenantIds = getTenantIdsFromUser(req.user);
-  if (!tenantIds.length) return false;
-  const where: Where = { sellerTenant: { in: tenantIds } };
-  return where;
-};
-
-/* ---------------------------------
-   Field access
-----------------------------------*/
-const canEditShipment: FieldAccess = ({ req, doc }) =>
-  isSuperAdmin(req.user) || isSellerOfDoc(doc, req.user);
-
-const canEditFulfillmentStatus: FieldAccess = ({ req, doc }) =>
-  isSuperAdmin(req.user) || isSellerOfDoc(doc, req.user);
-
-/* ---------------------------------
-   Hooks
-----------------------------------*/
-const beforeChangeShipment: FieldHook = ({ data }) => {
-  const hasTracking =
-    typeof data?.shipment?.trackingNumber === 'string' &&
-    data.shipment.trackingNumber.trim().length > 0;
-
-  if (hasTracking) {
-    const carrier = data.shipment?.carrier as string | undefined;
-    const number = data.shipment?.trackingNumber as string;
-
-    let url = '';
-    if (carrier === 'usps') {
-      url = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
-        number
-      )}`;
-    } else if (carrier === 'ups') {
-      url = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
-        number
-      )}`;
-    } else if (carrier === 'fedex') {
-      url = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(
-        number
-      )}`;
-    }
-    data.shipment.trackingUrl = url || data.shipment.trackingUrl;
-
-    // Auto-bump status + timestamp if they add tracking
-    if (data.fulfillmentStatus === 'unfulfilled') {
-      data.fulfillmentStatus = 'shipped';
-    }
-    if (!data.shipment.shippedAt) {
-      data.shipment.shippedAt = new Date().toISOString();
-    }
-  }
-
-  return data;
-};
-
-/* ---------------------------------
-   Collection
-----------------------------------*/
 export const Orders: CollectionConfig = {
   slug: 'orders',
   access: {
-    read: readAccess,
+    read: readOrdersAccess,
     create: ({ req }) => isSuperAdmin(req.user),
-    update: updateAccess,
+    update: updateOrdersAccess,
     delete: ({ req }) => isSuperAdmin(req.user)
   },
   admin: {
-    // ⬅️ back to your original title
-    useAsTitle: 'name'
+    useAsTitle: 'name' // keep your original title field
   },
   fields: [
-    // ----- Your original fields (unchanged) -----
     { name: 'name', type: 'text', required: true },
 
     {
@@ -132,13 +36,14 @@ export const Orders: CollectionConfig = {
       required: true,
       hasMany: false
     },
+
     {
       name: 'stripeAccountId',
       type: 'text',
       index: true,
       required: true,
       admin: {
-        description: 'The Stripe account associated with the order. '
+        description: 'The Stripe account associated with the order.'
       }
     },
     {
@@ -147,7 +52,7 @@ export const Orders: CollectionConfig = {
       index: true,
       unique: true,
       admin: {
-        description: 'The Stripe checkout session associated with the order. '
+        description: 'The Stripe checkout session associated with the order.'
       }
     },
     {
@@ -156,14 +61,17 @@ export const Orders: CollectionConfig = {
       index: true,
       admin: { readOnly: true }
     },
+
     {
       name: 'total',
       type: 'number',
       required: true,
+      min: 0,
       admin: {
         description: 'The total amount paid in cents (Stripe amount_total).'
       }
     },
+
     {
       name: 'orderNumber',
       type: 'text',
@@ -171,25 +79,48 @@ export const Orders: CollectionConfig = {
       unique: true,
       required: true
     },
+
     {
       name: 'buyer',
       type: 'relationship',
       relationTo: 'users',
       required: true
     },
+
     {
       name: 'sellerTenant',
       label: 'Seller (Tenant)',
       type: 'relationship',
       relationTo: 'tenants',
-      required: true
+      required: true,
+      index: true // speeds up access filters
     },
-    { name: 'buyerEmail', type: 'email' },
-    { name: 'currency', type: 'text', required: true },
-    { name: 'stripePaymentIntentId', type: 'text', index: true },
-    { name: 'stripeChargeId', type: 'text', index: true },
 
-    // original "shipping" address group (kept as-is)
+    { name: 'buyerEmail', type: 'email' },
+    {
+      name: 'currency',
+      type: 'text',
+      required: true,
+      validate: (value: unknown): true | string => {
+        return typeof value === 'string' && /^[A-Z]{3}$/.test(value)
+          ? true
+          : 'Currency must be ISO-4217 (e.g., USD)';
+      }
+    },
+    {
+      name: 'stripePaymentIntentId',
+      type: 'text',
+      index: true,
+      admin: { readOnly: true }
+    },
+    {
+      name: 'stripeChargeId',
+      type: 'text',
+      index: true,
+      admin: { readOnly: true }
+    },
+
+    // Shipping address group (kept for webhook compatibility)
     {
       name: 'shipping',
       type: 'group',
@@ -205,7 +136,7 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // line items w/ quantity
+    // Line items with quantity
     {
       name: 'items',
       type: 'array',
@@ -232,7 +163,7 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // order-level returns cutoff (earliest eligible item)
+    // Order-level returns cutoff (earliest eligible item)
     { name: 'returnsAcceptedThrough', type: 'date' },
 
     {
@@ -250,7 +181,7 @@ export const Orders: CollectionConfig = {
       access: { create: () => false, update: () => false }
     },
 
-    // ----- Added: fulfillment status (seller can update) -----
+    // Fulfillment (seller can edit)
     {
       name: 'fulfillmentStatus',
       type: 'select',
@@ -261,15 +192,15 @@ export const Orders: CollectionConfig = {
         { label: 'Delivered', value: 'delivered' },
         { label: 'Returned', value: 'returned' }
       ],
-      access: { update: canEditFulfillmentStatus }
+      access: { update: canEditOrderFulfillmentStatus }
     },
 
-    // ----- Added: shipment tracking (seller can update) -----
+    // Shipment / Tracking (seller can edit)
     {
       type: 'group',
       name: 'shipment',
-      access: { update: canEditShipment },
-      hooks: { beforeChange: [beforeChangeShipment] },
+      access: { update: canEditOrderShipment },
+      hooks: { beforeChange: [beforeChangeOrderShipment] },
       fields: [
         {
           name: 'carrier',
