@@ -157,7 +157,7 @@ export const Orders: CollectionConfig = {
           name: 'product',
           type: 'relationship',
           relationTo: 'products',
-          required: false
+          required: true
         },
         { name: 'nameSnapshot', type: 'text', required: true },
         { name: 'unitAmount', type: 'number', required: true }, // cents

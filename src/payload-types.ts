@@ -443,7 +443,7 @@ export interface Order {
     country?: string | null;
   };
   items: {
-    product?: (string | null) | Product;
+    product: string | Product;
     nameSnapshot: string;
     unitAmount: number;
     quantity: number;
