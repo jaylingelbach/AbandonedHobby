@@ -67,9 +67,15 @@ export const Navbar = () => {
       </Link>
 
       <NavbarSidebar
-        items={navItems}
+        items={
+          isAuthed
+            ? navbarItems
+            : navbarItems.filter((i) => i.href !== '/welcome')
+        }
         open={isSidebarOpen}
         onOpenChange={setIsSidebarOpen}
+        isAuthed={isAuthed}
+        unreadCount={unreadCount}
       />
 
       <div className="items-center gap-4 hidden lg:flex">
