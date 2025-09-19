@@ -170,7 +170,7 @@ export const productsRouter = createTRPCRouter({
         availabilityLabel: isSoldOut
           ? 'Sold out'
           : trackInventory
-            ? `${stockQuantity} in stock${stockQuantity === 1 ? '' : ''}`
+            ? `${stockQuantity} in stock`
             : 'Available',
         isPurchased,
         // keep cover (populated by depth: 2)
@@ -248,6 +248,11 @@ export const productsRouter = createTRPCRouter({
         priceFilter.less_than_equal !== undefined
       ) {
         (where as Record<string, unknown>).price = priceFilter;
+      }
+
+      // Tags filter (any match)
+      if (Array.isArray(input.tags) && input.tags.length > 0) {
+        (where as Record<string, unknown>).tags = { in: input.tags };
       }
 
       // Tenant/public scope
