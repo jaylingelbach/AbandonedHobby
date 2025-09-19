@@ -2896,3 +2896,47 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/modules/users/server/procedures.ts
     - dismissOnboardingBanner mutation now persists only the forever preference by setting uiState.hideOnboardingBanner when input.forever is true (writes only if changed);
     - adds NOT_FOUND guard; preserves other uiState fields; returns { ok: true } (previously returned { onboardingDismissedStep: ... }).
+
+# Bug restore search
+
+## Walkthrough
+
+- Introduces a canonical text query parameter q across UI, hooks, product-list, and server; normalizes and sanitizes filter inputs (prices, tags); updates analytics deduping to per-event guards; refactors server filtering (multi-field q search, numeric price parsing, tenant/public scoping); and deletes a legacy media-to-S3 migration script.
+
+## New Features
+
+- Canonical product query parameter "q" enabling multi-field text search across title, description, and tenant; tags, category, subcategory, price range, sort, and tenant scope supported.
+
+## Improvements
+
+- Search input trimmed and treats blank as cleared (syncs to URL); inputs normalized and memoized; more robust price parsing to avoid invalid filters.
+
+## Bug Fixes
+
+- Prevented duplicate analytics for search, no-results, and load-more events.
+
+## Chores
+
+- Removed deprecated media migration script.
+
+## File changes
+
+- Search UI
+  - src/modules/home/ui/components/search-filters/index.tsx
+    - Uses filters.q as the default, trims input on change, and writes q (sets q to '' when trimmed input is empty).
+
+- Query state hook
+  - src/modules/products/hooks/use-product-filters.ts
+    - Introduces public q param (clear-on-default, default ''), imports sortValues, consolidates param initializers, and simplifies useProductFilters to return useQueryStates(params, { history: 'replace' }).
+
+- Server: products getMany
+  - src/modules/products/server/procedures.ts
+    - Replaces search with q in input schema; applies multi-field LIKE on q (name, description, tenant.name); parses numeric minPrice/maxPrice; enforces tenantSlug vs public scoping; composes availability + optional text search; accepts tags; keeps sort/depth behavior.
+
+- Product list & analytics
+  - src/modules/products/ui/components/product-list.tsx
+    - Normalizes inputs into an explicit memoized input (prefers q, legacy search fallback), converts empty prices/tags to undefined, replaces a single dedupe guard with per-event guards (performedSigRef, noResultsSigRef), and updates analytics signatures/triggers.
+
+- Scripts removal
+  - src/scripts/migrate-media-to-s3-urls.ts
+    - Deletes the Payload CMS media migration script that converted legacy local media URLs to S3 URLs.

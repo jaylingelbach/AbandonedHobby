@@ -32,18 +32,54 @@ export const ProductList = ({
 }: Props) => {
   const [filters] = useProductFilters();
   const trpc = useTRPC();
-  const lastSigRef = useRef<string>('');
 
+  // Keep signatures so we don't duplicate analytics events
+  const performedSigRef = useRef<string>('');
+  const noResultsSigRef = useRef<string>('');
+
+  // ---- Normalize filters ----------------------------------------------------
+
+  // Prefer q, fall back to legacy search; send undefined when empty
+  const qNormalized = (filters.q || '').trim() || undefined;
+
+  // Convert empty strings/arrays to undefined so the server skips those filters
+  const minPrice = filters.minPrice ? filters.minPrice : undefined;
+  const maxPrice = filters.maxPrice ? filters.maxPrice : undefined;
+  const tags =
+    Array.isArray(filters.tags) && filters.tags.length
+      ? filters.tags
+      : undefined;
+
+  // Build a clean input object — do NOT spread the raw filters object
   const input = useMemo(
     () => ({
-      ...filters,
       category,
       subcategory,
       tenantSlug,
-      limit: DEFAULT_LIMIT
+      limit: DEFAULT_LIMIT,
+
+      // canonical text filter expected by backend & included in query key
+      q: qNormalized,
+
+      // other filters
+      sort: filters.sort,
+      minPrice,
+      maxPrice,
+      tags
     }),
-    [filters, category, subcategory, tenantSlug]
+    [
+      category,
+      subcategory,
+      tenantSlug,
+      qNormalized,
+      filters.sort,
+      minPrice,
+      maxPrice,
+      tags
+    ]
   );
+
+  // ---- Query ---------------------------------------------------------------
 
   const queryOpts = trpc.products.getMany.infiniteQueryOptions(input, {
     getNextPageParam: (lastPage) =>
@@ -53,7 +89,8 @@ export const ProductList = ({
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useSuspenseInfiniteQuery(queryOpts);
 
-  // Fire analytics ONLY for the first page of a search/filter combo
+  // ---- Analytics -----------------------------------------------------------
+
   useEffect(() => {
     const computeHasFilters = (i: typeof input) =>
       Boolean(i.category) ||
@@ -63,12 +100,13 @@ export const ProductList = ({
       (Array.isArray(i.tags) && i.tags.length > 0) ||
       Boolean(i.sort) ||
       Boolean(i.tenantSlug);
+
     const pages = data?.pages ?? [];
-    if (pages.length !== 1) return; // ignore "Load more" etc.
+    if (pages.length !== 1) return; // only on first page
 
     const first = pages[0] as { totalDocs?: number; docs: unknown[] };
 
-    const q = (input.search ?? '') as string;
+    const qForAnalytics = input.q ?? '';
     const hasFilters = computeHasFilters(input);
 
     const resultCount =
@@ -76,8 +114,8 @@ export const ProductList = ({
 
     if (resultCount === 0) return;
 
-    const sig = JSON.stringify({
-      q: q,
+    const signature = JSON.stringify({
+      q: qForAnalytics,
       category: input.category,
       subcategory: input.subcategory,
       priceRange: [input.minPrice, input.maxPrice],
@@ -87,31 +125,27 @@ export const ProductList = ({
       tenant: input.tenantSlug ?? undefined,
       resultCount
     });
-    if (sig === lastSigRef.current) return;
-    lastSigRef.current = sig;
+
+    if (signature === performedSigRef.current) return;
+    performedSigRef.current = signature;
 
     capture('searchPerformed', {
-      queryLength: q.length,
+      queryLength: qForAnalytics.length,
       hasFilters,
       tenantSlug: input.tenantSlug ?? undefined,
       resultCount
     });
   }, [data, input]);
 
-  // Optional: explicit "no results" event
-  const lastNoResultsSigRef = useRef<string>('');
-
   useEffect(() => {
-    if (data?.pages?.[0]?.docs.length === 0) {
-      const sig = JSON.stringify({
-        q: input.search ?? '',
-        filters: input
-      });
-      if (sig === lastNoResultsSigRef.current) return;
-      lastNoResultsSigRef.current = sig;
+    const firstDocs = data?.pages?.[0]?.docs ?? [];
+    if (firstDocs.length === 0) {
+      const signature = JSON.stringify({ q: input.q ?? '', filters: input });
+      if (signature === noResultsSigRef.current) return;
+      noResultsSigRef.current = signature;
 
       capture('searchNoResults', {
-        queryLength: (input.search ?? '').length,
+        queryLength: (input.q ?? '').length,
         hasFilters:
           Boolean(input.category) ||
           Boolean(input.subcategory) ||
@@ -125,11 +159,13 @@ export const ProductList = ({
     }
   }, [data, input]);
 
+  // ---- UI ------------------------------------------------------------------
+
   if (data?.pages?.[0]?.docs.length === 0) {
     return (
       <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg">
         <InboxIcon />
-        <p className="text-base font-medium">No products found </p>
+        <p className="text-base font-medium">No products found</p>
       </div>
     );
   }
@@ -164,13 +200,14 @@ export const ProductList = ({
             );
           })}
       </div>
+
       <div className="flex justify-center pt-8">
         {hasNextPage && (
           <Button
             disabled={isFetchingNextPage}
             onClick={() => {
               capture('searchLoadMore', {
-                queryLength: (input.search ?? '').length,
+                queryLength: (input.q ?? '').length,
                 tenantSlug: input.tenantSlug ?? undefined
               });
               fetchNextPage();

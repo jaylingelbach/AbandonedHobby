@@ -39,9 +39,10 @@ export const SearchFilters = () => {
     >
       <Suspense>
         <SearchInput
-          defaultValue={filters.search}
+          defaultValue={filters.q}
           onChange={(value) => {
-            setFilters({ search: value });
+            const trimmed = (value ?? '').trim();
+            setFilters({ q: trimmed === '' ? '' : trimmed });
           }}
         />
       </Suspense>
