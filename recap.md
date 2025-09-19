@@ -2940,3 +2940,25 @@ Added recap covering the Orders transition and onboarding behavior.
 - Scripts removal
   - src/scripts/migrate-media-to-s3-urls.ts
     - Deletes the Payload CMS media migration script that converted legacy local media URLs to S3 URLs.
+
+# Sidebar updates 09/19/25
+
+## Walkthrough
+
+- Updates navbar components to accept isAuthed and unreadCount props and conditionally render items (Inbox/Dashboard vs Log in/Sign up) and unread badges.
+
+## New Features
+
+- Sidebar now adapts to your sign-in status: signed-in users see Inbox (with unread count badge) and Dashboard; signed-out - users see Log in and Sign up.
+- Unread messages are highlighted with a badge and improved accessibility labels.
+
+## Improvements
+
+- Navigation items are tailored based on authentication, reducing clutter for new users.
+
+## File changes
+
+- Navbar components
+  - src/modules/home/ui/components/navbar-sidebar.tsx, src/modules/home/ui/components/navbar.tsx
+    - Adds isAuthed and unreadCount props to NavbarSidebar and passes them from Navbar. Implements conditional rendering: authed shows Inbox (with optional unread badge) and Dashboard;
+    - Unauthorized shows Log in and Sign up. Adjusts items provisioning and adds keys to links; imports cn for badge classes.

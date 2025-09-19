@@ -43,6 +43,11 @@ export const Navbar = () => {
     ? navbarItems
     : navbarItems.filter((item) => item.href !== '/welcome');
 
+  const isActive = (href: string) =>
+    (href === '/' && pathname === '/') ||
+    pathname === href ||
+    (href !== '/' && pathname.startsWith(`${href}/`));
+
   // Gate unreadCount to client AND only when authenticated
   const notificationsQuery = useQuery({
     ...trpc.notifications.unreadCount.queryOptions(),
@@ -70,6 +75,8 @@ export const Navbar = () => {
         items={navItems}
         open={isSidebarOpen}
         onOpenChange={setIsSidebarOpen}
+        isAuthed={isAuthed}
+        unreadCount={unreadCount}
       />
 
       <div className="items-center gap-4 hidden lg:flex">
@@ -80,13 +87,18 @@ export const Navbar = () => {
             variant="outline"
             className={cn(
               'bg-transparent hover:bg-transparent rounded-full hover:border-primary border-transparent px-3.5 text-lg',
-              pathname === item.href &&
+              isActive(item.href) &&
                 'bg-black text-white hover:bg-black hover:text-white'
             )}
           >
             <Link
               href={item.href}
-              aria-current={pathname === item.href ? 'page' : undefined}
+              aria-current={
+                pathname === item.href ||
+                (item.href !== '/' && pathname.startsWith(`${item.href}/`))
+                  ? 'page'
+                  : undefined
+              }
             >
               {item.children}
             </Link>
