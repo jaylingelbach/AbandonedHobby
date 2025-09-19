@@ -2962,3 +2962,62 @@ Added recap covering the Orders transition and onboarding behavior.
   - src/modules/home/ui/components/navbar-sidebar.tsx, src/modules/home/ui/components/navbar.tsx
     - Adds isAuthed and unreadCount props to NavbarSidebar and passes them from Navbar. Implements conditional rendering: authed shows Inbox (with optional unread badge) and Dashboard;
     - Unauthorized shows Log in and Sign up. Adjusts items provisioning and adds keys to links; imports cn for badge classes.
+
+# Update payload styles etc 09/19/25
+
+## Walkthrough
+
+- Refactors Orders schema/types and centralizes order access/shipments into new payload-utils; adds admin view types/utils and updates SellerDashboard to use getData with Next.js Links; webhook route body parsing and order creation payload adjusted (removed duplicate user field).
+
+## New Features
+
+- Quick Actions use in-app navigation for faster transitions.
+- Seller dashboard now shows aggregated counts and a normalized tracking list.
+- Orders UI exposes richer shipment/tracking (tracking URL, shipped timestamp), explicit fulfillment statuses, totals/currency, and returns windows.
+
+## Bug Fixes
+
+- Low-inventory indicator reports accurate counts across environments.
+- Duplicate user reference removed from newly created orders.
+
+## Refactor
+
+- Orders fields and access logic reorganized for clearer shipping and fulfillment workflows.
+
+## File changes
+
+### Orders collection & schema
+
+- src/collections/Orders.ts
+  - Major schema and access refactor: added name, expanded items/returns fields, renamed shippingAddress → shipping, added status/fulfillmentStatus, shipment group guarded by canEditOrderShipment with beforeChangeOrderShipment hook, reworked Stripe/inventory fields, and moved collection access to centralized guards.
+
+### Public payload types
+
+- src/payload-types.ts
+  - Order and OrdersSelect interfaces updated to match schema: added name, product, stripeAccountId, total, status/fulfillmentStatus, shipping shape, expanded items[], shipment, and selection flags.
+
+### Server-side order utilities
+
+- src/lib/server/payload-utils/orders.ts
+  - New module: tenant extraction and ownership checks, exports readOrdersAccess, updateOrdersAccess, canEditOrderShipment, canEditOrderFulfillmentStatus, beforeChangeOrderShipment (builds trackingUrl, sets shippedAt, bumps fulfillment status).
+
+### Admin view types
+
+- src/payload/views/types.ts
+  - New types: CountSummary, OrderListItem, and CountResult for dashboard aggregations and normalized order items.
+
+### Admin view utils / data fetching
+
+- src/payload/views/utils.ts
+  - New helpers: readCount to normalize count results and getData(props) to fetch dashboard summary (unfulfilled orders, low-inventory count, onboarding flag) and needsTracking list.
+
+### Seller dashboard view
+
+- src/payload/views/seller-dashboard.tsx
+  - Refactored to await getData(props) and consume data.summary/data.needsTracking; replaced three Quick Actions anchors with Next.js Link (prefetch={false}); signature unchanged.
+
+### Stripe webhook route
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Webhook body read via req.text();
+  - order creation payload no longer includes redundant user field (keeps buyer: user.id); minor comment adjustment in inventory-adjustment path.

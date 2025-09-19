@@ -115,9 +115,9 @@ export const Users: CollectionConfig = {
       },
       defaultValue: {}, // ensures {} instead of null
       access: {
-        read: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id,
+        read: ({ req: { user } }) => isSuperAdmin(user),
         create: ({ req: { user } }) => isSuperAdmin(user),
-        update: ({ req: { user }, id }) => isSuperAdmin(user) || user?.id === id
+        update: ({ req: { user } }) => isSuperAdmin(user)
       }
     }
   ]
