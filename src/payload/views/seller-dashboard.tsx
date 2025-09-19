@@ -2,136 +2,10 @@ import type { AdminViewServerProps } from 'payload';
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
 import * as React from 'react';
+import Link from 'next/link'; // <-- use Next Link for internal nav
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
-
-type CountSummary = {
-  unfulfilledOrders: number;
-  lowInventory: number;
-  needsOnboarding: boolean;
-};
-
-type OrderListItem = {
-  id: string;
-  orderNumber: string;
-  totalCents: number;
-  createdAt: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
-};
-
-// small runtime helper so this works across Payload versions where count() returns a number vs an object
-function readCount(result: unknown): number {
-  if (typeof result === 'number') return result;
-  if (
-    typeof result === 'object' &&
-    result !== null &&
-    'totalDocs' in result &&
-    typeof (result as { totalDocs?: unknown }).totalDocs === 'number'
-  ) {
-    return (result as { totalDocs: number }).totalDocs;
-  }
-  return 0;
-}
-
-async function getData(
-  props: AdminViewServerProps
-): Promise<{ summary: CountSummary; needsTracking: OrderListItem[] }> {
-  const {
-    initPageResult: { req }
-  } = props;
-
-  const { payload } = req;
-
-  const user = req.user as
-    | { tenants?: Array<{ id: string }>; stripeDetailsSubmitted?: boolean }
-    | undefined;
-
-  if (!user) {
-    return {
-      summary: {
-        unfulfilledOrders: 0,
-        lowInventory: 0,
-        needsOnboarding: false
-      },
-      needsTracking: []
-    };
-  }
-
-  const tenantIds = Array.isArray(user.tenants)
-    ? user.tenants.map((t) => t.id)
-    : [];
-
-  // 1) Unfulfilled, PAID orders for this seller's tenant(s)
-  const orders = await payload.find({
-    collection: 'orders',
-    depth: 0,
-    pagination: false,
-    where: {
-      and: [
-        { sellerTenant: { in: tenantIds } },
-        { status: { equals: 'paid' } },
-        { fulfillmentStatus: { equals: 'unfulfilled' } }
-      ]
-    }
-  });
-
-  // 2) Low inventory products for the same tenant(s)
-  //    Your schema uses: tenant, trackInventory (boolean), stockQuantity (number)
-  //    We'll also exclude archived items.
-  const lowInvRes = await payload.count({
-    collection: 'products',
-    where: {
-      and: [
-        { tenant: { in: tenantIds } },
-        { trackInventory: { equals: true } },
-        { stockQuantity: { less_than_equal: 2 } },
-        { isArchived: { not_equals: true } }
-      ]
-    }
-  });
-
-  const lowInventory =
-    typeof lowInvRes === 'number'
-      ? lowInvRes
-      : ((lowInvRes as { totalDocs?: number }).totalDocs ?? 0);
-
-  const needsOnboarding = user.stripeDetailsSubmitted === false;
-
-  const needsTracking: OrderListItem[] = orders.docs.map((o: unknown) => {
-    const doc = o as Partial<OrderListItem> & {
-      id?: string;
-      orderNumber?: string;
-      totalCents?: number;
-      total?: number; // your field is `total` (cents)
-      createdAt?: string;
-      fulfillmentStatus?: OrderListItem['fulfillmentStatus'];
-    };
-    const cents =
-      typeof doc.totalCents === 'number'
-        ? doc.totalCents
-        : typeof doc.total === 'number'
-          ? doc.total
-          : 0;
-
-    return {
-      id: String(doc.id),
-      orderNumber: String(doc.orderNumber),
-      totalCents: cents,
-      createdAt: String(doc.createdAt ?? new Date().toISOString()),
-      fulfillmentStatus: (doc.fulfillmentStatus ??
-        'unfulfilled') as OrderListItem['fulfillmentStatus']
-    };
-  });
-
-  return {
-    summary: {
-      unfulfilledOrders: orders.totalDocs,
-      lowInventory,
-      needsOnboarding
-    },
-    needsTracking
-  };
-}
+import { getData } from './utils';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
@@ -171,18 +45,27 @@ export async function SellerDashboard(props: AdminViewServerProps) {
 
           <UiCard title="Quick Actions">
             <div className="ah-actions ah-actions--stacked">
-              <a
+              <Link
+                prefetch={false}
                 className="btn btn--block"
                 href="/admin/collections/products/create"
               >
                 Add Product
-              </a>
-              <a className="btn btn--block" href="/admin/collections/products">
+              </Link>
+              <Link
+                prefetch={false}
+                className="btn btn--block"
+                href="/admin/collections/products"
+              >
                 View Products
-              </a>
-              <a className="btn btn--block" href="/admin/collections/orders">
+              </Link>
+              <Link
+                prefetch={false}
+                className="btn btn--block"
+                href="/admin/collections/orders"
+              >
                 View Orders
-              </a>
+              </Link>
             </div>
           </UiCard>
         </div>
@@ -216,7 +99,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                         orderId={o.id}
                         initialCarrier="usps"
                         initialTracking=""
-                        layout="stacked" // ← this stacks label and input on separate lines
+                        layout="stacked"
                         onSuccess={() => {
                           // optional: refresh or optimistically remove this row
                           // location.reload();

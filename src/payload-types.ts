@@ -408,10 +408,15 @@ export interface Message {
  */
 export interface Order {
   id: string;
+  name: string;
   orderNumber: string;
   buyer: string | User;
   buyerEmail?: string | null;
   sellerTenant: string | Tenant;
+  /**
+   * Legacy primary product reference. The authoritative list is in `items[]`.
+   */
+  product: string | Product;
   currency: string;
   /**
    * The total amount paid in cents (Stripe amount_total).
@@ -428,9 +433,7 @@ export interface Order {
   stripeEventId?: string | null;
   stripePaymentIntentId?: string | null;
   stripeChargeId?: string | null;
-  status?: ('paid' | 'refunded' | 'partially_refunded' | 'canceled') | null;
-  fulfillmentStatus?: ('unfulfilled' | 'shipped' | 'delivered' | 'returned') | null;
-  shippingAddress?: {
+  shipping?: {
     name?: string | null;
     line1?: string | null;
     line2?: string | null;
@@ -452,6 +455,8 @@ export interface Order {
     id?: string | null;
   }[];
   returnsAcceptedThrough?: string | null;
+  status?: ('paid' | 'refunded' | 'partially_refunded' | 'canceled') | null;
+  fulfillmentStatus?: ('unfulfilled' | 'shipped' | 'delivered' | 'returned') | null;
   /**
    * Set when stock was decremented
    */
@@ -686,10 +691,12 @@ export interface MessagesSelect<T extends boolean = true> {
  * via the `definition` "orders_select".
  */
 export interface OrdersSelect<T extends boolean = true> {
+  name?: T;
   orderNumber?: T;
   buyer?: T;
   buyerEmail?: T;
   sellerTenant?: T;
+  product?: T;
   currency?: T;
   total?: T;
   stripeAccountId?: T;
@@ -697,9 +704,7 @@ export interface OrdersSelect<T extends boolean = true> {
   stripeEventId?: T;
   stripePaymentIntentId?: T;
   stripeChargeId?: T;
-  status?: T;
-  fulfillmentStatus?: T;
-  shippingAddress?:
+  shipping?:
     | T
     | {
         name?: T;
@@ -725,6 +730,8 @@ export interface OrdersSelect<T extends boolean = true> {
         id?: T;
       };
   returnsAcceptedThrough?: T;
+  status?: T;
+  fulfillmentStatus?: T;
   inventoryAdjustedAt?: T;
   shipment?:
     | T
