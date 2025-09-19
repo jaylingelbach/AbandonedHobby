@@ -40,7 +40,7 @@ export const ProductList = ({
   // ---- Normalize filters ----------------------------------------------------
 
   // Prefer q, fall back to legacy search; send undefined when empty
-  const qNormalized = (filters.q || filters.search || '').trim() || undefined;
+  const qNormalized = (filters.q || '').trim() || undefined;
 
   // Convert empty strings/arrays to undefined so the server skips those filters
   const minPrice = filters.minPrice ? filters.minPrice : undefined;
@@ -140,10 +140,7 @@ export const ProductList = ({
   useEffect(() => {
     const firstDocs = data?.pages?.[0]?.docs ?? [];
     if (firstDocs.length === 0) {
-      const signature = JSON.stringify({
-        q: input.q ?? '',
-        filters: input
-      });
+      const signature = JSON.stringify({ q: input.q ?? '', filters: input });
       if (signature === noResultsSigRef.current) return;
       noResultsSigRef.current = signature;
 

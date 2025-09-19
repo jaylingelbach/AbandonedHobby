@@ -200,10 +200,8 @@ export const productsRouter = createTRPCRouter({
         sort: z.enum(sortValues).nullable().optional(),
         tenantSlug: z.string().nullable().optional(),
 
-        // ✅ canonical text param
-        q: z.string().nullable().optional(),
-        // ♻️ legacy param (still accepted)
-        search: z.string().nullable().optional()
+        // canonical text param
+        q: z.string().nullable().optional()
       })
     )
     .query(async ({ ctx, input }) => {
@@ -259,9 +257,10 @@ export const productsRouter = createTRPCRouter({
         where['isPrivate'] = { not_equals: true };
       }
 
-      // ✅ Text search normalization (prefer q, fallback to search)
-      const qRaw = input.q ?? input.search ?? null;
-      const q = typeof qRaw === 'string' ? qRaw.trim() : null;
+      const q =
+        typeof input.q === 'string' && input.q.trim() !== ''
+          ? input.q.trim()
+          : null;
 
       // Category/Subcategory
       if (input.subcategory) {
@@ -323,7 +322,7 @@ export const productsRouter = createTRPCRouter({
       // ✅ Final where: availability AND (optional) multi-field text search
       const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
 
-      if (q && q.length > 0) {
+      if (q) {
         // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
         andClauses.push({
           or: [
