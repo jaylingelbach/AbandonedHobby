@@ -1,5 +1,15 @@
+/* ==========================================================================
+   Abandoned Hobby — Admin overrides for Payload
+   Notes:
+   - All rules live under `@layer payload` so they cascade after core admin CSS.
+   - Theme-aware rules target `[data-theme='light']` / `[data-theme='dark']`.
+   - Avoid `!important` unless Payload’s base styles force it.
+   ========================================================================== */
+
 @layer payload {
-  /* Stripe Verify banner container (light mode) */
+  /* ==========  STRIPE VERIFY BANNER  ===================================== */
+
+  /* Light theme container styles */
   [data-theme='light'] .verify-banner {
     padding: 1rem;
     border: 1px solid #e5e7eb; /* gray-200 */
@@ -8,7 +18,7 @@
     color: #111827; /* slate-900 */
   }
 
-  /* High-contrast filled button (light mode, in banner) */
+  /* High-contrast button variants in banner (light) */
   [data-theme='light'] .verify-banner .verify-btn.btn,
   [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
   [data-theme='light'] .verify-banner .verify-btn.btn--style-secondary {
@@ -16,58 +26,54 @@
     color: #fff !important;
     border-color: #111827 !important;
   }
-
   [data-theme='light'] .verify-banner .verify-btn:hover,
   [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    background-color: #0f172a !important; /* slightly darker */
+    background-color: #0f172a !important; /* slate-950-ish */
   }
 
-  /* Make it pop a bit more */
+  /* Button label emphasis */
   [data-theme='light'] .verify-banner .verify-btn .btn__label {
     font-weight: 700;
     letter-spacing: 0.01em;
   }
 
-  /* full-width and spacing for the narrow sidebar */
+  /* Banner button layout for narrow sidebar */
   [data-theme='light'] .verify-banner .verify-btn {
     width: 100%;
     margin-top: 0.5rem;
     text-align: center;
   }
-
   [data-theme='light'] .verify-banner .verify-btn:focus:not(:focus-visible) {
     outline: none;
   }
-
-  /* Accessible focus ring that shows on keyboard nav */
   [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue ring */
+    outline: 2px solid #1d4ed8; /* blue-600 */
     outline-offset: 2px;
   }
 
-  // current-user-badge.tsx
+  /* ==========  CURRENT USER BADGE  ======================================= */
+
+  /* Light theme badge */
   [data-theme='light'] .current-user-badge {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin: 0.5rem;
+    margin: 0.5rem 0.5rem 1rem;
     border-radius: 0.5rem;
     background: #f3f4f6; /* gray-100 */
     color: #111827; /* slate-900 */
     font-weight: 800;
-    margin-bottom: 1rem;
   }
 
+  /* Base badge (dark theme inherits admin colors) */
   .current-user-badge {
     display: flex;
     align-items: center;
     gap: 0.5rem;
-    margin: 0.5rem;
+    margin: 0.5rem 0.5rem 1rem;
     border-radius: 0.5rem;
     font-weight: 800;
-    margin-bottom: 1rem;
   }
-
   .current-user-label {
     font-size: 0.9rem;
     opacity: 0.8;
@@ -76,14 +82,13 @@
     font-size: 1rem;
   }
 
-  // abandoned-hobby-link.tsx
-  /* Wrapper spacing + weight */
+  /* ==========  NAV LINK (ABANDONED HOBBY LINK)  ========================== */
+
   .ah-link {
     font-weight: 700;
     padding: 1rem 0;
   }
 
-  /* Click target */
   .ah-link__inner {
     display: inline-flex;
     align-items: center;
@@ -92,28 +97,22 @@
     border-radius: 0.375rem;
     outline: none;
   }
-
-  /* Icon sizing */
   .ah-link__icon {
     width: 18px;
     height: 18px;
     display: inline-block;
   }
-
-  /* Label tweaks */
   .ah-link__label {
     opacity: 0.95;
   }
 
-  /* Light theme colors */
+  /* Colors by theme */
   [data-theme='light'] .ah-link__inner {
     color: #111827;
   } /* slate-900 */
   [data-theme='light'] .ah-link__inner:hover {
     color: #0f172a;
   } /* slate-950 */
-
-  /* Dark theme colors */
   [data-theme='dark'] .ah-link__inner {
     color: #e5e7eb;
   } /* gray-200 */
@@ -121,17 +120,19 @@
     color: #fff;
   }
 
-  /* Accessible focus ring */
+  /* Focus ring */
   .ah-link__inner:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue ring */
+    outline: 2px solid #1d4ed8;
     outline-offset: 2px;
   }
 
-  /* Onboarding banner — shared layout */
+  /* ==========  ONBOARDING BANNER  ======================================== */
+
+  /* Shared layout */
   .ah-onboarding-banner {
     margin-bottom: 1rem;
     padding: 12px;
-    border-radius: 0.5rem; /* 8px */
+    border-radius: 0.5rem;
     display: flex;
     align-items: center;
     justify-content: space-between;
@@ -159,22 +160,22 @@
     outline: none;
   }
   .ah-onboarding-btn:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue ring */
+    outline: 2px solid #1d4ed8;
     outline-offset: 2px;
   }
 
   /* Light theme */
   [data-theme='light'] .ah-onboarding-banner {
-    border: 1px solid #e5e7eb; /* gray-200 */
-    background: #f9fafb; /* gray-50 */
-    color: #111827; /* slate-900 */
+    border: 1px solid #e5e7eb;
+    background: #f9fafb;
+    color: #111827;
   }
   [data-theme='light'] .ah-onboarding-badge {
-    background: #e2e8f0; /* slate-200 */
-    color: #0f172a; /* slate-900 */
+    background: #e2e8f0;
+    color: #0f172a;
   }
   [data-theme='light'] .ah-onboarding-btn {
-    border: 1px solid #111827; /* gray-900 */
+    border: 1px solid #111827;
     color: #111827;
     background: transparent;
   }
@@ -185,12 +186,12 @@
 
   /* Dark theme */
   [data-theme='dark'] .ah-onboarding-banner {
-    border: 1px solid #374151; /* gray-700 */
-    background: #0b1220; /* deep slate/navy match */
-    color: #e5e7eb; /* gray-200 */
+    border: 1px solid #374151;
+    background: #0b1220;
+    color: #e5e7eb;
   }
   [data-theme='dark'] .ah-onboarding-badge {
-    background: #1f2937; /* gray-800 */
+    background: #1f2937;
     color: #e5e7eb;
   }
   [data-theme='dark'] .ah-onboarding-btn {
@@ -203,15 +204,12 @@
     color: #0b1220;
   }
 
-  //  onboarding skeleton
-
-  /* Onboarding banner skeleton */
+  /* Skeleton state */
   .ah-onboarding-skel .ah-skel {
     border-radius: 0.375rem;
     position: relative;
     overflow: hidden;
   }
-
   .ah-skel-text {
     height: 0.9rem;
   }
@@ -226,14 +224,12 @@
     border-radius: 0.375rem;
   }
 
-  /* Light theme shimmer */
+  /* Shimmer (theme-aware) */
   [data-theme='light'] .ah-onboarding-skel .ah-skel {
     background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
     background-size: 200% 100%;
     animation: ah-shimmer 1.2s infinite;
   }
-
-  /* Dark theme shimmer */
   [data-theme='dark'] .ah-onboarding-skel .ah-skel {
     background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
     background-size: 200% 100%;
@@ -248,10 +244,120 @@
       background-position: -200% 0;
     }
   }
-
   @media (prefers-reduced-motion: reduce) {
     .ah-onboarding-skel .ah-skel {
       animation: none !important;
     }
+  }
+
+  /* ==========  GENERIC UI BLOCKS (CARDS, GRID)  ========================== */
+
+  .ah-card {
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 8px;
+    background: var(--theme-elevation-0);
+  }
+  .ah-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--theme-elevation-100);
+  }
+  .ah-card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ah-card-body {
+    padding: 16px;
+  }
+
+  .ah-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .ah-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* ==========  SELLER DASHBOARD (SPACING & ACTIONS)  ===================== */
+
+  /* Title spacing (Payload often zeroes h1 margins) */
+  .ah-dashboard-title {
+    margin-bottom: 16px !important;
+  }
+
+  /* Section spacing */
+  .ah-section {
+    margin-top: 24px;
+  }
+
+  /* Quick Actions: base & stacked variant */
+  .ah-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ah-actions--stacked {
+    flex-direction: column;
+  }
+  .btn--block {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+
+  /* ==========  TRACKING FORM (INLINE + STACKED)  ========================= */
+
+  /* Support both old and new class APIs: `.ah-inline-form` and `.ah-form` */
+  .ah-inline-form,
+  .ah-form {
+    display: grid;
+    gap: 10px;
+  }
+
+  /* Row layout: inline = 2 cols; stacked = 1 col */
+  .ah-inline-row,
+  .ah-form--inline .ah-form-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 100px) 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .ah-form--stacked .ah-form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .ah-label {
+    font-size: 12px;
+    opacity: 0.8;
+  }
+  .ah-input {
+    padding: 6px 8px;
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 6px;
+    width: 100%;
+  }
+  .ah-inline-actions,
+  .ah-form-actions {
+    margin-top: 4px;
+  }
+
+  .ah-error {
+    color: var(--theme-error-500);
+    margin: 4px 0 0;
+    font-size: 12px;
+  }
+  .ah-success {
+    color: var(--theme-success-500);
+    margin: 4px 0 0;
+    font-size: 12px;
+  }
+
+  /* ==========  TABLE TWEAKS  ============================================= */
+
+  .ah-table th,
+  .ah-table td {
+    padding: 8px 10px;
   }
 }

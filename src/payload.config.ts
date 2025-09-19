@@ -36,8 +36,19 @@ export default buildConfig({
       baseDir: path.resolve(dirname)
     },
     components: {
+      views: {
+        sellerDashboard: {
+          Component: '@/payload/views/seller-dashboard.tsx#SellerDashboard',
+          path: '/seller', // admin base + /seller
+          exact: true
+        }
+      },
       providers: [
+        '@/payload/providers/force-light-theme.tsx#default',
         '@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider'
+      ],
+      afterNavLinks: [
+        '@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink'
       ],
       beforeNavLinks: [
         '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink',

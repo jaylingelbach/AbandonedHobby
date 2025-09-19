@@ -23,13 +23,16 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
+import { SellerDashboardLink as SellerDashboardLink_457f8c74dfe54461b15660bb7d133932 } from '@/components/custom-payload/seller-dashboard-link.tsx'
 import { OnboardingBannerAdmin as OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a } from '@/components/custom-payload/onboarding-banner.tsx'
 import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7 } from '@/components/custom-payload/abandoned-hobby-link.tsx'
 import { CurrentUserBadge as CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2 } from '@/components/custom-payload/current-user-badge.tsx'
 import { TenantSelector as TenantSelector_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
+import { default as default_8aad7263a86e1627bb30c519669b2b93 } from '@/payload/providers/force-light-theme.tsx'
 import { TRPCAdminProvider as TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b } from '@/payload/providers/trpc-admin-provider.tsx'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
+import { SellerDashboard as SellerDashboard_b0b31e3aee2c31a4370f81d78a6e7b3e } from '@/payload/views/seller-dashboard.tsx'
 
 export const importMap = {
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
@@ -57,11 +60,14 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
+  "@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink": SellerDashboardLink_457f8c74dfe54461b15660bb7d133932,
   "@/components/custom-payload/onboarding-banner.tsx#OnboardingBannerAdmin": OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a,
   "@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink": AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7,
   "@/components/custom-payload/current-user-badge.tsx#CurrentUserBadge": CurrentUserBadge_f9710c50f071732bc2807d1933f96ad2,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelector": TenantSelector_d6d5f193a167989e2ee7d14202901e62,
+  "@/payload/providers/force-light-theme.tsx#default": default_8aad7263a86e1627bb30c519669b2b93,
   "@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider": TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
-  "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62
+  "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62,
+  "@/payload/views/seller-dashboard.tsx#SellerDashboard": SellerDashboard_b0b31e3aee2c31a4370f81d78a6e7b3e
 }
