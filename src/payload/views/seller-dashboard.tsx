@@ -2,6 +2,7 @@ import type { AdminViewServerProps } from 'payload';
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
 import * as React from 'react';
+import Link from 'next/link'; // <-- use Next Link for internal nav
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 
@@ -76,8 +77,6 @@ async function getData(
   });
 
   // 2) Low inventory products for the same tenant(s)
-  //    Your schema uses: tenant, trackInventory (boolean), stockQuantity (number)
-  //    We'll also exclude archived items.
   const lowInvRes = await payload.count({
     collection: 'products',
     where: {
@@ -90,10 +89,8 @@ async function getData(
     }
   });
 
-  const lowInventory =
-    typeof lowInvRes === 'number'
-      ? lowInvRes
-      : ((lowInvRes as { totalDocs?: number }).totalDocs ?? 0);
+  // use the helper so ESLint stops complaining
+  const lowInventory = readCount(lowInvRes);
 
   const needsOnboarding = user.stripeDetailsSubmitted === false;
 
@@ -171,18 +168,21 @@ export async function SellerDashboard(props: AdminViewServerProps) {
 
           <UiCard title="Quick Actions">
             <div className="ah-actions ah-actions--stacked">
-              <a
+              <Link
                 className="btn btn--block"
                 href="/admin/collections/products/create"
               >
                 Add Product
-              </a>
-              <a className="btn btn--block" href="/admin/collections/products">
+              </Link>
+              <Link
+                className="btn btn--block"
+                href="/admin/collections/products"
+              >
                 View Products
-              </a>
-              <a className="btn btn--block" href="/admin/collections/orders">
+              </Link>
+              <Link className="btn btn--block" href="/admin/collections/orders">
                 View Orders
-              </a>
+              </Link>
             </div>
           </UiCard>
         </div>
@@ -216,7 +216,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                         orderId={o.id}
                         initialCarrier="usps"
                         initialTracking=""
-                        layout="stacked" // ← this stacks label and input on separate lines
+                        layout="stacked"
                         onSuccess={() => {
                           // optional: refresh or optimistically remove this row
                           // location.reload();
