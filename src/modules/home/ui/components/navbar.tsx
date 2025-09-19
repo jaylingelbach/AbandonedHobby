@@ -43,6 +43,11 @@ export const Navbar = () => {
     ? navbarItems
     : navbarItems.filter((item) => item.href !== '/welcome');
 
+  const isActive = (href: string) =>
+    (href === '/' && pathname === '/') ||
+    pathname === href ||
+    (href !== '/' && pathname.startsWith(`${href}/`));
+
   // Gate unreadCount to client AND only when authenticated
   const notificationsQuery = useQuery({
     ...trpc.notifications.unreadCount.queryOptions(),
@@ -67,11 +72,7 @@ export const Navbar = () => {
       </Link>
 
       <NavbarSidebar
-        items={
-          isAuthed
-            ? navbarItems
-            : navbarItems.filter((i) => i.href !== '/welcome')
-        }
+        items={navItems}
         open={isSidebarOpen}
         onOpenChange={setIsSidebarOpen}
         isAuthed={isAuthed}
@@ -86,9 +87,7 @@ export const Navbar = () => {
             variant="outline"
             className={cn(
               'bg-transparent hover:bg-transparent rounded-full hover:border-primary border-transparent px-3.5 text-lg',
-              ((item.href === '/' && pathname === '/') ||
-                pathname === item.href ||
-                (item.href !== '/' && pathname.startsWith(`${item.href}/`))) &&
+              isActive(item.href) &&
                 'bg-black text-white hover:bg-black hover:text-white'
             )}
           >
