@@ -3060,4 +3060,4 @@ Added recap covering the Orders transition and onboarding behavior.
 ### Order DTO mapping and validation utilities
 
 - src/modules/orders/utils.ts
-  - Added assertion helpers and new exports: mapOrderToSummary, mapOrderToConfirmation, and mapOrderItem; perform strict runtime validation, normalization to ISO strings, and throw TRPCError on invalid shapes.
+  - Added assertion helpers and new exports: readShippingFromOrder, mapOrderToSummary, and mapOrderToConfirmation; perform strict runtime validation and throw TRPCError on invalid shapes. mapOrderItem remains internal.

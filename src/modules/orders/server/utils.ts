@@ -18,7 +18,7 @@ function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: `Expected string at ${path}`
+      message: `Expected string at ${path}, got ${typeof value}`
     });
   }
   return value;
@@ -254,26 +254,29 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
 
     // product id (priority: productId → id → product (string) → product.id)
     const item = rawItem as Record<string, unknown>;
-    const candidateId =
-      typeof item.productId === 'string'
-        ? item.productId
-        : typeof item.id === 'string'
-          ? item.id
+
+    function getProductIdFromItem(
+      item: Record<string, unknown>,
+      path: string
+    ): string {
+      const from =
+        typeof item.productId === 'string'
+          ? item.productId
           : typeof item.product === 'string'
             ? item.product
             : isObjectRecord(item.product) &&
                 typeof item.product.id === 'string'
               ? item.product.id
               : null;
-
-    if (!candidateId) {
+      if (from) return from;
+      // Only use bare `id` if a separate `product` field is absent (legacy item shape)
+      if (!('product' in item) && typeof item.id === 'string') return item.id;
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].product (or productId/id) is required`
+        message: `Missing product id at ${path}`
       });
     }
-
-    return candidateId;
+    return getProductIdFromItem(item, `items[${index}].product`);
   });
 
   // Primary product id for back-compat UI links
@@ -424,7 +427,11 @@ export function mapOrderToConfirmation(
     'order.orderNumber'
   );
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
-  const currency = assertString(orderDocument.currency, 'order.currency');
+  const currency = assertString(
+    orderDocument.currency,
+    'order.currency'
+  ).toUpperCase();
+
   const totalCents = assertNonNegativeInt(orderDocument.total, 'order.total');
 
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
