@@ -3021,3 +3021,43 @@ Added recap covering the Orders transition and onboarding behavior.
 - src/app/(app)/api/stripe/webhooks/route.ts
   - Webhook body read via req.text();
   - order creation payload no longer includes redundant user field (keeps buyer: user.id); minor comment adjustment in inventory-adjustment path.
+
+# Library where update 09/22/25
+
+## Walkthrough
+
+- Adds super-admin-only read access to Tenants.stripeDetailsSubmitted, narrows order-fetch queries to filter by buyer only, and introduces strict order-to-DTO mapping utilities with runtime validation and standardized error handling.
+
+## New Features
+
+- None
+
+## Bug Fixes
+
+- Order history and details now resolve using the current buyer account only, improving accuracy and reducing mismatches.
+- More robust handling of order data to prevent display issues and surface clearer errors when data is invalid.
+
+## Refactor
+
+- Strengthened validation and mapping of order data for summaries and confirmations, improving reliability across views.
+
+## Chores
+
+- Updated permissions so the tenant billing status field is readable only by super admins, aligning visibility with existing update restrictions.
+
+## File changes
+
+### Access control: Tenants stripeDetailsSubmitted
+
+- src/collections/Tenants.ts
+  - Added read access rule read: ({ req: { user } }) => isSuperAdmin(user) for stripeDetailsSubmitted (previously only update restricted).
+
+### Order queries: buyer-only filter
+
+- src/modules/library/server/procedures.ts
+  - Replaced OR condition (buyer or legacy user) with a single buyer === user.id filter in two queries; no other logic changed.
+
+### Order DTO mapping and validation utilities
+
+- src/modules/orders/utils.ts
+  - Added assertion helpers and new exports: mapOrderToSummary, mapOrderToConfirmation, and mapOrderItem; perform strict runtime validation, normalization to ISO strings, and throw TRPCError on invalid shapes.

@@ -2,6 +2,14 @@ import { isObjectRecord } from '@/lib/server/utils';
 import { TRPCError } from '@trpc/server';
 import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from './types';
 
+/**
+ * Assert a value is a string.
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages (e.g., "order.id").
+ * @returns The value as a string.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a string.
+ */
+
 function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
     throw new TRPCError({
@@ -11,6 +19,14 @@ function assertString(value: unknown, path: string): string {
   }
   return value;
 }
+
+/**
+ * Assert a value is a number (not NaN).
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a number or is NaN.
+ */
 
 function assertNumber(value: unknown, path: string): number {
   if (typeof value !== 'number' || Number.isNaN(value)) {
@@ -22,6 +38,14 @@ function assertNumber(value: unknown, path: string): number {
   return value;
 }
 
+/**
+ * Assert a value is a positive integer (> 0).
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if not a positive integer.
+ */
+
 function assertPositiveInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
   if (!Number.isInteger(n) || n <= 0) {
@@ -32,6 +56,25 @@ function assertPositiveInt(value: unknown, path: string): number {
   }
   return n;
 }
+
+/**
+ * Map a raw order document to an `OrderSummaryDTO`.
+ *
+ * Validates shape and extracts:
+ *  - `orderId`, `orderNumber`, `orderDateISO`, `currency`, `totalCents`
+ *  - `items` summary: total `quantity` and product ids
+ *  - `productId` (first item) and full `productIds`
+ *  - `returnsAcceptedThroughISO` (or null)
+ *
+ * Expected raw shapes:
+ *  - `order.items` must be a non-empty array of objects
+ *  - For each item: `{ quantity: number, productId?: string, id?: string }`
+ *    (prefers `productId`, falls back to legacy `id`)
+ *
+ * @param orderDocument - Unknown raw order record (Payload response).
+ * @returns A strict `OrderSummaryDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
 
 export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   if (!isObjectRecord(orderDocument)) {
@@ -71,13 +114,10 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     }
 
     // quantity must be a positive integer
-    const quantity = assertNumber(item.quantity, `items[${index}].quantity`);
-    if (!Number.isInteger(quantity) || quantity <= 0) {
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].quantity must be a positive integer`
-      });
-    }
+    const quantity = assertPositiveInt(
+      item.quantity,
+      `items[${index}].quantity`
+    );
     quantitySum += quantity;
 
     // prefer item.productId, fallback to item.id
@@ -97,7 +137,6 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     return id;
   });
 
-  // Primary product id (first) for back-compat with existing UI links
   // Primary product id (first) for back-compat with existing UI links
   const primaryProductIdCandidate = productIds.at(0); // string | undefined
   if (typeof primaryProductIdCandidate !== 'string') {
@@ -126,6 +165,26 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     productIds
   };
 }
+
+/**
+ * Map a raw order item to an `OrderItemDTO`.
+ *
+ * Expected raw shape (from your webhook):
+ *  - `product: string` (product id)
+ *  - `nameSnapshot: string`
+ *  - `quantity: number` (positive integer)
+ *  - `unitAmount: number` (cents)
+ *  - `amountSubtotal: number` (cents)
+ *  - `amountTax?: number` (cents)
+ *  - `amountTotal: number` (cents)
+ *  - `returnsAcceptedThrough?: string` (ISO date)
+ *  - `thumbnailUrl?: string`
+ *
+ * @param orderItemRaw - Unknown raw item object.
+ * @param index        - Index in the items array (for clearer error messages).
+ * @returns A strict `OrderItemDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
 
 function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
   if (!isObjectRecord(orderItemRaw)) {
@@ -189,7 +248,20 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
   };
 }
 
-/** Map one raw order doc (unknown) → OrderConfirmationDTO (strict). */
+/**
+ * Map a raw order document to an `OrderConfirmationDTO`.
+ *
+ * Validates essential order fields and maps each item via `mapOrderItem`.
+ * Also includes optional fields when present:
+ *  - `returnsAcceptedThroughISO`
+ *  - `receiptUrl`
+ *  - `tenantSlug` (if `order.tenant` is populated and has `slug`)
+ *
+ * @param orderDocument - Unknown raw order record (Payload response).
+ * @returns A strict `OrderConfirmationDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
+
 export function mapOrderToConfirmation(
   orderDocument: unknown
 ): OrderConfirmationDTO {
