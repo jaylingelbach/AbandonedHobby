@@ -6,15 +6,31 @@ import type {
   OrderSummaryDTO
 } from '../types';
 
+/**
+ * Assert a value is a string.
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint for error messages (e.g., "order.id").
+ * @returns The value as a string.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if value is not a string.
+ */
+
 function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
-      message: `Expected string at ${path}`
+      message: `Expected string at ${path}, got ${typeof value}`
     });
   }
   return value;
 }
+
+/**
+ * Assert a value is a finite number.
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if value is NaN or not finite.
+ */
 
 function assertNumber(value: unknown, path: string): number {
   if (
@@ -30,6 +46,14 @@ function assertNumber(value: unknown, path: string): number {
   return value;
 }
 
+/**
+ * Assert a value is a positive integer (> 0).
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if not a positive integer.
+ */
+
 function assertPositiveInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
   if (!Number.isInteger(n) || n <= 0) {
@@ -40,6 +64,14 @@ function assertPositiveInt(value: unknown, path: string): number {
   }
   return n;
 }
+
+/**
+ * Assert a value is a non-negative integer (>= 0).
+ * @param value - Unknown input to validate (e.g., amounts in cents).
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if not a non-negative integer.
+ */
 
 function assertNonNegativeInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
@@ -52,6 +84,14 @@ function assertNonNegativeInt(value: unknown, path: string): number {
   return n;
 }
 
+/**
+ * Assert a value is either null/undefined or a non-negative integer.
+ * @param value - Unknown optional input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number, or null if undefined/null.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if provided and invalid.
+ */
+
 function assertOptionalNonNegativeInt(
   value: unknown,
   path: string
@@ -60,7 +100,12 @@ function assertOptionalNonNegativeInt(
   return assertNonNegativeInt(value, path);
 }
 
-/** Optional string helper (keeps types strict without using `any`). */
+/**
+ * Coerce an unknown value to an optional string.
+ * @param v - Unknown value to test.
+ * @returns `v` if it is a string; otherwise `null`.
+ */
+
 function asOptionalString(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
 }
@@ -68,6 +113,13 @@ function asOptionalString(v: unknown): string | null {
 // ─────────────────────────────────────────────────────────────────────────────
 // Small helpers (no `any`)
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Type guard: checks that a value is a non-empty string.
+ * @param v - Unknown value to test.
+ * @returns True if `v` is a string with length > 0 after trim.
+ */
+
 function isNonEmptyString(v: unknown): v is string {
   return typeof v === 'string' && v.trim().length > 0;
 }
@@ -76,6 +128,21 @@ function isNonEmptyString(v: unknown): v is string {
 // Shipping reader (accepts group or legacy array[0])
 // Essentials: line1 + postalCode + country; tolerates missing city/state.
 // ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Read a normalized shipping snapshot from an order's `shipping` field.
+ *
+ * Accepts either:
+ *  - an object: `{ name?, line1, line2?, city?, state?, postalCode, country }`
+ *  - a legacy array: `[{ ...same fields... }]` (uses first item)
+ *
+ * Required fields: `line1`, `postalCode`, `country`.
+ * Missing non-required fields are returned as `null`.
+ *
+ * @param shippingRaw - Unknown value from an order document.
+ * @returns A normalized shipping object, or `undefined` if insufficient data.
+ */
+
 export function readShippingFromOrder(
   shippingRaw: unknown
 ): OrderSummaryDTO['shipping'] {
@@ -119,9 +186,30 @@ export function readShippingFromOrder(
   return undefined;
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
 // Main mapper
-// ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────
+
+/**
+ * Map a raw order document to an `OrderSummaryDTO`.
+ *
+ * Validates the document shape and extracts:
+ *  - order metadata (id, number, createdAt, currency, total)
+ *  - per-order shipping snapshot
+ *  - quantity sum across items
+ *  - product ids from items (normalized)
+ *
+ * Accepted `items[]` product identifier shapes (priority order):
+ *  1. `productId: string`        (preferred)
+ *  2. `id: string`               (legacy fallback)
+ *  3. `product: string`          (relationship by id)
+ *  4. `product: { id: string }`  (populated relationship)
+ *
+ * @param orderDocument - Unknown raw order record (from Payload).
+ * @returns A strict `OrderSummaryDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
+
 export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   if (!isObjectRecord(orderDocument)) {
     throw new TRPCError({
@@ -164,29 +252,31 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
       `items[${index}].quantity`
     );
 
-    // product id (prefer relationship field)
-    const pRef = (rawItem as Record<string, unknown>).product;
-    let id: string | null = null;
+    // product id (priority: productId → id → product (string) → product.id)
+    const item = rawItem as Record<string, unknown>;
 
-    if (typeof pRef === 'string') {
-      id = pRef;
-    } else if (isObjectRecord(pRef) && typeof pRef.id === 'string') {
-      id = pRef.id;
-    } else if (
-      typeof (rawItem as Record<string, unknown>).productId === 'string'
-    ) {
-      id = (rawItem as Record<string, unknown>).productId as string;
-    } else if (typeof (rawItem as Record<string, unknown>).id === 'string') {
-      id = (rawItem as Record<string, unknown>).id as string;
-    }
-
-    if (!id) {
+    function getProductIdFromItem(
+      item: Record<string, unknown>,
+      path: string
+    ): string {
+      const from =
+        typeof item.productId === 'string'
+          ? item.productId
+          : typeof item.product === 'string'
+            ? item.product
+            : isObjectRecord(item.product) &&
+                typeof item.product.id === 'string'
+              ? item.product.id
+              : null;
+      if (from) return from;
+      // Only use bare `id` if a separate `product` field is absent (legacy item shape)
+      if (!('product' in item) && typeof item.id === 'string') return item.id;
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
-        message: `items[${index}].product (or productId/id) is required`
+        message: `Missing product id at ${path}`
       });
     }
-    return id;
+    return getProductIdFromItem(item, `items[${index}].product`);
   });
 
   // Primary product id for back-compat UI links
@@ -222,6 +312,22 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
     shipping
   };
 }
+
+/**
+ * Map a raw order item to an `OrderItemDTO`.
+ *
+ * Accepted `product` shapes:
+ *  - `product: string`           (id)
+ *  - `product: { id: string }`   (populated)
+ *
+ * Required numeric fields are validated as integers (quantity) and
+ * non-negative integers for monetary amounts in cents.
+ *
+ * @param orderItemRaw - Unknown raw item object.
+ * @param index        - Index in the items array (for error messages).
+ * @returns A strict `OrderItemDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
 
 function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
   if (!isObjectRecord(orderItemRaw)) {
@@ -293,7 +399,18 @@ function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
   };
 }
 
-/** Map one raw order doc (unknown) → OrderConfirmationDTO (strict). */
+/**
+ * Map a raw order document to an `OrderConfirmationDTO`.
+ *
+ * Validates essential order fields, maps each item via `mapOrderItem`,
+ * resolves an optional tenant slug (prefers `sellerTenant`, falls back
+ * to `tenant`), and includes an optional normalized shipping snapshot.
+ *
+ * @param orderDocument - Unknown raw order record (from Payload).
+ * @returns A strict `OrderConfirmationDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
+
 export function mapOrderToConfirmation(
   orderDocument: unknown
 ): OrderConfirmationDTO {
@@ -310,7 +427,11 @@ export function mapOrderToConfirmation(
     'order.orderNumber'
   );
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
-  const currency = assertString(orderDocument.currency, 'order.currency');
+  const currency = assertString(
+    orderDocument.currency,
+    'order.currency'
+  ).toUpperCase();
+
   const totalCents = assertNonNegativeInt(orderDocument.total, 'order.total');
 
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
