@@ -46,12 +46,7 @@ export const libraryRouter = createTRPCRouter({
         pagination: false,
         depth: 0,
         sort: '-createdAt',
-        where: {
-          or: [
-            { buyer: { equals: user.id } }, // new field
-            { user: { equals: user.id } } // legacy field
-          ]
-        }
+        where: { buyer: { equals: user.id } }
       })) as { docs: OrderMinimal[] };
 
       const hasOrder = ordersRes.docs.some((o) => {
@@ -139,9 +134,7 @@ export const libraryRouter = createTRPCRouter({
         page: input.cursor,
         limit: input.limit,
         sort: '-createdAt',
-        where: {
-          or: [{ buyer: { equals: user.id } }, { user: { equals: user.id } }]
-        }
+        where: { buyer: { equals: user.id } }
       })) as {
         docs: OrderMinimal[];
         page: number;

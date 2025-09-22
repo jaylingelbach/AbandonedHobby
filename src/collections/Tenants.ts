@@ -57,6 +57,7 @@ export const Tenants: CollectionConfig = {
       name: 'stripeDetailsSubmitted',
       type: 'checkbox',
       access: {
+        read: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user)
       },
       admin: {
