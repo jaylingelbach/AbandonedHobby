@@ -3064,13 +3064,59 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Unseen messages 09/23/25
 
+## Walkthrough
+
+- Adds an authenticated Inbox page and client UI, conversation list/read procedures with a DTO, message create-hook notification creation with structured error extraction, conversation delete allowed for super-admins, product purchase-checkfallbacks for legacy data, and UI tweaks to disable self-messaging with tooltip support.
+
 ## New Features
 
-- Added an Inbox page to browse your conversations with avatars, last message preview, relative time, and unread badges; tap to open chats in a modal.
-- Conversations can be marked as read; unread counts update accordingly.
-- Chat button now supports disabled state and tooltips; product pages prevent messaging yourself with a clear explanation.
-- Improved notifications when new messages arrive.
+- Inbox page to browse conversations with avatars, last-message previews, relative times, unread badges; open chats in a modal and mark conversations as read.
+- Client-side inbox with back-to-home bar and empty-state CTA.
+- New endpoints powering conversation lists and marking conversations read.
+- Improved message notifications (created on new messages).
 
 ## Bug Fixes
 
-- More accurate “Purchased” status on product pages, with better handling of legacy data paths.
+- More accurate “Purchased” status on product pages with legacy-data fallback.
+
+## Chores
+
+- Conversation deletion permitted only for super admins.
+
+## File changes
+
+### Inbox Page & Client
+
+- src/app/(app)/inbox/page.tsx, src/modules/inbox/ui/inbox-client.tsx
+  - New Next.js dynamic inbox page; authenticates via Payload and redirects unauthenticated users.
+  - New client component lists conversations via TRPC, shows avatars/last-message/unread badges, opens chat modal and marks conversations read.
+
+### Conversations Server Procedures & Schemas
+
+- src/modules/conversations/server/procedures.ts, src/modules/conversations/server/schemas.ts
+  - Adds protected listForMe query returning ConversationListItemDTO (other participant, lastMessage, unreadCount) and markConversationRead mutation; introduces zod ConversationListItemDTO.
+
+### Conversations Collection Access
+
+- src/collections/Conversations.ts
+  - Changes access.delete from () => false to ({ req: { user } }) => isSuperAdmin(user) allowing super-admin deletions.
+
+### Messages Notifications & Utils
+
+- src/collections/Messages.ts, src/lib/server/utils.ts
+  - afterChange now runs only on create, resolves receiver/sender, creates a Notification with overrideAccess:true and read:false; errors passed through new extractErrorDetails(err) and logged.
+
+### Products Logic
+
+- src/modules/products/server/procedures.ts
+  - getOne now prefers canonical orders-by-buyer query, sets isPurchased from ordersByBuyer.totalDocs, and includes a guarded legacy fallback using legacy orders.user with tolerant error handling.
+
+### Conversations UI Button
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Adds disabled?: boolean and tooltip?: string props, unified disabled state (isBtnDisabled), short-circuits clicks when disabled, sets aria-disabled and title.
+
+### Product View UI
+
+- src/modules/products/ui/views/product-view.tsx
+  - Uses useUser to compute isSelf; disables chat button with tooltip when viewing own product; removes ChatRoom mount from ratings area.
