@@ -12,24 +12,14 @@ import { ChatModal } from '@/modules/conversations/ui/chat-modal';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { MessageSquare, ArrowLeft } from 'lucide-react';
+import type { ConversationListItem } from './types';
+import { timeAgo } from './utils';
 
 export const dynamic = 'force-dynamic';
 
-type ConversationListItem = {
-  id: string; // DB conversation id
-  roomId: string; // "conv_<id>"
-  other: { id: string; username?: string; imageUrl?: string };
-  lastMessage: {
-    id: string;
-    content: string;
-    createdAt: string;
-    senderId: string;
-  } | null;
-  unreadCount: number;
-};
-
 const neoBrut =
   'rounded-xl border-2 border-black bg-white shadow-[6px_6px_0_0_rgba(0,0,0,1)]';
+
 const rowClasses = cn(
   'w-full text-left flex items-center gap-3 p-4',
   'border-b-2 border-black hover:bg-pink-50 transition-colors'
@@ -39,36 +29,6 @@ const badgeClasses = cn(
   'rounded-full border-2 border-black bg-red-500 text-white text-xs font-bold',
   'shadow-[2px_2px_0_0_rgba(0,0,0,1)]'
 );
-
-/**
- * Formats an ISO timestamp as a human-friendly relative time (e.g., "yesterday", "2 hours ago").
- *
- * Accepts an ISO-compatible date string and returns a localized relative time using Intl.RelativeTimeFormat.
- * Handles past and future times, choosing the largest appropriate unit (years → seconds) and falling back
- * to seconds if no larger unit applies.
- *
- * @param iso - ISO 8601 date/time string (or any string accepted by `new Date(...)`).
- * @returns A localized relative time string (e.g., "in 3 days", "5 minutes ago", "yesterday").
- */
-function timeAgo(iso: string): string {
-  const ms = Date.now() - new Date(iso).getTime();
-  const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
-  const units: Array<[Intl.RelativeTimeFormatUnit, number]> = [
-    ['year', 1000 * 60 * 60 * 24 * 365],
-    ['month', (1000 * 60 * 60 * 24 * 365) / 12],
-    ['week', 1000 * 60 * 60 * 24 * 7],
-    ['day', 1000 * 60 * 60 * 24],
-    ['hour', 1000 * 60 * 60],
-    ['minute', 1000 * 60],
-    ['second', 1000]
-  ];
-  for (const [unit, div] of units) {
-    if (Math.abs(ms) >= div || unit === 'second') {
-      return rtf.format(Math.round(ms / div) * -1, unit);
-    }
-  }
-  return '';
-}
 
 /**
  * Client-side Inbox UI: lists conversations, shows excerpts and unread counts, and opens a chat modal.
