@@ -16,6 +16,8 @@ interface Props {
   productId: string;
   sellerId: string; // Tenant ID
   username: string;
+  disabled?: boolean;
+  tooltip?: string;
   onConversationCreated?: (s: ChatState) => void;
 }
 
@@ -31,23 +33,25 @@ function isUnauthorized(e: unknown): boolean {
 }
 
 /**
- * Renders a "Message Seller" button that creates or opens a conversation with the seller and (optionally) shows a chat modal.
+ * Button that starts or opens a conversation with a seller and optionally shows an in-page chat modal.
  *
- * Clicking the button will:
- * - Redirect to the sign-in page (current URL used as `next`) when there is no signed-in user.
- * - Call the conversations.getOrCreate mutation when signed in; on success it opens the chat modal and invokes `onConversationCreated` with `{ conversationId, roomId }`.
+ * If the user is not signed in, clicking redirects to the sign-in page (current URL used as `next`).
+ * If signed in, triggers the conversations.getOrCreate mutation; on success the modal opens and the optional
+ * `onConversationCreated` callback is invoked with `{ conversationId, roomId }`.
  *
- * @param productId - Product identifier used to start or find the conversation.
- * @param sellerId - Seller (tenant) identifier used to start or find the conversation.
+ * @param productId - Identifier of the product used to start/find the conversation.
+ * @param sellerId - Seller (tenant) identifier used to start/find the conversation.
  * @param username - Display name forwarded to the ChatModal.
- * @param onConversationCreated - Optional callback invoked with the created/found chat state `{ conversationId, roomId }` after a successful mutation.
- * @returns A JSX fragment containing the action button and, when active, the ChatModal.
+ * @param onConversationCreated - Optional callback called after a conversation is created or found with `{ conversationId, roomId }`.
+ * @returns A JSX fragment containing the action Button and, when active, the ChatModal.
  */
 
 export function ChatButtonWithModal({
   productId,
   sellerId,
   username,
+  disabled,
+  tooltip,
   onConversationCreated
 }: Props) {
   const { user } = useUser();
@@ -84,7 +88,10 @@ export function ChatButtonWithModal({
     })
   );
 
+  const isBtnDisabled = Boolean(disabled || isPending);
+
   const handleClick = () => {
+    if (isBtnDisabled) return;
     if (!user) {
       const next = typeof window !== 'undefined' ? window.location.href : '/';
       window.location.assign(buildSignInUrl(next));
@@ -95,7 +102,13 @@ export function ChatButtonWithModal({
 
   return (
     <>
-      <Button variant="elevated" onClick={handleClick} disabled={isPending}>
+      <Button
+        variant="elevated"
+        onClick={handleClick}
+        disabled={isBtnDisabled}
+        aria-disabled={isBtnDisabled}
+        title={isBtnDisabled && tooltip ? tooltip : undefined}
+      >
         {isPending ? 'Starting…' : 'Message Seller'}
       </Button>
 

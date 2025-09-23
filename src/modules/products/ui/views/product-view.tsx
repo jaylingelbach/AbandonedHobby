@@ -15,7 +15,6 @@ import { Badge } from '@/components/ui/badge';
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
 
-import { ChatRoom } from '@/modules/messages/ui/chat-room';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import StarRating from '@/components/star-rating';
 import { Fragment, useEffect, useRef, useState } from 'react';
@@ -25,6 +24,7 @@ import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
 import ProductGallery from '../components/product-gallery';
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
+import { useUser } from '@/hooks/use-user';
 
 const CartButton = dynamic(
   () =>
@@ -70,6 +70,16 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     trpc.products.getOne.queryOptions({ id: productId })
   );
 
+  const { user } = useUser();
+
+  const isSelf = !!(
+    user?.tenants?.some((t) =>
+      typeof t.tenant === 'string'
+        ? t.tenant === data.tenant?.id
+        : t.tenant?.id === data.tenant?.id
+    ) || data.tenant?.primaryContact === user?.id
+  );
+
   // Defensive availability derivation (works with or without server-computed fields)
   const trackInventory =
     (data as { trackInventory?: unknown })?.trackInventory === true;
@@ -109,7 +119,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     currency: 'USD'
   };
 
-  const [chatState, setChatState] = useState<{
+  const [, setChatState] = useState<{
     conversationId: string;
     roomId: string;
   } | null>(null);
@@ -283,6 +293,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 </div>
 
                 <ChatButtonWithModal
+                  disabled={isSelf}
+                  tooltip={isSelf ? "You can't message yourself" : undefined}
                   productId={productId}
                   sellerId={data.tenant.id}
                   username={data.tenant.name}
@@ -320,15 +332,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     percentage: Number(data.ratingDistribution[stars])
                   }))}
                 />
-
-                {chatState && (
-                  <div className="mt-6">
-                    <ChatRoom
-                      roomId={chatState.roomId}
-                      conversationId={chatState.conversationId}
-                    />
-                  </div>
-                )}
               </div>
             </div>
           </div>

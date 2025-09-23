@@ -651,3 +651,75 @@ export const isNotFound = (err: unknown): boolean => {
     (message ? /not found/i.test(message) : false)
   );
 };
+
+/**
+ * Normalize various thrown error values into a consistent details object.
+ *
+ * Converts Error instances, strings, numbers, and plain object-like errors into
+ * an object containing any of: `message`, `name`, `code`, `status`, `data`, and `errors`.
+ * For object-like inputs this preserves existing fields when present; it also
+ * recognizes common variants such as `statusCode` and TRPC-style `data.httpStatus`.
+ *
+ * @param err - The thrown value to normalize (Error, string, number, or object)
+ * @returns An object with any of the properties: `message`, `name`, `code` (string|number), `status` (number), `data`, and `errors`
+ */
+export function extractErrorDetails(err: unknown) {
+  const out: {
+    message?: string;
+    name?: string;
+    code?: string | number;
+    status?: number;
+    data?: unknown;
+    errors?: unknown;
+  } = {};
+
+  if (err instanceof Error) {
+    out.message = err.message;
+    out.name = err.name;
+  }
+
+  // Support string-thrown errors
+  else if (typeof err === 'string') {
+    out.message = err;
+  }
+  // Support number-thrown errors
+  else if (typeof err === 'number') {
+    out.code = err;
+    out.message = String(err);
+  }
+
+  if (isObjectRecord(err)) {
+    // Preserve any additional fields Payload/TRPC may attach
+    if (typeof err.message === 'string') out.message = err.message;
+    if (typeof err.name === 'string') out.name = err.name;
+    if (
+      typeof (err as { code?: unknown }).code === 'string' ||
+      typeof (err as { code?: unknown }).code === 'number'
+    ) {
+      out.code = (err as { code: string | number }).code;
+    }
+    if (typeof (err as { status?: unknown }).status === 'number') {
+      out.status = (err as { status: number }).status;
+    }
+    // Fall back to `statusCode` and TRPC's `data.httpStatus` if present
+    if (
+      out.status === undefined &&
+      typeof (err as { statusCode?: unknown }).statusCode === 'number'
+    ) {
+      out.status = (err as { statusCode: number }).statusCode;
+    }
+    if (out.status === undefined) {
+      const dataMaybe = (err as { data?: unknown }).data;
+      if (
+        isObjectRecord(dataMaybe) &&
+        typeof (dataMaybe as { httpStatus?: unknown }).httpStatus === 'number'
+      ) {
+        out.status = (dataMaybe as { httpStatus: number }).httpStatus;
+      }
+    }
+    if ('data' in err) out.data = err.data as unknown;
+    if ('errors' in err) out.errors = err.errors as unknown;
+  }
+
+  return out;
+}

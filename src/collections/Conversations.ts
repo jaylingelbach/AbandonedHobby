@@ -8,7 +8,7 @@ export const Conversations: CollectionConfig = {
     read: ({ req: { user } }) => !!user,
     create: ({ req: { user } }) => !!user,
     update: () => false,
-    delete: () => false
+    delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
     useAsTitle: 'id',
