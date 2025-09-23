@@ -651,3 +651,27 @@ export const isNotFound = (err: unknown): boolean => {
     (message ? /not found/i.test(message) : false)
   );
 };
+
+export function extractErrorDetails(err: unknown) {
+  const out: {
+    message?: string;
+    name?: string;
+    data?: unknown;
+    errors?: unknown;
+  } = {};
+
+  if (err instanceof Error) {
+    out.message = err.message;
+    out.name = err.name;
+  }
+
+  if (isObjectRecord(err)) {
+    // Preserve any additional fields Payload/TRPC may attach
+    if (typeof err.message === 'string') out.message = err.message;
+    if (typeof err.name === 'string') out.name = err.name;
+    if ('data' in err) out.data = err.data as unknown;
+    if ('errors' in err) out.errors = err.errors as unknown;
+  }
+
+  return out;
+}

@@ -16,6 +16,8 @@ interface Props {
   productId: string;
   sellerId: string; // Tenant ID
   username: string;
+  disabled?: boolean;
+  tooltip?: string;
   onConversationCreated?: (s: ChatState) => void;
 }
 
@@ -48,6 +50,8 @@ export function ChatButtonWithModal({
   productId,
   sellerId,
   username,
+  disabled,
+  tooltip,
   onConversationCreated
 }: Props) {
   const { user } = useUser();
@@ -85,6 +89,7 @@ export function ChatButtonWithModal({
   );
 
   const handleClick = () => {
+    if (disabled) return;
     if (!user) {
       const next = typeof window !== 'undefined' ? window.location.href : '/';
       window.location.assign(buildSignInUrl(next));
@@ -93,9 +98,17 @@ export function ChatButtonWithModal({
     startChat({ sellerId, productId });
   };
 
+  const isBtnDisabled = Boolean(disabled || isPending);
+
   return (
     <>
-      <Button variant="elevated" onClick={handleClick} disabled={isPending}>
+      <Button
+        variant="elevated"
+        onClick={handleClick}
+        disabled={isBtnDisabled}
+        aria-disabled={isBtnDisabled}
+        title={isBtnDisabled && tooltip ? tooltip : undefined}
+      >
         {isPending ? 'Starting…' : 'Message Seller'}
       </Button>
 

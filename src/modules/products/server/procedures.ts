@@ -45,7 +45,6 @@ interface ProductWithInventory extends Product {
  * @param images - Array of product image rows (may be undefined or contain unpopulated entries)
  * @returns An array of `{ url, alt? }` objects suitable for frontend galleries; returns an empty array if input is not a valid array or contains no usable images.
  */
-
 function mapGalleryFromImages(
   images: ProductImagesRow[] | undefined
 ): Array<{ url: string; alt?: string }> {
@@ -105,13 +104,14 @@ export const productsRouter = createTRPCRouter({
       // Has current user purchased?
       let isPurchased = false;
       if (session.user) {
-        const ordersData = await ctx.db.find({
+        // 1) Try canonical field: buyer
+        const ordersByBuyer = await ctx.db.find({
           collection: 'orders',
           pagination: false,
           limit: 1,
           where: {
             and: [
-              { user: { equals: session.user.id } },
+              { buyer: { equals: session.user.id } },
               { status: { in: ['paid', 'partially_refunded'] } },
               {
                 or: [
@@ -122,7 +122,38 @@ export const productsRouter = createTRPCRouter({
             ]
           }
         });
-        isPurchased = ordersData.docs.length > 0;
+
+        if (ordersByBuyer.totalDocs > 0) {
+          isPurchased = true;
+        } else {
+          // 2) Optional legacy fallback: user (guarded so it won’t explode if the path doesn’t exist)
+          try {
+            const legacyOrders = await ctx.db.find({
+              collection: 'orders',
+              pagination: false,
+              limit: 1,
+              where: {
+                and: [
+                  { user: { equals: session.user.id } }, // legacy path
+                  { status: { in: ['paid', 'partially_refunded'] } },
+                  {
+                    or: [
+                      { product: { equals: input.id } },
+                      { 'items.product': { equals: input.id } }
+                    ]
+                  }
+                ]
+              }
+            });
+            isPurchased = legacyOrders.totalDocs > 0;
+          } catch (e) {
+            // Ignore schema-path errors for legacy field; rethrow unexpected errors
+            const msg = (e as Error)?.message ?? '';
+            if (!msg.includes('cannot be queried: user')) {
+              throw e;
+            }
+          }
+        }
       }
 
       // Reviews summary
@@ -324,7 +355,7 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
-      // ✅ Final where: availability AND (optional) multi-field text search
+      // Final where: availability AND (optional) multi-field text search
       const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
 
       if (q) {
