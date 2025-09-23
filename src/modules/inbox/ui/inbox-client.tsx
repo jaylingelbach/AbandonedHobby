@@ -40,6 +40,16 @@ const badgeClasses = cn(
   'shadow-[2px_2px_0_0_rgba(0,0,0,1)]'
 );
 
+/**
+ * Formats an ISO timestamp as a human-friendly relative time (e.g., "yesterday", "2 hours ago").
+ *
+ * Accepts an ISO-compatible date string and returns a localized relative time using Intl.RelativeTimeFormat.
+ * Handles past and future times, choosing the largest appropriate unit (years → seconds) and falling back
+ * to seconds if no larger unit applies.
+ *
+ * @param iso - ISO 8601 date/time string (or any string accepted by `new Date(...)`).
+ * @returns A localized relative time string (e.g., "in 3 days", "5 minutes ago", "yesterday").
+ */
 function timeAgo(iso: string): string {
   const ms = Date.now() - new Date(iso).getTime();
   const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' });
@@ -60,6 +70,18 @@ function timeAgo(iso: string): string {
   return '';
 }
 
+/**
+ * Client-side Inbox UI: lists conversations, shows excerpts and unread counts, and opens a chat modal.
+ *
+ * Renders a suspense-backed list of conversations for the current user. Selecting a conversation
+ * opens a ChatModal, marks that conversation as read (via a TRPC mutation), and refreshes the
+ * conversations list to update unread badges.
+ *
+ * The component uses client-side state for modal visibility and the active conversation, and relies
+ * on TRPC + React Query for data fetching and cache invalidation.
+ *
+ * @returns The rendered Inbox client component (JSX element).
+ */
 export function InboxClient() {
   const trpc = useTRPC();
   const qc = useQueryClient();

@@ -10,6 +10,13 @@ import config from '@payload-config';
 import InboxClient from '@/modules/inbox/ui/inbox-client';
 import { Suspense } from 'react';
 
+/**
+ * Server page for the inbox: verifies Payload session and renders the inbox UI or redirects to sign-in.
+ *
+ * Performs server-side authentication using Payload with the incoming request headers. If no authenticated user is found, redirects to `/sign-in?next=/inbox`. If authenticated, returns the inbox UI (InboxClient) wrapped in a Suspense boundary.
+ *
+ * @returns The React element for the inbox page.
+ */
 export default async function InboxPage() {
   // Authenticate against Payload using request headers (same as your tRPC ctx.db.auth)
   const payload = await getPayload({ config });

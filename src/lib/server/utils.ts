@@ -652,6 +652,17 @@ export const isNotFound = (err: unknown): boolean => {
   );
 };
 
+/**
+ * Normalize various thrown error values into a consistent details object.
+ *
+ * Converts Error instances, strings, numbers, and plain object-like errors into
+ * an object containing any of: `message`, `name`, `code`, `status`, `data`, and `errors`.
+ * For object-like inputs this preserves existing fields when present; it also
+ * recognizes common variants such as `statusCode` and TRPC-style `data.httpStatus`.
+ *
+ * @param err - The thrown value to normalize (Error, string, number, or object)
+ * @returns An object with any of the properties: `message`, `name`, `code` (string|number), `status` (number), `data`, and `errors`
+ */
 export function extractErrorDetails(err: unknown) {
   const out: {
     message?: string;
