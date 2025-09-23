@@ -28,7 +28,5 @@ export default async function InboxPage() {
     redirect(`/sign-in?next=/inbox`);
   }
 
-  <Suspense>
-    return <InboxClient /* userId={session.user.id} */ />;
-  </Suspense>;
+  return <InboxClient /* userId={session.user.id} */ />;
 }
