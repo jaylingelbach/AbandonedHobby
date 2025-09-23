@@ -671,6 +671,11 @@ export function extractErrorDetails(err: unknown) {
   else if (typeof err === 'string') {
     out.message = err;
   }
+  // Support number-thrown errors
+  else if (typeof err === 'number') {
+    out.code = err;
+    out.message = String(err);
+  }
 
   if (isObjectRecord(err)) {
     // Preserve any additional fields Payload/TRPC may attach
@@ -684,6 +689,22 @@ export function extractErrorDetails(err: unknown) {
     }
     if (typeof (err as { status?: unknown }).status === 'number') {
       out.status = (err as { status: number }).status;
+    }
+    // Fall back to `statusCode` and TRPC's `data.httpStatus` if present
+    if (
+      out.status === undefined &&
+      typeof (err as { statusCode?: unknown }).statusCode === 'number'
+    ) {
+      out.status = (err as { statusCode: number }).statusCode;
+    }
+    if (out.status === undefined) {
+      const dataMaybe = (err as { data?: unknown }).data;
+      if (
+        isObjectRecord(dataMaybe) &&
+        typeof (dataMaybe as { httpStatus?: unknown }).httpStatus === 'number'
+      ) {
+        out.status = (dataMaybe as { httpStatus: number }).httpStatus;
+      }
     }
     if ('data' in err) out.data = err.data as unknown;
     if ('errors' in err) out.errors = err.errors as unknown;
