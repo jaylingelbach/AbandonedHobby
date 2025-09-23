@@ -133,24 +133,24 @@ export const conversationsRouter = createTRPCRouter({
               : c.buyer;
 
         // Last message
-        const last = await ctx.db.find({
-          collection: 'messages',
-          where: { conversationId: { equals: c.id } },
-          limit: 1,
-          sort: '-createdAt'
-        });
-
-        // Unread for current user (receiver == me && read == false)
-        const unread = await ctx.db.count({
-          collection: 'messages',
-          where: {
-            and: [
-              { conversationId: { equals: c.id } },
-              { receiver: { equals: currentUserId } },
-              { read: { equals: false } }
-            ]
-          }
-        });
+        const [last, unread] = await Promise.all([
+          ctx.db.find({
+            collection: 'messages',
+            where: { conversationId: { equals: c.id } },
+            limit: 1,
+            sort: '-createdAt'
+          }),
+          ctx.db.count({
+            collection: 'messages',
+            where: {
+              and: [
+                { conversationId: { equals: c.id } },
+                { receiver: { equals: currentUserId } },
+                { read: { equals: false } }
+              ]
+            }
+          })
+        ]);
 
         return {
           id: c.id,

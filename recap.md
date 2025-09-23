@@ -3061,3 +3061,16 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/modules/orders/utils.ts
   - Added assertion helpers and new exports: readShippingFromOrder, mapOrderToSummary, and mapOrderToConfirmation; perform strict runtime validation and throw TRPCError on invalid shapes. mapOrderItem remains internal.
+
+# Unseen messages 09/23/25
+
+## New Features
+
+- Added an Inbox page to browse your conversations with avatars, last message preview, relative time, and unread badges; tap to open chats in a modal.
+- Conversations can be marked as read; unread counts update accordingly.
+- Chat button now supports disabled state and tooltips; product pages prevent messaging yourself with a clear explanation.
+- Improved notifications when new messages arrive.
+
+## Bug Fixes
+
+- More accurate “Purchased” status on product pages, with better handling of legacy data paths.

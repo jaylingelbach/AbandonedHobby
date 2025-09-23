@@ -88,8 +88,10 @@ export function ChatButtonWithModal({
     })
   );
 
+  const isBtnDisabled = Boolean(disabled || isPending);
+
   const handleClick = () => {
-    if (disabled) return;
+    if (isBtnDisabled) return;
     if (!user) {
       const next = typeof window !== 'undefined' ? window.location.href : '/';
       window.location.assign(buildSignInUrl(next));
@@ -97,8 +99,6 @@ export function ChatButtonWithModal({
     }
     startChat({ sellerId, productId });
   };
-
-  const isBtnDisabled = Boolean(disabled || isPending);
 
   return (
     <>

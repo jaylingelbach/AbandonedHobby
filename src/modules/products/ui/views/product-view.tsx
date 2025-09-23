@@ -72,7 +72,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const { user } = useUser();
 
-  const isSelf = !!(user?.id && user.id === data.tenant?.id);
+  const isSelf = !!(
+    user?.tenants?.some((t) =>
+      typeof t.tenant === 'string'
+        ? t.tenant === data.tenant?.id
+        : t.tenant?.id === data.tenant?.id
+    ) || data.tenant?.primaryContact === user?.id
+  );
 
   // Defensive availability derivation (works with or without server-computed fields)
   const trackInventory =

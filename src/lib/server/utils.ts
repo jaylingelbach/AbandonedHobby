@@ -656,6 +656,8 @@ export function extractErrorDetails(err: unknown) {
   const out: {
     message?: string;
     name?: string;
+    code?: string | number;
+    status?: number;
     data?: unknown;
     errors?: unknown;
   } = {};
@@ -665,10 +667,24 @@ export function extractErrorDetails(err: unknown) {
     out.name = err.name;
   }
 
+  // Support string-thrown errors
+  else if (typeof err === 'string') {
+    out.message = err;
+  }
+
   if (isObjectRecord(err)) {
     // Preserve any additional fields Payload/TRPC may attach
     if (typeof err.message === 'string') out.message = err.message;
     if (typeof err.name === 'string') out.name = err.name;
+    if (
+      typeof (err as { code?: unknown }).code === 'string' ||
+      typeof (err as { code?: unknown }).code === 'number'
+    ) {
+      out.code = (err as { code: string | number }).code;
+    }
+    if (typeof (err as { status?: unknown }).status === 'number') {
+      out.status = (err as { status: number }).status;
+    }
     if ('data' in err) out.data = err.data as unknown;
     if ('errors' in err) out.errors = err.errors as unknown;
   }

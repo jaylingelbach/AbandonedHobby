@@ -8,6 +8,7 @@ import config from '@payload-config';
 
 // If your inbox UI is a client component:
 import InboxClient from '@/modules/inbox/ui/inbox-client';
+import { Suspense } from 'react';
 
 export default async function InboxPage() {
   // Authenticate against Payload using request headers (same as your tRPC ctx.db.auth)
@@ -20,6 +21,7 @@ export default async function InboxPage() {
     redirect(`/sign-in?next=/inbox`);
   }
 
-  // You can pass whatever you need down (e.g., user id/email)
-  return <InboxClient /* userId={session.user.id} */ />;
+  <Suspense>
+    return <InboxClient /* userId={session.user.id} */ />;
+  </Suspense>;
 }

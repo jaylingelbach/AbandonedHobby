@@ -1,9 +1,12 @@
 'use client';
 
 import { useMemo, useState } from 'react';
-import Image from 'next/image';
 import Link from 'next/link';
-import { useSuspenseQuery } from '@tanstack/react-query';
+import {
+  useSuspenseQuery,
+  useMutation,
+  useQueryClient
+} from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 import { ChatModal } from '@/modules/conversations/ui/chat-modal';
 import { Button } from '@/components/ui/button';
@@ -59,6 +62,7 @@ function timeAgo(iso: string): string {
 
 export function InboxClient() {
   const trpc = useTRPC();
+  const qc = useQueryClient();
 
   // Suspense query for the list of conversations
   const listOpts = useMemo(
@@ -77,6 +81,15 @@ export function InboxClient() {
     username: string;
   } | null>(null);
 
+  const { mutate: markRead } = useMutation(
+    trpc.conversations.markConversationRead.mutationOptions({
+      onSuccess: () => {
+        // Refresh list to update unread badges
+        qc.invalidateQueries({ queryKey: listOpts.queryKey });
+      }
+    })
+  );
+
   const handleOpen = (c: ConversationListItem) => {
     setActive({
       conversationId: c.id,
@@ -84,6 +97,7 @@ export function InboxClient() {
       username: c.other.username ?? 'User'
     });
     setOpen(true);
+    markRead({ conversationId: c.id });
   };
 
   const empty = conversations.length === 0;
@@ -156,19 +170,11 @@ export function InboxClient() {
                         className="size-10 shrink-0 rounded-full border-2 border-black overflow-hidden bg-white shadow-[2px_2px_0_0_rgba(0,0,0,1)]"
                         aria-hidden
                       >
-                        {c.other.imageUrl ? (
-                          <Image
-                            src={c.other.imageUrl}
-                            alt={username}
-                            width={40}
-                            height={40}
-                            className="object-cover"
-                          />
-                        ) : (
+                        {
                           <div className="w-full h-full grid place-items-center text-sm font-bold">
                             {username.slice(0, 1).toUpperCase()}
                           </div>
-                        )}
+                        }
                       </div>
 
                       {/* Main text */}
