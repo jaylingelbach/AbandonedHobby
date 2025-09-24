@@ -8,7 +8,6 @@ import config from '@payload-config';
 
 // If your inbox UI is a client component:
 import InboxClient from '@/modules/inbox/ui/inbox-client';
-import { Suspense } from 'react';
 
 /**
  * Server page for the inbox: verifies Payload session and renders the inbox UI or redirects to sign-in.

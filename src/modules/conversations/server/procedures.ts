@@ -3,7 +3,16 @@ import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import type { Tenant, User, Conversation, Message } from '@/payload-types';
 import { relId } from '@/lib/relationshipHelpers';
+import type { Payload } from 'payload';
 import { ConversationListItemDTO } from './schemas';
+import {
+  conversationUserId,
+  getRoomId,
+  senderIdFromMessage,
+  toISO,
+  userIdFromRel,
+  usernameFromRel
+} from './utils';
 
 export const conversationsRouter = createTRPCRouter({
   getOrCreate: protectedProcedure
@@ -24,7 +33,7 @@ export const conversationsRouter = createTRPCRouter({
         collection: 'tenants',
         id: input.sellerId,
         depth: 0
-      })) as Tenant;
+      })) as Tenant | null;
 
       if (!tenant) {
         throw new TRPCError({
@@ -59,7 +68,7 @@ export const conversationsRouter = createTRPCRouter({
             { product: { equals: input.productId } }
           ]
         }
-      })) as { docs: Conversation[] };
+      })) as { docs: Conversation[]; totalDocs: number };
 
       let conversation = existing.docs[0];
 
@@ -85,7 +94,8 @@ export const conversationsRouter = createTRPCRouter({
       } else {
         // Coerce any legacy/long ids to the safe format
         const desiredRoomId = `conv_${conversation.id}`;
-        if (conversation.roomId !== desiredRoomId) {
+        const currentRoomId = getRoomId(conversation);
+        if (currentRoomId !== desiredRoomId) {
           conversation = (await ctx.db.update({
             collection: 'conversations',
             id: conversation.id,
@@ -98,11 +108,12 @@ export const conversationsRouter = createTRPCRouter({
       const roomId = `conv_${conversation.id}`;
       return { id: conversation.id, roomId };
     }),
+
   listForMe: protectedProcedure.query(async ({ ctx }) => {
     const currentUserId = ctx.session.user?.id;
     if (!currentUserId) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-    // Find conversations where current user is buyer or seller
+    // 1) Fetch my conversations (ignore collection access rules to avoid ACL mismatches)
     const conversations = await ctx.db.find({
       collection: 'conversations',
       where: {
@@ -112,91 +123,168 @@ export const conversationsRouter = createTRPCRouter({
         ]
       },
       limit: 100,
-      depth: 1, // pull user objects for usernames/images
-      sort: '-updatedAt'
+      depth: 1,
+      sort: '-updatedAt',
+      overrideAccess: true
     });
 
+    // 2) If zero, probe what exists to help debug (server logs only)
+    if (conversations.totalDocs === 0) {
+      try {
+        const probe = await ctx.db.find({
+          collection: 'conversations',
+          limit: 5,
+          select: { buyer: true, seller: true, product: true, id: true },
+          sort: '-updatedAt',
+          overrideAccess: true
+        });
+
+        (ctx.db as Payload).logger.warn(
+          '[conversations.listForMe] No matches for user; probe result',
+          {
+            currentUserId,
+            probeCount: probe.totalDocs,
+            sample: probe.docs.map((d) => ({
+              id: d.id,
+              buyer: conversationUserId(d.buyer) ?? undefined,
+              seller: conversationUserId(d.seller) ?? undefined
+            }))
+          }
+        );
+      } catch (e) {
+        (ctx.db as Payload).logger.error(
+          '[conversations.listForMe] Probe failed',
+          {
+            currentUserId,
+            error: e instanceof Error ? e.message : String(e)
+          }
+        );
+      }
+    }
+
+    // 3) Build DTOs
     const items = await Promise.all(
-      conversations.docs.map(async (c: Conversation) => {
-        const buyerId =
-          typeof c.buyer === 'string' ? c.buyer : (c.buyer as User).id;
-        const sellerId =
-          typeof c.seller === 'string' ? c.seller : (c.seller as User).id;
+      conversations.docs.map(async (c) => {
+        const buyerId = conversationUserId(c.buyer);
 
-        const otherUser =
-          currentUserId === buyerId
-            ? typeof c.seller === 'string'
-              ? { id: sellerId }
-              : c.seller
-            : typeof c.buyer === 'string'
-              ? { id: buyerId }
-              : c.buyer;
+        const viewingAsBuyer = currentUserId === buyerId;
+        const otherRel = viewingAsBuyer ? c.seller : c.buyer;
 
-        // Last message
-        const [last, unread] = await Promise.all([
-          ctx.db.find({
-            collection: 'messages',
-            where: { conversationId: { equals: c.id } },
-            limit: 1,
-            sort: '-createdAt'
-          }),
-          ctx.db.count({
-            collection: 'messages',
-            where: {
-              and: [
-                { conversationId: { equals: c.id } },
-                { receiver: { equals: currentUserId } },
-                { read: { equals: false } }
-              ]
+        const otherId =
+          userIdFromRel(otherRel as string | User | null | undefined) ?? '';
+        const otherUsername = usernameFromRel(
+          otherRel as string | User | null | undefined
+        );
+
+        // last message (content + ISO time + senderId)
+        const lastRes = await ctx.db.find({
+          collection: 'messages',
+          where: { conversationId: { equals: c.id } },
+          limit: 1,
+          sort: '-createdAt',
+          select: { content: true, createdAt: true, sender: true },
+          overrideAccess: true
+        });
+
+        const lastDoc = lastRes.docs[0] as Message | undefined;
+
+        const lastMessage = lastDoc
+          ? {
+              id: lastDoc.id,
+              content: lastDoc.content,
+              createdAtISO: toISO(
+                (lastDoc as { createdAt?: unknown }).createdAt
+              ),
+              senderId: senderIdFromMessage(lastDoc) ?? ''
             }
-          })
-        ]);
+          : null;
+
+        // per-conversation unread count (messages targeted at me and not read)
+        const unread = await ctx.db.count({
+          collection: 'messages',
+          where: {
+            and: [
+              { conversationId: { equals: c.id } },
+              { receiver: { equals: currentUserId } },
+              { read: { equals: false } }
+            ]
+          },
+          overrideAccess: false
+        });
 
         return {
           id: c.id,
-          roomId: c.roomId, // already “conv_<id>” from your getOrCreate flow
+          roomId: getRoomId(c) ?? `conv_${c.id}`,
           other: {
-            id: (otherUser as User).id,
-            username: (otherUser as User).username
+            id: otherId,
+            username: otherUsername
           },
-          lastMessage: last.docs[0]
-            ? {
-                id: last.docs[0].id,
-                content: (last.docs[0] as Message).content,
-                createdAt: String((last.docs[0] as Message).createdAt),
-                senderId:
-                  typeof (last.docs[0] as Message).sender === 'string'
-                    ? ((last.docs[0] as Message).sender as string)
-                    : ((last.docs[0] as Message).sender as User).id
-              }
-            : null,
+          lastMessage,
           unreadCount: unread.totalDocs
         };
       })
     );
 
+    // Validate/shape exactly as clients expect
     return ConversationListItemDTO.array().parse(items);
   }),
 
   markConversationRead: protectedProcedure
     .input(z.object({ conversationId: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const currentUserId = ctx.session.user?.id;
-      if (!currentUserId) throw new TRPCError({ code: 'UNAUTHORIZED' });
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
+      // 1) Mark all unread MESSAGES in this conversation as read for this user
       await ctx.db.update({
         collection: 'messages',
         where: {
           and: [
             { conversationId: { equals: input.conversationId } },
-            { receiver: { equals: currentUserId } },
+            { receiver: { equals: user.id } },
             { read: { equals: false } }
           ]
         },
-        data: { read: true },
-        overrideAccess: false
+        data: { read: true }
       });
 
-      return { ok: true };
+      // 2) Mark corresponding NOTIFICATIONS as read
+      await ctx.db.update({
+        collection: 'notifications',
+        where: {
+          and: [
+            { user: { equals: user.id } },
+            { 'payload.conversationId': { equals: input.conversationId } },
+            { read: { equals: false } }
+          ]
+        },
+        data: { read: true }
+      });
+
+      // 3) Return fresh counts (messages + notifications)
+      const [
+        { totalDocs: unreadMessages },
+        { totalDocs: unreadNotifications }
+      ] = await Promise.all([
+        ctx.db.find({
+          collection: 'messages',
+          where: {
+            and: [
+              { receiver: { equals: user.id } },
+              { read: { equals: false } }
+            ]
+          },
+          limit: 0
+        }),
+        ctx.db.find({
+          collection: 'notifications',
+          where: {
+            and: [{ user: { equals: user.id } }, { read: { equals: false } }]
+          },
+          limit: 0
+        })
+      ]);
+
+      return { unreadMessages, unreadNotifications };
     })
 });
