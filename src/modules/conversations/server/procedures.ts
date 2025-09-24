@@ -81,7 +81,9 @@ export const conversationsRouter = createTRPCRouter({
         conversation = (await ctx.db.update({
           collection: 'conversations',
           id: created.id,
-          data: { roomId: desiredRoomId }
+          data: { roomId: desiredRoomId },
+          // IMPORTANT: collection has update: () => false, so bypass
+          overrideAccess: true
         })) as Conversation;
       } else {
         // Coerce any legacy/long ids to the safe format
@@ -91,7 +93,9 @@ export const conversationsRouter = createTRPCRouter({
           conversation = (await ctx.db.update({
             collection: 'conversations',
             id: conversation.id,
-            data: { roomId: desiredRoomId }
+            data: { roomId: desiredRoomId },
+            // IMPORTANT: collection has update: () => false, so bypass
+            overrideAccess: true
           })) as Conversation;
         }
       }
