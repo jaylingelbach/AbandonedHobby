@@ -64,11 +64,6 @@ export function ChatRoom({
                   sender.lastName ??
                   undefined);
 
-            const displayImage =
-              typeof sender === 'string' || sender == null
-                ? null
-                : ((sender.image as string | null | undefined) ?? null);
-
             return {
               id: message.id, // string
               userId: senderId, // string (never undefined)
