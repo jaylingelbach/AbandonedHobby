@@ -213,8 +213,9 @@ export default function InboxClient() {
                       {/* Main text */}
                       <div className="min-w-0 flex-1 text-left">
                         <div className="flex items-center gap-2">
+                          Conversation with:
                           <span className="font-semibold truncate">
-                            Conversation with: {username}
+                            {username}
                           </span>
                           {when && (
                             <span className="text-xs text-muted-foreground">
