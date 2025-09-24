@@ -1,6 +1,6 @@
 import { Media, Tenant } from '@/payload-types';
 import Stripe from 'stripe';
-import z from 'zod';
+import { z } from 'zod';
 
 import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
 

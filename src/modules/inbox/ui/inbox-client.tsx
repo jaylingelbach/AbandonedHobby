@@ -63,7 +63,7 @@ export default function InboxClient() {
 
   // 4) Single mutation to mark a conversation read
   const { mutate: markConvRead } = useMutation(
-    trpc.conversations.markConversationRead.mutationOptions({
+    trpc.notifications.markConversationRead.mutationOptions({
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: listOpts.queryKey });
         qc.invalidateQueries({ queryKey: unreadKey });
@@ -214,7 +214,7 @@ export default function InboxClient() {
                       <div className="min-w-0 flex-1 text-left">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold truncate">
-                            {username}
+                            Conversation with: {username}
                           </span>
                           {when && (
                             <span className="text-xs text-muted-foreground">

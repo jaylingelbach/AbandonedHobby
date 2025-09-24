@@ -25,8 +25,6 @@ export function ChatRoom({
   roomId: string;
 }) {
   const trpc = useTRPC();
-  const { user } = useUser();
-  const username = user?.username;
   const { data } = useQuery(
     trpc.messages.getMessage.queryOptions({
       conversationId,
@@ -41,20 +39,31 @@ export function ChatRoom({
       id={roomId}
       initialStorage={{
         messages: new LiveList(
-          data.messages.map((message) => ({
-            id: message.id,
-            userId:
+          data.messages.map((message) => {
+            const senderId =
               typeof message.sender === 'string'
                 ? message.sender
-                : message.sender.id,
-            name: typeof message.sender === 'string' ? undefined : username,
-            image:
+                : message.sender.id;
+
+            const senderName =
               typeof message.sender === 'string'
                 ? undefined
-                : message.sender.image,
-            content: message.content,
-            createdAt: new Date(message.createdAt).getTime()
-          }))
+                : (message.sender.name ?? undefined);
+
+            const senderImage =
+              typeof message.sender === 'string'
+                ? undefined
+                : message.sender.image;
+
+            return {
+              id: message.id,
+              userId: senderId,
+              name: senderName,
+              image: senderImage,
+              content: message.content,
+              createdAt: new Date(message.createdAt).getTime()
+            };
+          })
         )
       }}
       initialPresence={{}}

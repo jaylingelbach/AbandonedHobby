@@ -1,6 +1,6 @@
 import type { Sort, Where } from 'payload';
 import { headers as getHeaders } from 'next/headers';
-import z from 'zod';
+import { z } from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import type { Media, Product, Tenant, Review } from '@/payload-types';

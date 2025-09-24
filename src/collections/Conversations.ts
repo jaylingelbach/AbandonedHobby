@@ -1,14 +1,24 @@
-// collections/Conversations.ts
 import { isSuperAdmin } from '@/lib/access';
-import { CollectionConfig } from 'payload';
+import type { CollectionConfig, Access, Where } from 'payload';
+
+const canReadOwnConversations: Access = ({ req }) => {
+  const user = req.user;
+  if (!user) return false;
+  if (isSuperAdmin(user)) return true; // bypass for admins while debugging
+
+  const where: Where = {
+    or: [{ buyer: { equals: user.id } }, { seller: { equals: user.id } }]
+  };
+  return where;
+};
 
 export const Conversations: CollectionConfig = {
   slug: 'conversations',
   access: {
-    read: ({ req: { user } }) => !!user,
-    create: ({ req: { user } }) => !!user,
+    read: canReadOwnConversations,
+    create: ({ req }) => !!req.user,
     update: () => false,
-    delete: ({ req: { user } }) => isSuperAdmin(user)
+    delete: ({ req }) => isSuperAdmin(req.user)
   },
   admin: {
     useAsTitle: 'id',
@@ -34,11 +44,7 @@ export const Conversations: CollectionConfig = {
       relationTo: 'users',
       required: true
     },
-    {
-      name: 'roomId',
-      type: 'text',
-      required: true
-    }
+    { name: 'roomId', type: 'text', required: true }
   ],
   timestamps: true
 };
