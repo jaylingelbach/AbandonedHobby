@@ -4,7 +4,7 @@ import { LiveList } from '@liveblocks/node';
 
 // https://liveblocks.io/docs/api-reference/liveblocks-react#Typing-your-data
 
-type Message = {
+export type Message = {
   id: string;
   userId: string;
   name?: string;

@@ -16,15 +16,17 @@ import {
 } from '@tanstack/react-query';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
+import { Message } from '../../../../liveblocks.config';
 
 export function ChatRoom({
-  conversationId, // DB record ID
-  roomId // Liveblocks key
+  conversationId,
+  roomId
 }: {
   conversationId: string;
   roomId: string;
 }) {
   const trpc = useTRPC();
+
   const { data } = useQuery(
     trpc.messages.getMessage.queryOptions({
       conversationId,
@@ -38,30 +40,41 @@ export function ChatRoom({
     <RoomProvider
       id={roomId}
       initialStorage={{
-        messages: new LiveList(
-          data.messages.map((message) => {
-            const senderId =
-              typeof message.sender === 'string'
-                ? message.sender
-                : message.sender.id;
+        messages: new LiveList<Message>(
+          data.messages.map((message): Message => {
+            const sender = message.sender as
+              | string
+              | null
+              | {
+                  id?: string;
+                  username?: string | null;
+                  firstName?: string | null;
+                  lastName?: string | null;
+                  image?: unknown;
+                };
 
-            const senderName =
-              typeof message.sender === 'string'
-                ? undefined
-                : (message.sender.name ?? undefined);
+            const senderId: string =
+              typeof sender === 'string' ? sender : (sender?.id ?? 'unknown');
 
-            const senderImage =
-              typeof message.sender === 'string'
+            const displayName =
+              typeof sender === 'string' || sender == null
                 ? undefined
-                : message.sender.image;
+                : (sender.username ??
+                  sender.firstName ??
+                  sender.lastName ??
+                  undefined);
+
+            const displayImage =
+              typeof sender === 'string' || sender == null
+                ? null
+                : ((sender.image as string | null | undefined) ?? null);
 
             return {
-              id: message.id,
-              userId: senderId,
-              name: senderName,
-              image: senderImage,
-              content: message.content,
-              createdAt: new Date(message.createdAt).getTime()
+              id: message.id, // string
+              userId: senderId, // string (never undefined)
+              content: message.content ?? '', // string
+              createdAt: new Date(message.createdAt).getTime(), // number
+              name: displayName // optional
             };
           })
         )
@@ -100,7 +113,7 @@ function ChatViewSkeleton() {
 
 function ChatView({ conversationId }: { conversationId: string }) {
   const { user } = useUser();
-  const ref = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const messages = useStorage((root) => root.messages);
@@ -123,11 +136,12 @@ function ChatView({ conversationId }: { conversationId: string }) {
     })
   );
 
+  // Local echo message -> ensure userId is a string and no 'name' field usage
   const addLocal = useMutation((ctx, content: string) => {
     ctx.storage.get('messages').push({
       id: crypto.randomUUID(),
-      userId: user?.id ?? 'anonymous',
-      name: user?.username,
+      userId: user?.id ?? 'anonymous', // <- always a string
+      name: user?.username ?? user?.firstName ?? user?.lastName ?? undefined, // <- no 'user.name'
       content,
       createdAt: Date.now()
     });
@@ -137,9 +151,9 @@ function ChatView({ conversationId }: { conversationId: string }) {
     const timer = setTimeout(() => {
       const lastMessage = messages.at(-1);
       if (!lastMessage) return;
-      if (lastMessage?.userId === user?.id) {
+      if (user?.id && lastMessage?.userId === user.id) {
         persistMessage({
-          conversationId, // still the DB record ID
+          conversationId,
           content: lastMessage.content
         });
       }
@@ -148,15 +162,14 @@ function ChatView({ conversationId }: { conversationId: string }) {
   }, [messages, user?.id, persistMessage, conversationId]);
 
   const send = () => {
-    const content = ref.current?.value.trim();
+    const content = inputRef.current?.value.trim();
     if (!content) return;
     addLocal(content);
-    if (ref.current) ref.current.value = '';
+    if (inputRef.current) inputRef.current.value = '';
   };
 
   return (
     <div className="flex flex-col h-full">
-      {/* Boxed message area */}
       <div className="flex-1 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
         {messages.map((message) => (
           <div key={message.id} className="px-3 py-2 rounded-md bg-pink-400">
@@ -165,7 +178,7 @@ function ChatView({ conversationId }: { conversationId: string }) {
         ))}
       </div>
       <input
-        ref={ref}
+        ref={inputRef}
         className="border px-3 py-2 rounded mt-4"
         placeholder="Type a message…"
         onKeyDown={(e) => e.key === 'Enter' && send()}

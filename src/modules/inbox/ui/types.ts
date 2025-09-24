@@ -18,7 +18,7 @@ export const ConversationListItemDTO = z.object({
     })
     .nullable(),
   unreadCount: z.number(),
-  title: z.string()
+  title: z.string().optional()
 });
 
 export type ConversationListItem = z.infer<typeof ConversationListItemDTO>;
