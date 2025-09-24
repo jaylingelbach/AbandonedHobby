@@ -27,6 +27,10 @@ export function toISO(value: unknown): string {
       ? value
       : String(value)
   );
+  if (isNaN(d.getTime())) {
+    // Return a default or throw an error based on your requirements
+    return new Date(0).toISOString(); // or throw new Error('Invalid date value')
+  }
   return d.toISOString();
 }
 
