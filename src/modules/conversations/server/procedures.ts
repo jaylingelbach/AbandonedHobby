@@ -1,18 +1,12 @@
 import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import type { Tenant, User, Conversation, Message } from '@/payload-types';
+import type { Tenant, User, Conversation } from '@/payload-types';
 import { relId } from '@/lib/relationshipHelpers';
-import type { Payload } from 'payload';
+import type { LastGroup, LastMsg, UnreadGroup } from './types';
+
 import { ConversationListItemDTO } from './schemas';
-import {
-  conversationUserId,
-  getRoomId,
-  senderIdFromMessage,
-  toISO,
-  userIdFromRel,
-  usernameFromRel
-} from './utils';
+import { getRoomId, userIdFromRel, usernameFromRel } from './utils';
 
 export const conversationsRouter = createTRPCRouter({
   getOrCreate: protectedProcedure
@@ -159,29 +153,7 @@ export const conversationsRouter = createTRPCRouter({
     // Conversation ids
     const convIds = docs.map((c) => c.id);
 
-    // Helpers (typed)
-    const userIdFromRel = (
-      rel: string | User | null | undefined
-    ): string | null =>
-      typeof rel === 'string'
-        ? rel
-        : rel && typeof rel.id === 'string'
-          ? rel.id
-          : null;
-
-    const usernameFromRel = (
-      rel: string | User | null | undefined
-    ): string | undefined =>
-      typeof rel === 'string' ? undefined : rel?.username;
-
-    const getRoomId = (c: Conversation): string =>
-      typeof (c as { roomId?: unknown }).roomId === 'string' &&
-      (c as { roomId: string }).roomId.length > 0
-        ? (c as { roomId: string }).roomId
-        : `conv_${c.id}`;
-
     // ── 1) Batched unread counts (single query or aggregation) ────────────────
-    type UnreadGroup = { _id: string; count: number };
 
     async function getUnreadCounts(): Promise<Map<string, number>> {
       // Try adapter aggregate (mongoose) if available
@@ -244,22 +216,6 @@ export const conversationsRouter = createTRPCRouter({
     }
 
     // ── 2) Batched last messages (aggregation or single over-fetch) ───────────
-    type LastMsg = {
-      id: string;
-      content: string;
-      createdAtISO: string;
-      senderId: string;
-    };
-    type LastGroup = {
-      _id: string;
-      doc: {
-        _id: string;
-        content?: string;
-        createdAt?: string | Date;
-        sender?: string | User;
-        conversationId?: string;
-      };
-    };
 
     async function getLastMessages(): Promise<Map<string, LastMsg>> {
       const payload = ctx.db as unknown as import('payload').Payload;
