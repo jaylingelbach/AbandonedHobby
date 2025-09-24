@@ -9,9 +9,16 @@ export const Reviews: CollectionConfig = {
     update: ({ req: { user } }) => isSuperAdmin(user),
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
+
   admin: {
     useAsTitle: 'description'
   },
+  indexes: [
+    {
+      fields: ['user', 'product'],
+      unique: true
+    }
+  ],
   fields: [
     {
       name: 'description',
