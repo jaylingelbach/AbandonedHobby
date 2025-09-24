@@ -113,8 +113,8 @@ export const conversationsRouter = createTRPCRouter({
     const currentUserId = ctx.session.user?.id;
     if (!currentUserId) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-    // Fetch my conversations (ignore collection access rules to avoid ACL mismatches)
-    const conversations = await ctx.db.find({
+    // Primary: query by buyer/seller equals currentUserId
+    const primary = await ctx.db.find({
       collection: 'conversations',
       where: {
         or: [
@@ -122,52 +122,87 @@ export const conversationsRouter = createTRPCRouter({
           { seller: { equals: currentUserId } }
         ]
       },
-      limit: 100, // consider pagination on the client to further reduce load
+      limit: 100,
       depth: 1,
       sort: '-updatedAt',
       overrideAccess: true
     });
 
-    if (conversations.totalDocs === 0) {
-      return []; // nothing to do
+    // If nothing matched, fall back to a broad fetch and filter in memory.
+    // This covers weird relationship storage/draft/access shapes.
+    const convSource =
+      primary.totalDocs > 0
+        ? primary
+        : await ctx.db.find({
+            collection: 'conversations',
+            // broad recent window; server-side filter below
+            limit: 200,
+            depth: 1,
+            sort: '-updatedAt',
+            overrideAccess: true
+          });
+
+    // Narrow in-memory to only my conversations when we used the fallback
+    const docs = (convSource.docs as Array<Conversation>).filter((c) => {
+      const buyerId =
+        typeof c.buyer === 'string' ? c.buyer : (c.buyer as User | null)?.id;
+      const sellerId =
+        typeof c.seller === 'string' ? c.seller : (c.seller as User | null)?.id;
+      return buyerId === currentUserId || sellerId === currentUserId;
+    });
+
+    if (docs.length === 0) {
+      // Truly no conversations
+      return ConversationListItemDTO.array().parse([]);
     }
 
-    // Collect conversation ids
-    const convIds = conversations.docs.map((c) => c.id);
+    // Conversation ids
+    const convIds = docs.map((c) => c.id);
 
-    // ───────────────────────────────────────────────────────────────────────────
-    // 1) Batched unread counts
-    // ───────────────────────────────────────────────────────────────────────────
+    // Helpers (typed)
+    const userIdFromRel = (
+      rel: string | User | null | undefined
+    ): string | null =>
+      typeof rel === 'string'
+        ? rel
+        : rel && typeof rel.id === 'string'
+          ? rel.id
+          : null;
+
+    const usernameFromRel = (
+      rel: string | User | null | undefined
+    ): string | undefined =>
+      typeof rel === 'string' ? undefined : rel?.username;
+
+    const getRoomId = (c: Conversation): string =>
+      typeof (c as { roomId?: unknown }).roomId === 'string' &&
+      (c as { roomId: string }).roomId.length > 0
+        ? (c as { roomId: string }).roomId
+        : `conv_${c.id}`;
+
+    // ── 1) Batched unread counts (single query or aggregation) ────────────────
     type UnreadGroup = { _id: string; count: number };
 
     async function getUnreadCounts(): Promise<Map<string, number>> {
-      // Try low-level aggregate if supported by the adapter
+      // Try adapter aggregate (mongoose) if available
       const payload = ctx.db as unknown as import('payload').Payload;
-      const db = (payload as { db?: unknown }).db;
-      const supportsAggregate =
-        typeof db === 'object' &&
-        db !== null &&
-        typeof (db as Record<string, unknown>).collections === 'object' &&
-        !!(db as { collections: Record<string, unknown> }).collections
-          ?.messages &&
-        typeof (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as Record<string, unknown>
-        ).Model === 'object' &&
-        typeof (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as {
-            Model?: { aggregate?: unknown };
-          }
-        ).Model?.aggregate === 'function';
+      const db = (payload as { db?: unknown }).db as
+        | { collections?: Record<string, unknown> }
+        | undefined;
 
-      if (supportsAggregate) {
-        // Mongoose-like aggregate: group unread by conversationId
-        const Model = (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as { Model: { aggregate: Function } }
-        ).Model;
+      const agg =
+        db &&
+        db.collections &&
+        typeof (db.collections.messages as { Model?: { aggregate?: unknown } })
+          ?.Model?.aggregate === 'function'
+          ? (
+              db.collections.messages as {
+                Model: { aggregate: (p: unknown[]) => Promise<unknown[]> };
+              }
+            ).Model
+          : null;
 
+      if (agg) {
         const pipeline = [
           {
             $match: {
@@ -178,14 +213,13 @@ export const conversationsRouter = createTRPCRouter({
           },
           { $group: { _id: '$conversationId', count: { $sum: 1 } } }
         ];
-
-        const groups = (await Model.aggregate(pipeline)) as UnreadGroup[];
+        const groups = (await agg.aggregate(pipeline)) as UnreadGroup[];
         const map = new Map<string, number>();
         for (const g of groups) map.set(g._id, g.count);
         return map;
       }
 
-      // Fallback: single high-level find of ALL unread for me among these conversations, then reduce.
+      // Fallback: one high-level find over all unread, then reduce
       const unreadRes = await ctx.db.find({
         collection: 'messages',
         pagination: false,
@@ -201,19 +235,23 @@ export const conversationsRouter = createTRPCRouter({
       });
 
       const map = new Map<string, number>();
-      for (const m of unreadRes.docs) {
-        const id = (m as { conversationId?: unknown }).conversationId;
-        if (typeof id === 'string') map.set(id, (map.get(id) ?? 0) + 1);
+      for (const m of unreadRes.docs as Array<{ conversationId?: unknown }>) {
+        const id =
+          typeof m.conversationId === 'string' ? m.conversationId : undefined;
+        if (id) map.set(id, (map.get(id) ?? 0) + 1);
       }
       return map;
     }
 
-    // ───────────────────────────────────────────────────────────────────────────
-    // 2) Batched last messages
-    //    Try an aggregate ($sort + $group) first; fallback to single over-fetch.
-    // ───────────────────────────────────────────────────────────────────────────
-    type LastMessageGroup = {
-      _id: string; // conversationId
+    // ── 2) Batched last messages (aggregation or single over-fetch) ───────────
+    type LastMsg = {
+      id: string;
+      content: string;
+      createdAtISO: string;
+      senderId: string;
+    };
+    type LastGroup = {
+      _id: string;
       doc: {
         _id: string;
         content?: string;
@@ -223,56 +261,32 @@ export const conversationsRouter = createTRPCRouter({
       };
     };
 
-    async function getLastMessages(): Promise<
-      Map<
-        string,
-        { id: string; content: string; createdAtISO: string; senderId: string }
-      >
-    > {
+    async function getLastMessages(): Promise<Map<string, LastMsg>> {
       const payload = ctx.db as unknown as import('payload').Payload;
-      const db = (payload as { db?: unknown }).db;
+      const db = (payload as { db?: unknown }).db as
+        | { collections?: Record<string, unknown> }
+        | undefined;
 
-      const hasAgg =
-        typeof db === 'object' &&
-        db !== null &&
-        typeof (db as Record<string, unknown>).collections === 'object' &&
-        !!(db as { collections: Record<string, unknown> }).collections
-          ?.messages &&
-        typeof (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as Record<string, unknown>
-        ).Model === 'object' &&
-        typeof (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as {
-            Model?: { aggregate?: unknown };
-          }
-        ).Model?.aggregate === 'function';
+      const agg =
+        db &&
+        db.collections &&
+        typeof (db.collections.messages as { Model?: { aggregate?: unknown } })
+          ?.Model?.aggregate === 'function'
+          ? (
+              db.collections.messages as {
+                Model: { aggregate: (p: unknown[]) => Promise<unknown[]> };
+              }
+            ).Model
+          : null;
 
-      if (hasAgg) {
-        // Mongoose-like aggregate to get the last message per conversation
-        const Model = (
-          (db as { collections: Record<string, unknown> }).collections
-            .messages as { Model: { aggregate: Function } }
-        ).Model;
-
+      if (agg) {
         const pipeline = [
           { $match: { conversationId: { $in: convIds } } },
           { $sort: { createdAt: -1 } },
           { $group: { _id: '$conversationId', doc: { $first: '$$ROOT' } } }
         ];
-
-        const groups = (await Model.aggregate(pipeline)) as LastMessageGroup[];
-
-        const map = new Map<
-          string,
-          {
-            id: string;
-            content: string;
-            createdAtISO: string;
-            senderId: string;
-          }
-        >();
+        const groups = (await agg.aggregate(pipeline)) as LastGroup[];
+        const map = new Map<string, LastMsg>();
         for (const g of groups) {
           const d = g.doc;
           const content = typeof d.content === 'string' ? d.content : '';
@@ -291,9 +305,7 @@ export const conversationsRouter = createTRPCRouter({
         return map;
       }
 
-      // Fallback: single find over all target conversations, sorted newest→oldest,
-      // over-fetch a bit and take first per conversation.
-      // Heuristic: fetch up to 5 messages per conversation.
+      // Fallback: one find sorted by -createdAt, keep first per conversation
       const limit = Math.min(convIds.length * 5, 2000);
       const res = await ctx.db.find({
         collection: 'messages',
@@ -309,10 +321,7 @@ export const conversationsRouter = createTRPCRouter({
         }
       });
 
-      const map = new Map<
-        string,
-        { id: string; content: string; createdAtISO: string; senderId: string }
-      >();
+      const map = new Map<string, LastMsg>();
       for (const doc of res.docs as Array<{
         id: string;
         content?: string;
@@ -324,7 +333,7 @@ export const conversationsRouter = createTRPCRouter({
           typeof doc.conversationId === 'string'
             ? doc.conversationId
             : undefined;
-        if (!convId || map.has(convId)) continue; // already captured newest for this conversation
+        if (!convId || map.has(convId)) continue;
         const content = typeof doc.content === 'string' ? doc.content : '';
         const createdAtISO = new Date(
           typeof doc.createdAt === 'string' || doc.createdAt instanceof Date
@@ -348,33 +357,30 @@ export const conversationsRouter = createTRPCRouter({
       getLastMessages()
     ]);
 
-    // Build DTOs without per-conversation queries
-    const items = conversations.docs.map((c) => {
+    const items = docs.map((c) => {
       const buyerId = userIdFromRel(
         c.buyer as string | User | null | undefined
       );
       const viewingAsBuyer = currentUserId === buyerId;
-      const otherRel = viewingAsBuyer
-        ? (c.seller as string | User | null | undefined)
-        : (c.buyer as string | User | null | undefined);
+      const otherRel = viewingAsBuyer ? c.seller : c.buyer;
 
-      const otherId = userIdFromRel(otherRel) ?? '';
-      const otherUsername = usernameFromRel(otherRel);
+      const otherId =
+        userIdFromRel(otherRel as string | User | null | undefined) ?? '';
+      const otherUsername = usernameFromRel(
+        otherRel as string | User | null | undefined
+      );
 
       const last = lastMap.get(c.id) ?? null;
 
       return {
         id: c.id,
         roomId: getRoomId(c),
-        other: {
-          id: otherId,
-          username: otherUsername
-        },
+        other: { id: otherId, username: otherUsername },
         lastMessage: last
           ? {
               id: last.id,
               content: last.content,
-              createdAtISO: last.createdAtISO,
+              createdAt: last.createdAtISO, // if your DTO expects createdAt (not createdAtISO), adjust zod
               senderId: last.senderId
             }
           : null,
@@ -382,7 +388,6 @@ export const conversationsRouter = createTRPCRouter({
       };
     });
 
-    // Validate/shape exactly as clients expect
     return ConversationListItemDTO.array().parse(items);
   }),
 
