@@ -10,7 +10,7 @@ import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from './types';
  * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a string.
  */
 
-function assertString(value: unknown, path: string): string {
+export function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
@@ -28,7 +28,7 @@ function assertString(value: unknown, path: string): string {
  * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a number or is NaN.
  */
 
-function assertNumber(value: unknown, path: string): number {
+export function assertNumber(value: unknown, path: string): number {
   if (typeof value !== 'number' || Number.isNaN(value)) {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
@@ -46,7 +46,7 @@ function assertNumber(value: unknown, path: string): number {
  * @throws TRPCError(INTERNAL_SERVER_ERROR) if not a positive integer.
  */
 
-function assertPositiveInt(value: unknown, path: string): number {
+export function assertPositiveInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
   if (!Number.isInteger(n) || n <= 0) {
     throw new TRPCError({
@@ -186,7 +186,10 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
  * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
  */
 
-function mapOrderItem(orderItemRaw: unknown, index: number): OrderItemDTO {
+export function mapOrderItem(
+  orderItemRaw: unknown,
+  index: number
+): OrderItemDTO {
   if (!isObjectRecord(orderItemRaw)) {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',

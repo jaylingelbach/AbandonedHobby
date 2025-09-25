@@ -74,6 +74,7 @@ export interface Config {
     orders: Order;
     products: Product;
     reviews: Review;
+    stripe_events: StripeEvent;
     tags: Tag;
     tenants: Tenant;
     users: User;
@@ -95,6 +96,7 @@ export interface Config {
     orders: OrdersSelect<false> | OrdersSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     reviews: ReviewsSelect<false> | ReviewsSelect<true>;
+    stripe_events: StripeEventsSelect<false> | StripeEventsSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
     tenants: TenantsSelect<false> | TenantsSelect<true>;
     users: UsersSelect<false> | UsersSelect<true>;
@@ -484,6 +486,16 @@ export interface Review {
   createdAt: string;
 }
 /**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "stripe_events".
+ */
+export interface StripeEvent {
+  id: string;
+  eventId: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * In-app notifications for users
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -543,6 +555,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'reviews';
         value: string | Review;
+      } | null)
+    | ({
+        relationTo: 'stripe_events';
+        value: string | StripeEvent;
       } | null)
     | ({
         relationTo: 'tags';
@@ -782,6 +798,15 @@ export interface ReviewsSelect<T extends boolean = true> {
   rating?: T;
   product?: T;
   user?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "stripe_events_select".
+ */
+export interface StripeEventsSelect<T extends boolean = true> {
+  eventId?: T;
   updatedAt?: T;
   createdAt?: T;
 }
