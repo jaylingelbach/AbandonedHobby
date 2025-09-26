@@ -1,37 +1,49 @@
 import { NextResponse } from 'next/server';
+
 import { getPayload } from 'payload';
 import type { Payload } from 'payload';
 import config from '@payload-config';
 
 import Stripe from 'stripe';
-import { stripe } from '@/lib/stripe';
 
-import type { User, Product } from '@/payload-types';
-import { daysForPolicy } from '@/lib/server/utils';
+import { stripe } from '@/lib/stripe';
+import { posthogServer } from '@/lib/server/posthog-server';
 import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
 
+import type { Product, User } from '@/payload-types';
+import type { TenantWithContact } from '@/modules/tenants/resolve';
+
+import {
+  DecProductStockOptions,
+  DecProductStockResult,
+  OrderItemInput
+} from './utils/types';
+
 import {
   hasProcessed,
-  isStringValue,
   isExpandedLineItem,
+  isStringValue,
   itemHasProductId,
   markProcessed,
   requireStripeProductId
 } from '@/modules/stripe/guards';
 
-import { posthogServer } from '@/lib/server/posthog-server';
 import {
-  DecProductStockOptions,
-  DecProductStockResult,
-  OrderItemInput,
-  ReceiptLineItem,
-  TenantWithContact
-} from './utils/types';
-import { isUniqueViolation } from './utils/utils';
+  sumAmountTotalCents,
+  buildReceiptLineItems
+} from '@/modules/stripe/line-items';
+
+import {
+  buildOrderItems,
+  earliestReturnsCutoffISO
+} from '@/modules/stripe/build-order-items';
+
 import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
+
+import { toQtyMap, flushIfNeeded, isUniqueViolation } from './utils/utils';
 
 export const runtime = 'nodejs';
 
@@ -49,9 +61,7 @@ async function tryCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
   }
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Local types
- * ────────────────────────────────────────────────────────────────────────────── */
+// Local types
 
 // Stripe’s expanded line item with expanded product metadata.id guaranteed.
 export type ExpandedLineItem = Stripe.LineItem & {
@@ -59,10 +69,6 @@ export type ExpandedLineItem = Stripe.LineItem & {
     product: Stripe.Product & { metadata: Record<string, string> };
   };
 };
-
-/* ──────────────────────────────────────────────────────────────────────────────
- * Fast precheck (order exists by session/event)
- * ────────────────────────────────────────────────────────────────────────────── */
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * Inventory decrement (atomic) + batch
@@ -116,17 +122,6 @@ async function decProductStockAtomic(
   };
 }
 
-function toQtyMap(
-  items: Array<{ product: string; quantity?: number }>
-): Map<string, number> {
-  const map = new Map<string, number>();
-  for (const item of items) {
-    const qty = typeof item.quantity === 'number' ? item.quantity : 1;
-    map.set(item.product, (map.get(item.product) ?? 0) + qty);
-  }
-  return map;
-}
-
 async function decrementInventoryBatch(args: {
   payload: Payload;
   qtyByProductId: Map<string, number>;
@@ -154,116 +149,6 @@ async function decrementInventoryBatch(args: {
       // Policy: you could flag the order for manual review here if 'insufficient'
     }
   }
-}
-
-/* ──────────────────────────────────────────────────────────────────────────────
- * Utility helpers
- * ────────────────────────────────────────────────────────────────────────────── */
-
-async function flushIfNeeded(): Promise<void> {
-  const isServerless =
-    !!process.env.VERCEL ||
-    !!process.env.AWS_LAMBDA_FUNCTION_NAME ||
-    !!process.env.NETLIFY;
-  if (isServerless || process.env.NODE_ENV !== 'production') {
-    await posthogServer?.flush?.();
-  }
-}
-
-function sumAmountTotalCents(lines: Stripe.LineItem[]): number {
-  return lines.reduce<number>((sum, line) => {
-    const lineTotal =
-      (typeof line.amount_total === 'number' ? line.amount_total : undefined) ??
-      (line.price?.unit_amount ?? 0) * (line.quantity ?? 1);
-    return sum + lineTotal;
-  }, 0);
-}
-
-function buildReceiptLineItems(lines: ExpandedLineItem[]): ReceiptLineItem[] {
-  return lines.map((line) => {
-    const prod = line.price.product as Stripe.Product;
-    const description = prod.name ?? line.description ?? 'Item';
-    const amountTotal =
-      (typeof line.amount_total === 'number' ? line.amount_total : undefined) ??
-      (line.price.unit_amount ?? 0) * (line.quantity ?? 1);
-    return {
-      description,
-      amount: `$${((amountTotal ?? 0) / 100).toFixed(2)}`
-    };
-  });
-}
-
-function earliestReturnsCutoffISO(items: OrderItemInput[]): string | undefined {
-  const dates = items
-    .map((i) =>
-      i.returnsAcceptedThrough ? new Date(i.returnsAcceptedThrough) : null
-    )
-    .filter((d): d is Date => d instanceof Date);
-  if (dates.length === 0) return undefined;
-  return new Date(Math.min(...dates.map((d) => d.getTime()))).toISOString();
-}
-
-function buildOrderItems(
-  lines: ExpandedLineItem,
-  productMap: Map<string, Product>
-): OrderItemInput[];
-function buildOrderItems(
-  lines: ExpandedLineItem[],
-  productMap: Map<string, Product>
-): OrderItemInput[];
-function buildOrderItems(
-  lines: ExpandedLineItem | ExpandedLineItem[],
-  productMap: Map<string, Product>
-): OrderItemInput[] {
-  const list = Array.isArray(lines) ? lines : [lines];
-  const now = new Date();
-
-  return list.map((line) => {
-    const productId = requireStripeProductId(line);
-    const productDoc = productMap.get(productId);
-
-    type RefundPolicyOption = NonNullable<Product['refundPolicy']>;
-    const policy: RefundPolicyOption | undefined =
-      productDoc?.refundPolicy == null
-        ? undefined
-        : (productDoc.refundPolicy as RefundPolicyOption);
-
-    const unitAmount = line.price.unit_amount ?? 0;
-    const quantity = line.quantity ?? 1;
-
-    const returnsDate =
-      policy && daysForPolicy(policy) > 0
-        ? new Date(now.getTime() + daysForPolicy(policy) * 24 * 60 * 60 * 1000)
-        : undefined;
-
-    const amountSubtotal =
-      (typeof line.amount_subtotal === 'number'
-        ? line.amount_subtotal
-        : undefined) ?? unitAmount * quantity;
-    const amountTax =
-      (typeof line.amount_tax === 'number' ? line.amount_tax : undefined) ??
-      undefined;
-    const amountTotal =
-      (typeof line.amount_total === 'number' ? line.amount_total : undefined) ??
-      unitAmount * quantity;
-
-    const prod = line.price.product as Stripe.Product;
-    const nameSnapshot = prod.name ?? line.description ?? 'Item';
-
-    return {
-      product: productId,
-      nameSnapshot,
-      unitAmount,
-      quantity,
-      amountSubtotal,
-      amountTax,
-      amountTotal,
-      refundPolicy: policy,
-      returnsAcceptedThrough: returnsDate
-        ? returnsDate.toISOString()
-        : undefined
-    };
-  });
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────

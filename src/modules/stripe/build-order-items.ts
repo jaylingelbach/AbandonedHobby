@@ -1,8 +1,13 @@
-// src/modules/stripe/build-order-items.ts
 import type Stripe from 'stripe';
+
 import type { Product } from '@/payload-types';
+
 import { daysForPolicy } from '@/lib/server/utils';
-import type { ExpandedLineItem } from './guards';
+
+import {
+  type ExpandedLineItem,
+  requireStripeProductIdFromLine
+} from './guards';
 
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;
@@ -19,22 +24,6 @@ export type OrderItemOutput = {
   returnsAcceptedThrough?: string; // ISO
   thumbnailUrl?: string | null;
 };
-
-/**
- * Narrowly and safely extract the product id we store in Stripe Product metadata.
- * Throws if missing so downstream code can rely on a plain string type.
- */
-export function requireStripeProductIdFromLine(line: ExpandedLineItem): string {
-  const product = line.price.product as Stripe.Product;
-  const meta = product.metadata as Record<string, string>;
-  const id = meta['id'];
-  if (typeof id !== 'string' || id.trim().length === 0) {
-    throw new Error(
-      `Missing Stripe Product metadata.id (product.id=${product.id})`
-    );
-  }
-  return id;
-}
 
 /**
  * Convert one expanded Stripe line item into our canonical OrderItem shape.

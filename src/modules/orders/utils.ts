@@ -29,7 +29,11 @@ export function assertString(value: unknown, path: string): string {
  */
 
 export function assertNumber(value: unknown, path: string): number {
-  if (typeof value !== 'number' || Number.isNaN(value)) {
+  if (
+    typeof value !== 'number' ||
+    Number.isNaN(value) ||
+    !Number.isFinite(value)
+  ) {
     throw new TRPCError({
       code: 'INTERNAL_SERVER_ERROR',
       message: `Expected number at ${path}`

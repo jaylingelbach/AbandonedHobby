@@ -1,10 +1,4 @@
-import { Product, Tenant, User } from '@/payload-types';
-
-export type TenantWithContact = Tenant & {
-  notificationEmail?: string | null;
-  notificationName?: string | null;
-  primaryContact?: string | User | null; // id or populated
-};
+import { Product } from '@/payload-types';
 
 export type ExistingOrderPrecheck = {
   id: string;
