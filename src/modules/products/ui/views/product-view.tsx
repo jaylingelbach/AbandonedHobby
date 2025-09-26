@@ -25,6 +25,7 @@ import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
 import ProductGallery from '../components/product-gallery';
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 import { useUser } from '@/hooks/use-user';
+import ViewInOrdersButton from '../components/view-in-order-button';
 
 const CartButton = dynamic(
   () =>
@@ -241,13 +242,17 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               />
             </div>
           </div>
-
           <div className="col-span-2">
             {/* Div around add to cart and ratings */}
             <div className="border-t lg:border-t-0 lg:border-l h-full">
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
+                  <ViewInOrdersButton
+                    isPurchased={data.isPurchased}
+                    tenantSlug={data.tenant.slug}
+                    productId={productId}
+                  />
                   {/*  Disable buy when sold out (swap CartButton for a disabled button) */}
                   {inStock ? (
                     <CartButton
