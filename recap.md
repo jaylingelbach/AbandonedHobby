@@ -3207,3 +3207,40 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/lib/server/utils.ts, recap.md, liveblocks.config.ts
   - Minor import/type ordering, documentation recap added; small signature and ordering adjustments.
+
+# View order button 09/26/25
+
+## Walkthrough
+
+- CartButton was refactored to always toggle cart state and no longer handles purchased/order linking. A new ViewInOrdersButton component was added to render a “View in orders” link when purchased. ProductView was updated to import and render ViewInOrdersButton alongside the cart controls.
+
+## New Features
+
+- Added a “View in orders” button on product pages for purchased items, linking directly to the specific order when available or the orders list.
+- Updated the cart button to consistently add/remove the product from the cart, with dynamic label and styling reflecting cart status.
+
+## UI
+
+- Product view now displays the new orders button alongside the cart controls for a clearer separation between purchasing and order access.
+
+## File changes
+
+### Cart button refactor
+
+- src/modules/products/ui/components/cart-button.tsx
+  - Changed component signature to accept only tenantSlug and productId;
+  - removed isPurchased/orderId usage and the orders Link;
+  - button now always toggles add/remove from cart with state-based styling;
+  - imports reorganized; note: Props type still contains isPurchased and orderId.
+
+### New "View in orders" component
+
+- src/modules/products/ui/components/view-in-order-button.tsx
+  - Added ViewInOrdersButton that renders a Button-as-Link to /orders or /orders/{orderId} when isPurchased is true; exports named and default.
+
+### Product view integration
+
+- src/modules/products/ui/views/product-view.tsx
+  - Imported and rendered ViewInOrdersButton alongside existing controls;
+  - passed isPurchased, tenantSlug, and productId;
+  - minor import reorganization with additional React utilities.
