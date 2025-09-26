@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
 
 import { getPayload } from 'payload';
-import type { Payload } from 'payload';
+
 import config from '@payload-config';
 
 import Stripe from 'stripe';
@@ -15,12 +15,9 @@ import {
 
 import type { Product, User } from '@/payload-types';
 import type { TenantWithContact } from '@/modules/tenants/resolve';
+import type { ProductModelLite, PayloadMongoLike } from './utils/types';
 
-import {
-  DecProductStockOptions,
-  DecProductStockResult,
-  OrderItemInput
-} from './utils/types';
+import { OrderItemInput } from './utils/types';
 
 import {
   hasProcessed,
@@ -70,60 +67,94 @@ export type ExpandedLineItem = Stripe.LineItem & {
   };
 };
 
+function getProductsModel(
+  payload: import('payload').Payload
+): ProductModelLite | null {
+  const maybeDb = (payload as unknown as PayloadMongoLike).db;
+  const collections = maybeDb?.collections;
+  const products = collections?.products as unknown;
+
+  // Structural type guard for the methods we call
+  const m = products && ((products as { Model?: unknown }).Model as unknown);
+  const model = m as Partial<ProductModelLite> | undefined;
+
+  if (
+    model &&
+    typeof model.findOneAndUpdate === 'function' &&
+    typeof model.updateOne === 'function'
+  ) {
+    return model as ProductModelLite;
+  }
+  return null;
+}
+
 /* ──────────────────────────────────────────────────────────────────────────────
- * Inventory decrement (atomic) + batch
- * NOTE: includes { context: { ahSystem: true, ahSkipAutoArchive: true } }
- * to avoid hook loops while updating products.
+ * Inventory decrement (atomic) + batch  (Mongo / Mongoose)
+ * NOTE:
+ * - Uses a single conditional findOneAndUpdate with $inc and stockQuantity >= qty
+ *   so concurrent handlers cannot oversell.
+ * - If stock hits 0 and autoArchive=true, we immediately set isArchived in a
+ *   second, quick update. This isn't “atomic with the decrement”, but it’s safe:
+ *   once stock is 0, archiving is idempotent and can’t cause oversell.
+ * - This path bypasses Payload hooks (it updates via the underlying Mongoose
+ *   Model), which also avoids re-entrancy issues. Keep your product hooks in mind.
  * ────────────────────────────────────────────────────────────────────────────── */
 
-async function decProductStockAtomic(
-  payload: Payload,
+export async function decProductStockAtomic(
+  payload: import('payload').Payload,
   productId: string,
   qty: number,
-  opts: DecProductStockOptions = {}
-): Promise<DecProductStockResult> {
+  opts: { autoArchive?: boolean } = {}
+): Promise<
+  | { ok: true; after: { stockQuantity: number }; archived: boolean }
+  | {
+      ok: false;
+      reason: 'not-supported' | 'not-tracked' | 'not-found' | 'insufficient';
+    }
+> {
   if (!Number.isInteger(qty) || qty <= 0) {
     return { ok: false, reason: 'insufficient' };
   }
 
-  const prod = (await payload.findByID({
-    collection: 'products',
-    id: productId,
-    depth: 0,
-    overrideAccess: true
-  })) as Product | null;
+  const ProductModel = getProductsModel(payload);
+  if (!ProductModel) {
+    return { ok: false, reason: 'not-supported' };
+  }
 
-  if (!prod) return { ok: false, reason: 'not-found' };
+  // Atomic conditional decrement
+  const updated = await ProductModel.findOneAndUpdate(
+    { _id: productId, stockQuantity: { $gte: qty } },
+    { $inc: { stockQuantity: -qty } },
+    { new: true, lean: true }
+  );
 
-  const current =
-    typeof prod.stockQuantity === 'number' ? prod.stockQuantity : null;
-  if (current == null) return { ok: false, reason: 'not-tracked' };
-  if (current < qty) return { ok: false, reason: 'insufficient' };
+  if (!updated) {
+    // product not found or insufficient stock matched the guard
+    return { ok: false, reason: 'insufficient' };
+  }
 
-  const next = current - qty;
-  const shouldArchive = opts.autoArchive === true && next === 0;
+  const afterQty =
+    typeof updated.stockQuantity === 'number' ? updated.stockQuantity : null;
 
-  const updated = (await payload.update({
-    collection: 'products',
-    id: productId,
-    data: {
-      stockQuantity: next,
-      ...(shouldArchive ? { isArchived: true } : {})
-    },
-    overrideAccess: true,
-    draft: false,
-    context: { ahSystem: true, ahSkipAutoArchive: true }
-  })) as Product;
+  if (afterQty == null) {
+    return { ok: false, reason: 'not-tracked' };
+  }
 
-  return {
-    ok: true,
-    after: { stockQuantity: (updated.stockQuantity as number) ?? next },
-    archived: Boolean(updated.isArchived)
-  };
+  let archived = Boolean(updated.isArchived);
+
+  if (opts.autoArchive === true && afterQty === 0 && !archived) {
+    await ProductModel.updateOne(
+      { _id: productId, isArchived: { $ne: true } },
+      { $set: { isArchived: true } }
+    );
+    archived = true;
+  }
+
+  return { ok: true, after: { stockQuantity: afterQty }, archived };
 }
 
-async function decrementInventoryBatch(args: {
-  payload: Payload;
+export async function decrementInventoryBatch(args: {
+  payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
 }): Promise<void> {
   const { payload, qtyByProductId } = args;
@@ -146,7 +177,7 @@ async function decrementInventoryBatch(args: {
         purchasedQty,
         reason: res.reason
       });
-      // Policy: you could flag the order for manual review here if 'insufficient'
+      // Optional: flag for manual review / compensate depending on policy.
     }
   }
 }

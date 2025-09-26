@@ -12,7 +12,10 @@ export type DecProductStockOptions = {
 
 export type DecProductStockResult =
   | { ok: true; after: { stockQuantity: number }; archived: boolean }
-  | { ok: false; reason: 'not-found' | 'not-tracked' | 'insufficient' };
+  | {
+      ok: false;
+      reason: 'not-found' | 'not-tracked' | 'insufficient' | 'not-supported';
+    };
 
 export type ReceiptLineItem = {
   description: string;
@@ -29,4 +32,28 @@ export type OrderItemInput = {
   amountTotal: number;
   refundPolicy?: NonNullable<Product['refundPolicy']>;
   returnsAcceptedThrough?: string;
+};
+
+export type ProductDocLite = {
+  _id: string;
+  stockQuantity?: number | null;
+  isArchived?: boolean | null;
+};
+
+export type ProductModelLite = {
+  findOneAndUpdate(
+    filter: { _id: string; stockQuantity: { $gte: number } },
+    update: { $inc: { stockQuantity: number } },
+    options: { new: true; lean: true }
+  ): Promise<ProductDocLite | null>;
+  updateOne(
+    filter: { _id: string; isArchived?: { $ne: true } },
+    update: { $set: { isArchived: true } }
+  ): Promise<{ acknowledged: boolean }>;
+};
+
+export type PayloadMongoLike = {
+  db?: {
+    collections?: Record<string, unknown>;
+  };
 };
