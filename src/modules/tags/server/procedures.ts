@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { DEFAULT_LIMIT } from '@/constants';

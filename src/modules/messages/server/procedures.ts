@@ -1,4 +1,4 @@
-import z from 'zod';
+import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
 import { GetMessagesDTO, SendMessageDTO } from './schemas';
 

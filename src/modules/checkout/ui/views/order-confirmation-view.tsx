@@ -62,9 +62,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 Refresh
               </button>
             </p>
-            <p className="font-medium mt-2">
-              Ref: <code>{sessionId}</code>
-            </p>
           </div>
         </header>
         <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">

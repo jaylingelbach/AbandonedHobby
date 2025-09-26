@@ -25,6 +25,7 @@ import { Conversations } from './collections/Conversations';
 import { Notifications } from './collections/Notifications';
 import { nodemailerAdapter } from '@payloadcms/email-nodemailer';
 import postmarkTransport from 'nodemailer-postmark-transport';
+import { StripeEvents } from './collections/StripeEvents';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -77,6 +78,7 @@ export default buildConfig({
     Orders,
     Products,
     Reviews,
+    StripeEvents,
     Tags,
     Tenants,
     Users,

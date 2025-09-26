@@ -1,11 +1,11 @@
-import z from 'zod';
+import { z } from 'zod';
 import type { Order, Product, Tenant } from '@/payload-types';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { getRelId } from '@/lib/server/utils';
 import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
-import { mapOrderToConfirmation, mapOrderToSummary } from './utils';
 import { getPrimaryCardImageUrl } from '@/lib/utils';
+import { mapOrderToSummary, mapOrderToConfirmation } from './utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
@@ -13,8 +13,7 @@ export const ordersRouter = createTRPCRouter({
       z.object({
         sessionId: z
           .string()
-          .min(1)
-          .regex(/^cs_[a-zA-Z0-9]+$/, 'Invalid session format')
+          .regex(/^cs_[A-Za-z0-9_]+$/, 'Invalid session format')
       })
     )
     .query(async ({ ctx, input }) => {
@@ -30,7 +29,8 @@ export const ordersRouter = createTRPCRouter({
             { stripeCheckoutSessionId: { equals: input.sessionId } },
             { buyer: { equals: user.id } }
           ]
-        }
+        },
+        overrideAccess: true
       });
 
       const summaries: OrderSummaryDTO[] = result.docs.map(mapOrderToSummary);
@@ -51,7 +51,8 @@ export const ordersRouter = createTRPCRouter({
             { stripeCheckoutSessionId: { equals: input.sessionId } },
             { buyer: { equals: user.id } }
           ]
-        }
+        },
+        overrideAccess: true
       });
 
       const orders: OrderConfirmationDTO[] = result.docs.map(
@@ -75,6 +76,7 @@ export const ordersRouter = createTRPCRouter({
             { product: { equals: input.productId } } // legacy top-level field
           ]
         },
+        overrideAccess: true,
         sort: '-createdAt',
         limit: 1
       })) as { docs: Order[]; totalDocs: number };
@@ -202,6 +204,7 @@ export const ordersRouter = createTRPCRouter({
       const res = (await ctx.db.find({
         collection: 'orders',
         where: { buyer: { equals: user.id } },
+        overrideAccess: true,
         sort: '-createdAt',
         page,
         limit,

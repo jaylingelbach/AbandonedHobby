@@ -1,55 +1,241 @@
 import { NextResponse } from 'next/server';
+
 import { getPayload } from 'payload';
+
 import config from '@payload-config';
 
 import Stripe from 'stripe';
 
 import { stripe } from '@/lib/stripe';
-import { daysForPolicy } from '@/lib/server/utils';
+import { posthogServer } from '@/lib/server/posthog-server';
 import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
 
-import type { Tenant, User, Product } from '@/payload-types';
-import { CheckoutMetadata, ExpandedLineItem } from '@/modules/checkout/types';
-import { posthogServer } from '@/lib/server/posthog-server';
+import type { Product, User } from '@/payload-types';
+import type { TenantWithContact } from '@/modules/tenants/resolve';
+import type { ProductModelLite, PayloadMongoLike } from './utils/types';
+
+import { OrderItemInput } from './utils/types';
+
 import {
+  hasProcessed,
+  isExpandedLineItem,
   isStringValue,
-  flushIfNeeded,
-  isUniqueViolation,
   itemHasProductId,
-  requireStripeProductId,
-  toQtyMap,
-  decrementInventoryBatch
-} from './utils/utils';
+  markProcessed,
+  requireStripeProductId
+} from '@/modules/stripe/guards';
+
+import {
+  sumAmountTotalCents,
+  buildReceiptLineItems
+} from '@/modules/stripe/line-items';
+
+import {
+  buildOrderItems,
+  earliestReturnsCutoffISO
+} from '@/modules/stripe/build-order-items';
+
+import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
+
+import { toQtyMap, flushIfNeeded, isUniqueViolation } from './utils/utils';
 
 export const runtime = 'nodejs';
 
-/**
- * Next.js API route handler for Stripe webhooks for connected accounts.
- *
- * Verifies the Stripe webhook signature then processes a restricted set of events:
- * - `checkout.session.completed`: creates an idempotent Order in Payload CMS for a connected account (race-safe via a unique stripeCheckoutSessionId), sends buyer and seller emails, and records a purchase analytics event.
- * - `payment_intent.payment_failed`: records a checkoutFailed analytics event.
- * - `checkout.session.expired`: records a checkoutFailed analytics event with reason `expired`.
- * - `account.updated`: syncs `stripeDetailsSubmitted` to the matching Tenant document.
- *
- * Idempotency hardening:
- * - Fast pre-check by BOTH `stripeCheckoutSessionId` AND `stripeEventId` (Stripe event id).
- * - Persist `stripeEventId` on the Order.
- * - Catch duplicate-key errors (Mongo 11000 / PG 23505) and treat as success.
- */
-export async function POST(req: Request) {
-  type TenantWithContact = Tenant & {
-    notificationEmail?: string | null;
-    notificationName?: string | null;
-    primaryContact?: string | User | null; // id or populated
-  };
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Small logging wrapper
+ * ────────────────────────────────────────────────────────────────────────────── */
+async function tryCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const err = e as Error;
+    console.error(`[WEBHOOK ERROR @ ${label}]`, err.message);
+    if (err.stack) console.error(err.stack);
+    throw e;
+  }
+}
 
+// Local types
+
+// Stripe’s expanded line item with expanded product metadata.id guaranteed.
+export type ExpandedLineItem = Stripe.LineItem & {
+  price: Stripe.Price & {
+    product: Stripe.Product & { metadata: Record<string, string> };
+  };
+};
+
+function getProductsModel(
+  payload: import('payload').Payload
+): ProductModelLite | null {
+  const maybeDb = (payload as unknown as PayloadMongoLike).db;
+  const collections = maybeDb?.collections;
+  const productsUnknown = collections?.products as unknown;
+
+  const maybeModel =
+    productsUnknown &&
+    ((productsUnknown as { Model?: unknown }).Model as unknown);
+  const model = maybeModel as Partial<ProductModelLite> | undefined;
+
+  if (
+    model &&
+    typeof model.findOneAndUpdate === 'function' &&
+    typeof model.updateOne === 'function'
+  ) {
+    return model as ProductModelLite;
+  }
+  return null;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Inventory decrement (atomic) + batch  (Mongo / Mongoose)
+ * NOTE:
+ * - Uses a single conditional findOneAndUpdate with $inc and stockQuantity >= qty
+ *   so concurrent handlers cannot oversell.
+ * - If stock hits 0 and autoArchive=true, we immediately set isArchived in a
+ *   second, quick update. This isn't “atomic with the decrement”, but it’s safe:
+ *   once stock is 0, archiving is idempotent and can’t cause oversell.
+ * - This path bypasses Payload hooks (it updates via the underlying Mongoose
+ *   Model), which also avoids re-entrancy issues. Keep your product hooks in mind.
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+async function decProductStockAtomic(
+  payload: import('payload').Payload,
+  productId: string,
+  qty: number,
+  opts: { autoArchive?: boolean } = {}
+): Promise<
+  | { ok: true; after: { stockQuantity: number }; archived: boolean }
+  | {
+      ok: false;
+      reason: 'not-supported' | 'not-tracked' | 'not-found' | 'insufficient';
+    }
+> {
+  if (!Number.isInteger(qty) || qty <= 0) {
+    return { ok: false, reason: 'insufficient' };
+  }
+
+  // 1) Preferred: atomic Mongo update via underlying model (if available)
+  const ProductModel = getProductsModel(payload);
+  if (ProductModel) {
+    const updated = await ProductModel.findOneAndUpdate(
+      { _id: productId, stockQuantity: { $gte: qty } },
+      { $inc: { stockQuantity: -qty } },
+      { new: true, lean: true }
+    );
+
+    if (updated) {
+      const afterQty =
+        typeof updated.stockQuantity === 'number'
+          ? updated.stockQuantity
+          : null;
+
+      if (afterQty == null) {
+        return { ok: false, reason: 'not-tracked' };
+      }
+
+      let archived = Boolean(updated.isArchived);
+
+      if (opts.autoArchive === true && afterQty === 0 && !archived) {
+        await ProductModel.updateOne(
+          { _id: productId, isArchived: { $ne: true } },
+          { $set: { isArchived: true } }
+        );
+        archived = true;
+      }
+
+      return { ok: true, after: { stockQuantity: afterQty }, archived };
+    }
+
+    // If model exists but no doc matched, it’s either not found or insufficient stock.
+    // We can’t easily distinguish without another read. Fall through to fallback which
+    // will give us a precise reason.
+  }
+
+  // 2) Fallback: Payload read-modify-write (ensures decrement still happens)
+  //    (Not fully race-proof, but guarantees behavior when Model path isn’t available.)
+  const prod = (await payload.findByID({
+    collection: 'products',
+    id: productId,
+    depth: 0,
+    overrideAccess: true,
+    draft: false
+  })) as {
+    id: string;
+    stockQuantity?: number | null;
+    isArchived?: boolean | null;
+  } | null;
+
+  if (!prod) return { ok: false, reason: 'not-found' };
+
+  const current =
+    typeof prod.stockQuantity === 'number' ? prod.stockQuantity : null;
+
+  if (current == null) return { ok: false, reason: 'not-tracked' };
+  if (current < qty) return { ok: false, reason: 'insufficient' };
+
+  const next = current - qty;
+  const shouldArchive = opts.autoArchive === true && next === 0;
+
+  const updated = (await payload.update({
+    collection: 'products',
+    id: productId,
+    data: {
+      stockQuantity: next,
+      ...(shouldArchive ? { isArchived: true } : {})
+    },
+    overrideAccess: true,
+    draft: false,
+    context: { ahSystem: true, ahSkipAutoArchive: true }
+  })) as { stockQuantity?: number | null; isArchived?: boolean | null };
+
+  return {
+    ok: true,
+    after: { stockQuantity: (updated.stockQuantity as number) ?? next },
+    archived: Boolean(updated.isArchived)
+  };
+}
+
+async function decrementInventoryBatch(args: {
+  payload: import('payload').Payload;
+  qtyByProductId: Map<string, number>;
+}): Promise<void> {
+  const { payload, qtyByProductId } = args;
+
+  for (const [productId, purchasedQty] of qtyByProductId) {
+    const res = await decProductStockAtomic(payload, productId, purchasedQty, {
+      autoArchive: true
+    });
+
+    if (res.ok) {
+      console.log('[inv] dec-atomic', {
+        productId,
+        purchasedQty,
+        after: res.after,
+        archived: res.archived
+      });
+    } else {
+      console.warn('[inv] dec-atomic failed', {
+        productId,
+        purchasedQty,
+        reason: res.reason
+      });
+      // Optional: flag order for manual review on 'insufficient' etc.
+    }
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────────
+ * Route handler
+ * ────────────────────────────────────────────────────────────────────────────── */
+
+export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
+    // IMPORTANT: use raw body for signature verification
     const bodyText = await req.text();
     event = stripe.webhooks.constructEvent(
       bodyText,
@@ -69,64 +255,59 @@ export async function POST(req: Request) {
     );
   }
 
-  const permittedEvents: ReadonlyArray<string> = [
+  const payload = await getPayload({ config });
+
+  // Only handle the small set we care about
+  const permitted = new Set<Stripe.Event.Type>([
     'checkout.session.completed',
     'payment_intent.payment_failed',
     'checkout.session.expired',
     'account.updated'
-  ];
-
-  if (!permittedEvents.includes(event.type)) {
+  ]);
+  if (!permitted.has(event.type)) {
+    // mark processed so retries don't ping us forever (optional)
+    await markProcessed(payload, event.id);
     return NextResponse.json({ message: 'Ignored' }, { status: 200 });
   }
 
-  const payload = await getPayload({ config });
+  // Global dedupe (across restarts/retries)
+  try {
+    if (await hasProcessed(payload, event.id)) {
+      return NextResponse.json({ ok: true, deduped: true }, { status: 200 });
+    }
+  } catch (err) {
+    console.warn('[webhook] dedupe check failed (continuing):', err);
+  }
 
   try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // --- guards ---
-        if (!session.metadata?.userId) {
-          throw new Error('User ID is required');
-        }
-        if (!event.account) {
+        // Guards
+        const userId = session.metadata?.userId;
+        if (!userId) throw new Error('User ID is required');
+        if (!event.account)
           throw new Error('Stripe account ID is required for order creation');
-        }
 
-        // buyer
-        const user = (await payload.findByID({
-          collection: 'users',
-          id: session.metadata.userId
-        })) as User | null;
-        if (!user) {
-          throw new Error('User is required');
-        }
+        // Capture a strictly-typed account id for the rest of this handler
+        const accountId: string = event.account;
 
-        // --- FAST PATH IDEMPOTENCY PRE-CHECK ---
-        // Check by BOTH the Checkout Session id and the Stripe event id.
-        // (Make `stripeCheckoutSessionId` and `stripeEventId` unique in schema.)
-        const existingPre = await payload.find({
-          collection: 'orders',
-          where: {
-            or: [
-              { stripeCheckoutSessionId: { equals: session.id } },
-              { stripeEventId: { equals: event.id } }
-            ]
-          },
-          limit: 1,
-          depth: 0,
-          overrideAccess: true
-        });
+        // Buyer
+        const user = (await tryCall('users.findByID', () =>
+          payload.findByID({
+            collection: 'users',
+            id: userId
+          })
+        )) as User | null;
+        if (!user) throw new Error('User is required');
 
-        if (existingPre.totalDocs > 0) {
-          const existing = existingPre.docs[0] as {
-            id: string;
-            items?: { product?: string; quantity?: number }[];
-            inventoryAdjustedAt?: string | null;
-          };
+        // Fast pre-check by session/event
+        const existing = await tryCall('orders.fast-precheck', () =>
+          findExistingOrderBySessionOrEvent(payload, session.id, event.id)
+        );
 
+        if (existing) {
           console.log('[webhook] dup-precheck hit (before)', {
             orderId: existing.id,
             hasItems: Array.isArray(existing.items),
@@ -142,7 +323,7 @@ export async function POST(req: Request) {
                 .filter((i) => typeof i.product === 'string')
                 .map((i) => ({
                   product: i.product as string,
-                  quantity: i.quantity
+                  quantity: typeof i.quantity === 'number' ? i.quantity : 1
                 }))
             );
 
@@ -150,38 +331,21 @@ export async function POST(req: Request) {
               entries: [...qtyByProductId.entries()]
             });
 
-            await decrementInventoryBatch({ payload, qtyByProductId });
-            // Re-read one of the products to verify persisted result immediately
-            const [firstId] = qtyByProductId.keys();
-            if (firstId) {
-              const after = await payload.findByID({
-                collection: 'products',
-                id: firstId,
-                depth: 0,
-                overrideAccess: true,
-                draft: false,
-                context: {
-                  ahSystem: true, // <-- tell hooks this is a system/webhook write
-                  ahSkipAutoArchive: true // <-- prevents your auto-archive hook from looping
-                }
-              });
+            await tryCall('inventory.decrementBatch(dup)', () =>
+              decrementInventoryBatch({ payload, qtyByProductId })
+            );
 
-              console.log('[webhook] post-update check', {
-                productId: firstId,
-                stockQuantity: (after as Product).stockQuantity,
-                isArchived: (after as Product).isArchived
-              });
-            }
-
-            await payload.update({
-              collection: 'orders',
-              id: existing.id,
-              data: {
-                inventoryAdjustedAt: new Date().toISOString(),
-                stripeEventId: event.id
-              },
-              overrideAccess: true
-            });
+            await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
+              payload.update({
+                collection: 'orders',
+                id: existing.id,
+                data: {
+                  inventoryAdjustedAt: new Date().toISOString(),
+                  stripeEventId: event.id
+                },
+                overrideAccess: true
+              })
+            );
 
             console.log('[webhook] inventory adjusted on duplicate path', {
               orderId: existing.id
@@ -194,107 +358,102 @@ export async function POST(req: Request) {
               }
             );
           }
+
+          await markProcessed(payload, event.id);
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
-        // expanded session (from connected account)
-        const expandedSession = await stripe.checkout.sessions.retrieve(
-          session.id,
-          {
-            expand: [
-              'line_items.data.price.product',
-              'shipping',
-              'customer_details'
-            ]
-          },
-          { stripeAccount: event.account }
+        // Fetch expanded session (from connected account)
+        const expanded = await tryCall(
+          'stripe.sessions.retrieve(expanded)',
+          () =>
+            stripe.checkout.sessions.retrieve(
+              session.id,
+              {
+                expand: [
+                  'line_items.data.price.product',
+                  'shipping',
+                  'customer_details'
+                ]
+              },
+              { stripeAccount: accountId }
+            )
         );
 
-        const lineItems = expandedSession.line_items?.data as
-          | ExpandedLineItem[]
-          | undefined;
-        if (!lineItems || lineItems.length === 0) {
-          throw new Error('No line items found');
+        const rawLines = (expanded.line_items?.data ?? []) as Stripe.LineItem[];
+        if (rawLines.length === 0) throw new Error('No line items found');
+
+        // totals that don't require product metadata
+        let totalCents = sumAmountTotalCents(rawLines);
+
+        // Narrow to expanded lines with product metadata.id
+        const lines = rawLines.filter(isExpandedLineItem);
+        if (lines.length === 0) {
+          throw new Error('No expanded line items with product metadata');
         }
 
-        const customer = expandedSession.customer_details;
-        if (!customer) {
-          throw new Error('Missing customer details');
+        const receiptLineItems = buildReceiptLineItems(lines);
+
+        // Payment details
+        const paymentIntent = await tryCall(
+          'stripe.paymentIntents.retrieve',
+          () =>
+            stripe.paymentIntents.retrieve(
+              expanded.payment_intent as string,
+              { expand: ['charges.data.payment_method_details'] },
+              { stripeAccount: accountId }
+            )
+        );
+        const chargeId = paymentIntent.latest_charge;
+        if (!chargeId) throw new Error('No charge found on paymentIntent');
+
+        const charge = await tryCall('stripe.charges.retrieve', () =>
+          stripe.charges.retrieve(chargeId as string, {
+            stripeAccount: accountId
+          })
+        );
+
+        if (!totalCents && typeof paymentIntent.amount_received === 'number') {
+          totalCents = paymentIntent.amount_received;
         }
 
-        const currency = expandedSession.currency?.toUpperCase();
-        if (!currency) {
-          throw new Error('Missing currency on Stripe session.');
-        }
-
-        // Receipt line items (for emails)
-        const receiptLineItems = lineItems.map((line) => {
-          const stripeProduct = line.price?.product as
-            | Stripe.Product
-            | undefined;
-          const description = stripeProduct?.name ?? line.description ?? 'Item';
-          const amountTotal =
-            (typeof line.amount_total === 'number'
-              ? line.amount_total
-              : undefined) ??
-            (line.price?.unit_amount ?? 0) * (line.quantity ?? 1);
-          return {
-            description,
-            amount: `$${(amountTotal / 100).toFixed(2)}`
-          };
-        });
-
-        // PI = payment intent
-        const totalCentsFromLines = lineItems.reduce<number>((sum, line) => {
-          const lineTotal =
-            (typeof line.amount_total === 'number'
-              ? line.amount_total
-              : undefined) ??
-            (line.price?.unit_amount ?? 0) * (line.quantity ?? 1);
-          return sum + lineTotal;
-        }, 0);
-        let totalCents: number = totalCentsFromLines;
-
-        // --- resolve tenant (metadata first, then by connected account) ---
-        const rawMeta = expandedSession.metadata ?? {};
-        const meta: Partial<CheckoutMetadata> = {
-          userId: rawMeta.userId,
-          tenantId: rawMeta.tenantId,
-          tenantSlug: rawMeta.tenantSlug,
-          sellerStripeAccountId: rawMeta.sellerStripeAccountId,
-          productIds: rawMeta.productIds
-        };
-
+        // Resolve tenant (metadata first, then account)
+        const meta = (expanded.metadata ?? {}) as Record<string, string>;
         let tenantDoc: TenantWithContact | null = null;
 
-        if (meta.tenantId) {
+        const tenantIdFromMeta = meta.tenantId;
+        if (tenantIdFromMeta) {
           try {
-            tenantDoc = (await payload.findByID({
-              collection: 'tenants',
-              id: meta.tenantId,
-              depth: 1,
-              overrideAccess: true
-            })) as TenantWithContact;
+            tenantDoc = (await tryCall('tenants.findByID(meta.tenantId)', () =>
+              payload.findByID({
+                collection: 'tenants',
+                id: tenantIdFromMeta,
+                depth: 1,
+                overrideAccess: true
+              })
+            )) as TenantWithContact | null;
           } catch {
-            // fall back below
+            tenantDoc = null;
           }
         }
 
         if (!tenantDoc && event.account) {
-          const lookupByAccount = await payload.find({
-            collection: 'tenants',
-            where: { stripeAccountId: { equals: event.account as string } },
-            limit: 1,
-            depth: 1,
-            overrideAccess: true
-          });
-          tenantDoc = (lookupByAccount.docs[0] ??
-            null) as TenantWithContact | null;
+          const lookup = await tryCall('tenants.find(stripeAccountId)', () =>
+            payload.find({
+              collection: 'tenants',
+              where: { stripeAccountId: { equals: accountId } },
+              limit: 1,
+              depth: 1,
+              overrideAccess: true
+            })
+          );
+          tenantDoc =
+            ((lookup.docs[0] ?? null) as TenantWithContact | null) ?? null;
         }
 
         if (!tenantDoc) {
           throw new Error(
-            `No tenant resolved. meta.tenantId=${meta.tenantId ?? 'null'} meta.tenantSlug=${meta.tenantSlug ?? 'null'} event.account=${event.account}`
+            `No tenant resolved. meta.tenantId=${tenantIdFromMeta ?? 'null'} event.account=${event.account}`
           );
         }
 
@@ -312,126 +471,33 @@ export async function POST(req: Request) {
           );
         }
 
-        // --- payment details (for charge id & fallback total) ---
-        const paymentIntent = await stripe.paymentIntents.retrieve(
-          session.payment_intent as string,
-          { expand: ['charges.data.payment_method_details'] },
-          { stripeAccount: event.account }
-        );
-
-        const chargeId = paymentIntent.latest_charge;
-        if (!chargeId) {
-          throw new Error('No charge found on paymentIntent');
-        }
-
-        const charge = await stripe.charges.retrieve(chargeId as string, {
-          stripeAccount: event.account
-        });
-
-        if (!totalCents && typeof paymentIntent.amount_received === 'number') {
-          totalCents = paymentIntent.amount_received;
-        }
-
-        // --- build normalized items array for Orders schema ---
-        const productIdsFromLines = lineItems.map(requireStripeProductId);
-
-        const productsResult = (
-          productIdsFromLines.length
-            ? await payload.find({
-                collection: 'products',
-                depth: 0,
-                where: { id: { in: productIdsFromLines } },
-                overrideAccess: true,
-                draft: false,
-                context: {
-                  ahSystem: true, // <-- tell hooks this is a system/webhook write
-                  ahSkipAutoArchive: true // <-- prevents your auto-archive hook from looping
-                }
-              })
-            : { docs: [] }
-        ) as { docs: Product[] };
+        // Preload products (for refund policy → returns window)
+        const productIds = lines.map((l) => requireStripeProductId(l));
+        const productsRes =
+          productIds.length > 0
+            ? await tryCall('products.findByIds', () =>
+                payload.find({
+                  collection: 'products',
+                  where: { id: { in: productIds } },
+                  depth: 0,
+                  overrideAccess: true
+                })
+              )
+            : { docs: [] as Product[] };
 
         const productMap = new Map<string, Product>(
-          productsResult.docs.map((productDoc) => [productDoc.id, productDoc])
+          (productsRes.docs as Product[]).map((p) => [p.id, p])
         );
 
-        const now = new Date();
-        type RefundPolicyOption = Exclude<Product['refundPolicy'], null>;
-
-        const orderItems = lineItems.map((line) => {
-          const productId = requireStripeProductId(line);
-          const productDoc = productMap.get(productId);
-
-          const rawPolicy = productDoc?.refundPolicy ?? undefined;
-          const policy: RefundPolicyOption | undefined =
-            rawPolicy == null ? undefined : rawPolicy;
-
-          const unitAmount = line.price?.unit_amount ?? 0;
-          const quantity = line.quantity ?? 1;
-
-          const returnsDate =
-            policy && daysForPolicy(policy) > 0
-              ? new Date(
-                  now.getTime() + daysForPolicy(policy) * 24 * 60 * 60 * 1000
-                )
-              : undefined;
-
-          const returnsISO: string | undefined = returnsDate
-            ? returnsDate.toISOString()
-            : undefined;
-
-          const amountSubtotal =
-            (typeof line.amount_subtotal === 'number'
-              ? line.amount_subtotal
-              : undefined) ?? unitAmount * quantity;
-          const amountTax =
-            (typeof line.amount_tax === 'number'
-              ? line.amount_tax
-              : undefined) ?? undefined;
-          const amountTotal =
-            (typeof line.amount_total === 'number'
-              ? line.amount_total
-              : undefined) ?? unitAmount * quantity;
-
-          const stripeProduct = line.price?.product as
-            | Stripe.Product
-            | undefined;
-          const nameSnapshot =
-            stripeProduct?.name ?? line.description ?? 'Item';
-
-          return {
-            product: productId,
-            nameSnapshot,
-            unitAmount,
-            quantity,
-            amountSubtotal,
-            amountTax,
-            amountTotal,
-            refundPolicy: policy,
-            returnsAcceptedThrough: returnsISO
-          };
-        });
-
-        const itemReturnDates = orderItems
-          .map((item) =>
-            item.returnsAcceptedThrough
-              ? new Date(item.returnsAcceptedThrough)
-              : null
-          )
-          .filter((d): d is Date => d instanceof Date);
-
-        const returnsAcceptedThroughISO: string | undefined =
-          itemReturnDates.length > 0
-            ? new Date(
-                Math.min(...itemReturnDates.map((d) => d.getTime()))
-              ).toISOString()
-            : undefined;
+        const orderItems: OrderItemInput[] = buildOrderItems(lines, productMap);
+        const returnsAcceptedThroughISO = earliestReturnsCutoffISO(orderItems);
 
         const firstProductId = orderItems.find(itemHasProductId)?.product;
         if (!firstProductId) {
           throw new Error('No product id resolved from Stripe line items.');
         }
 
+        const currency = (expanded.currency ?? 'USD').toUpperCase();
         const orderNumber = `AH-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
         const firstName = orderItems[0]?.nameSnapshot ?? 'Order';
         const orderName =
@@ -439,88 +505,88 @@ export async function POST(req: Request) {
             ? `${firstName} (+${orderItems.length - 1} more)`
             : firstName;
 
-        // --- idempotent create (race-proof via unique index & catch) ---
-        let orderDoc;
+        // Create order (idempotent via unique session id; catch unique violation)
+        let orderDocId: string;
         try {
-          orderDoc = await payload.create({
-            collection: 'orders',
-            data: {
-              name: orderName,
-              orderNumber,
-              buyer: user.id,
-              sellerTenant: tenantDoc.id,
-              currency,
-              product: firstProductId, // back-compat field
-              stripeAccountId: event.account,
-              stripeCheckoutSessionId: session.id, // <-- unique in schema
-              stripeEventId: event.id,
-              stripePaymentIntentId: paymentIntent.id,
-              stripeChargeId: charge.id,
-              items: orderItems,
-              returnsAcceptedThrough: returnsAcceptedThroughISO,
-              buyerEmail: customer.email ?? undefined,
-              status: 'paid',
-              total: totalCents,
-              shipping: {
-                name: customer.name ?? 'Customer',
-                line1: customer.address?.line1,
-                line2: customer.address?.line2,
-                city: customer.address?.city,
-                state: customer.address?.state,
-                postalCode: customer.address?.postal_code,
-                country: customer.address?.country
-              }
-            },
-            overrideAccess: true
-          });
+          const created = await tryCall('orders.create', () =>
+            payload.create({
+              collection: 'orders',
+              data: {
+                name: orderName,
+                orderNumber,
+                buyer: user.id,
+                sellerTenant: tenantDoc.id,
+                currency,
+                product: firstProductId, // legacy back-compat
+                stripeAccountId: accountId,
+                stripeCheckoutSessionId: session.id,
+                stripeEventId: event.id,
+                stripePaymentIntentId: paymentIntent.id,
+                stripeChargeId: charge.id,
+                items: orderItems,
+                returnsAcceptedThrough: returnsAcceptedThroughISO,
+                buyerEmail: expanded.customer_details?.email ?? undefined,
+                status: 'paid',
+                total: totalCents,
+                shipping: {
+                  name: expanded.customer_details?.name ?? 'Customer',
+                  line1: expanded.customer_details?.address?.line1,
+                  line2: expanded.customer_details?.address?.line2 ?? undefined,
+                  city: expanded.customer_details?.address?.city ?? undefined,
+                  state: expanded.customer_details?.address?.state ?? undefined,
+                  postalCode:
+                    expanded.customer_details?.address?.postal_code ??
+                    undefined,
+                  country:
+                    expanded.customer_details?.address?.country ?? undefined
+                }
+              },
+              overrideAccess: true
+            })
+          );
+          orderDocId = String(created.id);
         } catch (err) {
           if (isUniqueViolation(err)) {
             console.log(
               '[webhook] duplicate detected (unique-violation catch)',
-              {
-                sessionId: session.id,
-                eventId: event.id
-              }
+              { sessionId: session.id, eventId: event.id }
             );
-            // Return success (idempotent)
+            await markProcessed(payload, event.id);
             return NextResponse.json({ received: true }, { status: 200 });
           }
-          // real error
           throw err;
         }
 
-        // Aggregate purchased quantities from the order items
+        // Inventory
         const qtyByProductId = toQtyMap(
           orderItems.map((i) => ({ product: i.product, quantity: i.quantity }))
         );
+        await tryCall('inventory.decrementBatch(primary)', () =>
+          decrementInventoryBatch({ payload, qtyByProductId })
+        );
 
-        console.log('[webhook] decrement on primary path');
-        // Decrement inventory & auto-archive at 0
-        await decrementInventoryBatch({ payload, qtyByProductId });
+        await tryCall('orders.update(inventoryAdjustedAt)', () =>
+          payload.update({
+            collection: 'orders',
+            id: orderDocId,
+            data: { inventoryAdjustedAt: new Date().toISOString() },
+            overrideAccess: true
+          })
+        );
 
-        // Mark the order so retries won’t adjust again
-        await payload.update({
-          collection: 'orders',
-          id: orderDoc.id,
-          data: { inventoryAdjustedAt: new Date().toISOString() },
-          overrideAccess: true
-        });
-
-        console.log('[webhook] inventory adjusted on primary path', {
-          orderId: orderDoc.id
-        });
-
-        // ---- emails ----
+        // Emails
         const summary = receiptLineItems.map((i) => i.description).join(', ');
 
-        const { name, address } = customer;
-        if (!name)
+        const customer = expanded.customer_details;
+        if (!customer) throw new Error('Missing customer details');
+        const address = customer.address;
+        if (!customer.name)
           throw new Error('Cannot send sale email: customer name is missing');
         if (!address?.line1)
           throw new Error('Cannot send sale email: address line 1 is missing');
-        if (!address?.city)
+        if (!address.city)
           throw new Error('Cannot send sale email: shipping city is missing');
-        if (!address?.state)
+        if (!address.state)
           throw new Error('Cannot send sale email: shipping state is missing');
         if (!address.postal_code)
           throw new Error(
@@ -536,12 +602,16 @@ export async function POST(req: Request) {
 
         if (typeof primaryRef === 'string') {
           try {
-            primaryContactUser = (await payload.findByID({
-              collection: 'users',
-              id: primaryRef,
-              depth: 0,
-              overrideAccess: true
-            })) as User;
+            primaryContactUser = (await tryCall(
+              'users.findByID(primaryRef)',
+              () =>
+                payload.findByID({
+                  collection: 'users',
+                  id: primaryRef,
+                  depth: 0,
+                  overrideAccess: true
+                })
+            )) as User | null;
           } catch {
             primaryContactUser = null;
           }
@@ -552,7 +622,7 @@ export async function POST(req: Request) {
         const sellerEmail: string | null =
           tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
 
-        const tenantId = tenantDoc.id;
+        const tenantIdForGroup = tenantDoc.id;
 
         const sellerNameFinal: string =
           tenantDoc.notificationName ??
@@ -561,20 +631,26 @@ export async function POST(req: Request) {
           tenantDoc.name ??
           'Seller';
 
-        await sendOrderConfirmationEmail({
-          to: 'jay@abandonedhobby.com', // replace with user.email when ready
-          name: user.firstName,
-          creditCardStatement: charge.statement_descriptor ?? 'ABANDONED HOBBY',
-          creditCardBrand: charge.payment_method_details?.card?.brand ?? 'N/A',
-          creditCardLast4: charge.payment_method_details?.card?.last4 ?? '0000',
-          receiptId: String(orderDoc.id),
-          orderDate: new Date().toLocaleDateString('en-US'),
-          lineItems: receiptLineItems,
-          total: `$${(totalCents / 100).toFixed(2)}`,
-          support_url:
-            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-          item_summary: summary
-        });
+        await tryCall('email.sendOrderConfirmation', () =>
+          sendOrderConfirmationEmail({
+            // to: user.email ?? 'customer@example.com',
+            to: 'jay@abandonedhobby.com', // temp
+            name: user.firstName,
+            creditCardStatement:
+              charge.statement_descriptor ?? 'ABANDONED HOBBY',
+            creditCardBrand:
+              charge.payment_method_details?.card?.brand ?? 'N/A',
+            creditCardLast4:
+              charge.payment_method_details?.card?.last4 ?? '0000',
+            receiptId: orderDocId,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(totalCents / 100).toFixed(2)}`,
+            support_url:
+              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+            item_summary: summary
+          })
+        );
 
         if (!sellerEmail) {
           throw new Error(
@@ -582,38 +658,42 @@ export async function POST(req: Request) {
           );
         }
 
-        await sendSaleNotificationEmail({
-          to: 'jay@abandonedhobby.com', // replace with sellerEmail when ready
-          sellerName: sellerNameFinal,
-          receiptId: String(orderDoc.id),
-          orderDate: new Date().toLocaleDateString('en-US'),
-          lineItems: receiptLineItems,
-          total: `$${(totalCents / 100).toFixed(2)}`,
-          item_summary: summary,
-          shipping_name: customer.name!,
-          shipping_address_line1: address.line1!,
-          shipping_address_line2: address.line2 ?? undefined,
-          shipping_city: address.city!,
-          shipping_state: address.state!,
-          shipping_zip: address.postal_code!,
-          shipping_country: address.country!,
-          support_url:
-            process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
-        });
+        await tryCall('email.sendSaleNotification', () =>
+          sendSaleNotificationEmail({
+            // to: sellerEmail,
+            to: 'jay@abandonedhobby.com', // temp
+            sellerName: sellerNameFinal,
+            receiptId: orderDocId,
+            orderDate: new Date().toLocaleDateString('en-US'),
+            lineItems: receiptLineItems,
+            total: `$${(totalCents / 100).toFixed(2)}`,
+            item_summary: summary,
+            shipping_name: customer.name!,
+            shipping_address_line1: address.line1!,
+            shipping_address_line2: address.line2 ?? undefined,
+            shipping_city: address.city!,
+            shipping_state: address.state!,
+            shipping_zip: address.postal_code!,
+            shipping_country: address.country!,
+            support_url:
+              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+          })
+        );
 
+        // Analytics (best-effort)
         try {
           posthogServer?.capture({
-            distinctId: user.id ?? session.customer_email ?? 'unknown',
+            distinctId: user.id ?? expanded.customer_email ?? 'unknown',
             event: 'purchaseCompleted',
             properties: {
               stripeSessionId: session.id,
               amountTotal: totalCents,
               currency,
-              productIdsFromLines,
-              tenantId,
+              productIdsFromLines: productIds,
+              tenantId: tenantIdForGroup,
               $insert_id: `purchase:${session.id}`
             },
-            groups: tenantId ? { tenant: tenantId } : undefined
+            groups: tenantIdForGroup ? { tenant: tenantIdForGroup } : undefined
           });
 
           await flushIfNeeded();
@@ -626,16 +706,14 @@ export async function POST(req: Request) {
           }
         }
 
+        await markProcessed(payload, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'payment_intent.payment_failed': {
-        // Event comes from a connected account; no extra retrieve needed.
-        // PI = payment intent MD = metadata
         const pi = event.data.object as Stripe.PaymentIntent;
 
-        // Metadata you set when creating the Checkout Session is copied to the PI.
-        const md: Stripe.Metadata = (pi.metadata ?? {}) as Stripe.Metadata;
+        const md = (pi.metadata ?? {}) as Record<string, string>;
         const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
         const tenantId = md.tenantId;
         const tenantSlug = md.tenantSlug;
@@ -645,7 +723,7 @@ export async function POST(req: Request) {
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean)
-                .filter((id, index, self) => self.indexOf(id) === index) // Remove duplicates
+                .filter((id, index, self) => self.indexOf(id) === index)
             : undefined;
 
         try {
@@ -659,9 +737,8 @@ export async function POST(req: Request) {
               tenantId,
               tenantSlug,
               productIds,
-              $insert_id: event.id // idempotency
+              $insert_id: event.id
             },
-            // Grouping (PostHog Node uses `groups`, not `$groups`)
             groups: tenantId ? { tenant: tenantId } : undefined,
             timestamp: new Date(event.created * 1000)
           });
@@ -673,13 +750,13 @@ export async function POST(req: Request) {
           }
         }
 
+        await markProcessed(payload, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'checkout.session.expired': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Metadata set when you created the Checkout Session
         const md = (session.metadata ?? {}) as Record<string, string>;
         const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
         const tenantId = md.tenantId;
@@ -706,7 +783,7 @@ export async function POST(req: Request) {
               expiresAt: session.expires_at
                 ? new Date(session.expires_at * 1000).toISOString()
                 : undefined,
-              $insert_id: event.id // idempotency
+              $insert_id: event.id
             },
             groups: tenantId ? { tenant: tenantId } : undefined,
             timestamp: new Date(event.created * 1000)
@@ -722,25 +799,45 @@ export async function POST(req: Request) {
           }
         }
 
+        await markProcessed(payload, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'account.updated': {
         const account = event.data.object as Stripe.Account;
-        await payload.update({
-          collection: 'tenants',
-          where: { stripeAccountId: { equals: account.id } },
-          data: { stripeDetailsSubmitted: account.details_submitted }
-        });
+        await tryCall('tenants.update(stripeDetailsSubmitted)', () =>
+          payload.update({
+            collection: 'tenants',
+            where: { stripeAccountId: { equals: account.id } },
+            data: { stripeDetailsSubmitted: account.details_submitted },
+            overrideAccess: true
+          })
+        );
+
+        await markProcessed(payload, event.id);
         return NextResponse.json({ updated: true }, { status: 200 });
       }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    const e = error as Error;
     console.error('Webhook handler failed:', message);
+    if (e.stack) console.error('Error stack: ', e.stack);
+
+    // In dev, consider 200 to avoid aggressive Stripe retries
+    // await markProcessed(payload, event.id);
+    // return NextResponse.json(
+    //   { message: `Webhook handler failed: ${message}` },
+    //   { status: 200 }
+    // );
+    const status = process.env.NODE_ENV === 'production' ? 500 : 200;
+    if (status === 200) {
+      // Optional: avoid noisy retries only during local development.
+      await markProcessed(payload, event.id);
+    }
     return NextResponse.json(
       { message: `Webhook handler failed: ${message}` },
-      { status: 500 }
+      { status }
     );
   }
 }

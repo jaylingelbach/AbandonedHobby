@@ -14,6 +14,13 @@ type ShipmentShape = {
   shippedAt?: string;
 };
 
+type ShipmentGroup = {
+  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  trackingNumber?: string;
+  trackingUrl?: string;
+  shippedAt?: string;
+};
+
 /** Mutation shape we touch inside beforeChange hook. */
 type OrderMutationShape = {
   shipment?: ShipmentShape;
@@ -123,10 +130,10 @@ export function isSellerOfOrderDoc(
  * @param {{ req: { user?: unknown } }} ctx - Payload access args (only `req.user` is used).
  * @returns {boolean | Where} `true` (super-admin), `false` (no access), or tenant filter.
  */
-export const readOrdersAccess: Access = ({ req }) => {
-  if (hasSuperAdminRole(req.user)) return true;
+export const readOrdersAccess: Access = ({ req: { user } }) => {
+  if (hasSuperAdminRole(user)) return true;
 
-  const tenantIds = getTenantIdsFromUser(req.user);
+  const tenantIds = getTenantIdsFromUser(user);
   if (tenantIds.length === 0) return false;
 
   const where: Where = { sellerTenant: { in: tenantIds } };
@@ -170,59 +177,62 @@ export const canEditOrderFulfillmentStatus: FieldAccess = ({ req, doc }) =>
 
 /**
  * @description `beforeChange` hook for the `shipment` group.
- * - When tracking is added:
- *   - Builds a `trackingUrl` for known carriers (USPS/UPS/FedEx).
- *   - Sets `shippedAt` if missing.
- *   - Bumps `fulfillmentStatus` from `"unfulfilled"` to `"shipped"`.
- * - When tracking is cleared:
- *   - Clears derived `trackingUrl`. (`shippedAt` is preserved.)
- * @param {{ data?: unknown }} args - Payload field hook args (we safely narrow the shape).
- * @returns {unknown} The (possibly) mutated `data` object to persist.
+ * IMPORTANT: For a field hook, RETURN THE FIELD VALUE (the group), not the entire doc.
  */
-export const beforeChangeOrderShipment: FieldHook = (args) => {
-  // Safely narrow the unknown payload into a mutable shape we care about.
-  const dataUnknown = (args as { data?: unknown }).data;
-  const data = (dataUnknown ?? {}) as OrderMutationShape;
+export const beforeChangeOrderShipment: FieldHook = async ({
+  value, // <-- the current value of the `shipment` group (this is what we must return)
+  siblingData, // the rest of the doc’s values at the same level (you can mutate this)
+  req
+}) => {
+  // Skip for webhook/system writes to avoid unintended side-effects & recursion paths
+  if (req?.context && (req.context as Record<string, unknown>)?.ahSystem) {
+    return value;
+  }
+
+  const v = { ...(value ?? {}) } as ShipmentGroup;
 
   const hasTrackingNumber =
-    typeof data?.shipment?.trackingNumber === 'string' &&
-    data.shipment.trackingNumber.trim().length > 0;
+    typeof v.trackingNumber === 'string' && v.trackingNumber.trim().length > 0;
 
   if (hasTrackingNumber) {
-    const carrier = data.shipment?.carrier;
-    const trackingNumber = data.shipment?.trackingNumber ?? '';
+    const carrier = v.carrier;
+    const trackingNumber = v.trackingNumber ?? '';
 
     let trackingUrl = '';
     if (carrier === 'usps') {
-      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
-        trackingNumber
-      )}`;
+      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`;
     } else if (carrier === 'ups') {
-      trackingUrl = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
-        trackingNumber
-      )}`;
+      trackingUrl = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(trackingNumber)}`;
     } else if (carrier === 'fedex') {
-      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(
-        trackingNumber
-      )}`;
+      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
     }
 
-    if (!data.shipment) data.shipment = {};
-    data.shipment.trackingUrl = trackingUrl || data.shipment.trackingUrl;
+    // Write back to the group value (the field)
+    if (trackingUrl) {
+      v.trackingUrl = trackingUrl;
+    } else if (v.trackingUrl) {
+      v.trackingUrl = undefined;
+    }
 
-    const currentStatus: OrderStatus = data.fulfillmentStatus ?? 'unfulfilled';
+    // Bump fulfillmentStatus (this lives in the parent object → siblingData)
+    const currentStatus: OrderStatus =
+      (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
+      'unfulfilled';
     if (currentStatus === 'unfulfilled') {
-      data.fulfillmentStatus = 'shipped';
+      (siblingData as OrderMutationShape).fulfillmentStatus = 'shipped';
     }
-    if (!data.shipment.shippedAt) {
-      data.shipment.shippedAt = new Date().toISOString();
+
+    // Set shippedAt if missing (on the group)
+    if (!v.shippedAt) {
+      v.shippedAt = new Date().toISOString();
     }
-  } else if (data?.shipment) {
-    if (!data.shipment.trackingNumber) {
-      data.shipment.trackingUrl = undefined;
+  } else {
+    // No tracking number: clear derived trackingUrl only (preserve shippedAt)
+    if (v.trackingUrl && !v.trackingNumber) {
+      v.trackingUrl = undefined;
     }
   }
 
-  // Return the original args.data reference so Payload continues as expected.
-  return (args as { data?: unknown }).data as unknown;
+  // RETURN THE GROUP VALUE, not args.data
+  return v;
 };
