@@ -151,14 +151,13 @@ export function mapOrderItem(
     orderItemRaw.unitAmount,
     `items[${index}].unitAmount`
   );
-  const amountSubtotalCents = assertNonNegativeInt(
-    orderItemRaw.amountSubtotal,
-    `items[${index}].amountSubtotal`
-  );
-  const amountTotalCents = assertNonNegativeInt(
-    orderItemRaw.amountTotal,
-    `items[${index}].amountTotal`
-  );
+
+  const amountSubtotalRaw = (orderItemRaw as Record<string, unknown>).amountSubtotal;
+  const amountSubtotalCents =
+    assertOptionalNonNegativeInt(
+      amountSubtotalRaw,
+      `items[${index}].amountSubtotal`
+    ) ?? unitAmountCents * quantity;
 
   const amountTaxRaw = (orderItemRaw as Record<string, unknown>).amountTax;
   const amountTaxCents = assertOptionalNonNegativeInt(
@@ -166,6 +165,13 @@ export function mapOrderItem(
     `items[${index}].amountTax`
   );
 
+  const amountTotalRaw = (orderItemRaw as Record<string, unknown>).amountTotal;
+  const amountTotalCents =
+    assertOptionalNonNegativeInt(
+      amountTotalRaw,
+      `items[${index}].amountTotal`
+    ) ??
+    amountSubtotalCents + (amountTaxCents ?? 0);
   const returnsRaw = (orderItemRaw as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =
