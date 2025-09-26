@@ -101,7 +101,7 @@ function getProductsModel(
  *   Model), which also avoids re-entrancy issues. Keep your product hooks in mind.
  * ────────────────────────────────────────────────────────────────────────────── */
 
-export async function decProductStockAtomic(
+async function decProductStockAtomic(
   payload: import('payload').Payload,
   productId: string,
   qty: number,
@@ -198,7 +198,7 @@ export async function decProductStockAtomic(
   };
 }
 
-export async function decrementInventoryBatch(args: {
+async function decrementInventoryBatch(args: {
   payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
 }): Promise<void> {
