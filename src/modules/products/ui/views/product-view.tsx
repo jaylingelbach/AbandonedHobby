@@ -250,7 +250,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 <div className="flex flex-row items-center gap-2">
                   <ViewInOrdersButton
                     isPurchased={data.isPurchased}
-                    tenantSlug={data.tenant.slug}
+                    tenantSlug={tenantSlug}
                     productId={productId}
                   />
                   {/*  Disable buy when sold out (swap CartButton for a disabled button) */}

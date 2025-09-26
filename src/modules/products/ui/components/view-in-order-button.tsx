@@ -24,6 +24,8 @@ export const ViewInOrdersButton = ({ isPurchased, orderId }: Props) => {
       </Button>
     );
   }
+
+  return null;
 };
 
 export default ViewInOrdersButton;
