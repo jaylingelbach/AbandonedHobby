@@ -3123,6 +3123,10 @@ Added recap covering the Orders transition and onboarding behavior.
 
 # Notification count 09/25/25
 
+## Walkthrough
+
+- Refactors inbox UI and conversations backend (batched DTO building, roomId utilities), adds notifications mutation to mark conversations read, implements a typed, idempotent Stripe webhook pipeline with inventory helpers and StripeEvents persistence, introduces multiple order/shipment mapping utilities and types, and normalizes zod imports across modules.
+
 ## New Features
 
 - Inbox: authenticated client, loading/empty states, last-message previews, unread badges, mark-as-read syncing; server mutation to mark convo read.
@@ -3146,3 +3150,60 @@ Added recap covering the Orders transition and onboarding behavior.
 - Reviews: unique index (user+product).
 
 ## File changes
+
+### Inbox UI & types
+
+- src/app/(app)/inbox/page.tsx, src/modules/inbox/ui/inbox-client.tsx, src/modules/inbox/ui/types.ts, src/modules/messages/ui/chat-room.tsx, liveblocks.config.ts
+  - Removed unused Suspense import; replaced suspense-based fetching with guarded React Query hooks and session gating;
+  - added mark-read mutation and cache invalidation;
+  - switched to default export for InboxClient;
+  - introduced Zod ConversationListItemDTO and adjusted message/sender typing; exported Message type.
+
+### Conversations server & utils
+
+- src/modules/conversations/server/procedures.ts, src/modules/conversations/server/utils.ts, src/modules/conversations/server/types.ts, src/collections/Conversations.ts
+  - Added defensive relation/user/room helper utilities and types (LastMsg/LastGroup/UnreadGroup);
+  - overhauled listForMe to batch lookups, aggregate in-memory (last messages, unread counts, other participant, roomId) with primary/fallback DB paths;
+  - adjusted getOrCreate roomId handling and some typings; consolidated collection access rules and inlined roomId field.
+
+### Notifications mutation
+
+- src/modules/notifications/server/procedures.ts
+  - Added protected mutation markConversationRead (zod-validated input) to mark conversation notifications read and return updated unread count.
+
+### Stripe webhook & supporting libs
+
+- src/app/(app)/api/stripe/webhooks/route.ts, src/app/(app)/api/stripe/webhooks/utils/types.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts, src/modules/stripe/guards.ts, src/modules/stripe/line-items.ts, src/modules/stripe/build-order-items.ts, src/modules/stripe/line-items.ts, src/modules/tenants/resolve.ts, src/modules/orders/precheck.ts
+  - Large refactor: typed ExpandedLineItem, signature/verification and dedupe (hasProcessed/markProcessed), idempotent order creation, product preloads, order-item builders, batch/atomic inventory decrement helpers (decProductStockAtomic, decrementInventoryBatch), tenant resolution, analytics/email integration, enhanced logging and error handling;
+  - added related types and utilities.
+
+### Stripe events persistence & payload types
+
+- src/collections/StripeEvents.ts, src/payload.config.ts, src/payload-types.ts
+  - Added StripeEvents collection and wired into payload config; extended payload types/selects to include stripe_events and StripeEvent shapes.
+
+### Orders mapping & shipment hook
+
+- src/modules/orders/server/utils.ts, src/modules/orders/utils.ts, src/lib/server/payload-utils/orders.ts, src/collections/Orders.ts, src/modules/orders/server/procedures.ts
+  - Exported and hardened assertion helpers (assertString/Number/ints), refactored mapOrderItem/mapOrderToSummary/confirmation, added readShippingFromOrder, introduced ShipmentGroup type and rewritten beforeChangeOrderShipment hook to return updated group and bump fulfillment status;
+  - some procedure regex and overrideAccess updates.
+
+### Reviews collection & procedures
+
+- src/collections/Reviews.ts, src/modules/reviews/server/procedures.ts
+  - Added composite unique index on (user, product); improved create/update review validation and duplicate-key error normalization.
+
+### Zod import normalization
+
+- src/app/api/resend/route.ts, src/modules/auth/schemas.ts, src/modules/auth/ui/views/sign-in-view.tsx, src/modules/checkout/server/procedures.ts, src/modules/library/server/procedures.ts, src/modules/messages/server/procedures.ts, src/modules/products/server/procedures.ts, src/modules/tags/server/procedures.ts, src/modules/tenants/server/procedures.ts
+  - Replaced default z imports with named { z } across multiple modules; no behavioral changes.
+
+### Checkout UI tweaks
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx, src/modules/checkout/ui/views/order-success-summary-view.tsx
+  - Removed “Ref: {sessionId}” line from pending-state headers.
+
+### Misc & infra
+
+- src/lib/server/utils.ts, recap.md, liveblocks.config.ts
+  - Minor import/type ordering, documentation recap added; small signature and ordering adjustments.
