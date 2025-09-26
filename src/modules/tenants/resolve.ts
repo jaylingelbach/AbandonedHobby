@@ -22,8 +22,15 @@ export async function resolveTenantForEvent(
         depth: 1,
         overrideAccess: true
       })) as TenantWithContact;
-    } catch {
-      /* fallthrough */
+    } catch (err) {
+      const status =
+        typeof (err as { status?: number }).status === 'number'
+          ? (err as { status?: number }).status
+          : null;
+
+      if (status !== 404) {
+        throw err;
+      }
     }
   }
 

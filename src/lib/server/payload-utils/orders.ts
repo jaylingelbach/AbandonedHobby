@@ -208,7 +208,9 @@ export const beforeChangeOrderShipment: FieldHook = async ({
     }
 
     // Write back to the group value (the field)
-    if (!v.trackingUrl) v.trackingUrl = trackingUrl;
+    if (trackingUrl) {
+      v.trackingUrl = trackingUrl;
+    }
 
     // Bump fulfillmentStatus (this lives in the parent object → siblingData)
     const currentStatus: OrderStatus =

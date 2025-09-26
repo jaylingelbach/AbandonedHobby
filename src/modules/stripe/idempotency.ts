@@ -19,7 +19,7 @@ export async function markProcessed(payload: Payload, eventId: string) {
       data: { eventId },
       overrideAccess: true
     });
-  } catch (err: any) {
+  } catch (err) {
     if (!isUniqueViolation(err)) throw err;
   }
 }

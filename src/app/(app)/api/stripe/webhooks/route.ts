@@ -6,7 +6,7 @@ import config from '@payload-config';
 import Stripe from 'stripe';
 import { stripe } from '@/lib/stripe';
 
-import type { Tenant, User, Product } from '@/payload-types';
+import type { User, Product } from '@/payload-types';
 import { daysForPolicy } from '@/lib/server/utils';
 import {
   sendOrderConfirmationEmail,
@@ -26,7 +26,6 @@ import { posthogServer } from '@/lib/server/posthog-server';
 import {
   DecProductStockOptions,
   DecProductStockResult,
-  ExistingOrderPrecheck,
   OrderItemInput,
   ReceiptLineItem,
   TenantWithContact
@@ -865,10 +864,19 @@ export async function POST(req: Request) {
     if (e.stack) console.error('Error stack: ', e.stack);
 
     // In dev, consider 200 to avoid aggressive Stripe retries
-    await markProcessed(payload, event.id);
+    // await markProcessed(payload, event.id);
+    // return NextResponse.json(
+    //   { message: `Webhook handler failed: ${message}` },
+    //   { status: 200 }
+    // );
+    const status = process.env.NODE_ENV === 'production' ? 500 : 200;
+    if (status === 200) {
+      // Optional: avoid noisy retries only during local development.
+      await markProcessed(payload, event.id);
+    }
     return NextResponse.json(
       { message: `Webhook handler failed: ${message}` },
-      { status: 200 }
+      { status }
     );
   }
 }
