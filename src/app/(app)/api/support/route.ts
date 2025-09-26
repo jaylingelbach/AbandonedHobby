@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
-import { z } from 'zod';
 import { ServerClient } from 'postmark';
+import { z } from 'zod';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';

@@ -1,11 +1,13 @@
 'use client';
 
-import { cn } from '@/lib/utils';
 import { ChevronDownIcon, ChevronRightIcon } from 'lucide-react';
 import { useState } from 'react';
+
+import { cn } from '@/lib/utils';
+import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
+
 import { PriceFilter } from './price-filter';
 import { TagsFilter } from './tags-filter';
-import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
 
 interface ProductFilterProps {
   title: string;

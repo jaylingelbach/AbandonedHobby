@@ -1,10 +1,11 @@
 'use client';
 
-import Link from 'next/link';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
 import { ArrowLeftIcon, ReceiptIcon, CheckCircle2 } from 'lucide-react';
+import Link from 'next/link';
 import { useState } from 'react';
+
+import { useTRPC } from '@/trpc/client';
 
 interface Props {
   sessionId: string;

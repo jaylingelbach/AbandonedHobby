@@ -1,6 +1,7 @@
+import { CircleXIcon } from 'lucide-react';
+
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import { CircleXIcon } from 'lucide-react';
 
 interface CheckoutSidebarProps {
   total: number;

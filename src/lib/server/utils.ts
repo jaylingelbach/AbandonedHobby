@@ -1,10 +1,9 @@
-import type { ClientSession } from 'mongoose';
 import { TRPCError } from '@trpc/server';
-
 import { getPayload } from 'payload';
-import type { Payload } from 'payload';
+
 import config from '@payload-config';
 
+import { relId, type Relationship } from '@/lib/relationshipHelpers';
 import type { Category, Product, Review, Tenant } from '@/payload-types';
 
 import type {
@@ -17,8 +16,8 @@ import type {
   PayloadDbWithConnection,
   UpdateOneCapable
 } from './types';
-
-import { relId, type Relationship } from '@/lib/relationshipHelpers';
+import type { ClientSession } from 'mongoose';
+import type { Payload } from 'payload';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Basic guards & relationship coercion

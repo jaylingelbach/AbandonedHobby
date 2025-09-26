@@ -1,23 +1,25 @@
 'use client';
 
-import { Suspense, useEffect, useMemo } from 'react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import Link from 'next/link';
-import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { RichText } from '@payloadcms/richtext-lexical/react';
-import { useTRPC } from '@/trpc/client';
-import { useUser } from '@/hooks/use-user';
-import { relDoc, relId } from '@/lib/relationshipHelpers';
+import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
+import Link from 'next/link';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useEffect, useMemo } from 'react';
+
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
+import { useUser } from '@/hooks/use-user';
+import { relDoc, relId } from '@/lib/relationshipHelpers';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
-import ReviewSidebar from '../components/review-sidebar';
-import { ReviewFormSkeleton } from '../components/review-form';
 import type { Product, Tenant } from '@/payload-types';
+import { useTRPC } from '@/trpc/client';
+
+import { ReviewFormSkeleton } from '../components/review-form';
+import ReviewSidebar from '../components/review-sidebar';
 
 interface Props {
   productId: string;

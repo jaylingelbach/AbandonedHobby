@@ -1,3 +1,5 @@
+import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
+
 import {
   Dialog,
   DialogContent,
@@ -5,7 +7,6 @@ import {
   DialogTitle,
   DialogDescription
 } from '@/components/ui/dialog';
-import { VisuallyHidden } from '@radix-ui/react-visually-hidden';
 import { ChatRoom } from '@/modules/messages/ui/chat-room';
 
 interface ChatModalProps {

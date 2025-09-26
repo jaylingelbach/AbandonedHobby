@@ -1,13 +1,12 @@
-import Link from 'next/link';
 
-import { useEffect, useState } from 'react';
-import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
-
 import { BookmarkCheckIcon, ListFilterIcon, SearchIcon } from 'lucide-react';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { useTRPC } from '@/trpc/client';
 
 import { CategoriesSidebar } from './categoriesSidebar';
 

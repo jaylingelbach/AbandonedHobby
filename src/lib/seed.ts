@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { getPayload } from 'payload';
+
 import config from '@payload-config'; // Adjust this path if your payload config is located elsewhere
+
 import { stripe } from './stripe'; // Adjust this path if your stripe helper is elsewhere
 
 dotenv.config();

@@ -2,6 +2,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { formatCurrency, cn } from '@/lib/utils';
+
 import { OrderSummaryCardProps } from '../types';
 import { hasTotalCents, hasTotalPaid } from './utils-client';
 

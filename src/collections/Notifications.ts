@@ -1,4 +1,5 @@
 import { CollectionConfig } from 'payload';
+
 import { isSuperAdmin } from '@/lib/access';
 
 export const Notifications: CollectionConfig = {

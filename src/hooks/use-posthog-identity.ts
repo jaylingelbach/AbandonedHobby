@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
 import posthog from 'posthog-js';
+import { useEffect, useRef } from 'react';
+
 import { isObjectRecord, getRelId, toRelationship } from '@/lib/utils';
 
 export interface AppUserIdentity {

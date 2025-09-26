@@ -1,8 +1,10 @@
-import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import type { Tenant, User, Conversation } from '@/payload-types';
+import { z } from 'zod';
+
 import { relId } from '@/lib/relationshipHelpers';
+import type { Tenant, User, Conversation } from '@/payload-types';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+
 import { ConversationListItemDTO } from './schemas';
 import { getRoomId } from './utils';
 

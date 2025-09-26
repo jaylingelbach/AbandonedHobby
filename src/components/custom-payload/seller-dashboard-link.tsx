@@ -1,6 +1,7 @@
-import React from 'react';
-import type { ServerProps } from 'payload';
 import { NavGroup } from '@payloadcms/ui';
+import React from 'react';
+
+import type { ServerProps } from 'payload';
 
 export function SellerDashboardLink({ payload }: ServerProps) {
   const adminBase = payload.config.routes?.admin || '/admin';

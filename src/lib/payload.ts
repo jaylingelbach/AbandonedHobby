@@ -1,7 +1,9 @@
 import 'server-only';
-import type { Payload } from 'payload';
 import { getPayload } from 'payload';
+
 import config from '@payload-config';
+
+import type { Payload } from 'payload';
 
 let _payload: Promise<Payload> | null = null;
 

@@ -1,8 +1,9 @@
-import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import { computeOnboarding } from '@/modules/onboarding/server/utils';
+import { z } from 'zod';
+
 import { OnboardingStepEnum, UIState, UIStateSchema } from '@/hooks/types';
+import { computeOnboarding } from '@/modules/onboarding/server/utils';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 export const usersRouter = createTRPCRouter({
   getOne: protectedProcedure

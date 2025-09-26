@@ -1,12 +1,12 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { notFound } from 'next/navigation';
 import { SearchParams } from 'nuqs/server';
 
-import { getQueryClient, trpc } from '@/trpc/server';
-import { loadProductFilters } from '@/modules/products/search-params';
-import { ProductListView } from '@/modules/products/ui/views/product-list-view';
 import { DEFAULT_LIMIT } from '@/constants';
 import { isValidCategoryAndSub } from '@/lib/server/utils';
-import { notFound } from 'next/navigation';
+import { loadProductFilters } from '@/modules/products/search-params';
+import { ProductListView } from '@/modules/products/ui/views/product-list-view';
+import { getQueryClient, trpc } from '@/trpc/server';
 
 interface Props {
   params: Promise<{ category: string; subcategory: string }>;

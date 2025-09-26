@@ -1,54 +1,68 @@
-import { useCallback } from 'react';
-import { useCartStore } from '../store/use-cart-store';
+import { useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 
-export const useCart = (tenantSlug: string) => {
-  // automatically memoized via zustand.
+import { useCartStore } from '../store/use-cart-store';
+
+/** Keep this in sync with the store’s normalization if you exported it there */
+const DEFAULT_SCOPE = '__global__';
+function normalizeTenantSlug(raw?: string | null): string {
+  const s = (raw ?? '').trim();
+  return s.length > 0 ? s : DEFAULT_SCOPE;
+}
+
+/**
+ * useCart
+ * - Works even if tenantSlug is undefined/null by falling back to a default scope
+ * - Exposes the same API already in use
+ */
+export const useCart = (tenantSlug?: string | null) => {
+  const scope = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
+
+  // actions
   const addProduct = useCartStore((state) => state.addProduct);
+  const removeProduct = useCartStore((state) => state.removeProduct);
   const clearCart = useCartStore((state) => state.clearCart);
   const clearAllCarts = useCartStore((state) => state.clearAllCarts);
-  const removeProduct = useCartStore((state) => state.removeProduct);
 
-  // Arrays can not be compared like [1,2] === [1,2] so using useShallow from zustand
+  // reactive list for this scope
   const productIds = useCartStore(
-    useShallow((state) => state.tenantCarts[tenantSlug]?.productIds || [])
+    useShallow((state) => state.tenantCarts[scope]?.productIds ?? [])
   );
-
-  const toggleProduct = useCallback(
-    (productId: string) => {
-      if (productIds.includes(productId)) {
-        removeProduct(tenantSlug, productId);
-      } else {
-        addProduct(tenantSlug, productId);
-      }
-    },
-    [addProduct, removeProduct, productIds, tenantSlug]
-  );
-
-  const isProductInCart = useCallback(
-    (productId: string) => {
-      return productIds.includes(productId);
-    },
-    [productIds]
-  );
-
-  const clearTenantCart = useCallback(() => {
-    return clearCart(tenantSlug);
-  }, [tenantSlug, clearCart]);
 
   const handleAddProduct = useCallback(
     (productId: string) => {
-      addProduct(tenantSlug, productId);
+      addProduct(scope, productId);
     },
-    [addProduct, tenantSlug]
+    [addProduct, scope]
   );
 
   const handleRemoveProduct = useCallback(
     (productId: string) => {
-      removeProduct(tenantSlug, productId);
+      removeProduct(scope, productId);
     },
-    [removeProduct, tenantSlug]
+    [removeProduct, scope]
   );
+
+  const clearTenantCart = useCallback(() => {
+    clearCart(scope);
+  }, [clearCart, scope]);
+
+  const toggleProduct = useCallback(
+    (productId: string) => {
+      if (productIds.includes(productId)) {
+        removeProduct(scope, productId);
+      } else {
+        addProduct(scope, productId);
+      }
+    },
+    [productIds, addProduct, removeProduct, scope]
+  );
+
+  const isProductInCart = useCallback(
+    (productId: string) => productIds.includes(productId),
+    [productIds]
+  );
+
   return {
     productIds,
     addProduct: handleAddProduct,

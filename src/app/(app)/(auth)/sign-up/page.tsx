@@ -1,8 +1,8 @@
 import { redirect } from 'next/navigation';
 
+import SignUpView from '@/modules/auth/ui/views/sign-up-view';
 import { caller } from '@/trpc/server';
 
-import SignUpView from '@/modules/auth/ui/views/sign-up-view';
 
 export const dynamic = 'force-dynamic';
 

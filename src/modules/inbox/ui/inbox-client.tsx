@@ -1,15 +1,19 @@
 'use client';
 
-import { useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
-import { ChatModal } from '@/modules/conversations/ui/chat-modal';
+import { MessageSquare, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import { useMemo, useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { MessageSquare, ArrowLeft } from 'lucide-react';
-import type { ConversationListItem } from './types';
+import { ChatModal } from '@/modules/conversations/ui/chat-modal';
+import { useTRPC } from '@/trpc/client';
+
+
 import { timeAgo } from './utils';
+
+import type { ConversationListItem } from './types';
 
 export const dynamic = 'force-dynamic';
 

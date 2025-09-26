@@ -1,8 +1,9 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { useProductFilters } from '../../hooks/use-product-filters';
 import { cn } from '@/lib/utils';
+
+import { useProductFilters } from '../../hooks/use-product-filters';
 
 type SortOption = 'curated' | 'trending' | 'hot_and_new';
 interface SortButtonProps {

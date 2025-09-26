@@ -1,13 +1,14 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
-import { cn } from '@/lib/utils';
 import { ListFilterIcon } from 'lucide-react';
 import { useParams } from 'next/navigation';
+import { useEffect, useRef, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { CategoryDropdown } from './category-dropdown';
-import { CategoriesSidebar } from './categoriesSidebar';
+import { cn } from '@/lib/utils';
 import { CategoriesGetManyOutput } from '@/modules/categories/types';
+
+import { CategoriesSidebar } from './categoriesSidebar';
+import { CategoryDropdown } from './category-dropdown';
 
 interface Props {
   data: CategoriesGetManyOutput;

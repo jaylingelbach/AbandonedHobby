@@ -43,6 +43,7 @@ export type OrderConfirmationDTO = {
   tenantSlug?: string | null; // nice for CTAs
   items: OrderItemDTO[]; // full receipt lines
   shipping?: ShippingAddress;
+  status?: string;
 };
 
 export type OrderSummaryDTO = {

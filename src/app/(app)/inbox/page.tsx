@@ -1,9 +1,10 @@
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 
-import { redirect } from 'next/navigation';
 import { headers as getHeaders } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getPayload } from 'payload';
+
 import config from '@payload-config';
 
 // If your inbox UI is a client component:

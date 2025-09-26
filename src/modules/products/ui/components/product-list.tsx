@@ -1,16 +1,17 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
-import { InboxIcon } from 'lucide-react';
 import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
+import { InboxIcon } from 'lucide-react';
+import { useEffect, useMemo, useRef } from 'react';
 
-import { cn } from '@/lib/utils';
-import { useTRPC } from '@/trpc/client';
-import { ProductCard, ProductCardSkeleton } from './product-card';
-import { useProductFilters } from '../../hooks/use-product-filters';
 import { Button } from '@/components/ui/button';
 import { DEFAULT_LIMIT } from '@/constants';
 import { capture } from '@/lib/analytics/ph-utils/ph';
+import { cn } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
+import { ProductCard, ProductCardSkeleton } from './product-card';
+import { useProductFilters } from '../../hooks/use-product-filters';
 import {
   getCardImageURL,
   getTenantImageURL,

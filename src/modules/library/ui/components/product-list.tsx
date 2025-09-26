@@ -1,13 +1,13 @@
 'use client';
 
-import { InboxIcon } from 'lucide-react';
 import { useSuspenseInfiniteQuery } from '@tanstack/react-query';
+import { InboxIcon } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
+import { DEFAULT_LIMIT } from '@/constants';
 import { useTRPC } from '@/trpc/client';
 
 import { ProductCard, ProductCardSkeleton } from './product-card';
-import { Button } from '@/components/ui/button';
-import { DEFAULT_LIMIT } from '@/constants';
 
 export const ProductList = () => {
   const trpc = useTRPC();

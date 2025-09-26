@@ -1,10 +1,12 @@
-import type { CollectionConfig } from 'payload';
 import { tenantsArrayField } from '@payloadcms/plugin-multi-tenant/fields';
+
 import { isSuperAdmin } from '@/lib/access';
 import {
   buildWelcomeVerifyHTML,
   buildWelcomeVerifySubject
 } from '@/lib/email/welcome-verify';
+
+import type { CollectionConfig } from 'payload';
 
 const defaultTenantArrayField = tenantsArrayField({
   tenantsArrayFieldName: 'tenants',

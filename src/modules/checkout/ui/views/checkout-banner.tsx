@@ -1,7 +1,8 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
 import { AlertTriangle, RotateCcw, Trash2, X, Loader2 } from 'lucide-react';
+
+import { Button } from '@/components/ui/button';
 
 type CheckoutBannerProps = {
   onReturnToCheckout?: () => void;

@@ -1,15 +1,16 @@
-import type { Sort, Where } from 'payload';
+import { TRPCError } from '@trpc/server';
 import { headers as getHeaders } from 'next/headers';
 import { z } from 'zod';
 
-import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import type { Media, Product, Tenant, Review } from '@/payload-types';
-import { TRPCError } from '@trpc/server';
 
 import { DEFAULT_LIMIT } from '@/constants';
-import { sortValues } from '@/modules/products/search-params';
-import { isNotFound, summarizeReviews } from '@/lib/server/utils';
 import type { PriceBounds } from '@/lib/server/types';
+import { isNotFound, summarizeReviews } from '@/lib/server/utils';
+import { sortValues } from '@/modules/products/search-params';
+import type { Media, Product, Tenant, Review } from '@/payload-types';
+import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+
+import type { Sort, Where } from 'payload';
 
 /** Media doc shape we care about (URL + optional sizes). */
 type MediaDoc = Media & {

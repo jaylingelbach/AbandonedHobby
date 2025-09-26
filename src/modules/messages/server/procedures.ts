@@ -1,8 +1,10 @@
-import { z } from 'zod';
 import { TRPCError } from '@trpc/server';
-import { GetMessagesDTO, SendMessageDTO } from './schemas';
+import { z } from 'zod';
 
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+
+import { GetMessagesDTO, SendMessageDTO } from './schemas';
+
 
 export const messagesRouter = createTRPCRouter({
   getConversation: protectedProcedure

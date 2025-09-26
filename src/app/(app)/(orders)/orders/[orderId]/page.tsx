@@ -1,12 +1,13 @@
-import { Suspense } from 'react';
-import { redirect, notFound } from 'next/navigation';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { caller, getQueryClient, trpc } from '@/trpc/server';
+import { redirect, notFound } from 'next/navigation';
+import { Suspense } from 'react';
 
 import {
   ProductView,
   ProductViewSkeleton
 } from '@/modules/library/ui/views/product-view';
+import { caller, getQueryClient, trpc } from '@/trpc/server';
+
 
 export const dynamic = 'force-dynamic';
 

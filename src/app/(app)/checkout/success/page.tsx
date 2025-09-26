@@ -1,8 +1,11 @@
-import { notFound } from 'next/navigation';
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
-import type { SearchParams } from 'nuqs/server';
-import { trpc, getQueryClient } from '@/trpc/server';
+import { notFound } from 'next/navigation';
+
 import OrderConfirmationView from '@/modules/checkout/ui/views/order-confirmation-view';
+import { trpc, getQueryClient } from '@/trpc/server';
+
+import type { SearchParams } from 'nuqs/server';
+
 
 /**
  * Server component page that renders the order confirmation view for a Stripe session.

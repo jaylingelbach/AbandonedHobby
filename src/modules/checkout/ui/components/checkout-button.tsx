@@ -1,8 +1,9 @@
-import Link from 'next/link';
 import { ShoppingCartIcon } from 'lucide-react';
+import Link from 'next/link';
 
-import { cn, generateTenantURL } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+import { cn, generateTenantURL } from '@/lib/utils';
+
 import { useCart } from '../../hooks/use-cart';
 
 interface CheckoutButtonProps {

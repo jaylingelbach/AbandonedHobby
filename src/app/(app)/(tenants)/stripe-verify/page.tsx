@@ -1,10 +1,11 @@
 'use client';
 
-import { LoaderIcon } from 'lucide-react';
-import { useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
-import { useTRPC } from '@/trpc/client';
 import { useMutation } from '@tanstack/react-query';
+import { LoaderIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useEffect, useRef } from 'react';
+
+import { useTRPC } from '@/trpc/client';
 
 const Page = () => {
   const router = useRouter();

@@ -1,17 +1,19 @@
-import { baseProcedure, createTRPCRouter } from '@/trpc/init';
-import { stripe } from '@/lib/stripe';
 import { TRPCError } from '@trpc/server';
 
-import { loginSchema, registerSchema } from '../schemas';
-import { generateAuthCookie } from '../utils';
+import { flushIfNeeded } from '@/lib/server/analytics';
+import { posthogServer } from '@/lib/server/posthog-server';
+import { stripe } from '@/lib/stripe';
 import { generateTenantURL, resolveReturnToFromHeaders } from '@/lib/utils';
 import {
   computeOnboarding,
   toDbUser,
   isSafeReturnTo
 } from '@/modules/onboarding/server/utils';
-import { posthogServer } from '@/lib/server/posthog-server';
-import { flushIfNeeded } from '@/lib/server/analytics';
+import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+
+import { loginSchema, registerSchema } from '../schemas';
+import { generateAuthCookie } from '../utils';
+
 
 export const authRouter = createTRPCRouter({
   session: baseProcedure.query(async ({ ctx }) => {

@@ -1,5 +1,6 @@
 'use client';
 import { useEffect, useMemo } from 'react';
+
 import { capture } from '@/lib/analytics/ph-utils/ph';
 
 export type ProductViewedPayload = {

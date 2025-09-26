@@ -1,9 +1,10 @@
 'use client';
 
+import dynamic from 'next/dynamic';
 import { Suspense } from 'react';
+
 import { Footer } from '@/modules/home/ui/components/footer';
 import { SearchFiltersLoading } from '@/modules/home/ui/components/search-filters';
-import dynamic from 'next/dynamic';
 
 const Navbar = dynamic(
   () => import('@/modules/home/ui/components/navbar').then((m) => m.Navbar),

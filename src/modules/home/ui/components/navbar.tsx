@@ -1,12 +1,14 @@
-import { useState } from 'react';
-import Link from 'next/link';
+import { useQuery } from '@tanstack/react-query';
 import { Inbox, MenuIcon } from 'lucide-react';
 import { Poppins } from 'next/font/google';
+import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
+import { useState } from 'react';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
 import { NavbarSidebar } from './navbar-sidebar';
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });

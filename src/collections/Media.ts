@@ -1,6 +1,7 @@
-import type { CollectionConfig, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { User } from '@/payload-types';
+
+import type { CollectionConfig, Where } from 'payload';
 
 /**
  * Extracts tenant ID strings from a user's tenant relations.

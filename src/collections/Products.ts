@@ -1,6 +1,7 @@
 import { CollectionConfig, type Payload } from 'payload';
+
 import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { User } from '@/payload-types';
+import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 import {
   getCategoryIdFromSibling,
   incTenantProductCount,
@@ -8,7 +9,7 @@ import {
   isTenantWithStripeFields,
   getDraftStatus
 } from '@/lib/server/utils';
-import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
+import { User } from '@/payload-types';
 
 export const Products: CollectionConfig = {
   slug: 'products',

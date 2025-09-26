@@ -1,4 +1,3 @@
-import { createTRPCRouter } from '../init';
 
 import { authRouter } from '@/modules/auth/server/procedures';
 import { categoriesRouter } from '@/modules/categories/server/procedures';
@@ -13,6 +12,8 @@ import { reviewsRouter } from '@/modules/reviews/server/procedures';
 import { tagsRouter } from '@/modules/tags/server/procedures';
 import { tenantsRouter } from '@/modules/tenants/server/procedures';
 import { usersRouter } from '@/modules/users/server/procedures';
+
+import { createTRPCRouter } from '../init';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,

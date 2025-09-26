@@ -1,6 +1,7 @@
+import { isSuperAdmin } from '@/lib/access';
+
 import type { CollectionConfig } from 'payload';
 
-import { isSuperAdmin } from '@/lib/access';
 
 export const Categories: CollectionConfig = {
   slug: 'categories',
