@@ -34,7 +34,7 @@ export type OrderItemInput = {
   returnsAcceptedThrough?: string;
 };
 
-export type ProductDocLite = {
+type ProductDocLite = {
   _id: string;
   stockQuantity?: number | null;
   isArchived?: boolean | null;

@@ -72,11 +72,12 @@ function getProductsModel(
 ): ProductModelLite | null {
   const maybeDb = (payload as unknown as PayloadMongoLike).db;
   const collections = maybeDb?.collections;
-  const products = collections?.products as unknown;
+  const productsUnknown = collections?.products as unknown;
 
-  // Structural type guard for the methods we call
-  const m = products && ((products as { Model?: unknown }).Model as unknown);
-  const model = m as Partial<ProductModelLite> | undefined;
+  const maybeModel =
+    productsUnknown &&
+    ((productsUnknown as { Model?: unknown }).Model as unknown);
+  const model = maybeModel as Partial<ProductModelLite> | undefined;
 
   if (
     model &&
@@ -100,7 +101,7 @@ function getProductsModel(
  *   Model), which also avoids re-entrancy issues. Keep your product hooks in mind.
  * ────────────────────────────────────────────────────────────────────────────── */
 
-async function decProductStockAtomic(
+export async function decProductStockAtomic(
   payload: import('payload').Payload,
   productId: string,
   qty: number,
@@ -116,44 +117,88 @@ async function decProductStockAtomic(
     return { ok: false, reason: 'insufficient' };
   }
 
+  // 1) Preferred: atomic Mongo update via underlying model (if available)
   const ProductModel = getProductsModel(payload);
-  if (!ProductModel) {
-    return { ok: false, reason: 'not-supported' };
-  }
-
-  // Atomic conditional decrement
-  const updated = await ProductModel.findOneAndUpdate(
-    { _id: productId, stockQuantity: { $gte: qty } },
-    { $inc: { stockQuantity: -qty } },
-    { new: true, lean: true }
-  );
-
-  if (!updated) {
-    // product not found or insufficient stock matched the guard
-    return { ok: false, reason: 'insufficient' };
-  }
-
-  const afterQty =
-    typeof updated.stockQuantity === 'number' ? updated.stockQuantity : null;
-
-  if (afterQty == null) {
-    return { ok: false, reason: 'not-tracked' };
-  }
-
-  let archived = Boolean(updated.isArchived);
-
-  if (opts.autoArchive === true && afterQty === 0 && !archived) {
-    await ProductModel.updateOne(
-      { _id: productId, isArchived: { $ne: true } },
-      { $set: { isArchived: true } }
+  if (ProductModel) {
+    const updated = await ProductModel.findOneAndUpdate(
+      { _id: productId, stockQuantity: { $gte: qty } },
+      { $inc: { stockQuantity: -qty } },
+      { new: true, lean: true }
     );
-    archived = true;
+
+    if (updated) {
+      const afterQty =
+        typeof updated.stockQuantity === 'number'
+          ? updated.stockQuantity
+          : null;
+
+      if (afterQty == null) {
+        return { ok: false, reason: 'not-tracked' };
+      }
+
+      let archived = Boolean(updated.isArchived);
+
+      if (opts.autoArchive === true && afterQty === 0 && !archived) {
+        await ProductModel.updateOne(
+          { _id: productId, isArchived: { $ne: true } },
+          { $set: { isArchived: true } }
+        );
+        archived = true;
+      }
+
+      return { ok: true, after: { stockQuantity: afterQty }, archived };
+    }
+
+    // If model exists but no doc matched, it’s either not found or insufficient stock.
+    // We can’t easily distinguish without another read. Fall through to fallback which
+    // will give us a precise reason.
   }
 
-  return { ok: true, after: { stockQuantity: afterQty }, archived };
+  // 2) Fallback: Payload read-modify-write (ensures decrement still happens)
+  //    (Not fully race-proof, but guarantees behavior when Model path isn’t available.)
+  const prod = (await payload.findByID({
+    collection: 'products',
+    id: productId,
+    depth: 0,
+    overrideAccess: true,
+    draft: false
+  })) as {
+    id: string;
+    stockQuantity?: number | null;
+    isArchived?: boolean | null;
+  } | null;
+
+  if (!prod) return { ok: false, reason: 'not-found' };
+
+  const current =
+    typeof prod.stockQuantity === 'number' ? prod.stockQuantity : null;
+
+  if (current == null) return { ok: false, reason: 'not-tracked' };
+  if (current < qty) return { ok: false, reason: 'insufficient' };
+
+  const next = current - qty;
+  const shouldArchive = opts.autoArchive === true && next === 0;
+
+  const updated = (await payload.update({
+    collection: 'products',
+    id: productId,
+    data: {
+      stockQuantity: next,
+      ...(shouldArchive ? { isArchived: true } : {})
+    },
+    overrideAccess: true,
+    draft: false,
+    context: { ahSystem: true, ahSkipAutoArchive: true }
+  })) as { stockQuantity?: number | null; isArchived?: boolean | null };
+
+  return {
+    ok: true,
+    after: { stockQuantity: (updated.stockQuantity as number) ?? next },
+    archived: Boolean(updated.isArchived)
+  };
 }
 
-async function decrementInventoryBatch(args: {
+export async function decrementInventoryBatch(args: {
   payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
 }): Promise<void> {
@@ -177,7 +222,7 @@ async function decrementInventoryBatch(args: {
         purchasedQty,
         reason: res.reason
       });
-      // Optional: flag for manual review / compensate depending on policy.
+      // Optional: flag order for manual review on 'insufficient' etc.
     }
   }
 }

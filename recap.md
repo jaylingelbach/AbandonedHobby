@@ -3120,3 +3120,27 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/modules/products/ui/views/product-view.tsx
   - Uses useUser to compute isSelf; disables chat button with tooltip when viewing own product; removes ChatRoom mount from ratings area.
+
+# Notification count 09/25/25
+
+## New Features
+
+- Inbox: authenticated client, loading/empty states, last-message previews, unread badges, mark-as-read syncing; server mutation to mark convo read.
+
+- Stripe/Webhooks: idempotent, typed order processing, inventory decrementing, receipt/line-item helpers,
+- StripeEvents collection and event tracking.
+
+## Bug Fixes
+
+- Reviews: duplicate-review detection with user-friendly errors.
+- Orders: session ID regex now allows underscores.
+
+## Refactor
+
+- Conversations: batched list DTOs (roomId/other/lastMessage/unreadCount).
+- Orders/Stripe: consolidated mapping and validation utilities.
+- Chat: per-message sender display fixes.
+
+## Chores
+
+- Reviews: unique index (user+product).
