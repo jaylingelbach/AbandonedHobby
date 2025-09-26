@@ -6,6 +6,7 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 
 import type { Payload } from 'payload';
 import type Stripe from 'stripe';
+import { PayloadMongoLike, ProductModelLite } from './types';
 
 // ─── Project Imports ─────────────────────────────────────────────────────────
 
@@ -149,4 +150,41 @@ export function requireStripeProductId(line: ExpandedLineItem): string {
     );
   }
   return id;
+}
+
+export async function tryCall<T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T> {
+  try {
+    return await fn();
+  } catch (err) {
+    console.error(`[WEBHOOK ERROR @ ${label}]`, err);
+    if (err instanceof Error && err.stack) {
+      console.error(`[WEBHOOK ERROR stack @ ${label}]`, err.stack);
+    }
+    throw err;
+  }
+}
+
+export function getProductsModel(
+  payload: import('payload').Payload
+): ProductModelLite | null {
+  const maybeDb = (payload as unknown as PayloadMongoLike).db;
+  const collections = maybeDb?.collections;
+  const productsUnknown = collections?.products as unknown;
+
+  const maybeModel =
+    productsUnknown &&
+    ((productsUnknown as { Model?: unknown }).Model as unknown);
+  const model = maybeModel as Partial<ProductModelLite> | undefined;
+
+  if (
+    model &&
+    typeof model.findOneAndUpdate === 'function' &&
+    typeof model.updateOne === 'function'
+  ) {
+    return model as ProductModelLite;
+  }
+  return null;
 }

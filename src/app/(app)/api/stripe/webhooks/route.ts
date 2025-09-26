@@ -31,27 +31,15 @@ import type { TenantWithContact } from '@/modules/tenants/resolve';
 import type { Product, User } from '@/payload-types';
 
 import { OrderItemInput } from './utils/types';
-import { toQtyMap, flushIfNeeded, isUniqueViolation } from './utils/utils';
-
-import type { ProductModelLite, PayloadMongoLike } from './utils/types';
+import {
+  toQtyMap,
+  getProductsModel,
+  flushIfNeeded,
+  isUniqueViolation,
+  tryCall
+} from './utils/utils';
 
 export const runtime = 'nodejs';
-
-/* ──────────────────────────────────────────────────────────────────────────────
- * Small logging wrapper
- * ────────────────────────────────────────────────────────────────────────────── */
-async function tryCall<T>(label: string, fn: () => Promise<T>): Promise<T> {
-  try {
-    return await fn();
-  } catch (e) {
-    const err = e as Error;
-    console.error(`[WEBHOOK ERROR @ ${label}]`, err.message);
-    if (err.stack) console.error(err.stack);
-    throw e;
-  }
-}
-
-// Local types
 
 // Stripe’s expanded line item with expanded product metadata.id guaranteed.
 export type ExpandedLineItem = Stripe.LineItem & {
@@ -59,28 +47,6 @@ export type ExpandedLineItem = Stripe.LineItem & {
     product: Stripe.Product & { metadata: Record<string, string> };
   };
 };
-
-function getProductsModel(
-  payload: import('payload').Payload
-): ProductModelLite | null {
-  const maybeDb = (payload as unknown as PayloadMongoLike).db;
-  const collections = maybeDb?.collections;
-  const productsUnknown = collections?.products as unknown;
-
-  const maybeModel =
-    productsUnknown &&
-    ((productsUnknown as { Model?: unknown }).Model as unknown);
-  const model = maybeModel as Partial<ProductModelLite> | undefined;
-
-  if (
-    model &&
-    typeof model.findOneAndUpdate === 'function' &&
-    typeof model.updateOne === 'function'
-  ) {
-    return model as ProductModelLite;
-  }
-  return null;
-}
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * Inventory decrement (atomic) + batch  (Mongo / Mongoose)
