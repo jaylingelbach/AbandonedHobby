@@ -1,7 +1,8 @@
-import { cn } from '@/lib/utils';
 import { Button } from '@/components/ui/button';
+
 import { useCart } from '@/modules/checkout/hooks/use-cart';
 
+import { cn } from '@/lib/utils';
 interface Props {
   tenantSlug: string;
   productId: string;
