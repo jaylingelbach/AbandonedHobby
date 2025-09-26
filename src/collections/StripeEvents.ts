@@ -1,4 +1,5 @@
 import { isSuperAdmin } from '@/lib/access';
+
 import type { CollectionConfig } from 'payload';
 
 export const StripeEvents: CollectionConfig = {

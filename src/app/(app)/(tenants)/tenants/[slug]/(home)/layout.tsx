@@ -1,9 +1,9 @@
-import { Suspense } from 'react';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { getQueryClient, trpc } from '@/trpc/server';
+import { Suspense } from 'react';
 
 import { Footer } from '@/modules/tenants/ui/components/footer';
 import { Navbar, NavbarSkeleton } from '@/modules/tenants/ui/components/navbar';
+import { getQueryClient, trpc } from '@/trpc/server';
 
 type LayoutParams = { slug: string };
 interface LayoutProps {

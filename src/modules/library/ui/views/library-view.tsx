@@ -1,7 +1,7 @@
-import { Suspense } from 'react';
-import Link from 'next/link';
-
 import { ArrowLeftIcon } from 'lucide-react';
+import Link from 'next/link';
+import { Suspense } from 'react';
+
 
 import { ProductList, ProductListSkeleton } from '../components/product-list';
 

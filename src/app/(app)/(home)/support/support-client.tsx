@@ -1,8 +1,5 @@
 'use client';
 
-import Link from 'next/link';
-import Script from 'next/script';
-import { useEffect, useMemo, useState } from 'react';
 import {
   Search,
   Truck,
@@ -14,17 +11,21 @@ import {
   DollarSign,
   Bell
 } from 'lucide-react';
+import Link from 'next/link';
+import Script from 'next/script';
+import { useEffect, useMemo, useState } from 'react';
 
-import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { renderToText } from '@/lib/utils';
+
 import FaqCard from './components/faq-card';
 import PolicyCard from './components/policy-card';
 import SellerTipsCard from './components/seller-tips-card';
 import SupportContactForm from './components/support-contact-form';
-import { renderToText } from '@/lib/utils';
 
 export const dynamic = 'force-dynamic';
 

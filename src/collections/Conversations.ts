@@ -1,4 +1,5 @@
 import { isSuperAdmin } from '@/lib/access';
+
 import type { CollectionConfig, Access, Where } from 'payload';
 
 const canReadOwnConversations: Access = ({ req }) => {

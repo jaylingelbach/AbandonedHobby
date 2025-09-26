@@ -1,13 +1,17 @@
 import { DM_Sans } from 'next/font/google';
+
 import type { Metadata } from 'next';
+
 import { TRPCReactProvider } from '@/trpc/client';
 import { Toaster } from '@/components/ui/sonner';
+
 import { NuqsAdapter } from 'nuqs/adapters/next/app';
 
 import './globals.css';
-import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
-import PostHogInit from './posthog-init'; // client
 import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identity-bridge'; // client
+import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
+
+import PostHogInit from './posthog-init'; // client
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 

@@ -1,15 +1,18 @@
 'use client';
 
-import { Suspense } from 'react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
 import { useParams } from 'next/navigation';
+import { Suspense } from 'react';
 
+import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
+import { useTRPC } from '@/trpc/client';
+
+
+import { BreadcrumbNavigation } from './breadcrumb-navigation';
 import { Categories } from './categories';
 import { SearchInput } from './search-input';
 import { DEFAULT_BG_COLOR } from '../../../constants';
-import { BreadcrumbNavigation } from './breadcrumb-navigation';
-import { useProductFilters } from '@/modules/products/hooks/use-product-filters';
+
 
 export const SearchFilters = () => {
   const trpc = useTRPC();

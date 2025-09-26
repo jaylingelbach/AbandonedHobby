@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
 import posthog, { type PostHog } from 'posthog-js';
+import { useEffect } from 'react';
 
 declare global {
   interface Window {

@@ -1,21 +1,23 @@
 'use client';
 
-import { Suspense, useEffect, useRef } from 'react';
 import { LiveList } from '@liveblocks/client';
 import {
   RoomProvider,
   useStorage,
   useMutation
 } from '@liveblocks/react/suspense';
-import { useUser } from '@/hooks/use-user';
-import { useTRPC } from '@/trpc/client';
 import {
   useMutation as useTanstack,
   useQuery,
   useQueryClient
 } from '@tanstack/react-query';
+import { Suspense, useEffect, useRef } from 'react';
 import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
+import { useUser } from '@/hooks/use-user';
+import { useTRPC } from '@/trpc/client';
+
 import { Message } from '../../../../liveblocks.config';
 
 export function ChatRoom({

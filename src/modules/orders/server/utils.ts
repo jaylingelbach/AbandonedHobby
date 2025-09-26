@@ -1,6 +1,8 @@
 // src/modules/server/utils.ts
 import { TRPCError } from '@trpc/server';
+
 import { isObjectRecord } from '@/lib/server/utils';
+
 import type {
   OrderConfirmationDTO,
   OrderItemDTO,
@@ -152,7 +154,8 @@ export function mapOrderItem(
     `items[${index}].unitAmount`
   );
 
-  const amountSubtotalRaw = (orderItemRaw as Record<string, unknown>).amountSubtotal;
+  const amountSubtotalRaw = (orderItemRaw as Record<string, unknown>)
+    .amountSubtotal;
   const amountSubtotalCents =
     assertOptionalNonNegativeInt(
       amountSubtotalRaw,
@@ -170,8 +173,7 @@ export function mapOrderItem(
     assertOptionalNonNegativeInt(
       amountTotalRaw,
       `items[${index}].amountTotal`
-    ) ??
-    amountSubtotalCents + (amountTaxCents ?? 0);
+    ) ?? amountSubtotalCents + (amountTaxCents ?? 0);
   const returnsRaw = (orderItemRaw as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =

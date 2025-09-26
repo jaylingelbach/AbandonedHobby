@@ -1,13 +1,14 @@
 // ─────────────────────────────────────────────────────────────
 // Imports
 // ─────────────────────────────────────────────────────────────
-import React from 'react';
-import type { ReactNode } from 'react';
-import { clsx, type ClassValue } from 'clsx';
-import { twMerge } from 'tailwind-merge';
 import { TRPCClientError } from '@trpc/client';
+import { clsx, type ClassValue } from 'clsx';
+import React from 'react';
+import { twMerge } from 'tailwind-merge';
 
 import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
+
+import type { ReactNode } from 'react';
 
 // ─────────────────────────────────────────────────────────────
 // Tailwind / class utilities

@@ -1,13 +1,14 @@
-import type Stripe from 'stripe';
-
-import type { Product } from '@/payload-types';
 
 import { daysForPolicy } from '@/lib/server/utils';
+import type { Product } from '@/payload-types';
+
 
 import {
   type ExpandedLineItem,
   requireStripeProductIdFromLine
 } from './guards';
+
+import type Stripe from 'stripe';
 
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;

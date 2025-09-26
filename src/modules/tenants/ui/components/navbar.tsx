@@ -1,16 +1,16 @@
 'use client';
 
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { ShoppingCartIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { ShoppingCartIcon } from 'lucide-react';
 
-import { useTRPC } from '@/trpc/client';
-import { generateTenantURL } from '@/lib/utils';
-import { Button } from '@/components/ui/button';
 import BackToRootLink from '@/components/back-to-root-link';
+import { Button } from '@/components/ui/button';
+import { generateTenantURL } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
 
 const CheckoutButton = dynamic(
   () =>

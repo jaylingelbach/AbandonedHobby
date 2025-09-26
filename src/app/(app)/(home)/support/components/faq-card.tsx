@@ -1,12 +1,13 @@
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { cn } from '@/lib/utils';
 import { HelpCircle } from 'lucide-react';
+
 import {
   Accordion,
   AccordionItem,
   AccordionTrigger,
   AccordionContent
 } from '@/components/ui/accordion';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
 type QA = { q: string; a: React.ReactNode };
 
 export default function FaqCard({

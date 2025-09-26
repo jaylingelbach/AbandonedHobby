@@ -1,17 +1,18 @@
-import { z } from 'zod';
-import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
-import { DEFAULT_LIMIT } from '@/constants';
+import { z } from 'zod';
 
+import { DEFAULT_LIMIT } from '@/constants';
+import { getRelId, summarizeReviews } from '@/lib/server/utils';
 import type { Media, Product, Review, Tenant } from '@/payload-types';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+
+import { pickPrimaryMedia } from './utils';
+
 import type {
   ProductWithRatings,
   OrderMinimal,
   ProductCardDTO
 } from '../types';
-
-import { getRelId, summarizeReviews } from '@/lib/server/utils';
-import { pickPrimaryMedia } from './utils';
 
 /**
  * Router: Library (purchased products for the signed-in user)

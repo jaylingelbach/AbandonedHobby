@@ -1,5 +1,7 @@
-import { isObjectRecord } from '@/lib/server/utils';
 import { TRPCError } from '@trpc/server';
+
+import { isObjectRecord } from '@/lib/server/utils';
+
 import { OrderConfirmationDTO, OrderItemDTO, OrderSummaryDTO } from './types';
 
 /**
@@ -287,6 +289,7 @@ export function mapOrderToConfirmation(
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
   const currency = assertString(orderDocument.currency, 'order.currency');
   const totalCents = assertNumber(orderDocument.total, 'order.total');
+  const status = assertString(orderDocument.status, 'order.status');
 
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
   if (!Array.isArray(itemsUnknown) || itemsUnknown.length === 0) {
@@ -324,6 +327,7 @@ export function mapOrderToConfirmation(
     returnsAcceptedThroughISO,
     receiptUrl,
     tenantSlug,
-    items
+    items,
+    status
   };
 }

@@ -1,20 +1,22 @@
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { useSuspenseQuery } from '@tanstack/react-query';
 import { ChevronLeftIcon, ChevronRightIcon } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { useState } from 'react';
+
+import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle
 } from '@/components/ui/sheet';
-
-import { useTRPC } from '@/trpc/client';
-import { useSuspenseQuery } from '@tanstack/react-query';
 import {
   CategoriesGetManyOutput,
   CategoriesGetManyOutputSingle
 } from '@/modules/categories/types';
+import { useTRPC } from '@/trpc/client';
+
+
 
 interface Props {
   open: boolean;

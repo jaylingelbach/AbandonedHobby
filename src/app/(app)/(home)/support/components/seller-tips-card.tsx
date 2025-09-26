@@ -1,6 +1,7 @@
+import { ComponentProps } from 'react';
+
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { cn } from '@/lib/utils';
-import { ComponentProps } from 'react';
 
 type SellerTipsCardProps = ComponentProps<typeof Card> & { title?: string };
 export default function SellerTipsCard({

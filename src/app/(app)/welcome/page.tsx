@@ -1,13 +1,14 @@
 'use client';
 
-import Link from 'next/link';
 import { useQuery } from '@tanstack/react-query';
 import { CheckCircle2, Store, CreditCard, Package, Mail } from 'lucide-react';
+import Link from 'next/link';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { useTRPC } from '@/trpc/client';
-import { cn } from '@/lib/utils';
 import { useRedirectOnUnauthorized } from '@/hooks/use-redirect-on-unauthorized';
+import { cn } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
 
 /* ---------- Skeleton ---------- */
 function WelcomeSkeleton() {

@@ -1,11 +1,12 @@
 'use client';
+import { useEffect } from 'react';
+
 import {
   toIdentity,
   useLoginEvent,
   usePostHogIdentity
 } from '@/hooks/analytics/use-posthog-identity';
 import { useUser } from '@/hooks/use-user';
-import { useEffect } from 'react';
 
 export function AnalyticsIdentityBridge() {
   const { user } = useUser();

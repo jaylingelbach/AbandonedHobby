@@ -1,6 +1,7 @@
+import type { Tenant, User } from '@/payload-types';
+
 import type { Payload } from 'payload';
 
-import type { Tenant, User } from '@/payload-types';
 
 export type TenantWithContact = Tenant & {
   notificationEmail?: string | null;

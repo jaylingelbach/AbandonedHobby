@@ -1,4 +1,5 @@
 import { z } from 'zod';
+
 import { ONBOARDING_STEPS } from '@/modules/onboarding/types';
 
 export const OnboardingStepEnum = z.enum(ONBOARDING_STEPS);

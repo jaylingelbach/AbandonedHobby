@@ -1,11 +1,14 @@
-import type { AdminViewServerProps } from 'payload';
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
-import * as React from 'react';
 import Link from 'next/link'; // <-- use Next Link for internal nav
-import { UiCard } from '@/components/custom-payload/ui/UiCard';
+import * as React from 'react';
+
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
+import { UiCard } from '@/components/custom-payload/ui/UiCard';
+
 import { getData } from './utils';
+
+import type { AdminViewServerProps } from 'payload';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;

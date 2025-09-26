@@ -1,8 +1,9 @@
 import { CollectionConfig } from 'payload';
-import type { User } from '@/payload-types';
+
 import { isSuperAdmin } from '@/lib/access';
 import { getRelId } from '@/lib/server/utils';
 import { extractErrorDetails } from '@/lib/server/utils';
+import type { User } from '@/payload-types';
 
 export const Messages: CollectionConfig = {
   slug: 'messages',

@@ -1,24 +1,20 @@
 import { NextResponse } from 'next/server';
-
 import { getPayload } from 'payload';
+import Stripe from 'stripe';
 
 import config from '@payload-config';
 
-import Stripe from 'stripe';
-
-import { stripe } from '@/lib/stripe';
-import { posthogServer } from '@/lib/server/posthog-server';
 import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
-
-import type { Product, User } from '@/payload-types';
-import type { TenantWithContact } from '@/modules/tenants/resolve';
-import type { ProductModelLite, PayloadMongoLike } from './utils/types';
-
-import { OrderItemInput } from './utils/types';
-
+import { posthogServer } from '@/lib/server/posthog-server';
+import { stripe } from '@/lib/stripe';
+import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
+import {
+  buildOrderItems,
+  earliestReturnsCutoffISO
+} from '@/modules/stripe/build-order-items';
 import {
   hasProcessed,
   isExpandedLineItem,
@@ -27,20 +23,17 @@ import {
   markProcessed,
   requireStripeProductId
 } from '@/modules/stripe/guards';
-
 import {
   sumAmountTotalCents,
   buildReceiptLineItems
 } from '@/modules/stripe/line-items';
+import type { TenantWithContact } from '@/modules/tenants/resolve';
+import type { Product, User } from '@/payload-types';
 
-import {
-  buildOrderItems,
-  earliestReturnsCutoffISO
-} from '@/modules/stripe/build-order-items';
-
-import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
-
+import { OrderItemInput } from './utils/types';
 import { toQtyMap, flushIfNeeded, isUniqueViolation } from './utils/utils';
+
+import type { ProductModelLite, PayloadMongoLike } from './utils/types';
 
 export const runtime = 'nodejs';
 
@@ -225,6 +218,22 @@ async function decrementInventoryBatch(args: {
       // Optional: flag order for manual review on 'insufficient' etc.
     }
   }
+}
+
+// Toggle emails from an env var. Any of: "1", "true", "yes" will enable.
+const WEBHOOK_EMAILS_ENABLED: boolean = /^(1|true|yes)$/i.test(
+  process.env.WEBHOOK_EMAILS_ENABLED ?? ''
+);
+
+async function sendIfEnabled<T>(
+  label: string,
+  fn: () => Promise<T>
+): Promise<T | null> {
+  if (!WEBHOOK_EMAILS_ENABLED) {
+    console.log(`[email] skipped (${label}) – WEBHOOK_EMAILS_ENABLED is off`);
+    return null;
+  }
+  return tryCall(label, fn);
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -631,7 +640,7 @@ export async function POST(req: Request) {
           tenantDoc.name ??
           'Seller';
 
-        await tryCall('email.sendOrderConfirmation', () =>
+        await sendIfEnabled('email.sendOrderConfirmation', () =>
           sendOrderConfirmationEmail({
             // to: user.email ?? 'customer@example.com',
             to: 'jay@abandonedhobby.com', // temp
@@ -658,7 +667,7 @@ export async function POST(req: Request) {
           );
         }
 
-        await tryCall('email.sendSaleNotification', () =>
+        await sendIfEnabled('email.sendSaleNotification', () =>
           sendSaleNotificationEmail({
             // to: sellerEmail,
             to: 'jay@abandonedhobby.com', // temp

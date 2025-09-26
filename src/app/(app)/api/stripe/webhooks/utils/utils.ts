@@ -1,12 +1,13 @@
 // ─── Type-only Imports ───────────────────────────────────────────────────────
+import { posthogServer } from '@/lib/server/posthog-server';
+import type { DecProductStockResult } from '@/lib/server/types';
+import { decProductStockAtomic } from '@/lib/server/utils';
+import { ExpandedLineItem } from '@/modules/checkout/types';
+
 import type { Payload } from 'payload';
 import type Stripe from 'stripe';
-import type { DecProductStockResult } from '@/lib/server/types';
 
 // ─── Project Imports ─────────────────────────────────────────────────────────
-import { ExpandedLineItem } from '@/modules/checkout/types';
-import { posthogServer } from '@/lib/server/posthog-server';
-import { decProductStockAtomic } from '@/lib/server/utils';
 
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';

@@ -1,10 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
-import type { OnboardingStep, UIState } from './types';
+import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+
+import { useTRPC } from '@/trpc/client';
+
+import type { OnboardingStep, UIState } from './types';
+
 
 /**
  * React hook that determines whether to show an onboarding banner and provides dismissal actions.

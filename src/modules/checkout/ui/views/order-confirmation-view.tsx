@@ -1,11 +1,20 @@
 'use client';
 
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
+import { useEffect } from 'react';
 import Link from 'next/link';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { useTRPC } from '@/trpc/client';
-import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
-import { buildSignInUrl, formatCents } from '@/lib/utils';
 import { TRPCClientError } from '@trpc/client';
+import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { buildSignInUrl, formatCents } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
+// ─── Project Hooks ───────────────────────────────────────────────────────────
+import { useCart } from '../../hooks/use-cart';
 
 interface Props {
   sessionId: string;
@@ -13,11 +22,12 @@ interface Props {
 
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
+
+  // Query (always call hooks)
   const queryOptions = trpc.orders.getConfirmationBySession.queryOptions(
     { sessionId },
     { staleTime: 5_000 }
   );
-
   const { data, error, refetch } = useSuspenseQuery({
     ...queryOptions,
     refetchInterval: (query) => {
@@ -30,6 +40,21 @@ export default function OrderConfirmationView({ sessionId }: Props) {
     }
   });
 
+  // Derive values *before* any early return so hooks below stay unconditional.
+  const orders = data?.orders ?? [];
+  const firstOrder = orders[0]; // may be undefined while webhook is pending
+  const { clearCart } = useCart(firstOrder?.tenantSlug); // your hook should accept string | undefined
+
+  // Clear the cart once the first order is confirmed paid
+  useEffect(() => {
+    if (firstOrder?.status === 'paid') {
+      clearCart();
+    }
+  }, [firstOrder?.status, clearCart]);
+
+  // Now do conditional rendering
+
+  // Not signed in
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
     return (
       <div className="min-h-screen bg-white p-8">
@@ -40,8 +65,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
       </div>
     );
   }
-
-  const orders = data?.orders ?? [];
 
   // Pending webhook: no orders yet
   if (orders.length === 0) {
@@ -79,7 +102,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
     );
   }
 
-  // Confirmed: usually one order due to single-seller checkout
+  // Confirmed
   return (
     <div className="min-h-screen bg-white">
       <nav className="p-4 bg-[#F4F4F0] w-full">
@@ -100,12 +123,10 @@ export default function OrderConfirmationView({ sessionId }: Props) {
       </header>
 
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
-        {/* OUTER WRAPPER: full border all the way around */}
-
         <div className="space-y-6">
-          {orders.map((order) => (
+          {orders.map((o) => (
             <div
-              key={order.orderId}
+              key={o.orderId}
               className="border border-black bg-white rounded-lg p-6 shadow-[6px_6px_0_0_#000]"
             >
               <div className="flex items-center justify-between">
@@ -113,12 +134,12 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                   <div className="text-sm text-muted-foreground">
                     Order Number
                   </div>
-                  <div className="text-lg font-medium">{order.orderNumber}</div>
+                  <div className="text-lg font-medium">{o.orderNumber}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <ReceiptIcon className="size-5" />
                   <span className="font-medium">
-                    {formatCents(order.totalCents, order.currency)}
+                    {formatCents(o.totalCents, o.currency)}
                   </span>
                 </div>
               </div>
@@ -126,16 +147,16 @@ export default function OrderConfirmationView({ sessionId }: Props) {
               <div className="mt-6">
                 <div className="text-sm text-muted-foreground mb-2">Items</div>
                 <ul className="space-y-2">
-                  {order.items.map((item) => (
+                  {o.items.map((item) => (
                     <li
-                      key={`${order.orderId}-${item.productId}`}
+                      key={`${o.orderId}-${item.productId}`}
                       className="border border-black border-dashed rounded p-4 flex items-center justify-between"
                     >
                       <div className="flex-1">
                         <div className="font-medium">{item.name}</div>
                         <div className="text-sm text-muted-foreground">
                           Qty {item.quantity} •{' '}
-                          {formatCents(item.unitAmountCents, order.currency)}
+                          {formatCents(item.unitAmountCents, o.currency)}
                         </div>
                         {item.returnsAcceptedThroughISO ? (
                           <div className="text-xs mt-1">
@@ -147,56 +168,53 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                         ) : null}
                       </div>
                       <div className="ml-4 font-medium">
-                        {formatCents(item.amountSubtotalCents, order.currency)}
+                        {formatCents(item.amountSubtotalCents, o.currency)}
                       </div>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              {/* Shipping block (only if webhook persisted it) */}
-              {order.shipping && order.shipping.line1 ? (
+              {o.shipping && o.shipping.line1 ? (
                 <div className="mt-6 border border-black rounded p-4">
                   <div className="text-sm text-muted-foreground">
                     Shipping to
                   </div>
-                  {order.shipping.name ? (
-                    <div className="font-medium">{order.shipping.name}</div>
+                  {o.shipping.name ? (
+                    <div className="font-medium">{o.shipping.name}</div>
                   ) : null}
                   <div className="text-sm mt-1">
-                    {order.shipping.line1}
-                    {order.shipping.line2 ? (
+                    {o.shipping.line1}
+                    {o.shipping.line2 ? (
                       <>
                         <br />
-                        {order.shipping.line2}
+                        {o.shipping.line2}
                       </>
                     ) : null}
-                    {order.shipping.city && order.shipping.state ? (
+                    {o.shipping.city && o.shipping.state ? (
                       <>
                         <br />
-                        {order.shipping.city}, {order.shipping.state}{' '}
-                        {order.shipping.postalCode || ''}
+                        {o.shipping.city}, {o.shipping.state}{' '}
+                        {o.shipping.postalCode || ''}
                       </>
                     ) : null}
-                    {order.shipping.country ? (
+                    {o.shipping.country ? (
                       <>
                         <br />
-                        {order.shipping.country}
+                        {o.shipping.country}
                       </>
                     ) : null}
                   </div>
                 </div>
               ) : null}
 
-              {order.returnsAcceptedThroughISO ? (
+              {o.returnsAcceptedThroughISO ? (
                 <div className="mt-6 border border-black border-dashed rounded p-4">
                   <div className="text-sm text-muted-foreground">
                     Returns accepted through
                   </div>
                   <div className="font-medium">
-                    {new Date(
-                      order.returnsAcceptedThroughISO
-                    ).toLocaleDateString()}
+                    {new Date(o.returnsAcceptedThroughISO).toLocaleDateString()}
                   </div>
                 </div>
               ) : null}
@@ -209,10 +227,10 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 >
                   View all orders
                 </Link>
-                {order.tenantSlug ? (
+                {o.tenantSlug ? (
                   <Link
                     prefetch
-                    href={`/${order.tenantSlug}`}
+                    href={`/${o.tenantSlug}`}
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
                     Visit seller

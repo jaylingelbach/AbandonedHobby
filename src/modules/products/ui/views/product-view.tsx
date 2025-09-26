@@ -1,29 +1,26 @@
 'use client';
 
-import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import { RichText } from '@payloadcms/richtext-lexical/react';
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
-
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { toast } from 'sonner';
-import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { RichText } from '@payloadcms/richtext-lexical/react';
 
-import { useTRPC } from '@/trpc/client';
-import { formatCurrency, generateTenantURL } from '@/lib/utils';
-
-import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
-import { useUser } from '@/hooks/use-user';
-
+import StarRating from '@/components/star-rating';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
+import { useUser } from '@/hooks/use-user';
+import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
-import StarRating from '@/components/star-rating';
+import { useTRPC } from '@/trpc/client';
+
 import ProductGallery from '../components/product-gallery';
 import ViewInOrdersButton from '../components/view-in-order-button';
-
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 
 const CartButton = dynamic(

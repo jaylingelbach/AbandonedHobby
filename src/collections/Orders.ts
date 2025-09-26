@@ -1,4 +1,3 @@
-import type { CollectionConfig } from 'payload';
 
 import { isSuperAdmin } from '@/lib/access';
 import {
@@ -8,6 +7,8 @@ import {
   readOrdersAccess,
   updateOrdersAccess
 } from '@/lib/server/payload-utils/orders';
+
+import type { CollectionConfig } from 'payload';
 
 /**
  * Orders

@@ -1,14 +1,15 @@
 'use client';
 
-import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
-import { Button } from '@/components/ui/button';
-import { ChatModal } from '@/modules/conversations/ui/chat-modal';
-import { useUser } from '@/hooks/use-user';
-import { useTRPC } from '@/trpc/client';
+import { useState } from 'react';
 import { toast } from 'sonner';
+
+import { Button } from '@/components/ui/button';
+import { useUser } from '@/hooks/use-user';
 import { buildSignInUrl } from '@/lib/utils';
+import { ChatModal } from '@/modules/conversations/ui/chat-modal';
+import { useTRPC } from '@/trpc/client';
 
 export type ChatState = { conversationId: string; roomId: string };
 

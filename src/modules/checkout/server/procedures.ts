@@ -1,23 +1,25 @@
-import { Media, Tenant } from '@/payload-types';
+import { randomUUID } from 'crypto';
+
+import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
 
 import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
-
+import { flushIfNeeded } from '@/lib/server/analytics';
+import { posthogServer } from '@/lib/server/posthog-server';
+import { asId } from '@/lib/server/utils';
+import { stripe } from '@/lib/stripe';
+import { generateTenantURL, usdToCents } from '@/lib/utils';
+import { Media, Tenant } from '@/payload-types';
 import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure
 } from '@/trpc/init';
-import { stripe } from '@/lib/stripe';
-import { TRPCError } from '@trpc/server';
-import { randomUUID } from 'crypto';
+
+
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
-import { generateTenantURL, usdToCents } from '@/lib/utils';
-import { asId } from '@/lib/server/utils';
-import { posthogServer } from '@/lib/server/posthog-server';
-import { flushIfNeeded } from '@/lib/server/analytics';
 import { getPrimaryCardImageUrl } from './utils';
 
 export const runtime = 'nodejs';

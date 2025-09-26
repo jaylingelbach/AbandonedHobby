@@ -1,7 +1,8 @@
 import { ClientUser } from 'payload';
 
-import type { Access } from 'payload';
 import type { User } from '@/payload-types';
+
+import type { Access } from 'payload';
 
 export const mustBeStripeVerified: Access = async ({ req }) => {
   const user = req.user as User;

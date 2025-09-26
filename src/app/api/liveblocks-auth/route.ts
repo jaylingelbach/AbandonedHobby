@@ -1,9 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server';
 import { Liveblocks } from '@liveblocks/node';
-import { getAuthUser } from '@/lib/get-auth-user';
-import { isSuperAdmin } from '@/lib/access';
+import { NextRequest, NextResponse } from 'next/server';
 import { getPayload } from 'payload';
+
 import configPromise from '@payload-config';
+
+import { isSuperAdmin } from '@/lib/access';
+import { getAuthUser } from '@/lib/get-auth-user';
 import type { Conversation, User } from '@/payload-types';
 
 const liveblocks = new Liveblocks({
