@@ -1,30 +1,30 @@
 'use client';
 
-import { useMemo } from 'react';
-import { toast } from 'sonner';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
+import { toast } from 'sonner';
 import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
-import { useTRPC } from '@/trpc/client';
 import { useSuspenseQuery } from '@tanstack/react-query';
-
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-
 import { RichText } from '@payloadcms/richtext-lexical/react';
 
+import { useTRPC } from '@/trpc/client';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
-import StarRating from '@/components/star-rating';
-import { Fragment, useEffect, useRef, useState } from 'react';
-import { Progress } from '@/components/ui/progress';
-import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
-import ProductGallery from '../components/product-gallery';
-import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 import { useUser } from '@/hooks/use-user';
+
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Progress } from '@/components/ui/progress';
+import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
+import StarRating from '@/components/star-rating';
+import ProductGallery from '../components/product-gallery';
+import ViewInOrdersButton from '../components/view-in-order-button';
+
+import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 
 const CartButton = dynamic(
   () =>
@@ -241,13 +241,17 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               />
             </div>
           </div>
-
           <div className="col-span-2">
             {/* Div around add to cart and ratings */}
             <div className="border-t lg:border-t-0 lg:border-l h-full">
               {/* Add to cart */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
+                  <ViewInOrdersButton
+                    isPurchased={data.isPurchased}
+                    tenantSlug={tenantSlug}
+                    productId={productId}
+                  />
                   {/*  Disable buy when sold out (swap CartButton for a disabled button) */}
                   {inStock ? (
                     <CartButton
