@@ -3244,3 +3244,24 @@ Added recap covering the Orders transition and onboarding behavior.
   - Imported and rendered ViewInOrdersButton alongside existing controls;
   - passed isPurchased, tenantSlug, and productId;
   - minor import reorganization with additional React utilities.
+
+# Cleanup logging function 09/27/25
+
+## Refactor
+
+- Consolidated Stripe webhook helper logic into a shared utility, replacing duplicated local implementations.
+- Standardized error handling and product lookup behavior for consistent, predictable webhook processing across environments.
+- Improved logging clarity during webhook failures to aid troubleshooting.
+- No user-facing changes; existing webhook functionality and outcomes remain unchanged.
+
+## File changes
+
+### Webhook route refactor
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Removed local implementations/types for tryCall and getProductsModel; now imports tryCall, getProductsModel, toQtyMap, flushIfNeeded, and isUniqueViolation from utils. External behavior unchanged.
+
+### Shared utils module
+
+- src/app/(app)/api/stripe/webhooks/utils/utils.ts
+  - Added tryCall (async wrapper with labeled logging) and getProductsModel (extracts Mongo-like products model from Payload). Imported ProductModelLite and PayloadMongoLike types.
