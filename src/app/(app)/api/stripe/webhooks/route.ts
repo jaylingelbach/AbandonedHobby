@@ -191,6 +191,13 @@ const WEBHOOK_EMAILS_ENABLED: boolean = /^(1|true|yes)$/i.test(
   process.env.WEBHOOK_EMAILS_ENABLED ?? ''
 );
 
+/**
+ * Runs the provided operation only when webhook-triggered emails are enabled.
+ *
+ * @param label - Human-readable label used for logging and error context
+ * @param fn - Async function to execute when emails are enabled (typically performs sending or related work)
+ * @returns The value returned by `fn` (`T`), or `null` if webhook emails are disabled
+ */
 async function sendIfEnabled<T>(
   label: string,
   fn: () => Promise<T>
@@ -334,9 +341,13 @@ function resolveShippingForOrder(args: {
   } as const;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Route handler
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Handle incoming Stripe webhook requests for order, payment, and account events.
+ *
+ * Processes verified Stripe webhook events (checkout.session.completed, payment_intent.payment_failed, checkout.session.expired, account.updated), performing idempotent order creation/updating, inventory adjustments, tenant resolution, email notifications (when enabled), and analytics capture as appropriate.
+ *
+ * @returns A JSON HTTP response indicating the result of webhook processing (e.g., received, ignored, updated, or error) and an appropriate HTTP status code.
+ */
 
 export async function POST(req: Request) {
   let event: Stripe.Event;

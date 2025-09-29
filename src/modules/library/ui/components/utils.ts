@@ -4,6 +4,13 @@ import { isObjectRecord } from '@/lib/utils';
 type Dict = Record<string, unknown>;
 type StringDict = Record<string, unknown>;
 
+/**
+ * Retrieve a trimmed, non-empty string value for a given key from an object.
+ *
+ * @param obj - The object to read the property from
+ * @param key - The property name to retrieve
+ * @returns The trimmed string value if present and not empty, `undefined` otherwise
+ */
 function getString(obj: StringDict, key: string): string | undefined {
   const v = obj[key];
   if (typeof v === 'string') {
@@ -13,15 +20,22 @@ function getString(obj: StringDict, key: string): string | undefined {
   return undefined;
 }
 
+/**
+ * Determines whether the given record contains an `address` property that is an object-like record.
+ *
+ * @param v - The record to inspect
+ * @returns `true` if `v.address` exists and is an object record, `false` otherwise.
+ */
 function hasNestedAddress(v: Dict): v is Dict & { address: Dict } {
   const maybe = (v as { address?: unknown }).address;
   return isObjectRecord(maybe);
 }
 
 /**
- * Produces a compact, multi-line mailing address string.
- * Accepts either your flat `OrderForBuyer['shipping']` shape or a nested shape
- * like Stripe's `{ address: { line1, city, ... }, name }`.
+ * Build a compact multi-line mailing address from either a flat shipping object or a nested `{ address, name }` shape.
+ *
+ * @param addr - Address input, either a flat OrderForBuyer shipping object or an object containing an `address` record; ignored if not an object-like record
+ * @returns A newline-separated address string composed of name, line1, line2, city/state with postal code, and country; returns an empty string when no address fields are available
  */
 
 export function compactAddress(
