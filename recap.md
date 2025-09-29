@@ -3265,3 +3265,55 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/app/(app)/api/stripe/webhooks/utils/utils.ts
   - Added tryCall (async wrapper with labeled logging) and getProductsModel (extracts Mongo-like products model from Payload). Imported ProductModelLite and PayloadMongoLike types.
+
+# View invoice 09/26/25
+
+## Walkthrough
+
+- Adds a shipping normalization helper to the Stripe checkout webhook and persists normalized shipping on order creation. Introduces an InvoiceDialog React component, order-related UI types/util, integrates the dialog into product view, adds print-focused CSS, and extends getForBuyerById to expose productIds and structured shipping.
+
+## New Features
+
+- Added an invoice dialog to view, print, or save invoices (line items, quantities, totals, billing/shipping).
+- “View invoice” button shown when an order exists; print layout limited to invoice content for cleaner prints.
+- Orders now expose productIds and a structured shipping object in buyer-facing views.
+
+## Bug Fixes
+
+- Improved shipping data consolidation so orders and invoices show more accurate shipping details across payment sources.
+
+## File changes
+
+### Stripe webhook shipping normalization
+
+- src/app/(app)/api/stripe/webhooks/route.ts, src/app/(app)/api/stripe/webhooks/utils/types.ts
+  - Adds resolveShippingForOrder(...) to normalize shipping across multiple Stripe shapes and wires the resulting shippingGroup into the checkout.session.completed POST flow; adds AddressLike and ShippingLike types.
+
+### Invoice dialog UI
+
+- src/modules/library/ui/components/invoice-dialog.tsx
+  - New client component InvoiceDialog (with InvoiceDialogProps) that renders an invoice dialog with items, totals, billing/shipping, print/save flow, and prints-to-PDF support.
+
+### UI order types
+
+- src/modules/library/ui/components/types.ts
+  - New exported types OrderItem and OrderForBuyer describing order/item shapes, monetary fields (cents), and optional shipping snapshot.
+
+### UI address utility
+
+- src/modules/library/ui/components/utils.ts
+  - New exported compactAddress(...) that builds a compact multiline address string from nested or flat address shapes.
+
+### Product view integration
+
+- src/modules/library/ui/views/product-view.tsx
+- Adds hydration guard and InvoiceDialog integration; adds invoiceOpen state and “View invoice” button behavior guarded for CSR.
+
+### Orders server response
+
+- src/modules/orders/server/procedures.ts
+  - getForBuyerById now computes productIds and includes a structured shipping field (or undefined) in the returned order DTO payload; resolves primary productId with fallbacks.
+
+### Print CSS
+
+- src/app/(app)/globals.css Adds print media rules to hide page content except #invoice-content, positions it for full-page printing, and introduces .no-print utility.
