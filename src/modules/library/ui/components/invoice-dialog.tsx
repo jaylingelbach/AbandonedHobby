@@ -24,6 +24,21 @@ export interface InvoiceDialogProps {
   sellerName: string; // display at top
 }
 
+/**
+ * Render a modal invoice dialog showing an order's details and totals.
+ *
+ * Displays order metadata, billing/shipping information, a list of line items
+ * (or a synthesized fallback item when none are present), and actions to close
+ * or print/save the invoice. The dialog will automatically close after printing.
+ *
+ * @param props - Component props
+ * @param props.open - Whether the dialog is open
+ * @param props.onOpenChange - Callback invoked with the new open state
+ * @param props.order - Order data to display (may be null while loading)
+ * @param props.productNameFallback - Fallback product name used when item names are missing
+ * @param props.sellerName - Seller name displayed in the dialog header
+ * @returns The rendered invoice dialog element
+ */
 export default function InvoiceDialog(props: InvoiceDialogProps) {
   const { open, onOpenChange, order, productNameFallback, sellerName } = props;
   const currency = (order?.currency ?? 'USD').toUpperCase();

@@ -191,6 +191,13 @@ const WEBHOOK_EMAILS_ENABLED: boolean = /^(1|true|yes)$/i.test(
   process.env.WEBHOOK_EMAILS_ENABLED ?? ''
 );
 
+/**
+ * Conditionally executes a provided async action when webhook emails are enabled.
+ *
+ * @param label - Short label used for logging/tracing the action
+ * @param fn - Async function to run when emails are enabled
+ * @returns The value returned by `fn`, or `null` if webhook emails are disabled
+ */
 async function sendIfEnabled<T>(
   label: string,
   fn: () => Promise<T>
@@ -334,9 +341,18 @@ function resolveShippingForOrder(args: {
   } as const;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Route handler
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Handle incoming Stripe webhook POST requests for a subset of event types and perform corresponding side effects.
+ *
+ * Verifies the Stripe signature, rejects invalid payloads, deduplicates events, and processes:
+ * - checkout.session.completed: creates idempotent orders, decrements inventory, sends emails, and records analytics.
+ * - payment_intent.payment_failed and checkout.session.expired: records checkout failure analytics.
+ * - account.updated: updates tenant Stripe submission status.
+ *
+ * Events not in the permitted set are marked processed and ignored to prevent retries.
+ *
+ * @param req - The incoming HTTP request containing the raw Stripe webhook body and signature header.
+ * @returns A NextResponse with a JSON body describing the outcome (e.g., received/ignored/updated or an error message). */
 
 export async function POST(req: Request) {
   let event: Stripe.Event;
