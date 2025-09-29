@@ -142,3 +142,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+@media print {
+  /* Hide everything by default */
+  body * {
+    visibility: hidden;
+  }
+
+  /* Show just the invoice content */
+  #invoice-content,
+  #invoice-content * {
+    visibility: visible;
+  }
+
+  /* Position the invoice at the top-left and use the full width */
+  #invoice-content {
+    position: absolute;
+    inset: 0;
+    padding: 24px; /* optional, matches your dialog content padding */
+  }
+
+  /* Hide buttons / dialog chrome if you want, via utility class */
+  .no-print {
+    display: none !important;
+  }
+}

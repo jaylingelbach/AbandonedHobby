@@ -57,3 +57,17 @@ export type PayloadMongoLike = {
     collections?: Record<string, unknown>;
   };
 };
+
+export type AddressLike = {
+  line1?: string | null;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postal_code?: string | null;
+  country?: string | null;
+};
+
+export type ShippingLike = {
+  name?: string | null;
+  address?: AddressLike | null;
+};

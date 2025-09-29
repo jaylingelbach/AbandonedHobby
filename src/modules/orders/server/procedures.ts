@@ -122,21 +122,19 @@ export const ordersRouter = createTRPCRouter({
       const order = (await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId,
-        depth: 0
+        depth: 0 // we only need ids for relationships
       })) as Order | null;
 
       if (!order) throw new TRPCError({ code: 'NOT_FOUND' });
 
-      // safe buyer check
+      // buyer check
       const buyerId =
         typeof order.buyer === 'string' ? order.buyer : order.buyer?.id;
       if (buyerId !== user.id) throw new TRPCError({ code: 'FORBIDDEN' });
 
       const items = Array.isArray(order.items) ? order.items : [];
 
-      // Resolve the "primary" productId this order page is for
-      // (prefer item.product, fallback to legacy order.product)
-
+      // Resolve primary product id for this page (prefer first item; fallback to legacy order.product)
       let productId: string | null = null;
       for (const item of items) {
         const id = getRelId(item.product);
@@ -156,13 +154,36 @@ export const ordersRouter = createTRPCRouter({
         });
       }
 
-      // 📌 Per-product quantity (sum only the lines matching productId)
+      // Per-product quantity (sum only lines matching productId)
       const quantityForProduct =
         items.reduce<number>((sum, item) => {
           const id = getRelId(item.product);
           const q = typeof item.quantity === 'number' ? item.quantity : 1;
           return id === productId ? sum + q : sum;
-        }, 0) || 1; // default to 1 if no explicit match (back-compat)
+        }, 0) || 1;
+
+      // Optional: all product ids in this order (unique)
+      const productIds = Array.from(
+        new Set(
+          items
+            .map((i) => getRelId(i.product))
+            .filter((id): id is string => typeof id === 'string')
+        )
+      );
+
+      // Shape shipping from the order doc (matches your ShippingAddress type)
+      const shipping =
+        order.shipping && typeof order.shipping === 'object'
+          ? {
+              name: order.shipping.name ?? null,
+              line1: order.shipping.line1 ?? '', // your type requires line1
+              line2: order.shipping.line2 ?? null,
+              city: order.shipping.city ?? null,
+              state: order.shipping.state ?? null,
+              postalCode: order.shipping.postalCode ?? null,
+              country: order.shipping.country ?? null
+            }
+          : undefined;
 
       return {
         orderId: String(order.id),
@@ -171,8 +192,10 @@ export const ordersRouter = createTRPCRouter({
         returnsAcceptedThroughISO: order.returnsAcceptedThrough ?? null,
         currency: order.currency,
         totalCents: order.total,
-        quantity: quantityForProduct, // ← per-product
-        productId
+        quantity: quantityForProduct,
+        productId,
+        productIds,
+        shipping // optional on DTO, so omit if not present
       };
     }),
 

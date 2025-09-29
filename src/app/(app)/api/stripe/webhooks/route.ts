@@ -191,6 +191,13 @@ const WEBHOOK_EMAILS_ENABLED: boolean = /^(1|true|yes)$/i.test(
   process.env.WEBHOOK_EMAILS_ENABLED ?? ''
 );
 
+/**
+ * Conditionally executes a provided async action when webhook emails are enabled.
+ *
+ * @param label - Short label used for logging/tracing the action
+ * @param fn - Async function to run when emails are enabled
+ * @returns The value returned by `fn`, or `null` if webhook emails are disabled
+ */
 async function sendIfEnabled<T>(
   label: string,
   fn: () => Promise<T>
@@ -202,9 +209,150 @@ async function sendIfEnabled<T>(
   return tryCall(label, fn);
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Route handler
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Resolve a normalized shipping address for an order from a Stripe Checkout flow.
+ *
+ * Stripe has moved shipping data through a few shapes over time. This resolver:
+ *
+ * Priority (newest → oldest) on the **Checkout Session**:
+ *  1. `collected_information.shipping_details`  (new API shape)
+ *  2. `shipping_details`                        (intermediate shape)
+ *  3. `shipping`                                (legacy shape)
+ *
+ * If the Checkout Session provides no usable shipping, we then fall back to:
+ *  - `paymentIntent.shipping`
+ *  - `charge.shipping`
+ * And finally to:
+ *  - `session.customer_details` (billing details) as a last resort
+ *
+ * The function returns a normalized object compatible with your `orders.shipping` group:
+ * ```
+ * {
+ *   name?: string;
+ *   line1?: string;
+ *   line2?: string;
+ *   city?: string;
+ *   state?: string;
+ *   postalCode?: string;
+ *   country?: string; // ISO-2
+ * }
+ * ```
+ * or `undefined` if no usable address was found.
+ *
+ * Type-safety notes:
+ * - We avoid `any` and use small local structural types (`ShippingLike`, `AddressLike`),
+ *   combined with `unknown`→narrowed casts for Stripe objects that may or may not
+ *   expose these properties depending on API version/typing.
+ *
+ * @param args
+ * @param args.expanded
+ *   The **expanded** Stripe Checkout Session (should include `customer_details`,
+ *   and may include `collected_information.shipping_details`, `shipping_details`,
+ *   or legacy `shipping`).
+ * @param args.paymentIntent
+ *   The PaymentIntent associated with the Checkout Session; may contain `shipping`.
+ * @param args.charge
+ *   The Charge associated with the PaymentIntent; may contain `shipping`.
+ * @param args.buyerFallbackName
+ *   Optional display name to use when no explicit shipping/customer name is present.
+ *
+ * @returns
+ *   A normalized shipping object suitable for persisting to your `orders.shipping` field,
+ *   or `undefined` when no address info can be resolved.
+ */
+function resolveShippingForOrder(args: {
+  expanded: Stripe.Checkout.Session;
+  paymentIntent: Stripe.PaymentIntent;
+  charge: Stripe.Charge;
+  buyerFallbackName?: string | null;
+}) {
+  const { expanded, paymentIntent, charge, buyerFallbackName } = args;
+
+  // Minimal shapes we need; independent from Stripe's exported types
+  type AddressLike = {
+    line1?: string | null;
+    line2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postal_code?: string | null;
+    country?: string | null;
+  };
+
+  type ShippingLike = {
+    name?: string | null;
+    address?: AddressLike | null;
+  };
+
+  // Session with optional newer/older shipping locations.
+  type SessionWithShipping = Stripe.Checkout.Session & {
+    collected_information?: {
+      shipping_details?: ShippingLike | null;
+    } | null;
+    shipping_details?: ShippingLike | null; // some API versions
+    shipping?: ShippingLike | null; // legacy
+  };
+
+  const sx = expanded as unknown as SessionWithShipping;
+
+  // 1) Prefer the new collected_information.shipping_details
+  // 2) Then shipping_details
+  // 3) Then legacy shipping
+  const sessionShipping: ShippingLike | null =
+    sx.collected_information?.shipping_details ??
+    sx.shipping_details ??
+    sx.shipping ??
+    null;
+
+  // Billing details from the Session (often present even if shipping isn't).
+  const billing = expanded.customer_details ?? null;
+
+  // PI/Charge shipping shapes are compatible with ShippingLike; use safe casts.
+  const piShipping =
+    (paymentIntent.shipping as unknown as ShippingLike | null) ?? null;
+
+  const chargeShipping =
+    (charge.shipping as unknown as ShippingLike | null) ?? null;
+
+  const resolvedName =
+    sessionShipping?.name ??
+    piShipping?.name ??
+    chargeShipping?.name ??
+    billing?.name ??
+    buyerFallbackName ??
+    'Customer';
+
+  const addr: AddressLike | null =
+    sessionShipping?.address ??
+    piShipping?.address ??
+    chargeShipping?.address ??
+    billing?.address ??
+    null;
+
+  if (!addr) return undefined;
+
+  return {
+    name: resolvedName,
+    line1: addr.line1 ?? '',
+    line2: addr.line2 ?? undefined,
+    city: addr.city ?? undefined,
+    state: addr.state ?? undefined,
+    postalCode: addr.postal_code ?? undefined,
+    country: addr.country ?? undefined
+  } as const;
+}
+
+/**
+ * Handle incoming Stripe webhook POST requests for a subset of event types and perform corresponding side effects.
+ *
+ * Verifies the Stripe signature, rejects invalid payloads, deduplicates events, and processes:
+ * - checkout.session.completed: creates idempotent orders, decrements inventory, sends emails, and records analytics.
+ * - payment_intent.payment_failed and checkout.session.expired: records checkout failure analytics.
+ * - account.updated: updates tenant Stripe submission status.
+ *
+ * Events not in the permitted set are marked processed and ignored to prevent retries.
+ *
+ * @param req - The incoming HTTP request containing the raw Stripe webhook body and signature header.
+ * @returns A NextResponse with a JSON body describing the outcome (e.g., received/ignored/updated or an error message). */
 
 export async function POST(req: Request) {
   let event: Stripe.Event;
@@ -480,6 +628,13 @@ export async function POST(req: Request) {
             ? `${firstName} (+${orderItems.length - 1} more)`
             : firstName;
 
+        const shippingGroup = resolveShippingForOrder({
+          expanded,
+          paymentIntent,
+          charge,
+          buyerFallbackName: user.firstName
+        });
+
         // Create order (idempotent via unique session id; catch unique violation)
         let orderDocId: string;
         try {
@@ -503,18 +658,7 @@ export async function POST(req: Request) {
                 buyerEmail: expanded.customer_details?.email ?? undefined,
                 status: 'paid',
                 total: totalCents,
-                shipping: {
-                  name: expanded.customer_details?.name ?? 'Customer',
-                  line1: expanded.customer_details?.address?.line1,
-                  line2: expanded.customer_details?.address?.line2 ?? undefined,
-                  city: expanded.customer_details?.address?.city ?? undefined,
-                  state: expanded.customer_details?.address?.state ?? undefined,
-                  postalCode:
-                    expanded.customer_details?.address?.postal_code ??
-                    undefined,
-                  country:
-                    expanded.customer_details?.address?.country ?? undefined
-                }
+                shipping: shippingGroup
               },
               overrideAccess: true
             })

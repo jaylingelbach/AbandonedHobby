@@ -5,7 +5,7 @@ import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
 import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useEffect, useMemo } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -18,6 +18,7 @@ import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
 import type { Product, Tenant } from '@/payload-types';
 import { useTRPC } from '@/trpc/client';
 
+import InvoiceDialog from '../components/invoice-dialog';
 import { ReviewFormSkeleton } from '../components/review-form';
 import ReviewSidebar from '../components/review-sidebar';
 
@@ -30,6 +31,10 @@ const neoBrut =
   'rounded-xl border-2 border-black bg-white shadow-[6px_6px_0_0_rgba(0,0,0,1)]';
 
 export const ProductView = ({ productId, orderId }: Props) => {
+  const [invoiceOpen, setInvoiceOpen] = useState(false);
+  const [mounted, setMounted] = useState(false); // <-- hydration-safe guard
+  useEffect(() => setMounted(true), []);
+
   const trpc = useTRPC();
   const { user } = useUser();
   const queryClient = useQueryClient();
@@ -45,10 +50,12 @@ export const ProductView = ({ productId, orderId }: Props) => {
   const tenantId = relId<Tenant>(product.tenant);
   const sellerName = tenantDoc?.name ?? 'Seller';
 
-  const isViewerSeller = !!user?.tenants?.some(
-    (t) => relId<Tenant>(t.tenant) === tenantId
-  );
-
+  // Computed but only used after mount to avoid SSR/CSR divergence
+  const isViewerSeller =
+    mounted &&
+    !!user?.tenants?.some(
+      (tenant) => relId<Tenant>(tenant.tenant) === tenantId
+    );
   const trackingProvided = false;
   const trackingNumber = '69420';
 
@@ -155,7 +162,8 @@ export const ProductView = ({ productId, orderId }: Props) => {
                   <Separator />
 
                   <div className="grid gap-2">
-                    {!isViewerSeller && tenantId && (
+                    {/* Render this only after mount to keep SSR/CSR markup identical */}
+                    {mounted && !isViewerSeller && tenantId && (
                       <div className="w-full">
                         <ChatButtonWithModal
                           productId={productId}
@@ -177,11 +185,21 @@ export const ProductView = ({ productId, orderId }: Props) => {
                     <Button
                       className="justify-start border-2 border-black"
                       variant="secondary"
-                      disabled
+                      onClick={() => setInvoiceOpen(true)}
+                      disabled={!order}
                     >
                       <Receipt className="mr-2 size-4" />
-                      View invoice (coming soon)
+                      View invoice
                     </Button>
+                    {order && (
+                      <InvoiceDialog
+                        open={invoiceOpen}
+                        onOpenChange={setInvoiceOpen}
+                        order={order ?? null}
+                        productNameFallback={product.name}
+                        sellerName={sellerName}
+                      />
+                    )}
                   </div>
                 </CardContent>
               </Card>
