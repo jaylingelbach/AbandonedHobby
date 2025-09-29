@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -44,58 +44,14 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
   }, [order?.items, order?.quantity, order?.totalCents, productNameFallback]);
 
   const handlePrint = () => {
-    const content = document.getElementById('invoice-content');
-    if (!content) {
-      window.print();
-      return;
-    }
-    const html = content.outerHTML;
-    const w = window.open(
-      '',
-      '_blank',
-      'noopener,noreferrer,width=900,height=700'
-    );
-    if (w) {
-      w.document.write(`
-        <html>
-          <head>
-            <title>Invoice ${order?.orderNumber ?? ''}</title>
-            <meta name="viewport" content="width=device-width, initial-scale=1" />
-            <style>
-              body { font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji"; padding: 24px; }
-              .text-right { text-align: right; }
-              .text-sm { font-size: 0.875rem; }
-              .font-medium { font-weight: 500; }
-              .font-semibold { font-weight: 600; }
-              .grid { display: grid; }
-              .grid-cols-12 { grid-template-columns: repeat(12, minmax(0, 1fr)); }
-              .col-span-2 { grid-column: span 2 / span 2; }
-              .col-span-6 { grid-column: span 6 / span 6; }
-              .col-span-8 { grid-column: span 8 / span 8; }
-              .px-4 { padding-left: 1rem; padding-right: 1rem; }
-              .py-2 { padding-top: 0.5rem; padding-bottom: 0.5rem; }
-              .py-3 { padding-top: 0.75rem; padding-bottom: 0.75rem; }
-              .mb-1 { margin-bottom: 0.25rem; }
-              .mt-2 { margin-top: 0.5rem; }
-              .rounded-md { border-radius: 0.375rem; }
-              .border { border: 1px solid #000; }
-              .divide-y > * + * { border-top: 1px solid #000; }
-              .bg-muted { background: #f4f4f4; }
-            </style>
-          </head>
-          <body>
-            ${html}
-            <script>
-              window.onload = function() { window.print(); setTimeout(() => window.close(), 250); }
-            </script>
-          </body>
-        </html>
-      `);
-      w.document.close();
-    } else {
-      window.print();
-    }
+    window.print();
   };
+  useEffect(() => {
+    const after = () => onOpenChange(false);
+    window.addEventListener('afterprint', after);
+    return () => window.removeEventListener('afterprint', after);
+  }, [onOpenChange]);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl">
@@ -199,7 +155,11 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
           >
             Close
           </Button>
-          <Button className="border-2 border-black" onClick={handlePrint}>
+          <Button
+            type="button"
+            className="border-2 border-black"
+            onClick={handlePrint}
+          >
             Print / Save PDF
           </Button>
         </DialogFooter>

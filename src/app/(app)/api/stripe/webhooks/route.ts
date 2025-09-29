@@ -325,7 +325,7 @@ function resolveShippingForOrder(args: {
 
   return {
     name: resolvedName,
-    line1: addr.line1 ?? undefined,
+    line1: addr.line1 ?? '',
     line2: addr.line2 ?? undefined,
     city: addr.city ?? undefined,
     state: addr.state ?? undefined,

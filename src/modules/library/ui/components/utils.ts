@@ -1,25 +1,45 @@
 import { OrderForBuyer } from './types';
+import { isObjectRecord } from '@/lib/utils';
+
+type Dict = Record<string, unknown>;
+type StringDict = Record<string, unknown>;
+
+function getString(obj: StringDict, key: string): string | undefined {
+  const v = obj[key];
+  if (typeof v === 'string') {
+    const t = v.trim();
+    return t.length ? t : undefined;
+  }
+  return undefined;
+}
+
+function hasNestedAddress(v: Dict): v is Dict & { address: Dict } {
+  const maybe = (v as { address?: unknown }).address;
+  return isObjectRecord(maybe);
+}
+
+/**
+ * Produces a compact, multi-line mailing address string.
+ * Accepts either your flat `OrderForBuyer['shipping']` shape or a nested shape
+ * like Stripe's `{ address: { line1, city, ... }, name }`.
+ */
 
 export function compactAddress(
   addr?:
     | OrderForBuyer['shipping']
-    | (Record<string, unknown> & { address?: Record<string, unknown> })
+    | (Record<string, unknown> & { address?: Record<string, unknown> | null })
 ): string {
-  if (!addr) return '';
+  if (!isObjectRecord(addr)) return '';
 
-  // Accept both flat and nested shapes (e.g., Stripe-like)
-  const a = addr as any;
-  const base = a.address && typeof a.address === 'object' ? a.address : a;
+  // Prefer nested `address` object when present and well-formed.
+  const base: Dict = hasNestedAddress(addr) ? addr.address : addr;
 
-  const pick = (...keys: string[]) => {
+  const pick = (...keys: string[]): string => {
     for (const k of keys) {
-      const candidates = [base?.[k], a?.[k]];
-      for (const v of candidates) {
-        if (typeof v === 'string') {
-          const trimmed = v.trim();
-          if (trimmed.length > 0) return trimmed;
-        }
-      }
+      const fromBase = getString(base, k);
+      if (fromBase) return fromBase;
+      const fromRoot = getString(addr, k);
+      if (fromRoot) return fromRoot;
     }
     return '';
   };
@@ -32,13 +52,11 @@ export function compactAddress(
   const postalCode = pick('postalCode', 'postal_code', 'zip', 'zipCode');
   const country = pick('country');
 
+  const cityState = [city, state].filter(Boolean).join(', ');
   const cityLine =
-    [city, state].filter(Boolean).join(', ') +
-    (postalCode ? (city || state ? ` ${postalCode}` : postalCode) : '');
+    cityState + (postalCode ? (cityState ? ` ${postalCode}` : postalCode) : '');
 
-  const parts = [name, line1, line2, cityLine, country]
-    .map((s) => (typeof s === 'string' ? s.trim() : ''))
-    .filter((s) => s.length > 0);
-
-  return parts.join('\n');
+  return [name, line1, line2, cityLine, country]
+    .filter((s) => s && s.trim().length > 0)
+    .join('\n');
 }

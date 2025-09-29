@@ -50,11 +50,12 @@ export const ProductView = ({ productId, orderId }: Props) => {
   const tenantId = relId<Tenant>(product.tenant);
   const sellerName = tenantDoc?.name ?? 'Seller';
 
-  // IMPORTANT: Using this for UI AFTER mount to avoid SSR/CSR divergence
-  const isViewerSeller = !!user?.tenants?.some(
-    (tenant) => relId<Tenant>(tenant.tenant) === tenantId
-  );
-
+  // Computed but only used after mount to avoid SSR/CSR divergence
+  const isViewerSeller =
+    mounted &&
+    !!user?.tenants?.some(
+      (tenant) => relId<Tenant>(tenant.tenant) === tenantId
+    );
   const trackingProvided = false;
   const trackingNumber = '69420';
 
