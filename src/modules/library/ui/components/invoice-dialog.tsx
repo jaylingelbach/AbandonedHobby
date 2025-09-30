@@ -29,7 +29,7 @@ export interface InvoiceDialogProps {
  *
  * Displays order metadata, billing/shipping information, a list of line items
  * (or a synthesized fallback item when none are present), and actions to close
- * or print/save the invoice. The dialog will automatically close after printing.
+ * or download the invoice as a PDF.
  *
  * @param props - Component props
  * @param props.open - Whether the dialog is open
@@ -58,9 +58,27 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
     ];
   }, [order?.items, order?.quantity, order?.totalCents, productNameFallback]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  async function downloadInvoice(orderId: string) {
+    try {
+      const res = await fetch(`/api/orders/${orderId}/invoice`, {
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('Failed to generate invoice');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      // TODO: Replace alert with app-specific toast or error banner
+      alert('Failed to download invoice. Please try again.');
+    }
+  }
   useEffect(() => {
     const after = () => onOpenChange(false);
     window.addEventListener('afterprint', after);
@@ -172,10 +190,9 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
           </Button>
           <Button
             type="button"
-            className="border-2 border-black"
-            onClick={handlePrint}
+            onClick={() => order && downloadInvoice(order.id)}
           >
-            Print / Save PDF
+            Download PDF
           </Button>
         </DialogFooter>
       </DialogContent>

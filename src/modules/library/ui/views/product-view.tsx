@@ -16,6 +16,7 @@ import { relDoc, relId } from '@/lib/relationshipHelpers';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
 import type { Product, Tenant } from '@/payload-types';
+import type { OrderForBuyer } from '../components/types';
 import { useTRPC } from '@/trpc/client';
 
 import InvoiceDialog from '../components/invoice-dialog';
@@ -66,6 +67,23 @@ export const ProductView = ({ productId, orderId }: Props) => {
     [trpc, orderId]
   );
   const { data: order } = useSuspenseQuery(orderQueryOptions);
+
+  const orderForInvoice: OrderForBuyer | null = useMemo(() => {
+    if (!order) return null; // `order` is OrderSummaryDTO
+    return {
+      id: order.orderId, // satisfy required id
+      orderNumber: order.orderNumber,
+      orderDateISO: order.orderDateISO,
+      totalCents: order.totalCents,
+      currency: order.currency,
+      quantity: order.quantity,
+      // items: not available on the summary; let the dialog fall back to productNameFallback
+      items: undefined,
+      buyerEmail: null, // summary doesn’t include it
+      shipping: order.shipping ?? null,
+      returnsAcceptedThroughISO: order.returnsAcceptedThroughISO ?? null
+    };
+  }, [order]);
 
   useEffect(() => {
     if (!success) return;
@@ -195,7 +213,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
                       <InvoiceDialog
                         open={invoiceOpen}
                         onOpenChange={setInvoiceOpen}
-                        order={order ?? null}
+                        order={orderForInvoice}
                         productNameFallback={product.name}
                         sellerName={sellerName}
                       />
