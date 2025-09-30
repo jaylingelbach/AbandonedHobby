@@ -141,19 +141,6 @@
   body {
     @apply bg-background text-foreground;
   }
-
-  body {
-    @apply bg-background text-foreground;
-
-    /* Nested utilities (should be removed) */
-    @layer utilities {
-      .wrap-anywhere {
-        overflow-wrap: anywhere;
-        word-break: break-word;
-      }
-    }
-  }
-
   body {
     @apply bg-background text-foreground;
   }
