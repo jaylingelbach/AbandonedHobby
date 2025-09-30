@@ -3,7 +3,7 @@ import PDFDocument from 'pdfkit/js/pdfkit.standalone.js';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { ShippingAddress } from '@/modules/orders/types';
-import { OrderDoc, OrderItemDoc } from './types';
+import { OrderItemDoc } from './types';
 import { formatCurrency } from '@/lib/utils';
 
 export const runtime = 'nodejs';
@@ -193,14 +193,13 @@ export async function GET(
       user // pass user for access control
     });
   } catch (error) {
+    console.error(error);
     return new NextResponse('Order not found', { status: 404 });
   }
 
   if (!order) {
     return new NextResponse('Order not found', { status: 404 });
   }
-
-  const orderDoc = order as OrderDoc;
 
   const doc = new PDFDocument({
     size: PAGE.size,

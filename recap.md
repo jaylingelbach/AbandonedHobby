@@ -3317,3 +3317,59 @@ Added recap covering the Orders transition and onboarding behavior.
 ### Print CSS
 
 - src/app/(app)/globals.css Adds print media rules to hide page content except #invoice-content, positions it for full-page printing, and introduces .no-print utility.
+
+# Server PDF invoice 09/30/25
+
+## Walkthrough
+
+- Adds server-side PDF invoice generation and a client download flow: new Next.js invoice route using pdfkit, client invoice download button, supporting types and declarations, and dependency additions. Also tightens several type shapes for orders and shipping.
+
+## New Features
+
+- Download a PDF invoice for your order directly from the order view; files use a friendly filename.
+- Invoices include branding, billing/seller details, itemized lines, totals, and optional returns info.
+
+## Bug Fixes
+
+- Download button shows progress and reports success/error toasts during download.
+
+## Chores
+
+- Added PDF generation support (new PDF library and typings) to enable invoice creation.
+
+## File changes
+
+### Dependencies
+
+- package.json
+  - Adds pdfkit to dependencies and @types/pdfkit to devDependencies.
+
+### Server: Invoice API & types
+
+- src/app/api/orders/[orderId]/invoice/route.ts, src/app/api/orders/[orderId]/invoice/types.ts
+  - New Next.js API route (runtime = 'nodejs', exported GET) that authenticates, fetches an order (overrideAccess), builds a PDF via pdfkit (header, billing/seller blocks, items table, totals, optional returns info, footer) and streams application/pdf; adds OrderDoc/OrderItemDoc types.
+
+### Client: Invoice UI
+
+- src/modules/library/ui/components/invoice-dialog.tsx
+  - Replaces print/save with async download flow: fetch /api/orders/{orderId}/invoice, convert to blob, create object URL, trigger invoice-{orderId}.pdf download; adds download state and toast-based success/error handling.
+
+### Types: UI contract
+
+- src/modules/library/ui/components/types.ts, src/modules/library/ui/views/product-view.tsx
+  - Makes OrderForBuyer.id required (id: string) and introduces `orderForInvoice: OrderForBuyer
+
+### Types: Shipping/address changes
+
+- src/modules/orders/types.ts, src/app/(app)/api/stripe/webhooks/route.ts
+  - ShippingAddress.line1 made optional/null
+
+### Types: PDFKit standalone declaration
+
+- src/types/pdfkit-standalone.d.ts
+  - Adds module declaration pdfkit/js/pdfkit.standalone.js that re-exports PDFDocument default from pdfkit.
+
+### Misc cleanup
+
+- src/collections/Orders.ts
+  - Removed unused import isSuperAdmin.
