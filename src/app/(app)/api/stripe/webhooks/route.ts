@@ -229,7 +229,7 @@ async function sendIfEnabled<T>(
  * ```
  * {
  *   name?: string;
- *   line1?: string;
+ *   line1: string;
  *   line2?: string;
  *   city?: string;
  *   state?: string;
@@ -257,7 +257,7 @@ async function sendIfEnabled<T>(
  *   Optional display name to use when no explicit shipping/customer name is present.
  *
  * @returns
- *   A normalized shipping object suitable for persisting to your `orders.shipping` field,
+ *   A normalized shipping object suitable for persisting to `orders.shipping` field,
  *   or `undefined` when no address info can be resolved.
  */
 function resolveShippingForOrder(args: {
@@ -265,10 +265,18 @@ function resolveShippingForOrder(args: {
   paymentIntent: Stripe.PaymentIntent;
   charge: Stripe.Charge;
   buyerFallbackName?: string | null;
-}) {
+}): {
+  name?: string | null;
+  line1: string;
+  line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  postalCode?: string | null;
+  country?: string | null;
+} | null {
   const { expanded, paymentIntent, charge, buyerFallbackName } = args;
 
-  // Minimal shapes we need; independent from Stripe's exported types
+  // Minimal shapes (no `any`)
   type AddressLike = {
     line1?: string | null;
     line2?: string | null;
@@ -277,39 +285,25 @@ function resolveShippingForOrder(args: {
     postal_code?: string | null;
     country?: string | null;
   };
-
-  type ShippingLike = {
-    name?: string | null;
-    address?: AddressLike | null;
-  };
-
-  // Session with optional newer/older shipping locations.
+  type ShippingLike = { name?: string | null; address?: AddressLike | null };
   type SessionWithShipping = Stripe.Checkout.Session & {
-    collected_information?: {
-      shipping_details?: ShippingLike | null;
-    } | null;
-    shipping_details?: ShippingLike | null; // some API versions
-    shipping?: ShippingLike | null; // legacy
+    collected_information?: { shipping_details?: ShippingLike | null } | null;
+    shipping_details?: ShippingLike | null;
+    shipping?: ShippingLike | null;
   };
 
   const sx = expanded as unknown as SessionWithShipping;
 
-  // 1) Prefer the new collected_information.shipping_details
-  // 2) Then shipping_details
-  // 3) Then legacy shipping
-  const sessionShipping: ShippingLike | null =
+  const sessionShipping =
     sx.collected_information?.shipping_details ??
     sx.shipping_details ??
     sx.shipping ??
     null;
 
-  // Billing details from the Session (often present even if shipping isn't).
   const billing = expanded.customer_details ?? null;
 
-  // PI/Charge shipping shapes are compatible with ShippingLike; use safe casts.
   const piShipping =
     (paymentIntent.shipping as unknown as ShippingLike | null) ?? null;
-
   const chargeShipping =
     (charge.shipping as unknown as ShippingLike | null) ?? null;
 
@@ -328,17 +322,18 @@ function resolveShippingForOrder(args: {
     billing?.address ??
     null;
 
-  if (!addr) return undefined;
+  // Only return a shipping object when we actually have a line1.
+  if (!addr?.line1) return null;
 
   return {
     name: resolvedName,
-    line1: addr.line1 ?? '',
-    line2: addr.line2 ?? undefined,
-    city: addr.city ?? undefined,
-    state: addr.state ?? undefined,
-    postalCode: addr.postal_code ?? undefined,
-    country: addr.country ?? undefined
-  } as const;
+    line1: addr.line1, // required
+    line2: addr.line2 ?? null,
+    city: addr.city ?? null,
+    state: addr.state ?? null,
+    postalCode: addr.postal_code ?? null,
+    country: addr.country ?? null
+  };
 }
 
 /**
@@ -658,7 +653,7 @@ export async function POST(req: Request) {
                 buyerEmail: expanded.customer_details?.email ?? undefined,
                 status: 'paid',
                 total: totalCents,
-                shipping: shippingGroup
+                ...(shippingGroup ? { shipping: shippingGroup } : {}) // ← only when valid
               },
               overrideAccess: true
             })

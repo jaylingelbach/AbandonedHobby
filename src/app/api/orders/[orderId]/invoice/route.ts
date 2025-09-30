@@ -2,38 +2,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import PDFDocument from 'pdfkit/js/pdfkit.standalone.js';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
+import { ShippingAddress } from '@/modules/orders/types';
+import { OrderDoc, OrderItemDoc } from './types';
+import { formatCurrency } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 
 // --------------------- Types ---------------------
-type ShippingAddress = {
-  name?: string | null;
-  line1?: string | null;
-  line2?: string | null;
-  city?: string | null;
-  state?: string | null;
-  postalCode?: string | null;
-  country?: string | null;
-};
-
-type OrderItemDoc = {
-  nameSnapshot?: string | null;
-  quantity?: number | null; // positive int
-  unitAmount?: number | null; // cents
-  amountTotal?: number | null; // cents
-};
-
-type OrderDoc = {
-  id: string;
-  orderNumber: string;
-  createdAt: string;
-  currency: string; // e.g., "USD"
-  total: number; // cents
-  items?: OrderItemDoc[];
-  shipping?: ShippingAddress | null;
-  returnsAcceptedThrough?: string | null;
-  // sellerTenant?: string | {...} // not used for label here; see BRAND.name below
-};
 
 // --------------------- Styling ---------------------
 const BRAND = {
@@ -61,13 +36,6 @@ const TABLE = {
 };
 
 // --------------------- Helpers ---------------------
-function currency(cents: number | null | undefined, code = 'USD'): string {
-  const value = (cents ?? 0) / 100;
-  return new Intl.NumberFormat('en-US', {
-    style: 'currency',
-    currency: code
-  }).format(value);
-}
 
 function cityLine(addr?: ShippingAddress | null): string {
   if (!addr) return '';
@@ -80,6 +48,10 @@ function cityLine(addr?: ShippingAddress | null): string {
 
 function textOrDash(value?: string | null): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : '—';
+}
+
+function sanitizeFilename(name: string): string {
+  return name.replace(/[^a-zA-Z0-9-_]/g, '_');
 }
 
 // draw a labeled value pair
@@ -167,7 +139,7 @@ function drawItemsTable(
       align: 'right'
     });
     doc.text(
-      currency(row.unitCents, currencyCode),
+      formatCurrency(row.unitCents, currencyCode),
       x + colName + colQty + 8,
       cursorY + 6,
       {
@@ -176,7 +148,7 @@ function drawItemsTable(
       }
     );
     doc.text(
-      currency(row.totalCents, currencyCode),
+      formatCurrency(row.totalCents, currencyCode),
       x + colName + colQty + colUnit + 8,
       cursorY + 6,
       {
@@ -212,12 +184,23 @@ export async function GET(
     return new NextResponse('Unauthorized', { status: 401 });
   }
 
-  const order = (await payload.findByID({
-    collection: 'orders',
-    id: orderId,
-    depth: 0,
-    overrideAccess: true
-  })) as OrderDoc;
+  let order;
+  try {
+    order = await payload.findByID({
+      collection: 'orders',
+      id: orderId,
+      depth: 0,
+      user // pass user for access control
+    });
+  } catch (error) {
+    return new NextResponse('Order not found', { status: 404 });
+  }
+
+  if (!order) {
+    return new NextResponse('Order not found', { status: 404 });
+  }
+
+  const orderDoc = order as OrderDoc;
 
   const doc = new PDFDocument({
     size: PAGE.size,
@@ -373,7 +356,11 @@ export async function GET(
     .font('Helvetica-Bold')
     .fontSize(16)
     .fillColor(BRAND.text)
-    .text(currency(order.total, order.currency), totalsX + 16, totalsY + 30);
+    .text(
+      formatCurrency(order.total, order.currency),
+      totalsX + 16,
+      totalsY + 30
+    );
 
   if (order.returnsAcceptedThrough) {
     doc
@@ -402,10 +389,6 @@ export async function GET(
 
   doc.end();
   const pdfBuffer = await done;
-
-  function sanitizeFilename(name: string): string {
-    return name.replace(/[^a-zA-Z0-9-_]/g, '_');
-  }
 
   return new NextResponse(pdfBuffer, {
     status: 200,

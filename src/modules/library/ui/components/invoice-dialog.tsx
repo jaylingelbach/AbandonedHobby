@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -41,6 +42,7 @@ export interface InvoiceDialogProps {
  */
 export default function InvoiceDialog(props: InvoiceDialogProps) {
   const { open, onOpenChange, order, productNameFallback, sellerName } = props;
+  const [isDownloading, setIsDownloading] = useState(false);
   const currency = (order?.currency ?? 'USD').toUpperCase();
 
   const lineItems: OrderItem[] = useMemo(() => {
@@ -59,6 +61,7 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
   }, [order?.items, order?.quantity, order?.totalCents, productNameFallback]);
 
   async function downloadInvoice(orderId: string) {
+    setIsDownloading(true);
     try {
       const res = await fetch(`/api/orders/${orderId}/invoice`, {
         cache: 'no-store'
@@ -73,10 +76,12 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
       a.click();
       a.remove();
       URL.revokeObjectURL(url);
+      toast.success('Successfully downloaded PDF');
     } catch (error) {
       console.error('Failed to download invoice:', error);
-      // TODO: Replace alert with app-specific toast or error banner
-      alert('Failed to download invoice. Please try again.');
+      toast.error('Failed to download invoice. Please try again.');
+    } finally {
+      setIsDownloading(false);
     }
   }
   useEffect(() => {
@@ -191,8 +196,9 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
           <Button
             type="button"
             onClick={() => order && downloadInvoice(order.id)}
+            disabled={!order || isDownloading}
           >
-            Download PDF
+            {isDownloading ? 'Downloading...' : 'Download PDF'}
           </Button>
         </DialogFooter>
       </DialogContent>
