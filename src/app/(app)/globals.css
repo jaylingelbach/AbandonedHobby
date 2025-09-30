@@ -141,6 +141,16 @@
   body {
     @apply bg-background text-foreground;
   }
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  @layer utilities {
+    .wrap-anywhere {
+      overflow-wrap: anywhere;
+      word-break: break-word;
+    }
+  }
 }
 
 @media print {
@@ -159,7 +169,9 @@
   #invoice-content {
     position: absolute;
     inset: 0;
-    padding: 24px; /* optional, matches your dialog content padding */
+    padding: 24px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
   }
 
   /* Hide buttons / dialog chrome if you want, via utility class */

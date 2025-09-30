@@ -3373,3 +3373,46 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/collections/Orders.ts
   - Removed unused import isSuperAdmin.
+
+# Seller address on invoice 09/30/25
+
+## Walkthrough
+
+- Adds print wrapping and duplicated body styles in globals.css, enhances invoice API to fetch seller info, sanitize filenames, and convert cents to dollars, and updates UI to pass and display sellerEmail in the invoice dialog from product view.
+
+## New Features
+
+- Show seller email alongside seller name in invoice dialogs.
+
+## Bug Fixes
+
+- Correct currency display by converting values from cents to dollars in invoice items and totals.
+- Improve resilience when seller details are unavailable, preventing failures and showing sensible fallbacks.
+- Ensure long content wraps correctly in invoices, including print views.
+
+## Style
+
+- Enhanced invoice dialog layout: wider content, better truncation/tooltips, and improved word wrapping for long emails/addresses.
+- Added global utility for wrapping long words to reduce overflow.
+
+## File changes
+
+### Styles: print/wrapping utilities
+
+- src/app/(app)/globals.css
+  - Adds @layer utilities with .wrap-anywhere; duplicates body style blocks; expands print styles to wrap long content and sets unconditional padding.
+
+### API: invoice generation
+
+- src/app/api/orders/[orderId]/invoice/route.ts
+  - Broadens filename sanitization; divides currency values by 100 in table/totals; fetches seller from tenants with fallback; conditionally renders shipping column; uses seller name/email in output.
+
+## UI: Invoice dialog component
+
+- src/modules/library/ui/components/invoice-dialog.tsx
+  - Adds new prop sellerEmail; displays seller email in header and “Sold by” section; layout tweaks for width and word wrapping.
+
+### View: Product → Invoice wiring
+
+- src/modules/library/ui/views/product-view.tsx
+  - Derives sellerEmail from tenantDoc?.notificationEmail; passes it to InvoiceDialog with fallback.

@@ -46,12 +46,24 @@ function cityLine(addr?: ShippingAddress | null): string {
   return left ? `${left}${postal ? ` ${postal}` : ''}` : postal;
 }
 
+/**
+ * Return the input string or an em dash when the input is missing or only whitespace.
+ *
+ * @param value - The string to check; may be `undefined` or `null`
+ * @returns `value` if it contains any non-whitespace characters, `'—'` otherwise
+ */
 function textOrDash(value?: string | null): string {
   return typeof value === 'string' && value.trim().length > 0 ? value : '—';
 }
 
+/**
+ * Convert a string into a filesystem-safe filename.
+ *
+ * @param name - The input string to sanitize
+ * @returns The input with characters other than ASCII letters, digits, dash, underscore, dot, or space replaced by `_`, and all consecutive whitespace collapsed into a single `_`
+ */
 function sanitizeFilename(name: string): string {
-  return name.replace(/[^a-zA-Z0-9-_]/g, '_');
+  return name.replace(/[^a-zA-Z0-9-_. ]/g, '_').replace(/\s+/g, '_');
 }
 
 // draw a labeled value pair
@@ -91,6 +103,19 @@ type ItemRow = {
   totalCents: number;
 };
 
+/**
+ * Renders an items table (header plus rows) into the PDF and returns the vertical position after the table.
+ *
+ * Renders columns for item name, quantity, unit price, and line total using the provided currency code for formatting.
+ *
+ * @param doc - PDFKit document to draw into
+ * @param x - Left X coordinate where the table should start
+ * @param y - Top Y coordinate where the table should start
+ * @param width - Total width available for the table
+ * @param rows - Array of item rows containing name, qty, unitCents, and totalCents
+ * @param currencyCode - ISO currency code used to format unit and total values
+ * @returns The Y coordinate immediately below the rendered table content
+ */
 function drawItemsTable(
   doc: PDFKit.PDFDocument,
   x: number,
@@ -139,7 +164,7 @@ function drawItemsTable(
       align: 'right'
     });
     doc.text(
-      formatCurrency(row.unitCents, currencyCode),
+      formatCurrency(row.unitCents / 100, currencyCode),
       x + colName + colQty + 8,
       cursorY + 6,
       {
@@ -148,7 +173,7 @@ function drawItemsTable(
       }
     );
     doc.text(
-      formatCurrency(row.totalCents, currencyCode),
+      formatCurrency(row.totalCents / 100, currencyCode),
       x + colName + colQty + colUnit + 8,
       cursorY + 6,
       {
@@ -170,7 +195,20 @@ function drawItemsTable(
   return cursorY;
 }
 
-// --------------------- Route ---------------------
+/**
+ * Generate and return a PDF invoice for the order specified by the route parameter.
+ *
+ * This route verifies the requesting user, loads the order (and optionally the seller/tenant),
+ * renders a styled invoice PDF (billing, seller, items, totals, footer) and responds with the
+ * PDF as a downloadable attachment. If the user is not authenticated the route responds with 401;
+ * if the order cannot be found it responds with 404.
+ *
+ * @param _req - The incoming Next.js request (used for authentication via headers)
+ * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
+ * @returns A NextResponse containing the generated PDF invoice with Content-Type `application/pdf`;
+ *          status 200 on success, 401 if unauthorized, 404 if the order is not found.
+ */
+
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }
@@ -199,6 +237,18 @@ export async function GET(
 
   if (!order) {
     return new NextResponse('Order not found', { status: 404 });
+  }
+
+  let seller;
+  try {
+    seller = await payload.findByID({
+      collection: 'tenants',
+      id: order.sellerTenant.toString(),
+      depth: 0
+    });
+  } catch (error) {
+    console.error(error);
+    seller = null;
   }
 
   const doc = new PDFDocument({
@@ -270,21 +320,28 @@ export async function GET(
   // Left column: Billed to
   doc.x = innerX;
   doc.y = columnsStartY;
-  keyVal(doc, 'Billed to', textOrDash(order.shipping?.name), colW);
-  doc.font('Helvetica').fontSize(10).fillColor(BRAND.text);
-  if (order.shipping?.line1) doc.text(order.shipping.line1, { width: colW });
-  if (order.shipping?.line2) doc.text(order.shipping.line2, { width: colW });
-  const cl = cityLine(order.shipping);
-  if (cl) doc.text(cl, { width: colW });
-  if (order.shipping?.country)
-    doc.text(order.shipping.country, { width: colW });
+  if (order.shipping) {
+    keyVal(doc, 'Billed to', textOrDash(order.shipping.name), colW);
+    doc.font('Helvetica').fontSize(10).fillColor(BRAND.text);
+    if (order.shipping.line1) doc.text(order.shipping.line1, { width: colW });
+    if (order.shipping.line2) doc.text(order.shipping.line2, { width: colW });
+    const cl = cityLine(order.shipping);
+    if (cl) doc.text(cl, { width: colW });
+    if (order.shipping.country)
+      doc.text(order.shipping.country, { width: colW });
+  } else {
+    keyVal(doc, 'Billed to', '—', colW);
+  }
   const leftBottomY = doc.y;
 
   // Right column: Sold by (use brand for now)
-  const sellerLabel = BRAND.name;
+  // const sellerLabel = BRAND.name;
+  const sellerLabel = seller?.name ?? 'Seller';
+  const sellerEmail = seller?.notificationEmail;
   doc.x = rightX;
   doc.y = columnsStartY; // align top with left column
   keyVal(doc, 'Sold by', sellerLabel, colW);
+  keyVal(doc, 'Email', textOrDash(sellerEmail));
   doc
     .font('Helvetica')
     .fontSize(10)
@@ -356,7 +413,7 @@ export async function GET(
     .fontSize(16)
     .fillColor(BRAND.text)
     .text(
-      formatCurrency(order.total, order.currency),
+      formatCurrency(order.total / 100, order.currency),
       totalsX + 16,
       totalsY + 30
     );
