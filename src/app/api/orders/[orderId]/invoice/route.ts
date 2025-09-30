@@ -334,8 +334,6 @@ export async function GET(
   }
   const leftBottomY = doc.y;
 
-  // Right column: Sold by (use brand for now)
-  // const sellerLabel = BRAND.name;
   const sellerLabel = seller?.name ?? 'Seller';
   const sellerEmail = seller?.notificationEmail;
   doc.x = rightX;
