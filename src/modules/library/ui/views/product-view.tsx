@@ -50,6 +50,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
   const tenantDoc = relDoc<Tenant>(product.tenant);
   const tenantId = relId<Tenant>(product.tenant);
   const sellerName = tenantDoc?.name ?? 'Seller';
+  const sellerEmail = tenantDoc?.notificationEmail;
 
   // Computed but only used after mount to avoid SSR/CSR divergence
   const isViewerSeller =
@@ -216,6 +217,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
                         order={orderForInvoice}
                         productNameFallback={product.name}
                         sellerName={sellerName}
+                        sellerEmail={sellerEmail ?? 'Seller'}
                       />
                     )}
                   </div>

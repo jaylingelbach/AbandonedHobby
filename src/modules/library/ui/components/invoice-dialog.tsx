@@ -22,7 +22,8 @@ export interface InvoiceDialogProps {
   onOpenChange: (open: boolean) => void;
   order: OrderForBuyer | null; // can be null while loading
   productNameFallback: string; // used if order.items is missing
-  sellerName: string; // display at top
+  sellerName: string;
+  sellerEmail: string;
 }
 
 /**
@@ -38,10 +39,18 @@ export interface InvoiceDialogProps {
  * @param props.order - Order data to display (may be null while loading)
  * @param props.productNameFallback - Fallback product name used when item names are missing
  * @param props.sellerName - Seller name displayed in the dialog header
+ * @param props.sellerEmail - Seller email displayed in dialog header
  * @returns The rendered invoice dialog element
  */
 export default function InvoiceDialog(props: InvoiceDialogProps) {
-  const { open, onOpenChange, order, productNameFallback, sellerName } = props;
+  const {
+    open,
+    onOpenChange,
+    order,
+    productNameFallback,
+    sellerName,
+    sellerEmail
+  } = props;
   const [isDownloading, setIsDownloading] = useState(false);
   const currency = (order?.currency ?? 'USD').toUpperCase();
 
@@ -92,7 +101,7 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl">
+      <DialogContent className="w-full max-w-4xl lg:max-w-5xl">
         <DialogHeader>
           <DialogTitle>Invoice</DialogTitle>
         </DialogHeader>
@@ -118,22 +127,32 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
           <Separator />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
+            <div className="min-w-0">
               <div className="text-sm text-muted-foreground mb-1">
                 Billed to
               </div>
-              <div className="whitespace-pre-wrap">
+              <div className="whitespace-pre-wrap break-words">
                 {compactAddress(order?.shipping) || '—'}
               </div>
               {order?.buyerEmail && (
-                <div className="mt-2 text-sm text-muted-foreground">
+                <div
+                  className="mt-2 text-sm text-muted-foreground min-w-0 break-words sm:max-w-[260px] md:max-w-none"
+                  title={order.buyerEmail}
+                >
                   {order.buyerEmail}
                 </div>
               )}
             </div>
-            <div>
+
+            <div className="min-w-0">
               <div className="text-sm text-muted-foreground mb-1">Sold by</div>
-              <div>{sellerName}</div>
+              <div className="min-w-0 break-words">{sellerName}</div>
+              <div
+                className="min-w-0 break-words sm:max-w-[260px] md:max-w-none"
+                title={sellerEmail}
+              >
+                {sellerEmail}
+              </div>
             </div>
           </div>
 
