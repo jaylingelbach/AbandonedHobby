@@ -207,6 +207,8 @@ function drawItemsTable(
  * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
  * @returns A NextResponse containing the generated PDF invoice with Content-Type `application/pdf`;
  *          status 200 on success, 401 if unauthorized, 404 if the order is not found.
+ */
+
 export async function GET(
   _req: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }

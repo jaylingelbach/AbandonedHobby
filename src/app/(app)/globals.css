@@ -151,10 +151,6 @@
       word-break: break-word;
     }
   }
-
-  @media print {
-    /* …existing print styles… */
-  }
 }
 
 @media print {
