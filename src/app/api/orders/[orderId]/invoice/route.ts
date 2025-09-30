@@ -341,7 +341,7 @@ export async function GET(
   doc.x = rightX;
   doc.y = columnsStartY; // align top with left column
   keyVal(doc, 'Sold by', sellerLabel, colW);
-  keyVal(doc, 'Email: ', sellerEmail ?? '');
+  keyVal(doc, 'Email', textOrDash(sellerEmail));
   doc
     .font('Helvetica')
     .fontSize(10)
