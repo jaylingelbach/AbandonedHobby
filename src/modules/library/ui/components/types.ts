@@ -11,7 +11,7 @@ export type OrderItem = {
 };
 
 export type OrderForBuyer = {
-  id?: string;
+  id: string;
   orderNumber: string;
   orderDateISO?: string;
   totalCents: number;

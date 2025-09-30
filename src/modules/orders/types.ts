@@ -1,6 +1,6 @@
 export type ShippingAddress = {
   name?: string | null;
-  line1: string;
+  line1?: string | null;
   line2?: string | null;
   city?: string | null;
   state?: string | null;

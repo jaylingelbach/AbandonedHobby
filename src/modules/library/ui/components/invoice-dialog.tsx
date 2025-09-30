@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import {
   Dialog,
@@ -29,7 +30,7 @@ export interface InvoiceDialogProps {
  *
  * Displays order metadata, billing/shipping information, a list of line items
  * (or a synthesized fallback item when none are present), and actions to close
- * or print/save the invoice. The dialog will automatically close after printing.
+ * or download the invoice as a PDF.
  *
  * @param props - Component props
  * @param props.open - Whether the dialog is open
@@ -41,6 +42,7 @@ export interface InvoiceDialogProps {
  */
 export default function InvoiceDialog(props: InvoiceDialogProps) {
   const { open, onOpenChange, order, productNameFallback, sellerName } = props;
+  const [isDownloading, setIsDownloading] = useState(false);
   const currency = (order?.currency ?? 'USD').toUpperCase();
 
   const lineItems: OrderItem[] = useMemo(() => {
@@ -58,9 +60,30 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
     ];
   }, [order?.items, order?.quantity, order?.totalCents, productNameFallback]);
 
-  const handlePrint = () => {
-    window.print();
-  };
+  async function downloadInvoice(orderId: string) {
+    setIsDownloading(true);
+    try {
+      const res = await fetch(`/api/orders/${orderId}/invoice`, {
+        cache: 'no-store'
+      });
+      if (!res.ok) throw new Error('Failed to generate invoice');
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${orderId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+      toast.success('Successfully downloaded PDF');
+    } catch (error) {
+      console.error('Failed to download invoice:', error);
+      toast.error('Failed to download invoice. Please try again.');
+    } finally {
+      setIsDownloading(false);
+    }
+  }
   useEffect(() => {
     const after = () => onOpenChange(false);
     window.addEventListener('afterprint', after);
@@ -172,10 +195,10 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
           </Button>
           <Button
             type="button"
-            className="border-2 border-black"
-            onClick={handlePrint}
+            onClick={() => order && downloadInvoice(order.id)}
+            disabled={!order || isDownloading}
           >
-            Print / Save PDF
+            {isDownloading ? 'Downloading...' : 'Download PDF'}
           </Button>
         </DialogFooter>
       </DialogContent>
