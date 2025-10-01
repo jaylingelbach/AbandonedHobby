@@ -397,4 +397,67 @@
   .template-default :where(.gutter, .payload__gutter) {
     background: transparent;
   }
+
+  /* ===== AH: Refund button (theme-aware, high-contrast) ===== */
+
+  .ah-refund {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+
+  .ah-refund-btn.btn {
+    border-radius: 0.5rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    transition:
+      transform 120ms ease,
+      opacity 120ms ease;
+  }
+
+  /* Light theme */
+  [data-theme='light'] .ah-refund-btn.btn,
+  [data-theme='light'] .ah-refund-btn.btn--style-primary {
+    background-color: #111827; /* slate-900 */
+    color: #fff;
+    border-color: #111827;
+  }
+  [data-theme='light'] .ah-refund-btn:hover,
+  [data-theme='light'] .ah-refund-btn:focus-visible {
+    background-color: #0f172a; /* slate-950-ish */
+  }
+
+  /* Dark theme uses admin tokens for better contrast */
+  [data-theme='dark'] .ah-refund-btn.btn,
+  [data-theme='dark'] .ah-refund-btn.btn--style-primary {
+    background-color: var(--theme-elevation-900);
+    color: var(--theme-text);
+    border-color: var(--theme-elevation-900);
+  }
+  [data-theme='dark'] .ah-refund-btn:hover,
+  [data-theme='dark'] .ah-refund-btn:focus-visible {
+    background-color: var(--theme-elevation-1000);
+  }
+
+  /* Focus ring (both themes) */
+  .ah-refund-btn:focus-visible {
+    outline: 2px solid #1d4ed8; /* blue-600 */
+    outline-offset: 2px;
+  }
+
+  /* Disabled/Loading states */
+  .ah-refund-btn[disabled],
+  .ah-refund-btn[aria-busy='true'] {
+    opacity: 0.6;
+    transform: none;
+    cursor: not-allowed;
+  }
+
+  /* Full-width on tight layouts */
+  @media (max-width: 900px) {
+    .ah-refund-btn {
+      width: 100%;
+      text-align: center;
+    }
+  }
 }

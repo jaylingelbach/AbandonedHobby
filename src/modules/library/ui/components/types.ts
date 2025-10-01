@@ -1,4 +1,5 @@
 export type OrderItem = {
+  id?: string;
   product?: string | { id?: string };
   nameSnapshot?: string;
   unitAmount?: number; // cents

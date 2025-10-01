@@ -28,12 +28,21 @@ export const Orders: CollectionConfig = {
   slug: 'orders',
   access: {
     read: readOrdersAccess,
-    create: ({ req }) => isSuperAdmin(req.user),
+    create: ({ req: { user } }) => isSuperAdmin(user),
     update: updateOrdersAccess,
-    delete: ({ req }) => isSuperAdmin(req.user)
+    delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   admin: {
-    useAsTitle: 'name' // keep display title separate from orderNumber
+    components: {
+      edit: {
+        beforeDocumentControls: [
+          '@/components/custom-payload/refund-button.tsx#RefundButton'
+        ],
+        editMenuItems: [
+          '@/components/custom-payload/refund-button.tsx#RefundButton'
+        ]
+      }
+    }
   },
   fields: [
     // ----- Display / identifiers -----

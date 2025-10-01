@@ -1,4 +1,5 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
+import { isSuperAdmin } from '@/lib/access';
 
 /** Minimal role-bearing shape we care about. */
 type MaybeRoleUser = { roles?: unknown };
@@ -26,16 +27,6 @@ type OrderMutationShape = {
   shipment?: ShipmentShape;
   fulfillmentStatus?: OrderStatus;
 };
-
-/**
- * @description Type guard: does the user have the super-admin role?
- * @param {unknown} user - Value from `req.user`.
- * @returns {boolean} True if `roles` is an array containing "super-admin".
- */
-function hasSuperAdminRole(user: unknown): boolean {
-  const roles = (user as MaybeRoleUser | undefined)?.roles;
-  return Array.isArray(roles) && roles.includes('super-admin');
-}
 
 /**
  * @description Extract tenant IDs from a user record, resilient to different relationship shapes.
@@ -131,7 +122,7 @@ export function isSellerOfOrderDoc(
  * @returns {boolean | Where} `true` (super-admin), `false` (no access), or tenant filter.
  */
 export const readOrdersAccess: Access = ({ req: { user } }) => {
-  if (hasSuperAdminRole(user)) return true;
+  if (isSuperAdmin(user)) return true;
 
   const tenantIds = getTenantIdsFromUser(user);
   if (tenantIds.length === 0) return false;
@@ -148,7 +139,7 @@ export const readOrdersAccess: Access = ({ req: { user } }) => {
  * @returns {boolean | Where} `true` (super-admin), `false`, or tenant filter.
  */
 export const updateOrdersAccess: Access = ({ req }) => {
-  if (hasSuperAdminRole(req.user)) return true;
+  if (isSuperAdmin(req.user)) return true;
 
   const tenantIds = getTenantIdsFromUser(req.user);
   if (tenantIds.length === 0) return false;
@@ -164,7 +155,7 @@ export const updateOrdersAccess: Access = ({ req }) => {
  * @returns {boolean} Whether the current user may edit the `shipment` group.
  */
 export const canEditOrderShipment: FieldAccess = ({ req, doc }) =>
-  hasSuperAdminRole(req.user) || isSellerOfOrderDoc(doc, req.user);
+  isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
  * @description Field-level access for the `fulfillmentStatus` field.
@@ -173,7 +164,7 @@ export const canEditOrderShipment: FieldAccess = ({ req, doc }) =>
  * @returns {boolean} Whether the current user may edit `fulfillmentStatus`.
  */
 export const canEditOrderFulfillmentStatus: FieldAccess = ({ req, doc }) =>
-  hasSuperAdminRole(req.user) || isSellerOfOrderDoc(doc, req.user);
+  isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
  * @description `beforeChange` hook for the `shipment` group.
