@@ -2,12 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPayload, PayloadRequest } from 'payload';
 import config from '@/payload.config';
 import { createRefundForOrder } from '@/modules/refunds/engine';
+import { refundRequestSchema } from './schema';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: NextRequest) {
   console.log('hit /api/admin/refunds');
+
   try {
+    const body = await req.json();
+    const parsed = refundRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      const { fieldErrors, formErrors } = parsed.error.flatten();
+      return NextResponse.json(
+        { error: 'Invalid request body', details: { fieldErrors, formErrors } },
+        { status: 400 }
+      );
+    }
     const payload = await getPayload({ config });
     const payloadReq = req as unknown as PayloadRequest;
     const { user } = await payload.auth({
@@ -19,14 +30,6 @@ export async function POST(req: NextRequest) {
     if (!isStaff) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
-    const body = (await req.json()) as {
-      orderId: string;
-      selections: { itemId: string; quantity: number }[];
-      reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
-      restockingFeeCents?: number;
-      refundShippingCents?: number;
-      notes?: string;
-    };
 
     const { refund, record } = await createRefundForOrder({
       payload,

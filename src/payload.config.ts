@@ -8,7 +8,7 @@ import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import { s3Storage } from '@payloadcms/storage-s3';
 import postmarkTransport from 'nodemailer-postmark-transport';
-import { buildConfig } from 'payload';
+import { buildConfig, PayloadRequest } from 'payload';
 import sharp from 'sharp';
 
 import { Categories } from './collections/Categories';
@@ -30,52 +30,6 @@ import { Refunds } from './collections/Refunds';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const createRefundHandler = async (req: any): Promise<Response> => {
-  try {
-    const payload = req.payload; // available on fetch-style req
-    const user = req.user;
-
-    const roles: string[] = Array.isArray(user?.roles) ? user.roles : [];
-    if (!roles.includes('super-admin')) {
-      return Response.json({ error: 'FORBIDDEN' }, { status: 403 });
-    }
-
-    // fetch-style: parse JSON body like this
-    const body = (await req.json()) as {
-      orderId: string;
-      selections: { itemId: string; quantity: number }[];
-      reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
-      restockingFeeCents?: number;
-      refundShippingCents?: number;
-      notes?: string;
-    };
-
-    const { createRefundForOrder } = await import('./modules/refunds/engine');
-    const { refund, record } = await createRefundForOrder({
-      payload,
-      orderId: body.orderId,
-      selections: body.selections,
-      options: {
-        reason: body.reason,
-        restockingFeeCents: body.restockingFeeCents,
-        refundShippingCents: body.refundShippingCents,
-        notes: body.notes
-      }
-    });
-
-    return Response.json({
-      ok: true,
-      stripeRefundId: refund.id,
-      status: refund.status,
-      amount: refund.amount,
-      refundId: record.id
-    });
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return Response.json({ error: msg }, { status: 500 });
-  }
-};
 
 export default buildConfig({
   admin: {
@@ -110,14 +64,6 @@ export default buildConfig({
       ]
     }
   },
-  endpoints: [
-    {
-      path: '/admin/refunds', // /api/admin/refunds
-      method: 'post',
-      handler: createRefundHandler
-    }
-  ],
-
   email: nodemailerAdapter({
     defaultFromAddress: process.env.POSTMARK_FROM_EMAIL!,
     defaultFromName: process.env.POSTMARK_FROM_NAME!,
