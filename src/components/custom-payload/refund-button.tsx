@@ -72,6 +72,12 @@ export function RefundButton() {
 
   const fullyRefunded = orderTotal != null && refundedTotal >= orderTotal;
 
+  /**
+   * Fetches minimal order data for a given order ID.
+   *
+   * @param orderId - The ID of the order to fetch
+   * @returns The order data at depth 0 as an `OrderLite`, or `null` if the request fails or the order is not found
+   */
   async function fetchOrder(orderId: string): Promise<OrderLite | null> {
     try {
       const res = await fetch(`/api/orders/${orderId}?depth=0`, {
@@ -85,6 +91,11 @@ export function RefundButton() {
     }
   }
 
+  /**
+   * Attempts to create a refund for the first item of the currently open order and updates local refund state.
+   *
+   * Validates that an order is open, loads the latest order totals, sends a refund request for the first item (quantity 1), applies an optimistic update to `refundedTotal`, shows success or error toasts, re-fetches order data in the background to refresh totals, and manages the component's loading state during the operation.
+   */
   async function handleRefund() {
     if (!id || collectionSlug !== 'orders') {
       toast.error('Open an order to issue a refund.');

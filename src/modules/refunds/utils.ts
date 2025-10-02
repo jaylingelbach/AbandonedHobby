@@ -170,26 +170,52 @@ export function buildIdempotencyKeyV2(input: {
     .digest('hex');
 }
 
+/**
+ * Detects whether an error represents a MongoDB write conflict.
+ *
+ * @returns `true` if the error has code `112` or its message contains "Write conflict", `false` otherwise.
+ */
 function isWriteConflict(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   const msg = String((err as { message?: string } | null)?.message ?? '');
   return code === 112 || msg.includes('Write conflict');
 }
 
+/**
+ * Detects whether an error indicates a MongoDB "not connected" condition.
+ *
+ * @param err - The error or value to inspect for a not-connected signal
+ * @returns `true` if the error represents a MongoDB not-connected condition, `false` otherwise
+ */
 function isNotConnected(err: unknown): boolean {
   const name = (err as { name?: string } | null)?.name ?? '';
   const msg = String((err as { message?: string } | null)?.message ?? '');
   return name === 'MongoNotConnectedError' || msg.includes('must be connected');
 }
 
+/**
+ * Pause execution for the given number of milliseconds.
+ *
+ * @param ms - Delay duration in milliseconds
+ * @returns Resolves after the specified delay
+ */
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
- * Recompute refund totals + derived status for an order.
- * - Retries on Mongo write conflict.
- * - If the provided Payload instance is not connected, optionally asks caller for a fresh one.
+ * Recompute an order's refunded totals and derived payment status in the database.
+ *
+ * Attempts to load the order and its refunds, computes the aggregated refunded total
+ * and the timestamp of the last refund, derives the appropriate order status
+ * (preserving 'canceled'), and updates the order only if those values changed.
+ *
+ * Retries on Mongo write conflicts with backoff and, if the provided Payload becomes
+ * disconnected, may call `getFreshPayload` to obtain a fresh instance before retrying.
+ *
+ * @param orderId - The ID of the order to recompute
+ * @param includePending - If true, include refunds with status 'pending' when aggregating totals
+ * @param getFreshPayload - Optional factory to obtain a fresh Payload when the current one appears disconnected
  */
 export async function recomputeRefundState(opts: {
   payload: Payload;

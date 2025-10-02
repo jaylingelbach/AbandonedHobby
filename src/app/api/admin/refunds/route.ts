@@ -12,12 +12,12 @@ import { recomputeRefundState } from '@/modules/refunds/utils';
 export const runtime = 'nodejs';
 
 /**
- * Handles POST requests to create a refund for an order via the admin API.
+ * Create a refund for an order via the admin API.
  *
- * Validates the request body, enforces that the authenticated user has the `super-admin` role, invokes refund creation, and returns a JSON response describing the created refund or an error condition.
+ * Validates the request body, requires the authenticated user to have the `super-admin` role, creates a refund, attempts a non-fatal recomputation of refund state, and returns details of the created refund. On validation failure responds with 400 and validation details; if the user is not authorized responds with 403; if the order is already fully refunded or the requested refund exceeds the remaining refundable amount responds with 409 and a specific code; other failures respond with 500 and an error message.
  *
  * @param req - Incoming Next.js request containing the refund request body (orderId, selections, and refund options)
- * @returns On success, an object with `ok: true`, `stripeRefundId`, `status`, `amount`, and `refundId`. On validation failure returns status 400 with `{ error: 'Invalid request body', details: { fieldErrors, formErrors } }`. If the user is not authorized returns status 403 with `{ error: 'FORBIDDEN' }`. On unexpected failure returns status 500 with `{ error: 'Failed to process refund' }`.
+ * @returns An object with `ok: true`, `stripeRefundId` (payment provider refund id), `status` (refund status), `amount` (refunded amount in cents), and `refundId` (internal refund record id)
  */
 export async function POST(req: NextRequest) {
   console.log('hit /api/admin/refunds');
