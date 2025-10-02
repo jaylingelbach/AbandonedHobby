@@ -10,15 +10,12 @@ import {
 } from './utils';
 
 /**
- * Compute the refundable amount for the requested selections.
- * Strategy:
- *  - For each selected item/qty:
- *      * unitTotal = (amountTotal ?? unitAmount*qtyOriginal)/qtyOriginal
- *      * perUnitTax = (amountTax ?? 0)/qtyOriginal
- *      * refundCents += round(unitTotal * qtySelected)
- *  - Then apply optional fees/adjustments.
+ * Create and persist a Stripe refund for an order based on requested line selections and optional adjustments.
  *
- * This keeps taxes and discounts proportional to what was captured.
+ * @param orderId - ID of the order to refund
+ * @param selections - Array of line selections describing which items and quantities to refund
+ * @param options - Optional engine options (may include refundShippingCents, restockingFeeCents, reason, idempotencyKey, notes)
+ * @returns An object containing the Stripe refund object (`refund`) and the created refund audit record (`record`)
  */
 
 export async function createRefundForOrder(args: {

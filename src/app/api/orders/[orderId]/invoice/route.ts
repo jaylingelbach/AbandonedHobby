@@ -196,17 +196,17 @@ function drawItemsTable(
 }
 
 /**
- * Generate and return a PDF invoice for the order specified by the route parameter.
+ * Generate a downloadable PDF invoice for the order identified by the route parameter `orderId`.
  *
- * This route verifies the requesting user, loads the order (and optionally the seller/tenant),
- * renders a styled invoice PDF (billing, seller, items, totals, footer) and responds with the
- * PDF as a downloadable attachment. If the user is not authenticated the route responds with 401;
- * if the order cannot be found it responds with 404.
+ * Authenticates the requester, loads the order (and the order's seller/tenant when available),
+ * renders a styled invoice PDF (billing, seller, items, totals, footer), and returns it as an
+ * attachment. If the requester is not authenticated the route responds with 401; if the order
+ * cannot be found the route responds with 404.
  *
- * @param _req - The incoming Next.js request (used for authentication via headers)
- * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
- * @returns A NextResponse containing the generated PDF invoice with Content-Type `application/pdf`;
- *          status 200 on success, 401 if unauthorized, 404 if the order is not found.
+ * @param ctx - Route context whose `params` promise resolves to an object containing `orderId`
+ * @returns A NextResponse containing the generated PDF invoice as an attachment on success;
+ *          a 401 Unauthorized response if the requester is not authenticated; a 404 Order not found
+ *          response if the order cannot be located.
  */
 
 export async function GET(
