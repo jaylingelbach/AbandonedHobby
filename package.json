@@ -105,7 +105,7 @@
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
     "@tanstack/react-query-devtools": "^5.87.3",
-    "@types/express": "^5.0.3",
+    "@types/express": "^4.17.21",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.3",
     "@types/react": "^19",
