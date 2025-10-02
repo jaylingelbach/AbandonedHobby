@@ -25,14 +25,27 @@ export const refundsRouter = createTRPCRouter({
         idempotencyKey: z.string().trim().min(1).max(128).optional()
       })
     )
+import { TRPCError } from '@trpc/server';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+
+export const refundsRouter = createTRPCRouter({
+  // … other procedures …
+
+  refundMutation: protectedProcedure
+    .input(/* … */)
     .mutation(async ({ ctx, input }) => {
       // Require staff/admin
       const roles = Array.isArray(ctx.session.user?.roles)
         ? ctx.session.user!.roles
         : [];
       const isStaff = roles.includes('super-admin');
-      if (!isStaff) throw new Error('FORBIDDEN');
+      if (!isStaff) {
+        throw new TRPCError({ code: 'FORBIDDEN', message: 'FORBIDDEN' });
+      }
 
+      // … rest of mutation logic …
+    }),
+});
       const payload = await getPayload({ config });
 
       const idempotencyKey =
