@@ -228,7 +228,7 @@ export async function recomputeRefundState(opts: {
         where: {
           and: [{ order: { equals: orderId } }, { status: { in: counted } }]
         },
-        limit: 0,
+        pagination: false,
         depth: 0,
         overrideAccess: true
       });

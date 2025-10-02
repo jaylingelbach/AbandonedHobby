@@ -228,6 +228,10 @@ export const Orders: CollectionConfig = {
       admin: {
         readOnly: true,
         description: 'Amount of refund in cents'
+      },
+      access: {
+        create: () => false,
+        update: () => false
       }
     },
 

@@ -60,5 +60,5 @@ export type OrderDoc = {
 
 export type OrderWithTotals = OrderLike & {
   total?: number | null;
-  refundTotalCents?: number | null;
+  refundedTotalCents?: number | null;
 };
