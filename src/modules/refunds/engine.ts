@@ -47,9 +47,7 @@ export async function createRefundForOrder(args: {
 
   const totalCents = typeof order.total === 'number' ? order.total : 0;
   const alreadyRefunded =
-    typeof (order as any).refundedTotalCents === 'number'
-      ? (order as any).refundedTotalCents
-      : 0;
+    typeof order.refundedTotalCents === 'number' ? order.refundedTotalCents : 0;
 
   const remainingRefundable = Math.max(0, totalCents - alreadyRefunded);
 
