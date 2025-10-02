@@ -88,6 +88,10 @@ export async function markProcessed(
       overrideAccess: true
     });
   } catch (err) {
-    if (!isUniqueViolation(err)) throw err; // treat unique-violation as success
+    if (isUniqueViolation(err)) {
+      // another concurrent request already recorded this event — that’s fine
+      return;
+    }
+    throw err;
   }
 }
