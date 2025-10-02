@@ -11,6 +11,16 @@ import { formatCurrency } from '@/lib/utils';
 type OrderItemLite = { id?: string; quantity?: number };
 type OrderLite = { id: string; items?: OrderItemLite[] };
 
+/**
+ * Renders a staff-only button that issues a hard-coded refund for the first item of the currently open order.
+ *
+ * When clicked, the button validates the open order, fetches order data, posts a refund for the order's first item with quantity 1, shows success or error toasts, and disables itself after a successful refund.
+ *
+ * @returns A JSX element for the refund button, or `null` when the current user is not a staff user.
+ *
+ * @remarks
+ * This component currently refunds only the first item with a quantity of 1 and cannot refund specific items, multiple quantities, or perform partial/full order refunds.
+ */
 export function RefundButton() {
   const [isRefunded, setIsRefunded] = useState(false);
   const [loading, setLoading] = useState(false);
