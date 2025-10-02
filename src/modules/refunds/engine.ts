@@ -86,16 +86,15 @@ export async function createRefundForOrder(args: {
     }
   };
 
-  const refund = await stripe.refunds.create(stripeArgs, {
-    stripeAccount: accountId,
-    idempotencyKey
-  });
-
   console.log('[refund] creating', {
     accountId,
     payment_intent: piId,
     charge: chargeId,
     amount: refundAmount
+  });
+  const refund = await stripe.refunds.create(stripeArgs, {
+    stripeAccount: accountId,
+    idempotencyKey
   });
 
   // Persist refund record (audit log)

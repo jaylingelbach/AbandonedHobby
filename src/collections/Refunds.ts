@@ -23,13 +23,20 @@ export const Refunds: CollectionConfig = {
       index: true
     },
     { name: 'orderNumber', type: 'text', required: true, index: true },
-    { name: 'stripeRefundId', type: 'text', required: true, index: true },
+    {
+      name: 'stripeRefundId',
+      type: 'text',
+      required: true,
+      index: true,
+      unique: true
+    },
     { name: 'stripePaymentIntentId', type: 'text' },
     { name: 'stripeChargeId', type: 'text' },
     {
       name: 'amount',
       type: 'number',
       required: true,
+      min: 0,
       admin: { description: 'Cents' }
     },
     {
@@ -60,20 +67,20 @@ export const Refunds: CollectionConfig = {
       labels: { singular: 'Line', plural: 'Lines' },
       fields: [
         { name: 'itemId', type: 'text', required: true },
-        { name: 'quantity', type: 'number', required: true },
-        { name: 'unitAmount', type: 'number', required: true }, // snapshot used to compute
-        { name: 'amountTotal', type: 'number', required: true } // snapshot used to compute
+        { name: 'quantity', type: 'number', required: true, min: 1 },
+        { name: 'unitAmount', type: 'number', required: true, min: 0 }, // snapshot used to compute
+        { name: 'amountTotal', type: 'number', required: true, min: 0 } // snapshot used to compute
       ]
     },
     {
       name: 'fees',
       type: 'group',
       fields: [
-        { name: 'restockingFeeCents', type: 'number' },
-        { name: 'refundShippingCents', type: 'number' } // if you also refund shipping
+        { name: 'restockingFeeCents', type: 'number', min: 0 },
+        { name: 'refundShippingCents', type: 'number', min: 0 } // if you also refund shipping
       ]
     },
     { name: 'notes', type: 'textarea' },
-    { name: 'idempotencyKey', type: 'text', index: true }
+    { name: 'idempotencyKey', type: 'text', index: true, unique: true }
   ]
 };

@@ -3,6 +3,7 @@ import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { createRefundForOrder } from '@/modules/refunds/engine';
+import { buildIdempotencyKeyV2 } from './utils';
 
 const lineSelectionSchema = z.object({
   itemId: z.string().min(1),
@@ -20,7 +21,8 @@ export const refundsRouter = createTRPCRouter({
           .optional(),
         restockingFeeCents: z.number().int().nonnegative().optional(),
         refundShippingCents: z.number().int().nonnegative().optional(),
-        notes: z.string().max(1000).optional()
+        notes: z.string().max(1000).optional(),
+        idempotencyKey: z.string().trim().min(1).max(128).optional()
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -33,6 +35,19 @@ export const refundsRouter = createTRPCRouter({
 
       const payload = await getPayload({ config });
 
+      const idempotencyKey =
+        input.idempotencyKey ??
+        buildIdempotencyKeyV2({
+          orderId: input.orderId,
+          selections: input.selections,
+          options: {
+            reason: input.reason,
+            restockingFeeCents: input.restockingFeeCents,
+            refundShippingCents: input.refundShippingCents
+            // we intentionally omit `notes` from the key
+          }
+        });
+
       const { refund, record } = await createRefundForOrder({
         payload,
         orderId: input.orderId,
@@ -41,7 +56,8 @@ export const refundsRouter = createTRPCRouter({
           reason: input.reason,
           restockingFeeCents: input.restockingFeeCents,
           refundShippingCents: input.refundShippingCents,
-          notes: input.notes
+          notes: input.notes,
+          idempotencyKey
         }
       });
 

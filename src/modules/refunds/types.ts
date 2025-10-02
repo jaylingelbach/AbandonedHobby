@@ -1,4 +1,15 @@
-import { OrderItem } from '../library/ui/components/types';
+export type OrderItem = {
+  id?: string;
+  product?: string | { id?: string };
+  nameSnapshot?: string;
+  unitAmount?: number; // cents
+  quantity?: number;
+  amountSubtotal?: number; // cents
+  amountTax?: number; // cents
+  amountTotal?: number; // cents
+  refundPolicy?: string;
+  returnsAcceptedThrough?: string;
+};
 
 export type OrderLike = {
   id: string;

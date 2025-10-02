@@ -1,9 +1,6 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 
-/** Minimal role-bearing shape we care about. */
-type MaybeRoleUser = { roles?: unknown };
-
 /** Order status union used in our hooks. */
 type OrderStatus = 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
 

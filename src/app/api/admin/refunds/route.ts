@@ -52,7 +52,10 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
-    console.log(`message: ${message}`);
-    return NextResponse.json({ error: message }, { status: 500 });
+    console.error(`Refund creation failed: ${message}`, error);
+    return NextResponse.json(
+      { error: 'Failed to process refund' },
+      { status: 500 }
+    );
   }
 }

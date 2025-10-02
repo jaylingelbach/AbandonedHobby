@@ -8,7 +8,7 @@ import { multiTenantPlugin } from '@payloadcms/plugin-multi-tenant';
 import { lexicalEditor } from '@payloadcms/richtext-lexical';
 import { s3Storage } from '@payloadcms/storage-s3';
 import postmarkTransport from 'nodemailer-postmark-transport';
-import { buildConfig, PayloadRequest } from 'payload';
+import { buildConfig } from 'payload';
 import sharp from 'sharp';
 
 import { Categories } from './collections/Categories';
@@ -19,6 +19,7 @@ import { Notifications } from './collections/Notifications';
 import { Orders } from './collections/Orders';
 import { Products } from './collections/Products';
 import { Reviews } from './collections/Reviews';
+import { Refunds } from './collections/Refunds';
 import { StripeEvents } from './collections/StripeEvents';
 import { Tags } from './collections/Tags';
 import { Tenants } from './collections/Tenants';
@@ -26,7 +27,6 @@ import { Users } from './collections/Users';
 import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
-import { Refunds } from './collections/Refunds';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);

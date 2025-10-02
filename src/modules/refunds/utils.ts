@@ -53,14 +53,13 @@ export function computeRefundAmountCents(
         ? src.amountTotal
         : unitBase * originalQty;
 
-    const perUnitTotal = Math.round(lineTotal / originalQty);
     const qtySelected = assertPositiveInt(sel.quantity, 'selection.quantity');
     if (qtySelected > originalQty) {
       throw new Error(
         `selection.quantity exceeds purchased quantity for item ${sel.itemId}`
       );
     }
-    sum += perUnitTotal * qtySelected;
+    sum += Math.round((lineTotal * qtySelected) / originalQty);
   }
   return sum;
 }
@@ -88,4 +87,37 @@ export function toLocalRefundStatus(status: string | null): LocalRefundStatus {
     default:
       return 'pending'; // safe default for unexpected/temporary values
   }
+}
+
+// new, normalized version (recommended for new code)
+export function buildIdempotencyKeyV2(input: {
+  orderId: string;
+  selections: LineSelection[];
+  options?: EngineOptions;
+}): string {
+  const sortedSelections = [...input.selections].sort(
+    (a, b) => a.itemId.localeCompare(b.itemId) || a.quantity - b.quantity
+  );
+
+  const o = input.options ?? {};
+  const normalizedOptions = {
+    // include only fields that should affect idempotency
+    reason: o.reason ?? null,
+    restockingFeeCents:
+      typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
+    refundShippingCents:
+      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0
+    // notes intentionally omitted so free-text doesn’t alter the key
+  };
+
+  const payload = JSON.stringify({
+    orderId: input.orderId,
+    selections: sortedSelections,
+    options: normalizedOptions
+  });
+
+  return crypto
+    .createHash('sha256')
+    .update(`refund:v2:${payload}`)
+    .digest('hex');
 }
