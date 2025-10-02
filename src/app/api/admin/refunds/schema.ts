@@ -6,7 +6,7 @@ export const lineSelectionSchema = z.object({
     .number()
     .int()
     .positive('quantity must be a positive integer')
-    .max(100, 'quantity exceeds maxiumum')
+    .max(100, 'quantity exceeds maximum')
 });
 
 export const refundRequestSchema = z.object({
