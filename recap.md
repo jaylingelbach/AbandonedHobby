@@ -3548,3 +3548,24 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/components/custom-payload/refund-button.tsx
   - Adds loading/optimistic updates, fetches minimal order totals, tracks refundedTotalCents, disables when fully refunded, performs refund call and background refresh. Updates local types to include refund totals.
+
+# Invalid eventId - bug
+
+## Walkthrough
+
+- Reordered error handling in src/modules/stripe/guards.ts to return early on unique-violation errors, rethrow other errors, and added a clarifying comment. No public APIs changed.
+
+## New Features
+
+- No user-facing features added.
+
+## Refactor
+
+- Streamlined error handling for duplicate operations to improve clarity and maintainability. Behavior remains unchanged: duplicates are safely ignored, and other errors continue to surface as before. No impact on public APIs or user workflows.
+
+## File changes
+
+### Stripe guards error-handling
+
+- src/modules/stripe/guards.ts
+  - Reordered catch block to early-return on unique constraint violations; continues to rethrow non-unique errors; added comment; no signature or export changes.
