@@ -211,11 +211,39 @@ export const Orders: CollectionConfig = {
     {
       name: 'inventoryAdjustedAt',
       type: 'date',
-      admin: { readOnly: true, description: 'Set when stock was decremented' },
+      admin: {
+        readOnly: true,
+        description: 'Set when stock was decremented'
+      },
       index: true,
-      access: { create: () => false, update: () => false }
+      access: {
+        create: () => false,
+        update: () => false
+      }
+    },
+    {
+      name: 'refundedTotalCents',
+      type: 'number',
+      defaultValue: 0,
+      admin: {
+        readOnly: true,
+        description: 'Amount of refund in cents'
+      }
     },
 
+    {
+      name: 'lastRefundAt',
+      type: 'date',
+      admin: {
+        readOnly: true,
+        description: 'Set when last refunded'
+      },
+      index: true,
+      access: {
+        create: () => false,
+        update: () => false
+      }
+    },
     // ----- Shipment / Tracking (seller can edit) -----
     {
       type: 'group',

@@ -1,13 +1,14 @@
 import type { Payload } from 'payload';
 import type { Stripe } from 'stripe';
 import { stripe } from '@/lib/stripe';
-import { LineSelection, EngineOptions, OrderLike } from './types';
+import { LineSelection, EngineOptions, OrderWithTotals } from './types';
 import {
   buildIdempotencyKey,
   computeRefundAmountCents,
   toLocalRefundStatus,
   toStripeRefundReason
 } from './utils';
+import { ExceedsRefundableError, FullyRefundedError } from './errors';
 
 /**
  * Create and persist a Stripe refund for an order based on requested line selections and optional adjustments.
@@ -21,7 +22,7 @@ import {
 export async function createRefundForOrder(args: {
   payload: Payload;
   orderId: string;
-  selections: LineSelection[]; // items and quantities to refund
+  selections: LineSelection[];
   options?: EngineOptions;
 }) {
   const { payload, orderId, selections, options } = args;
@@ -30,71 +31,89 @@ export async function createRefundForOrder(args: {
     throw new Error('At least one selection is required');
   }
 
-  // Load order (no depth needed)
+  // Keep the strong type (no `any`)
   const order = (await payload.findByID({
     collection: 'orders',
     id: orderId,
     depth: 0,
     overrideAccess: true
-  })) as unknown as OrderLike;
+  })) as unknown as OrderWithTotals;
 
   if (!order?.id) throw new Error('Order not found');
+
+  const accountId = order.stripeAccountId;
+  if (!accountId)
+    throw new Error('Order missing stripeAccountId for Connect refund.');
+
+  const totalCents = typeof order.total === 'number' ? order.total : 0;
+  const alreadyRefunded =
+    typeof order.refundTotalCents === 'number' ? order.refundTotalCents : 0;
+  const remainingRefundable = Math.max(0, totalCents - alreadyRefunded);
+
+  if (remainingRefundable === 0) {
+    throw new FullyRefundedError(order.id);
+  }
+
   const piId = order.stripePaymentIntentId ?? null;
   const chargeId = order.stripeChargeId ?? null;
   if (!piId && !chargeId) {
     throw new Error('Order has no Stripe payment reference');
   }
 
-  const accountId = order.stripeAccountId;
-  if (!accountId) throw new Error('Order is missing stripeAccountId');
-
-  // Compute base amount
   let refundAmount = computeRefundAmountCents(order, selections);
-
-  // Optional adjustments
   if (typeof options?.refundShippingCents === 'number') {
     refundAmount += options.refundShippingCents;
   }
   if (typeof options?.restockingFeeCents === 'number') {
     refundAmount -= Math.max(0, options.restockingFeeCents);
   }
-
   if (refundAmount <= 0) {
-    throw new Error('Computed refund amount must be > 0');
+    throw new Error(
+      `Computed refund amount must be > 0 (got ${refundAmount} cents)`
+    );
   }
 
-  // Idempotency
+  if (refundAmount > remainingRefundable) {
+    throw new ExceedsRefundableError(
+      order.id,
+      refundAmount,
+      remainingRefundable
+    );
+  }
+
   const idempotencyKey =
     options?.idempotencyKey ??
     buildIdempotencyKey(orderId, selections, options);
 
-  // Make the Stripe refund
-  const appReason = options?.reason;
+  // Validate all items exist before creating Stripe refund
+  for (const sel of selections) {
+    const item = (order.items ?? []).find((i) => i.id === sel.itemId);
+    if (!item) {
+      throw new Error(`Item ${sel.itemId} not found in order ${order.id}`);
+    }
+  }
+
+  // Build metadata without `any`, and omit empty values
+  const metadata: Stripe.MetadataParam = {
+    orderId: order.id,
+    ...(order.orderNumber ? { orderNumber: order.orderNumber } : {}),
+    selections: JSON.stringify(selections),
+    ...(options?.reason ? { app_reason: options.reason } : {}),
+    stripeAccountId: accountId
+  };
 
   const stripeArgs: Stripe.RefundCreateParams = {
     amount: refundAmount,
-    reason: toStripeRefundReason(appReason),
+    reason: toStripeRefundReason(options?.reason),
     ...(piId ? { payment_intent: piId } : { charge: chargeId! }),
-    metadata: {
-      orderId: order.id,
-      orderNumber: order.orderNumber,
-      selections: JSON.stringify(selections),
-      app_reason: appReason ?? '' // preserves 'other' for your own records
-    }
+    metadata
   };
 
-  console.log('[refund] creating', {
-    accountId,
-    payment_intent: piId,
-    charge: chargeId,
-    amount: refundAmount
-  });
   const refund = await stripe.refunds.create(stripeArgs, {
-    stripeAccount: accountId,
-    idempotencyKey
+    idempotencyKey,
+    stripeAccount: accountId
   });
 
-  // Persist refund record (audit log)
   const created = await payload.create({
     collection: 'refunds',
     data: {
@@ -105,13 +124,9 @@ export async function createRefundForOrder(args: {
       stripeChargeId: chargeId ?? undefined,
       amount: refundAmount,
       status: toLocalRefundStatus(refund.status),
-      reason: appReason ?? undefined,
+      reason: options?.reason ?? undefined,
       selections: selections.map((sel) => {
         const src = (order.items ?? []).find((i) => i.id === sel.itemId);
-        if (!src) {
-          // This should never happen as computeRefundAmountCents validates items
-          console.warn(`[refund] Item ${sel.itemId} not found during snapshot`);
-        }
         return {
           itemId: sel.itemId,
           quantity: sel.quantity,
@@ -129,5 +144,6 @@ export async function createRefundForOrder(args: {
     },
     overrideAccess: true
   });
+
   return { refund, record: created };
 }

@@ -40,3 +40,25 @@ export type StripeRefundReason =
   | 'other';
 
 export type LocalRefundStatus = 'succeeded' | 'pending' | 'failed' | 'canceled';
+
+export type RefundDoc = {
+  id: string;
+  order: string | { id: string };
+  amount: number; // cents
+  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type OrderDoc = {
+  id: string;
+  total: number; // cents
+  status: 'paid' | 'partially_refunded' | 'refunded' | 'canceled';
+  refundedTotalCents?: number;
+  lastRefundAt?: string | null;
+};
+
+export type OrderWithTotals = OrderLike & {
+  total?: number | null;
+  refundTotalCents?: number | null;
+};

@@ -38,6 +38,10 @@ import {
   isUniqueViolation,
   tryCall
 } from './utils/utils';
+import {
+  recomputeRefundState,
+  toLocalRefundStatus
+} from '@/modules/refunds/utils';
 
 export const runtime = 'nodejs';
 
@@ -380,7 +384,10 @@ export async function POST(req: Request) {
     'checkout.session.completed',
     'payment_intent.payment_failed',
     'checkout.session.expired',
-    'account.updated'
+    'account.updated',
+    'refund.created',
+    'refund.updated',
+    'charge.refunded'
   ]);
   if (!permitted.has(event.type)) {
     // mark processed so retries don't ping us forever (optional)
@@ -395,6 +402,66 @@ export async function POST(req: Request) {
     }
   } catch (err) {
     console.warn('[webhook] dedupe check failed (continuing):', err);
+  }
+
+  async function resolveOrderIdForRefund(args: {
+    payload: import('payload').Payload;
+    rf: Stripe.Refund;
+  }): Promise<string | null> {
+    const { payload, rf } = args;
+
+    // A) Preferred: find our local refund record by stripeRefundId and read its `order` relationship
+    {
+      const list = await payload.find({
+        collection: 'refunds',
+        where: { stripeRefundId: { equals: rf.id } },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true
+      });
+
+      const doc = list.docs[0];
+      if (doc) {
+        const rel = doc.order as string | { id?: string } | null | undefined;
+        const orderId =
+          typeof rel === 'string' ? rel : rel && rel.id ? String(rel.id) : null;
+        if (orderId) return orderId;
+      }
+    }
+
+    // B) Fallback: map from PI or Charge directly to an Order
+    const pi = typeof rf.payment_intent === 'string' ? rf.payment_intent : null;
+    const ch = typeof rf.charge === 'string' ? rf.charge : null;
+
+    if (pi) {
+      const ordersByPI = await payload.find({
+        collection: 'orders',
+        where: { stripePaymentIntentId: { equals: pi } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true
+      });
+      if (ordersByPI.docs[0]?.id) return String(ordersByPI.docs[0].id);
+    }
+
+    if (ch) {
+      const ordersByCharge = await payload.find({
+        collection: 'orders',
+        where: { stripeChargeId: { equals: ch } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true
+      });
+      if (ordersByCharge.docs[0]?.id) return String(ordersByCharge.docs[0].id);
+    }
+
+    console.warn('[webhook] resolveOrderIdForRefund failed', {
+      refundId: rf.id,
+      paymentIntent: pi,
+      charge: ch
+    });
+
+    return null;
   }
 
   try {
@@ -931,19 +998,100 @@ export async function POST(req: Request) {
         await markProcessed(payload, event.id);
         return NextResponse.json({ updated: true }, { status: 200 });
       }
+      case 'refund.updated': {
+        const rf = event.data.object as Stripe.Refund;
+
+        // syncs the local refund doc’s status with Stripe.
+        try {
+          await payload.update({
+            collection: 'refunds',
+            where: { stripeRefundId: { equals: rf.id } },
+            data: { status: toLocalRefundStatus(rf.status) },
+            overrideAccess: true
+          });
+        } catch {
+          // ignore if we don’t have a local row (e.g., refund created in Stripe dashboard)
+        }
+
+        const orderId = await resolveOrderIdForRefund({ payload, rf });
+        if (orderId) {
+          // totals all successful refunds for the order, updates refundTotalCents, lastRefundAt, and derived status (paid/partially_refunded/refunded).
+          // If you want in-flight refunds to count, pass includePending: true
+          await recomputeRefundState({
+            payload,
+            orderId,
+            includePending: true
+          });
+        }
+
+        await markProcessed(payload, event.id);
+        return NextResponse.json({ ok: true }, { status: 200 });
+      }
+      case 'refund.created': {
+        const rf = event.data.object as Stripe.Refund;
+
+        // Keep local refund row (if present) in sync with Stripe status
+        try {
+          await payload.update({
+            collection: 'refunds',
+            where: { stripeRefundId: { equals: rf.id } },
+            data: { status: toLocalRefundStatus(rf.status) },
+            overrideAccess: true
+          });
+        } catch (error) {
+          // It's fine if no local row exists (e.g. refund was created from Stripe Dashboard)
+          console.warn('[webhook] failed to sync refund row', error);
+        }
+
+        // Find related order by (local row → payment_intent → charge)
+        const orderId = await resolveOrderIdForRefund({ payload, rf });
+
+        // Recompute order-level refund totals / derived status
+        if (orderId) {
+          await recomputeRefundState({
+            payload,
+            orderId,
+            includePending: true // set true to count pending in totals if you prefer
+          });
+        }
+
+        await markProcessed(payload, event.id);
+        return NextResponse.json({ ok: true }, { status: 200 });
+      }
+
+      case 'charge.refunded': {
+        // Some platforms prefer to key off charge-level events
+        const ch = event.data.object as Stripe.Charge;
+
+        // Try PI first (more stable), then charge id
+        const pi =
+          typeof ch.payment_intent === 'string' ? ch.payment_intent : null;
+
+        const rfLike = {
+          id: `charge:${ch.id}`, // not used when we’ve already updated our local row
+          payment_intent: pi ?? undefined,
+          charge: ch.id // synthetic ID for resolver
+        } as unknown as Stripe.Refund;
+
+        const orderId = await resolveOrderIdForRefund({ payload, rf: rfLike });
+        if (orderId) {
+          await recomputeRefundState({
+            payload,
+            orderId,
+            includePending: true
+          });
+        }
+
+        await markProcessed(payload, event.id);
+        return NextResponse.json({ ok: true }, { status: 200 });
+      }
     }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
-    const e = error as Error;
+    const err = error as Error;
     console.error('Webhook handler failed:', message);
-    if (e.stack) console.error('Error stack: ', e.stack);
+    if (err.stack) console.error('Error stack: ', err.stack);
 
-    // In dev, consider 200 to avoid aggressive Stripe retries
-    // await markProcessed(payload, event.id);
-    // return NextResponse.json(
-    //   { message: `Webhook handler failed: ${message}` },
-    //   { status: 200 }
-    // );
     const status = process.env.NODE_ENV === 'production' ? 500 : 200;
     if (status === 200) {
       // Optional: avoid noisy retries only during local development.

@@ -465,6 +465,14 @@ export interface Order {
    * Set when stock was decremented
    */
   inventoryAdjustedAt?: string | null;
+  /**
+   * Amount of refund in cents
+   */
+  refundedTotalCents?: number | null;
+  /**
+   * Set when last refunded
+   */
+  lastRefundAt?: string | null;
   shipment?: {
     carrier?: ('usps' | 'ups' | 'fedex' | 'other') | null;
     trackingNumber?: string | null;
@@ -790,6 +798,8 @@ export interface OrdersSelect<T extends boolean = true> {
   status?: T;
   fulfillmentStatus?: T;
   inventoryAdjustedAt?: T;
+  refundedTotalCents?: T;
+  lastRefundAt?: T;
   shipment?:
     | T
     | {

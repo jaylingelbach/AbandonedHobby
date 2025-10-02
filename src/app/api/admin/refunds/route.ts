@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getPayload, PayloadRequest } from 'payload';
 import config from '@/payload.config';
 import { createRefundForOrder } from '@/modules/refunds/engine';
+import {
+  ExceedsRefundableError,
+  FullyRefundedError
+} from '@/modules/refunds/errors';
 import { refundRequestSchema } from './schema';
+import { recomputeRefundState } from '@/modules/refunds/utils';
 
 export const runtime = 'nodejs';
 
@@ -27,12 +32,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // use safe data in createRefundOrder instead of body.
+    const input = parsed.data;
+
     const payload = await getPayload({ config });
     const payloadReq = req as unknown as PayloadRequest;
     const { user } = await payload.auth({
       req: payloadReq,
       headers: req.headers
     });
+
     const roles = Array.isArray(user?.roles) ? user!.roles : [];
     const isStaff = roles.includes('super-admin');
     if (!isStaff) {
@@ -41,15 +51,27 @@ export async function POST(req: NextRequest) {
 
     const { refund, record } = await createRefundForOrder({
       payload,
-      orderId: body.orderId,
-      selections: body.selections,
+      orderId: input.orderId,
+      selections: input.selections,
       options: {
-        reason: body.reason,
-        restockingFeeCents: body.restockingFeeCents,
-        refundShippingCents: body.refundShippingCents,
-        notes: body.notes
+        reason: input.reason,
+        restockingFeeCents: input.restockingFeeCents,
+        refundShippingCents: input.refundShippingCents,
+        notes: input.notes,
+        idempotencyKey: input.idempotencyKey
       }
     });
+
+    try {
+      await recomputeRefundState({
+        payload,
+        orderId: input.orderId,
+        includePending: true,
+        getFreshPayload: async () => getPayload({ config }) // fallback if disconnected
+      });
+    } catch (error) {
+      console.warn('[admin] recomputeRefundState failed (non-fatal)', error);
+    }
 
     return NextResponse.json({
       ok: true,
@@ -59,11 +81,27 @@ export async function POST(req: NextRequest) {
       refundId: record.id
     });
   } catch (error: unknown) {
+    if (error instanceof FullyRefundedError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: 'ALREADY_FULLY_REFUNDED',
+          orderId: error.orderId
+        },
+        { status: 409 }
+      );
+    }
+    if (error instanceof ExceedsRefundableError) {
+      return NextResponse.json(
+        {
+          error: error.message,
+          code: 'EXCEEDS_REMAINING',
+          orderId: error.orderId
+        },
+        { status: 409 }
+      );
+    }
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`Refund creation failed: ${message}`, error);
-    return NextResponse.json(
-      { error: 'Failed to process refund' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
