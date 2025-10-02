@@ -21,14 +21,15 @@ type OrderLite = {
 };
 
 /**
- * Renders a staff-only button that issues a hard-coded refund for the first item of the currently open order.
+ * Render a staff-only button that issues a hard-coded refund for the first item of the currently open order.
  *
- * When clicked, the button validates the open order, fetches order data, posts a refund for the order's first item with quantity 1, shows success or error toasts, and disables itself after a successful refund.
+ * Renders nothing for non-staff users. When activated, it posts a refund for the order's first item (quantity 1),
+ * updates local refunded totals optimistically, and shows success or error toasts.
  *
  * @returns A JSX element for the refund button, or `null` when the current user is not a staff user.
  *
  * @remarks
- * This component currently refunds only the first item with a quantity of 1 and cannot refund specific items, multiple quantities, or perform partial/full order refunds.
+ * This component only refunds the first item with a quantity of 1 and cannot refund specific items, multiple quantities, or perform full/partial order refunds.
  */
 export function RefundButton() {
   const { id, collectionSlug } = useDocumentInfo();
@@ -72,6 +73,12 @@ export function RefundButton() {
 
   const fullyRefunded = orderTotal != null && refundedTotal >= orderTotal;
 
+  /**
+   * Fetches minimal order data for the specified order.
+   *
+   * @param orderId - The order's ID to retrieve
+   * @returns The order as an `OrderLite` if available, `null` if not found or on error.
+   */
   async function fetchOrder(orderId: string): Promise<OrderLite | null> {
     try {
       const res = await fetch(`/api/orders/${orderId}?depth=0`, {
@@ -85,6 +92,13 @@ export function RefundButton() {
     }
   }
 
+  /**
+   * Issues a refund for the first item of the currently open order and updates local refund state and UI.
+   *
+   * Validates that an order is open and loads the latest order totals, posts a refund request for one unit
+   * of the first order item, optimistically increments the local refunded total, shows success or error toasts,
+   * and re-fetches the order in the background to synchronize totals.
+   */
   async function handleRefund() {
     if (!id || collectionSlug !== 'orders') {
       toast.error('Open an order to issue a refund.');

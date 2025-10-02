@@ -404,6 +404,15 @@ export async function POST(req: Request) {
     console.warn('[webhook] dedupe check failed (continuing):', err);
   }
 
+  /**
+   * Resolve the local order ID associated with a Stripe refund.
+   *
+   * Searches the local refunds collection for a refund with the Stripe refund ID and returns its `order` relation if present; if not found, falls back to matching an order by the refund's `payment_intent` or `charge`.
+   *
+   * @param args.payload - Payload CMS instance used to query collections
+   * @param args.rf - Stripe Refund object to resolve
+   * @returns The matching order ID as a string, or `null` if no associated order is found
+   */
   async function resolveOrderIdForRefund(args: {
     payload: import('payload').Payload;
     rf: Stripe.Refund;
