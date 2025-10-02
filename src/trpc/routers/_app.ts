@@ -1,4 +1,3 @@
-
 import { authRouter } from '@/modules/auth/server/procedures';
 import { categoriesRouter } from '@/modules/categories/server/procedures';
 import { checkoutRouter } from '@/modules/checkout/server/procedures';
@@ -14,6 +13,7 @@ import { tenantsRouter } from '@/modules/tenants/server/procedures';
 import { usersRouter } from '@/modules/users/server/procedures';
 
 import { createTRPCRouter } from '../init';
+import { refundsRouter } from '@/modules/refunds/procedures';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
@@ -25,6 +25,7 @@ export const appRouter = createTRPCRouter({
   notifications: notificationsRouter,
   orders: ordersRouter,
   products: productsRouter,
+  refunds: refundsRouter,
   reviews: reviewsRouter,
   tags: tagsRouter,
   tenants: tenantsRouter,

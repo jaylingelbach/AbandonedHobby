@@ -19,6 +19,7 @@ import { Notifications } from './collections/Notifications';
 import { Orders } from './collections/Orders';
 import { Products } from './collections/Products';
 import { Reviews } from './collections/Reviews';
+import { Refunds } from './collections/Refunds';
 import { StripeEvents } from './collections/StripeEvents';
 import { Tags } from './collections/Tags';
 import { Tenants } from './collections/Tenants';
@@ -26,9 +27,6 @@ import { Users } from './collections/Users';
 import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
-
-
-
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -80,6 +78,7 @@ export default buildConfig({
     Messages,
     Orders,
     Products,
+    Refunds,
     Reviews,
     StripeEvents,
     Tags,

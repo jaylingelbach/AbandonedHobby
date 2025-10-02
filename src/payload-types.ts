@@ -73,6 +73,7 @@ export interface Config {
     messages: Message;
     orders: Order;
     products: Product;
+    refunds: Refund;
     reviews: Review;
     stripe_events: StripeEvent;
     tags: Tag;
@@ -95,6 +96,7 @@ export interface Config {
     messages: MessagesSelect<false> | MessagesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
+    refunds: RefundsSelect<false> | RefundsSelect<true>;
     reviews: ReviewsSelect<false> | ReviewsSelect<true>;
     stripe_events: StripeEventsSelect<false> | StripeEventsSelect<true>;
     tags: TagsSelect<false> | TagsSelect<true>;
@@ -474,6 +476,41 @@ export interface Order {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "refunds".
+ */
+export interface Refund {
+  id: string;
+  order: string | Order;
+  orderNumber: string;
+  stripeRefundId: string;
+  stripePaymentIntentId?: string | null;
+  stripeChargeId?: string | null;
+  /**
+   * Cents
+   */
+  amount: number;
+  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  reason?: ('requested_by_customer' | 'duplicate' | 'fraudulent' | 'other') | null;
+  selections?:
+    | {
+        itemId: string;
+        quantity: number;
+        unitAmount: number;
+        amountTotal: number;
+        id?: string | null;
+      }[]
+    | null;
+  fees?: {
+    restockingFeeCents?: number | null;
+    refundShippingCents?: number | null;
+  };
+  notes?: string | null;
+  idempotencyKey?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "reviews".
  */
 export interface Review {
@@ -551,6 +588,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'products';
         value: string | Product;
+      } | null)
+    | ({
+        relationTo: 'refunds';
+        value: string | Refund;
       } | null)
     | ({
         relationTo: 'reviews';
@@ -786,6 +827,39 @@ export interface ProductsSelect<T extends boolean = true> {
         alt?: T;
         id?: T;
       };
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "refunds_select".
+ */
+export interface RefundsSelect<T extends boolean = true> {
+  order?: T;
+  orderNumber?: T;
+  stripeRefundId?: T;
+  stripePaymentIntentId?: T;
+  stripeChargeId?: T;
+  amount?: T;
+  status?: T;
+  reason?: T;
+  selections?:
+    | T
+    | {
+        itemId?: T;
+        quantity?: T;
+        unitAmount?: T;
+        amountTotal?: T;
+        id?: T;
+      };
+  fees?:
+    | T
+    | {
+        restockingFeeCents?: T;
+        refundShippingCents?: T;
+      };
+  notes?: T;
+  idempotencyKey?: T;
   updatedAt?: T;
   createdAt?: T;
 }

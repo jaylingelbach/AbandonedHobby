@@ -3416,3 +3416,32 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/modules/library/ui/views/product-view.tsx
   - Derives sellerEmail from tenantDoc?.notificationEmail; passes it to InvoiceDialog with fallback.
+
+# Refund MVP Staff only 10/01/25
+
+## Walkthrough
+
+- Adds a refunds feature: UI button in admin, schema-validated POST API, TRPC router, refund engine with utilities/types, a new Refunds collection, and Stripe config tweaks. Integrates access checks via isSuperAdmin, updates Orders admin UI, and minor type/styles updates. Includes import map wiring and payload config registration
+
+## New Features
+
+- Admins can issue refunds from the Order edit screen via a new Refund button.
+- Supports item-level (partial) refunds with optional reason, fees, shipping adjustments, and notes.
+- Refund outcomes are recorded and surfaced with status and amount feedback.
+
+## Style
+
+- Added theme-aware, accessible styling for the Refund button with loading/disabled states and responsive behavior.
+
+## Refactor
+
+- Streamlined admin access checks for orders and refunds.
+
+## Chores
+
+- Improved Stripe reliability with increased timeout and automatic retries.
+- Added Express dependency and related types.
+
+## File changes
+
+-
