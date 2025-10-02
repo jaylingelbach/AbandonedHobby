@@ -77,6 +77,14 @@ export async function hasProcessed(
   return res.totalDocs > 0;
 }
 
+/**
+ * Record that a Stripe event has been processed by creating a `stripe_events` document.
+ *
+ * Attempts to create a document with the given `eventId`; if a concurrent unique-constraint
+ * violation indicates the event was already recorded, the function returns silently.
+ *
+ * @param eventId - The Stripe event ID to mark as processed
+ */
 export async function markProcessed(
   payload: Payload,
   eventId: string
