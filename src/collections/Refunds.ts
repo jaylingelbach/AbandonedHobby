@@ -1,5 +1,8 @@
 import { isSuperAdmin } from '@/lib/access';
-import { CollectionConfig } from 'payload';
+import { CollectionConfig, Payload } from 'payload';
+import { recomputeRefundState } from '@/modules/refunds/utils';
+import { getRelId } from '@/lib/server/utils';
+import { Refund } from '@/payload-types';
 
 export const Refunds: CollectionConfig = {
   slug: 'refunds',
@@ -82,5 +85,31 @@ export const Refunds: CollectionConfig = {
     },
     { name: 'notes', type: 'textarea' },
     { name: 'idempotencyKey', type: 'text', index: true, unique: true }
-  ]
+  ],
+  hooks: {
+    afterChange: [
+      async ({ req, doc }: { req: { payload: Payload }; doc: Refund }) => {
+        const orderId = getRelId(doc.order);
+        if (!orderId) return;
+
+        await recomputeRefundState({
+          payload: req.payload,
+          orderId,
+          includePending: false
+        });
+      }
+    ],
+    afterDelete: [
+      async ({ req, doc }: { req: { payload: Payload }; doc: Refund }) => {
+        const orderId = getRelId(doc.order);
+        if (!orderId) return;
+
+        await recomputeRefundState({
+          payload: req.payload,
+          orderId,
+          includePending: false
+        });
+      }
+    ]
+  }
 };

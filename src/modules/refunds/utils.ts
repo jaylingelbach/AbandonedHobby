@@ -9,6 +9,7 @@ import {
   StripeRefundReason
 } from './types';
 import crypto from 'node:crypto';
+import type { Payload } from 'payload';
 
 /**
  * Creates a map of OrderItem keyed by each item's non-empty string `id`.
@@ -167,4 +168,168 @@ export function buildIdempotencyKeyV2(input: {
     .createHash('sha256')
     .update(`refund:v2:${payload}`)
     .digest('hex');
+}
+
+/**
+ * Detects whether an error represents a MongoDB write conflict.
+ *
+ * @param err - The error object to inspect
+ * @returns `true` if the error indicates a write conflict (MongoDB code `112` or message contains "Write conflict"), `false` otherwise
+ */
+function isWriteConflict(err: unknown): boolean {
+  const code = (err as { code?: number } | null)?.code;
+  const msg = String((err as { message?: string } | null)?.message ?? '');
+  return code === 112 || msg.includes('Write conflict');
+}
+
+/**
+ * Detects whether an error represents a disconnected MongoDB client.
+ *
+ * @param err - The value to inspect for a MongoDB not-connected condition
+ * @returns `true` if the error indicates the MongoDB client is not connected, `false` otherwise
+ */
+function isNotConnected(err: unknown): boolean {
+  const name = (err as { name?: string } | null)?.name ?? '';
+  const msg = String((err as { message?: string } | null)?.message ?? '');
+  return name === 'MongoNotConnectedError' || msg.includes('must be connected');
+}
+
+/**
+ * Delay execution for the specified number of milliseconds.
+ *
+ * @param ms - The number of milliseconds to wait.
+ * @returns A promise that resolves to `undefined` when the delay completes.
+ */
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+/**
+ * Recompute an order's refunded total (in cents), last refund timestamp, and derived order status from stored refunds.
+ *
+ * If computed values differ from the order record, the order document is updated. The operation will retry on transient
+ * conditions such as Mongo write conflicts and can optionally obtain a fresh Payload instance when the provided one is
+ * disconnected.
+ *
+ * @param opts.payload - Data access Payload used to read refunds and update the order
+ * @param opts.orderId - ID of the order to recompute
+ * @param opts.includePending - If true, include refunds with status `pending` in the aggregation; otherwise only include `succeeded`
+ * @param opts.getFreshPayload - Optional factory to obtain a new Payload when the current one is not connected
+ */
+export async function recomputeRefundState(opts: {
+  payload: Payload;
+  orderId: string;
+  includePending?: boolean;
+  /** Optional factory to obtain a fresh Payload instance when the given one is disconnected. */
+  getFreshPayload?: () => Promise<Payload>;
+}): Promise<void> {
+  const { orderId, includePending = false } = opts;
+
+  let payload: Payload = opts.payload;
+  const MAX_TRIES = 5;
+
+  for (let attempt = 1; attempt <= MAX_TRIES; attempt++) {
+    try {
+      // 1) Load order
+      const order = (await payload.findByID({
+        collection: 'orders',
+        id: orderId,
+        depth: 0,
+        overrideAccess: true
+      })) as {
+        id: string;
+        total: number;
+        status: 'paid' | 'partially_refunded' | 'refunded' | 'canceled';
+        refundedTotalCents?: number | null;
+        lastRefundAt?: string | null;
+      } | null;
+
+      if (!order?.id) return;
+
+      // 2) Gather refunds
+      const counted = includePending ? ['succeeded', 'pending'] : ['succeeded'];
+      const { docs } = await payload.find({
+        collection: 'refunds',
+        where: {
+          and: [{ order: { equals: orderId } }, { status: { in: counted } }]
+        },
+        pagination: false,
+        depth: 0,
+        overrideAccess: true
+      });
+
+      const refunds = docs as Array<{
+        amount?: number | null;
+        createdAt?: string;
+        updatedAt?: string;
+      }>;
+
+      const refundedTotalCents = refunds.reduce(
+        (sum, r) => sum + (r.amount ?? 0),
+        0
+      );
+
+      const lastRefundAtMs = refunds.reduce<number>((max, r) => {
+        const ts = new Date(r.updatedAt ?? r.createdAt ?? 0).getTime();
+        return Number.isFinite(ts) ? Math.max(max, ts) : max;
+      }, 0);
+      const lastRefundAt =
+        lastRefundAtMs > 0 ? new Date(lastRefundAtMs).toISOString() : null;
+
+      // 3) Next status (don’t clobber 'canceled')
+      let nextStatus = order.status;
+      if (order.status !== 'canceled') {
+        if (refundedTotalCents <= 0) nextStatus = 'paid';
+        else if (refundedTotalCents >= (order.total ?? 0))
+          nextStatus = 'refunded';
+        else nextStatus = 'partially_refunded';
+      }
+
+      // 4) Avoid noisy writes
+      const changed =
+        (order.refundedTotalCents ?? 0) !== refundedTotalCents ||
+        (order.lastRefundAt ?? null) !== lastRefundAt ||
+        order.status !== nextStatus;
+
+      if (!changed) return;
+
+      await payload.update({
+        collection: 'orders',
+        id: orderId,
+        data: { refundedTotalCents, lastRefundAt, status: nextStatus },
+        overrideAccess: true
+      });
+
+      return; // success
+    } catch (err) {
+      // If the client was disconnected, optionally get a fresh instance and retry
+      if (isNotConnected(err) && opts.getFreshPayload) {
+        try {
+          payload = await opts.getFreshPayload();
+          await sleep(25);
+          continue;
+        } catch (e) {
+          console.warn('[refunds] getFreshPayload failed', e);
+          return; // give up quietly
+        }
+      }
+
+      // Retry write conflicts with backoff
+      if (isWriteConflict(err) && attempt < MAX_TRIES) {
+        await sleep(50 * attempt);
+        continue;
+      }
+
+      console.warn('[refunds] recomputeRefundState failed', {
+        orderId,
+        attempt,
+        err
+      });
+      return;
+    }
+  }
+  console.warn('[refunds] recomputeRefundState exhausted retries', {
+    orderId,
+    maxTries: MAX_TRIES
+  });
 }

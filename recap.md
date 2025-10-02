@@ -3444,4 +3444,107 @@ Added recap covering the Orders transition and onboarding behavior.
 
 ## File changes
 
--
+### Dependencies
+
+- package.json
+  - Adds runtime express and dev @types/express.
+
+### Admin UI & styles
+
+- src/components/custom-payload/refund-button.tsx, src/app/(payload)/custom.scss, src/app/(payload)/admin/importMap.js
+  - Adds RefundButton component (client-side, staff-gated), themed Refund button styles, and wires RefundButton into admin importMap.
+
+### API (REST) & validation
+
+- src/app/api/admin/refunds/route.ts, src/app/api/admin/refunds/schema.ts
+  - Adds POST /api/admin/refunds route with Zod schemas, super-admin enforcement, runtime export, and error handling.
+
+### Refund engine, procedures, types, utils
+
+- src/modules/refunds/engine.ts, src/modules/refunds/procedures.ts, src/modules/refunds/types.ts, src/modules/refunds/utils.ts
+  - Implements createRefundForOrder, TRPC refundsRouter, types (OrderItem/OrderLike/LineSelection/EngineOptions/StripeRefundReason/LocalRefundStatus), and helpers (idempotency keys, amount computation, mappings).
+
+### Refunds collection & payload types
+
+- src/collections/Refunds.ts, src/payload-types.ts, src/payload.config.ts
+  - Adds Refunds collection config, exports Refund types/selects, and registers collection in payload config.
+
+### Orders collection & admin
+
+- src/collections/Orders.ts
+  - Updates access handlers to destructure user and injects admin.components.edit to include RefundButton (removes previous useAsTitle).
+
+### Orders server utils
+
+- src/lib/server/payload-utils/orders.ts
+  - Replaces internal hasSuperAdminRole helper with direct isSuperAdmin(user) checks.
+
+### Stripe client
+
+- src/lib/stripe.ts
+  - Sets timeout: 20000 and maxNetworkRetries: 2 on exported Stripe instance.
+
+### TRPC root router
+
+- src/trpc/routers/\_app.ts
+  - Registers refunds: refundsRouter on appRouter.
+
+### Small changes / types
+
+- src/modules/library/ui/components/types.ts, src/app/api/orders/[orderId]/invoice/route.ts, recap.md
+  - Adds optional id?: string to OrderItem type, removes two invoice comments, and appends refunds docs/recap.
+
+# Refund state - orders 10/02/25
+
+## New Features
+
+## Walkthrough
+
+- Adds refund-awareness across the system: Stripe refund webhooks are handled and trigger order refund recomputation; the admin refund API validates and maps errors, then recomputes order state; Orders gain refund-tracking fields; Refunds collection hooks recompute on change/delete; UI button reflects refund totals; refund engine/types/utilities expanded, including a retrying recompute helper.
+
+- Orders now display refunded totals and the date of the last refund.
+- Refund events are processed to keep order totals accurate, including pending refunds.
+- Admin refunds return clear conflict errors when fully refunded or exceeding the refundable amount.
+- Refund button shows loading, disables when fully refunded, and reflects updated totals.
+
+## Bug Fixes
+
+- Improved reliability of refund synchronization and order total recalculation.
+- More robust error logging and environment-appropriate responses.
+
+## File changes
+
+### Stripe webhook refund handling
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Adds handling for refund.created, refund.updated, and charge.refunded. Resolves order for a refund, syncs local refund status, and recomputes order refund state (optionally including pending). Tweaks error logging/response behavior.
+
+### Admin refund API behavior
+
+- src/app/api/admin/refunds/route.ts
+  - Uses sanitized input, maps domain errors (FullyRefundedError, ExceedsRefundableError) to 409 responses, and post-processes by recomputing order refund state (safe, non-fatal).
+
+### Order refund state fields
+
+- src/collections/Orders.ts, src/payload-types.ts
+  - Adds refundedTotalCents and lastRefundAt fields to Orders schema and generated types; read-only/admin indexed as specified. No other behavioral changes.
+
+### Refunds collection recompute hooks
+
+- src/collections/Refunds.ts
+  - Introduces afterChange and afterDelete hooks to recompute an order’s refund state when a refund doc changes. Imports required helpers and types.
+
+### Refunds module — utilities and types
+
+- src/modules/refunds/utils.ts, src/modules/refunds/types.ts, src/modules/refunds/errors.ts
+  - Adds recomputeRefundState with retry/disconnect handling and aggregation logic; defines RefundDoc, OrderDoc, OrderWithTotals; introduces FullyRefundedError and ExceedsRefundableError.
+
+### Refunds engine typing
+
+- src/modules/refunds/engine.ts
+  - Tightens types from OrderLike to OrderWithTotals; no functional change.
+
+### Admin UI refund button
+
+- src/components/custom-payload/refund-button.tsx
+  - Adds loading/optimistic updates, fetches minimal order totals, tracks refundedTotalCents, disables when fully refunded, performs refund call and background refresh. Updates local types to include refund totals.
