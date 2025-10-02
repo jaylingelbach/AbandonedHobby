@@ -111,6 +111,10 @@ export async function createRefundForOrder(args: {
       reason: appReason ?? undefined,
       selections: selections.map((sel) => {
         const src = (order.items ?? []).find((i) => i.id === sel.itemId);
+        if (!src) {
+          // This should never happen as computeRefundAmountCents validates items
+          console.warn(`[refund] Item ${sel.itemId} not found during snapshot`);
+        }
         return {
           itemId: sel.itemId,
           quantity: sel.quantity,

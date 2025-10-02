@@ -43,7 +43,7 @@ export const Refunds: CollectionConfig = {
       name: 'status',
       type: 'select',
       required: true,
-      defaultValue: 'succeeded',
+      defaultValue: 'pending',
       options: [
         { label: 'Succeeded', value: 'succeeded' },
         { label: 'Pending', value: 'pending' },
