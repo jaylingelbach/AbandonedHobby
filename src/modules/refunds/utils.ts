@@ -170,26 +170,51 @@ export function buildIdempotencyKeyV2(input: {
     .digest('hex');
 }
 
+/**
+ * Detects whether an error represents a MongoDB write conflict.
+ *
+ * @param err - The error object to inspect
+ * @returns `true` if the error indicates a write conflict (MongoDB code `112` or message contains "Write conflict"), `false` otherwise
+ */
 function isWriteConflict(err: unknown): boolean {
   const code = (err as { code?: number } | null)?.code;
   const msg = String((err as { message?: string } | null)?.message ?? '');
   return code === 112 || msg.includes('Write conflict');
 }
 
+/**
+ * Detects whether an error represents a disconnected MongoDB client.
+ *
+ * @param err - The value to inspect for a MongoDB not-connected condition
+ * @returns `true` if the error indicates the MongoDB client is not connected, `false` otherwise
+ */
 function isNotConnected(err: unknown): boolean {
   const name = (err as { name?: string } | null)?.name ?? '';
   const msg = String((err as { message?: string } | null)?.message ?? '');
   return name === 'MongoNotConnectedError' || msg.includes('must be connected');
 }
 
+/**
+ * Delay execution for the specified number of milliseconds.
+ *
+ * @param ms - The number of milliseconds to wait.
+ * @returns A promise that resolves to `undefined` when the delay completes.
+ */
 function sleep(ms: number) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
 /**
- * Recompute refund totals + derived status for an order.
- * - Retries on Mongo write conflict.
- * - If the provided Payload instance is not connected, optionally asks caller for a fresh one.
+ * Recompute an order's refunded total (in cents), last refund timestamp, and derived order status from stored refunds.
+ *
+ * If computed values differ from the order record, the order document is updated. The operation will retry on transient
+ * conditions such as Mongo write conflicts and can optionally obtain a fresh Payload instance when the provided one is
+ * disconnected.
+ *
+ * @param opts.payload - Data access Payload used to read refunds and update the order
+ * @param opts.orderId - ID of the order to recompute
+ * @param opts.includePending - If true, include refunds with status `pending` in the aggregation; otherwise only include `succeeded`
+ * @param opts.getFreshPayload - Optional factory to obtain a new Payload when the current one is not connected
  */
 export async function recomputeRefundState(opts: {
   payload: Payload;
