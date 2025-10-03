@@ -57,6 +57,7 @@ export type OrderSummaryDTO = {
   productId: string;
   productIds?: string[]; // All product IDs in the order when multiple items exist
   shipping?: ShippingAddress;
+  items?: OrderItemDTO[];
 };
 
 type BaseOrderSummaryProps = {

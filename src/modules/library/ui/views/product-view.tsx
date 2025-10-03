@@ -1,7 +1,11 @@
 'use client';
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import {
+  useQueryClient,
+  useSuspenseQuery,
+  useQuery
+} from '@tanstack/react-query';
 import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -33,7 +37,7 @@ const neoBrut =
 
 export const ProductView = ({ productId, orderId }: Props) => {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [mounted, setMounted] = useState(false); // <-- hydration-safe guard
+  const [mounted, setMounted] = useState(false); // hydration-safe guard
   useEffect(() => setMounted(true), []);
 
   const trpc = useTRPC();
@@ -58,43 +62,66 @@ export const ProductView = ({ productId, orderId }: Props) => {
     !!user?.tenants?.some(
       (tenant) => relId<Tenant>(tenant.tenant) === tenantId
     );
+
   const trackingProvided = false;
   const trackingNumber = '69420';
-
   const success = search.get('success') === 'true';
 
-  const orderQueryOptions = useMemo(
+  // Summary for sidebar (fast)
+  const orderSummaryQuery = useMemo(
     () => trpc.orders.getForBuyerById.queryOptions({ orderId }),
     [trpc, orderId]
   );
-  const { data: order } = useSuspenseQuery(orderQueryOptions);
+  const { data: order } = useSuspenseQuery(orderSummaryQuery);
 
-  const orderForInvoice: OrderForBuyer | null = useMemo(() => {
-    if (!order) return null; // `order` is OrderSummaryDTO
+  // Full order (for invoice) — fetched **on demand**
+  const fullOrderQuery = useMemo(
+    () => trpc.orders.getForBuyerFull.queryOptions({ orderId }),
+    [trpc, orderId]
+  );
+  const {
+    data: fullOrder,
+    refetch: refetchFullOrder,
+    isFetching: isFetchingFullOrder
+  } = useQuery({
+    ...fullOrderQuery,
+    enabled: false, // only when opening the invoice
+    refetchOnWindowFocus: false
+  });
+
+  // Summary → OrderForBuyer fallback shape for the dialog
+  const orderForInvoiceFallback: OrderForBuyer | null = useMemo(() => {
+    if (!order) return null;
     return {
-      id: order.orderId, // satisfy required id
+      id: order.orderId,
       orderNumber: order.orderNumber,
       orderDateISO: order.orderDateISO,
       totalCents: order.totalCents,
       currency: order.currency,
       quantity: order.quantity,
-      // items: not available on the summary; let the dialog fall back to productNameFallback
-      items: undefined,
-      buyerEmail: null, // summary doesn’t include it
+      items: undefined, // summary doesn’t include items; dialog will show a 1-row fallback
+      buyerEmail: null,
       shipping: order.shipping ?? null,
       returnsAcceptedThroughISO: order.returnsAcceptedThroughISO ?? null
     };
   }, [order]);
 
+  // Open invoice → show dialog immediately, then fetch full order
+  const openInvoice = () => {
+    setInvoiceOpen(true);
+    void refetchFullOrder();
+  };
+
+  // After success param, refresh the summary and clean URL
   useEffect(() => {
     if (!success) return;
     void queryClient.invalidateQueries({
-      queryKey: orderQueryOptions.queryKey
+      queryKey: orderSummaryQuery.queryKey
     });
     const url = new URL(window.location.href);
     url.searchParams.delete('success');
     router.replace(url.pathname + url.search, { scroll: false });
-  }, [success, orderQueryOptions.queryKey, queryClient, router]);
+  }, [success, orderSummaryQuery.queryKey, queryClient, router]);
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
@@ -204,17 +231,24 @@ export const ProductView = ({ productId, orderId }: Props) => {
                     <Button
                       className="justify-start border-2 border-black"
                       variant="secondary"
-                      onClick={() => setInvoiceOpen(true)}
-                      disabled={!order}
+                      onClick={openInvoice}
+                      disabled={!order || isFetchingFullOrder}
                     >
                       <Receipt className="mr-2 size-4" />
-                      View invoice
+                      {isFetchingFullOrder
+                        ? 'Loading invoice…'
+                        : 'View invoice'}
                     </Button>
+
                     {order && (
                       <InvoiceDialog
                         open={invoiceOpen}
                         onOpenChange={setInvoiceOpen}
-                        order={orderForInvoice}
+                        // Prefer the full order (has items[]). Fallback to summary.
+                        order={
+                          (fullOrder as OrderForBuyer | null) ??
+                          orderForInvoiceFallback
+                        }
                         productNameFallback={product.name}
                         sellerName={sellerName}
                         sellerEmail={sellerEmail ?? 'Seller'}

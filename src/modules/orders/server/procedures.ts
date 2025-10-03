@@ -8,6 +8,8 @@ import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
 import { mapOrderToSummary, mapOrderToConfirmation } from './utils';
+import { relId } from '@/lib/relationshipHelpers';
+import { mapOrderToBuyer } from './utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
@@ -292,5 +294,26 @@ export const ordersRouter = createTRPCRouter({
       const nextPage = res.page < res.totalPages ? res.page + 1 : null;
 
       return { docs, nextPage };
+    }),
+  getForBuyerFull: protectedProcedure
+    .input(z.object({ orderId: z.string().min(1) }))
+    .query(async ({ ctx, input }) => {
+      const doc = (await ctx.db.findByID({
+        collection: 'orders',
+        id: input.orderId,
+        depth: 0,
+        overrideAccess: false,
+        req: { user: ctx.session.user }
+      })) as Order | null;
+
+      if (!doc) throw new TRPCError({ code: 'NOT_FOUND' });
+
+      // Buyer guard (defense in depth; access layer should already filter)
+      const buyerId = relId(doc.buyer);
+      if (!buyerId || buyerId !== ctx.session.user?.id) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+
+      return mapOrderToBuyer(doc);
     })
 });

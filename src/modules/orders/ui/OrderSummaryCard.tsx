@@ -6,6 +6,11 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { OrderSummaryCardProps } from '../types';
 import { hasTotalCents, hasTotalPaid } from './utils-client';
 
+/**
+ * Render an order details card showing order date, total paid, order number, returns deadline, and optional shipping address.
+ *
+ * @returns A JSX element representing the order details card.
+ */
 export function OrderSummaryCard(props: OrderSummaryCardProps) {
   const {
     orderDate,
@@ -33,8 +38,6 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
   } catch {
     totalFormatted = `${currencyCode} ${totalDollars.toFixed(2)}`;
   }
-
-  const quantity = Math.max(1, Number(props.quantity ?? 1) || 1);
 
   const fmtDate = (d?: string | Date | null) => {
     if (!d) return '—';
@@ -64,7 +67,6 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
 
       <CardContent className="grid gap-3 text-sm">
         <Row label="Order date" value={fmtDate(orderDate)} />
-        <Row label="Quantity" value={quantity} />
         <Row label="Total paid" value={totalFormatted} strong />
         <Row
           label="Order #"

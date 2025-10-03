@@ -8,6 +8,8 @@ import type {
   OrderItemDTO,
   OrderSummaryDTO
 } from '../types';
+import { Order, Product, Tenant } from '@/payload-types';
+import { OrderForBuyer } from '@/modules/library/ui/components/types';
 
 // ───────────────────────────────────────────
 // Basic assertions
@@ -285,6 +287,12 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   };
 }
 
+/**
+ * Builds an OrderConfirmationDTO from a raw order document.
+ *
+ * @param orderDocument - The raw order record to convert; must be an object containing a non-empty `items` array and standard order fields (id, orderNumber, createdAt, currency, total).
+ * @returns The mapped OrderConfirmationDTO containing orderId, orderNumber, orderDateISO, uppercased currency, totalCents, optional returnsAcceptedThroughISO, optional receiptUrl, optional tenantSlug, mapped items, and optional shipping snapshot.
+ */
 export function mapOrderToConfirmation(
   orderDocument: unknown
 ): OrderConfirmationDTO {
@@ -354,5 +362,182 @@ export function mapOrderToConfirmation(
     tenantSlug,
     items,
     shipping
+  };
+}
+
+export type OrderItemDoc =
+  NonNullable<Order['items']> extends Array<infer T> ? T : never;
+
+/**
+ * Check whether a value is a Product-like object that contains an `id` property.
+ *
+ * @param val - Value to test for a Product shape
+ * @returns `true` if `val` is an object with an `id` property, `false` otherwise.
+ */
+export function isProductObject(val: unknown): val is Product {
+  return (
+    !!val && typeof val === 'object' && typeof (val as Product).id === 'string'
+  );
+}
+/**
+ * Narrow a value's type to `Tenant` when it contains a `slug` property.
+ *
+ * @param val - The value to test for the `Tenant` shape
+ * @returns `true` if `val` is an object with a `slug` property (a `Tenant`), `false` otherwise.
+ */
+export function isTenantObject(val: unknown): val is Tenant {
+  return (
+    !!val && typeof val === 'object' && typeof (val as Tenant).slug === 'string'
+  );
+}
+/**
+ * Resolve a relational reference to its string identifier.
+ *
+ * @param rel - A relational reference: either a string ID, an object that may contain an `id` string, or null/undefined.
+ * @returns The string identifier if present, `undefined` otherwise.
+ */
+export function getRelIdStrict(
+  rel: string | { id?: string | null } | null | undefined
+): string | undefined {
+  if (typeof rel === 'string') return rel;
+  if (rel && typeof rel === 'object' && typeof rel.id === 'string') {
+    return rel.id;
+  }
+  return undefined;
+}
+/**
+ * Normalize an unknown value to a number using a fallback.
+ *
+ * @param n - The value to check for being a number
+ * @param fallback - The number to use when `n` is not a number (defaults to `0`)
+ * @returns The numeric input `n` if it is a number, otherwise `fallback`
+ */
+export function safeNumber(n: unknown, fallback = 0): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
+}
+/**
+ * Normalize a value into a positive integer, using a fallback when invalid.
+ *
+ * @param n - Value to validate as a positive integer
+ * @param fallback - Value to return when `n` is not an integer greater than 0 (defaults to `1`)
+ * @returns `n` as a number if it is an integer greater than 0, `fallback` otherwise
+ */
+export function safePositiveInt(n: unknown, fallback = 1): number {
+  return Number.isInteger(n) && (n as number) > 0 ? (n as number) : fallback;
+}
+
+/**
+ * Builds a buyer-focused OrderForBuyer object from a raw Order document.
+ *
+ * @param doc - The source Order document to map
+ * @returns An OrderForBuyer containing normalized buyer-facing fields:
+ * - `id` (stringified), `orderNumber`, `orderDateISO` (if present),
+ * - `totalCents`, `currency` (uppercased), `quantity` (at least 1),
+ * - `items` (mapped array or `undefined`), `buyerEmail` (string or `null`),
+ * - `shipping` (normalized shipping snapshot or `null`), and
+ * - `returnsAcceptedThroughISO` (string or `null`)
+ */
+export function mapOrderToBuyer(doc: Order): OrderForBuyer {
+  const totalCents = safeNumber(doc.total, 0);
+  const currency = (doc.currency ?? 'USD').toUpperCase();
+
+  const itemsArray: OrderItemDoc[] = Array.isArray(doc.items) ? doc.items : [];
+
+  const quantity = itemsArray.reduce((sum, item) => {
+    return sum + safePositiveInt(item?.quantity, 1);
+  }, 0);
+
+  const items =
+    itemsArray.length > 0
+      ? itemsArray.map((item) => {
+          const id =
+            typeof item.id === 'string' && item.id.length > 0
+              ? item.id
+              : undefined;
+
+          const product = getRelIdStrict(
+            (item.product as string | { id?: string } | null | undefined) ??
+              null
+          );
+
+          const nameSnapshot =
+            typeof item.nameSnapshot === 'string'
+              ? item.nameSnapshot
+              : undefined;
+
+          const unitAmount =
+            typeof item.unitAmount === 'number' ? item.unitAmount : undefined;
+
+          const quantity = safePositiveInt(item.quantity, 1);
+
+          const amountSubtotal =
+            typeof item.amountSubtotal === 'number'
+              ? item.amountSubtotal
+              : undefined;
+
+          const amountTax =
+            typeof item.amountTax === 'number' ? item.amountTax : undefined;
+
+          const amountTotal =
+            typeof item.amountTotal === 'number' ? item.amountTotal : undefined;
+
+          const refundPolicy =
+            typeof item.refundPolicy === 'string'
+              ? item.refundPolicy
+              : undefined;
+
+          const returnsAcceptedThrough =
+            typeof item.returnsAcceptedThrough === 'string'
+              ? item.returnsAcceptedThrough
+              : undefined;
+
+          return {
+            id,
+            product,
+            nameSnapshot,
+            unitAmount,
+            quantity,
+            amountSubtotal,
+            amountTax,
+            amountTotal,
+            refundPolicy,
+            returnsAcceptedThrough
+          };
+        })
+      : undefined;
+
+  const buyerEmail =
+    typeof (doc as { buyerEmail?: string | null }).buyerEmail === 'string'
+      ? (doc as { buyerEmail?: string | null }).buyerEmail
+      : null;
+
+  const shippingRaw = (doc as { shipping?: unknown }).shipping;
+  const normalizedShipping = readShippingFromOrder(shippingRaw);
+  const shipping =
+    normalizedShipping ??
+    (shippingRaw &&
+    typeof shippingRaw === 'object' &&
+    !Array.isArray(shippingRaw)
+      ? (shippingRaw as OrderForBuyer['shipping'])
+      : null);
+
+  const returnsAcceptedThroughISO =
+    typeof (doc as { returnsAcceptedThrough?: string | null })
+      .returnsAcceptedThrough === 'string'
+      ? (doc as { returnsAcceptedThrough?: string | null })
+          .returnsAcceptedThrough
+      : null;
+
+  return {
+    id: String(doc.id),
+    orderNumber: doc.orderNumber,
+    orderDateISO: (doc as { createdAt?: string })?.createdAt ?? undefined,
+    totalCents,
+    currency,
+    quantity: quantity > 0 ? quantity : 1,
+    items,
+    buyerEmail,
+    shipping,
+    returnsAcceptedThroughISO
   };
 }

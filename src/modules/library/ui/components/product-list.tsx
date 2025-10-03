@@ -14,43 +14,77 @@ export const ProductList = () => {
   const { data, hasNextPage, isFetchingNextPage, fetchNextPage } =
     useSuspenseInfiniteQuery(
       trpc.library.getMany.infiniteQueryOptions(
+        { limit: DEFAULT_LIMIT },
         {
-          limit: DEFAULT_LIMIT
-        },
-        {
-          getNextPageParam: (lastPage) => {
-            return lastPage.docs.length > 0 ? lastPage.nextPage : undefined;
-          }
+          getNextPageParam: (lastPage) =>
+            lastPage.docs.length > 0 ? lastPage.nextPage : undefined
         }
       )
     );
 
-  if (!data?.pages || data.pages[0]?.docs.length === 0) {
+  // 1) Flatten
+  const rows = data?.pages.flatMap((p) => p.docs) ?? [];
+
+  // 2) Group ONLY by orderId (skip rows without an orderId)
+  // const byOrder = new Map<string, typeof rows>();
+  type Row = (typeof rows)[number];
+  const byOrder = new Map<string, Row[]>();
+  for (const row of rows) {
+    if (typeof row.orderId !== 'string' || row.orderId.length === 0) continue;
+    const bucket = byOrder.get(row.orderId) ?? [];
+    bucket.push(row);
+    byOrder.set(row.orderId, bucket);
+  }
+
+  // 3) One card per order
+  const cards = Array.from(byOrder.entries()).map(([orderId, items]) => {
+    const first = items[0]!;
+    const extraCount = items.length - 1;
+
+    // Safe base title from the first item; never undefined
+    const baseTitle = (typeof first.name === 'string' && first.name) || 'Order';
+
+    const title =
+      extraCount > 0 ? `${baseTitle} (+${extraCount} more)` : baseTitle;
+
+    return {
+      orderId,
+      title,
+      imageURL: first.image?.url ?? null,
+      tenantSlug: first.tenant?.slug ?? '',
+      tenantImageURL: first.tenant?.image?.url ?? null,
+      reviewRating:
+        typeof first.reviewRating === 'number' ? first.reviewRating : 0,
+      reviewCount: typeof first.reviewCount === 'number' ? first.reviewCount : 0
+    };
+  });
+
+  if (cards.length === 0) {
     return (
       <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-y-4 bg-white rounded-lg">
         <InboxIcon />
-        <p className="text-base font-medium">No products found </p>
+        <p className="text-base font-medium">No orders found</p>
       </div>
     );
   }
+
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-        {data?.pages
-          .flatMap((page) => page.docs)
-          .map((product) => (
-            <ProductCard
-              key={product.id}
-              orderId={product.orderId}
-              name={product.name}
-              imageURL={product.image?.url ?? null}
-              tenantSlug={product.tenant?.slug ?? ''}
-              tenantImageURL={product.tenant?.image?.url ?? null}
-              reviewRating={product.reviewRating}
-              reviewCount={product.reviewCount}
-            />
-          ))}
+        {cards.map((c) => (
+          <ProductCard
+            key={c.orderId}
+            orderId={c.orderId}
+            name={c.title}
+            imageURL={c.imageURL}
+            tenantSlug={c.tenantSlug}
+            tenantImageURL={c.tenantImageURL}
+            reviewRating={c.reviewRating}
+            reviewCount={c.reviewCount}
+          />
+        ))}
       </div>
+
       <div className="flex justify-center pt-8">
         {hasNextPage && (
           <Button
@@ -67,12 +101,10 @@ export const ProductList = () => {
   );
 };
 
-export const ProductListSkeleton = () => {
-  return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-      {Array.from({ length: DEFAULT_LIMIT }).map((_, index) => (
-        <ProductCardSkeleton key={index} />
-      ))}
-    </div>
-  );
-};
+export const ProductListSkeleton = () => (
+  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
+    {Array.from({ length: DEFAULT_LIMIT }).map((_, index) => (
+      <ProductCardSkeleton key={index} />
+    ))}
+  </div>
+);
