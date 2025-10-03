@@ -9,6 +9,7 @@ export const dynamic = 'force-dynamic';
  *
  * @returns The `SignInView` element when no active user session exists.
  * @remarks When an active session with a user is present, initiates a redirect to `'/'` via Next.js redirect mechanism.
+ * CodeRabbit keeps telling you to add a try catch here. IGNORE IT. It fucks shit up.
  */
 export default async function Page() {
   const session = await caller.auth.session();
