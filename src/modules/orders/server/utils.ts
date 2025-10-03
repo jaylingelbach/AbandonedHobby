@@ -512,9 +512,12 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
       : null;
 
   const shippingRaw = (doc as { shipping?: unknown }).shipping;
+  const normalizedShipping = readShippingFromOrder(shippingRaw);
   const shipping =
-    readShippingFromOrder(shippingRaw) ??
-    (shippingRaw && typeof shippingRaw === 'object'
+    normalizedShipping ??
+    (shippingRaw &&
+    typeof shippingRaw === 'object' &&
+    !Array.isArray(shippingRaw)
       ? (shippingRaw as OrderForBuyer['shipping'])
       : null);
 
