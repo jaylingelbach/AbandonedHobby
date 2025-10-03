@@ -26,7 +26,9 @@ export const ProductList = () => {
   const rows = data?.pages.flatMap((p) => p.docs) ?? [];
 
   // 2) Group ONLY by orderId (skip rows without an orderId)
-  const byOrder = new Map<string, typeof rows>();
+  // const byOrder = new Map<string, typeof rows>();
+  type Row = (typeof rows)[number];
+  const byOrder = new Map<string, Row[]>();
   for (const row of rows) {
     if (typeof row.orderId !== 'string' || row.orderId.length === 0) continue;
     const bucket = byOrder.get(row.orderId) ?? [];
@@ -35,31 +37,27 @@ export const ProductList = () => {
   }
 
   // 3) One card per order
-  const cards = Array.from(byOrder.entries())
-    .filter(([, items]) => items.length > 0)
-    .map(([orderId, items]) => {
-      const first = items[0]!;
-      const extraCount = items.length - 1;
+  const cards = Array.from(byOrder.entries()).map(([orderId, items]) => {
+    const first = items[0]!;
+    const extraCount = items.length - 1;
 
-      // Safe base title from the first item; never undefined
-      const baseTitle =
-        (typeof first.name === 'string' && first.name) || 'Order';
+    // Safe base title from the first item; never undefined
+    const baseTitle = (typeof first.name === 'string' && first.name) || 'Order';
 
-      const title =
-        extraCount > 0 ? `${baseTitle} (+${extraCount} more)` : baseTitle;
+    const title =
+      extraCount > 0 ? `${baseTitle} (+${extraCount} more)` : baseTitle;
 
-      return {
-        orderId,
-        title,
-        imageURL: first.image?.url ?? null,
-        tenantSlug: first.tenant?.slug ?? '',
-        tenantImageURL: first.tenant?.image?.url ?? null,
-        reviewRating:
-          typeof first.reviewRating === 'number' ? first.reviewRating : 0,
-        reviewCount:
-          typeof first.reviewCount === 'number' ? first.reviewCount : 0
-      };
-    });
+    return {
+      orderId,
+      title,
+      imageURL: first.image?.url ?? null,
+      tenantSlug: first.tenant?.slug ?? '',
+      tenantImageURL: first.tenant?.image?.url ?? null,
+      reviewRating:
+        typeof first.reviewRating === 'number' ? first.reviewRating : 0,
+      reviewCount: typeof first.reviewCount === 'number' ? first.reviewCount : 0
+    };
+  });
 
   if (cards.length === 0) {
     return (

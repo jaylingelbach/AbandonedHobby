@@ -375,7 +375,9 @@ export type OrderItemDoc =
  * @returns `true` if `val` is an object with an `id` property, `false` otherwise.
  */
 export function isProductObject(val: unknown): val is Product {
-  return !!val && typeof val === 'object' && 'id' in (val as Product);
+  return (
+    !!val && typeof val === 'object' && typeof (val as Product).id === 'string'
+  );
 }
 /**
  * Narrow a value's type to `Tenant` when it contains a `slug` property.
@@ -384,7 +386,9 @@ export function isProductObject(val: unknown): val is Product {
  * @returns `true` if `val` is an object with a `slug` property (a `Tenant`), `false` otherwise.
  */
 export function isTenantObject(val: unknown): val is Tenant {
-  return !!val && typeof val === 'object' && 'slug' in (val as Tenant);
+  return (
+    !!val && typeof val === 'object' && typeof (val as Tenant).slug === 'string'
+  );
 }
 /**
  * Resolve a relational reference to its string identifier.
@@ -409,7 +413,7 @@ export function getRelIdStrict(
  * @returns The numeric input `n` if it is a number, otherwise `fallback`
  */
 export function safeNumber(n: unknown, fallback = 0): number {
-  return typeof n === 'number' ? n : fallback;
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback;
 }
 /**
  * Normalize a value into a positive integer, using a fallback when invalid.

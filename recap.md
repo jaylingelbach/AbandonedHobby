@@ -3569,3 +3569,65 @@ Added recap covering the Orders transition and onboarding behavior.
 
 - src/modules/stripe/guards.ts
   - Reordered catch block to early-return on unique constraint violations; continues to rethrow non-unique errors; added comment; no signature or export changes.
+
+# Combine items in order route 10/02/25
+
+## Walkthrough
+
+- Adds buyer-facing order retrieval and shaping: new TRPC procedure to fetch a full order for the buyer, mapping utilities for consistent order DTOs, expanded order types, and UI wiring to fetch and display invoice data. Also adjusts access filters to combine buyer/seller scopes, reworks product listing to group by order, and minor auth/page refactors.
+
+## Features
+
+- Order list now groups items by order with clearer titles, cover images, and “No orders found” empty state.
+- Invoice view fetches full order details on demand; button shows loading and opens invoice with richer data.
+- Users with buyer or seller roles can see applicable orders based on their access.
+
+## Improvements
+
+- Order summaries now include item-level details for better context.
+
+## Bug Fixes
+
+- More robust invoice line-items handling with safe fallbacks.
+- Removed redundant “Quantity” row from Order Summary card for accuracy.
+
+## File changes
+
+### Auth sign-in page
+
+src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function; removed try/catch and dynamic export; direct session check with redirect; renders SignInView otherwise.
+
+### Orders lib types/utils
+
+- src/lib/orders/types.ts, src/lib/orders/utils.ts
+  - Added OrderWithItems and OrderItemLite types. Introduced utilities: dedupeOrdersById, computeOrderTitle, computeOrderCover.
+
+### Payload access for orders
+
+- src/lib/server/payload-utils/orders.ts
+  - readOrdersAccess now returns OR of buyer ID and seller tenant IDs; denies when missing user ID; preserves super-admin access.
+
+### Library components (invoice, product list)
+
+- src/modules/library/ui/components/invoice-dialog.tsx, src/modules/library/ui/components/product-list.tsx
+  - Invoice dialog hardens items derivation with Array.isArray and fallback item. Product list adds pagination limit, simplifies next-page, groups items by order to render one card per order, updates empty state.
+
+### Library view (product)
+
+- src/modules/library/ui/views/product-view.tsx
+  - Switches to orderSummaryQuery; adds disabled useQuery to fetch full order on demand; wires invoice button to fetch and open dialog; invalidates summary on success and cleans URL.
+
+### Orders server procedures/utils
+
+- src/modules/orders/server/procedures.ts, src/modules/orders/server/utils.ts
+  - Adds getForBuyerFull procedure: fetch-by-id, buyer-ownership check, returns mapOrderToBuyer(doc). Introduces mapping and safety helpers: mapOrderToBuyer, relational ID guards, numeric sanitizers, and type guards.
+
+### Orders types
+
+- src/modules/orders/types.ts
+  - Extends OrderSummaryDTO with optional items?: OrderItemDTO[].
+
+### Orders UI
+
+- src/modules/orders/ui/OrderSummaryCard.tsx
+  - Removes “Quantity” row; no other UI changes.
