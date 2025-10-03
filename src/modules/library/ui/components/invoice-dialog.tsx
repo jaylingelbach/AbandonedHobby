@@ -53,9 +53,12 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
   } = props;
   const [isDownloading, setIsDownloading] = useState(false);
   const currency = (order?.currency ?? 'USD').toUpperCase();
-
   const lineItems: OrderItem[] = useMemo(() => {
-    if (order?.items && order.items.length > 0) return order.items;
+    // If the order came with items, render them all—no fallback.
+    if (Array.isArray(order?.items) && order.items.length > 0) {
+      return order.items;
+    }
+    // Fallback to 1 line if you opened the modal from a card without fetching the full order yet
     const qty = order?.quantity ?? 1;
     const total = order?.totalCents ?? 0;
     const unit = Math.round(total / Math.max(qty, 1));

@@ -8,6 +8,8 @@ import type {
   OrderItemDTO,
   OrderSummaryDTO
 } from '../types';
+import { Order, Product, Tenant } from '@/payload-types';
+import { OrderForBuyer } from '@/modules/library/ui/components/types';
 
 // ───────────────────────────────────────────
 // Basic assertions
@@ -354,5 +356,132 @@ export function mapOrderToConfirmation(
     tenantSlug,
     items,
     shipping
+  };
+}
+
+export type OrderItemDoc =
+  NonNullable<Order['items']> extends Array<infer T> ? T : never;
+
+export function isProductObject(val: unknown): val is Product {
+  return !!val && typeof val === 'object' && 'id' in (val as Product);
+}
+export function isTenantObject(val: unknown): val is Tenant {
+  return !!val && typeof val === 'object' && 'slug' in (val as Tenant);
+}
+export function getRelIdStrict(
+  rel: string | { id?: string | null } | null | undefined
+): string | undefined {
+  if (typeof rel === 'string') return rel;
+  if (rel && typeof rel === 'object' && typeof rel.id === 'string') {
+    return rel.id;
+  }
+  return undefined;
+}
+export function safeNumber(n: unknown, fallback = 0): number {
+  return typeof n === 'number' ? n : fallback;
+}
+export function safePositiveInt(n: unknown, fallback = 1): number {
+  return Number.isInteger(n) && (n as number) > 0 ? (n as number) : fallback;
+}
+
+export function mapOrderToBuyer(doc: Order): OrderForBuyer {
+  const totalCents = safeNumber(doc.total, 0);
+  const currency = (doc.currency ?? 'USD').toUpperCase();
+
+  const itemsArray: OrderItemDoc[] = Array.isArray(doc.items) ? doc.items : [];
+
+  const quantity = itemsArray.reduce((sum, item) => {
+    return sum + safePositiveInt(item?.quantity, 1);
+  }, 0);
+
+  const items =
+    itemsArray.length > 0
+      ? itemsArray.map((item) => {
+          const id =
+            typeof item.id === 'string' && item.id.length > 0
+              ? item.id
+              : undefined;
+
+          const product = getRelIdStrict(
+            (item.product as string | { id?: string } | null | undefined) ??
+              null
+          );
+
+          const nameSnapshot =
+            typeof item.nameSnapshot === 'string'
+              ? item.nameSnapshot
+              : undefined;
+
+          const unitAmount =
+            typeof item.unitAmount === 'number' ? item.unitAmount : undefined;
+
+          const quantity = safePositiveInt(item.quantity, 1);
+
+          const amountSubtotal =
+            typeof item.amountSubtotal === 'number'
+              ? item.amountSubtotal
+              : undefined;
+
+          const amountTax =
+            typeof item.amountTax === 'number' ? item.amountTax : undefined;
+
+          const amountTotal =
+            typeof item.amountTotal === 'number' ? item.amountTotal : undefined;
+
+          const refundPolicy =
+            typeof item.refundPolicy === 'string'
+              ? item.refundPolicy
+              : undefined;
+
+          const returnsAcceptedThrough =
+            typeof item.returnsAcceptedThrough === 'string'
+              ? item.returnsAcceptedThrough
+              : undefined;
+
+          return {
+            id,
+            product,
+            nameSnapshot,
+            unitAmount,
+            quantity,
+            amountSubtotal,
+            amountTax,
+            amountTotal,
+            refundPolicy,
+            returnsAcceptedThrough
+          };
+        })
+      : undefined;
+
+  const buyerEmail =
+    typeof (doc as { buyerEmail?: string | null }).buyerEmail === 'string'
+      ? (doc as { buyerEmail?: string | null }).buyerEmail
+      : null;
+
+  const shippingRaw = (doc as { shipping?: unknown }).shipping;
+  const shipping =
+    readShippingFromOrder(shippingRaw) ??
+    (shippingRaw && typeof shippingRaw === 'object'
+      ? (shippingRaw as OrderForBuyer['shipping'])
+      : null);
+
+  const returnsAcceptedThroughISO =
+    typeof (doc as { returnsAcceptedThrough?: string | null })
+      .returnsAcceptedThrough === 'string'
+      ? (doc as { returnsAcceptedThrough?: string | null })
+          .returnsAcceptedThrough
+      : null;
+
+  return {
+    id: String(doc.id),
+    orderNumber: doc.orderNumber,
+    orderDateISO: (doc as { createdAt?: string })?.createdAt ?? undefined,
+    totalCents,
+    currency,
+    quantity: quantity > 0 ? quantity : 1,
+    items,
+    buyerEmail,
+    shipping,
+    returnsAcceptedThroughISO
   };
 }

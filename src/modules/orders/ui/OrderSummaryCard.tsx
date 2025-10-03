@@ -34,8 +34,6 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
     totalFormatted = `${currencyCode} ${totalDollars.toFixed(2)}`;
   }
 
-  const quantity = Math.max(1, Number(props.quantity ?? 1) || 1);
-
   const fmtDate = (d?: string | Date | null) => {
     if (!d) return '—';
     const date = typeof d === 'string' ? new Date(d) : d;
@@ -64,7 +62,6 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
 
       <CardContent className="grid gap-3 text-sm">
         <Row label="Order date" value={fmtDate(orderDate)} />
-        <Row label="Quantity" value={quantity} />
         <Row label="Total paid" value={totalFormatted} strong />
         <Row
           label="Order #"

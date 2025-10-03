@@ -118,14 +118,36 @@ export function isSellerOfOrderDoc(
  * @param {{ req: { user?: unknown } }} ctx - Payload access args (only `req.user` is used).
  * @returns {boolean | Where} `true` (super-admin), `false` (no access), or tenant filter.
  */
+// export const readOrdersAccess: Access = ({ req: { user } }) => {
+//   if (isSuperAdmin(user)) return true;
+
+//   const tenantIds = getTenantIdsFromUser(user);
+//   if (tenantIds.length === 0) return false;
+
+//   const where: Where = { sellerTenant: { in: tenantIds } };
+//   return where;
+// };
 export const readOrdersAccess: Access = ({ req: { user } }) => {
+  // Super-admins: full access
   if (isSuperAdmin(user)) return true;
 
-  const tenantIds = getTenantIdsFromUser(user);
-  if (tenantIds.length === 0) return false;
+  // No user -> no access
+  if (!user?.id) return false;
 
-  const where: Where = { sellerTenant: { in: tenantIds } };
-  return where;
+  // Buyer can read their own orders
+  const buyerFilter: Where = { buyer: { equals: user.id } };
+
+  // Seller can read orders for any of their tenants
+  const tenantIds = getTenantIdsFromUser(user);
+
+  if (tenantIds.length > 0) {
+    const sellerFilter: Where = { sellerTenant: { in: tenantIds } };
+    // Return OR of buyer + seller scopes
+    return { or: [buyerFilter, sellerFilter] };
+  }
+
+  // Only buyer scope
+  return buyerFilter;
 };
 
 /**
