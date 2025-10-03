@@ -287,6 +287,12 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   };
 }
 
+/**
+ * Builds an OrderConfirmationDTO from a raw order document.
+ *
+ * @param orderDocument - The raw order record to convert; must be an object containing a non-empty `items` array and standard order fields (id, orderNumber, createdAt, currency, total).
+ * @returns The mapped OrderConfirmationDTO containing orderId, orderNumber, orderDateISO, uppercased currency, totalCents, optional returnsAcceptedThroughISO, optional receiptUrl, optional tenantSlug, mapped items, and optional shipping snapshot.
+ */
 export function mapOrderToConfirmation(
   orderDocument: unknown
 ): OrderConfirmationDTO {
@@ -362,12 +368,30 @@ export function mapOrderToConfirmation(
 export type OrderItemDoc =
   NonNullable<Order['items']> extends Array<infer T> ? T : never;
 
+/**
+ * Check whether a value is a Product-like object that contains an `id` property.
+ *
+ * @param val - Value to test for a Product shape
+ * @returns `true` if `val` is an object with an `id` property, `false` otherwise.
+ */
 export function isProductObject(val: unknown): val is Product {
   return !!val && typeof val === 'object' && 'id' in (val as Product);
 }
+/**
+ * Narrow a value's type to `Tenant` when it contains a `slug` property.
+ *
+ * @param val - The value to test for the `Tenant` shape
+ * @returns `true` if `val` is an object with a `slug` property (a `Tenant`), `false` otherwise.
+ */
 export function isTenantObject(val: unknown): val is Tenant {
   return !!val && typeof val === 'object' && 'slug' in (val as Tenant);
 }
+/**
+ * Resolve a relational reference to its string identifier.
+ *
+ * @param rel - A relational reference: either a string ID, an object that may contain an `id` string, or null/undefined.
+ * @returns The string identifier if present, `undefined` otherwise.
+ */
 export function getRelIdStrict(
   rel: string | { id?: string | null } | null | undefined
 ): string | undefined {
@@ -377,13 +401,38 @@ export function getRelIdStrict(
   }
   return undefined;
 }
+/**
+ * Normalize an unknown value to a number using a fallback.
+ *
+ * @param n - The value to check for being a number
+ * @param fallback - The number to use when `n` is not a number (defaults to `0`)
+ * @returns The numeric input `n` if it is a number, otherwise `fallback`
+ */
 export function safeNumber(n: unknown, fallback = 0): number {
   return typeof n === 'number' ? n : fallback;
 }
+/**
+ * Normalize a value into a positive integer, using a fallback when invalid.
+ *
+ * @param n - Value to validate as a positive integer
+ * @param fallback - Value to return when `n` is not an integer greater than 0 (defaults to `1`)
+ * @returns `n` as a number if it is an integer greater than 0, `fallback` otherwise
+ */
 export function safePositiveInt(n: unknown, fallback = 1): number {
   return Number.isInteger(n) && (n as number) > 0 ? (n as number) : fallback;
 }
 
+/**
+ * Builds a buyer-focused OrderForBuyer object from a raw Order document.
+ *
+ * @param doc - The source Order document to map
+ * @returns An OrderForBuyer containing normalized buyer-facing fields:
+ * - `id` (stringified), `orderNumber`, `orderDateISO` (if present),
+ * - `totalCents`, `currency` (uppercased), `quantity` (at least 1),
+ * - `items` (mapped array or `undefined`), `buyerEmail` (string or `null`),
+ * - `shipping` (normalized shipping snapshot or `null`), and
+ * - `returnsAcceptedThroughISO` (string or `null`)
+ */
 export function mapOrderToBuyer(doc: Order): OrderForBuyer {
   const totalCents = safeNumber(doc.total, 0);
   const currency = (doc.currency ?? 'USD').toUpperCase();

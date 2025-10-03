@@ -6,6 +6,11 @@ import { formatCurrency, cn } from '@/lib/utils';
 import { OrderSummaryCardProps } from '../types';
 import { hasTotalCents, hasTotalPaid } from './utils-client';
 
+/**
+ * Render an order details card showing order date, total paid, order number, returns deadline, and optional shipping address.
+ *
+ * @returns A JSX element representing the order details card.
+ */
 export function OrderSummaryCard(props: OrderSummaryCardProps) {
   const {
     orderDate,
