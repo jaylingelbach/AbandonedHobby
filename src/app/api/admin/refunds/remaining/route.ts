@@ -73,11 +73,10 @@ export async function GET(req: NextRequest) {
     }>) {
       for (const selection of doc.selections ?? []) {
         if (!selection?.itemId) continue;
-        refundedQtyByItemId.set(
-          selection.itemId,
+        const nextQty =
           (refundedQtyByItemId.get(selection.itemId) ?? 0) +
-            (selection.quantity ?? 0)
-        );
+          Number(selection.quantity ?? 0);
+        refundedQtyByItemId.set(selection.itemId, nextQty);
       }
     }
 

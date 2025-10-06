@@ -73,18 +73,29 @@ export function RefundManager() {
         `/api/admin/refunds/remaining?orderId=${orderId}&includePending=true`,
         { credentials: 'include', cache: 'no-store' }
       );
-      if (!response.ok) return;
+      if (!response.ok) {
+        setRemainingQtyByItemId({});
+        setRemainingCentsFromServer(null);
+        return;
+      }
+
       const json = (await response.json()) as {
         ok?: boolean;
         byItemId?: Record<string, number>;
         remainingCents?: number;
       };
-      if (!json?.ok) return;
+      if (!json?.ok) {
+        setRemainingQtyByItemId({});
+        setRemainingCentsFromServer(null);
+        return;
+      }
       setRemainingQtyByItemId(json.byItemId ?? {});
       setRemainingCentsFromServer(
         typeof json.remainingCents === 'number' ? json.remainingCents : null
       );
     } catch {
+      setRemainingQtyByItemId({});
+      setRemainingCentsFromServer(null);
       // ignore network hiccups; UI will still prevent invalid refunds
     }
   }
