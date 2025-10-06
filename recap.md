@@ -3653,3 +3653,40 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 ## Refactor
 
 - Replaced the legacy single-click refund button with the new refunds panel.
+
+## File changes
+
+### Admin import map
+
+- src/app/(payload)/admin/importMap.js
+  - Swapped mapping from RefundButton to RefundManager module/symbol.
+
+### Refunds UI (components)
+
+- src/components/custom-payload/refund-button.tsx, src/components/custom-payload/refunds/refund-manager.tsx, src/components/custom-payload/refunds/types.ts, src/components/custom-payload/refunds/utils/ui/utils.ts
+  - Removed RefundButton. Added RefundManager component with refund selection, validation, and submission. - Introduced UI/type utilities, money parsing, clamping, and client idempotency key v2 builder.
+
+### Refunds API (remaining)
+
+- src/app/api/admin/refunds/remaining/route.ts
+  - New GET route returning per-item and total remaining refundable amounts with staff-only access and error handling. Exports runtime = 'nodejs' and GET.
+
+### Schemas and generated types
+
+- src/collections/Orders.ts, src/collections/Users.ts, src/payload-types.ts
+  - Added Orders refunds group field with super-admin read/update access. Enabled saveToJWT: true on Users roles. - Reflected optional refunds in generated payload types.
+
+### Refunds engine and core types
+
+- src/modules/refunds/engine.ts, src/modules/refunds/types.ts, src/modules/refunds/utils.ts
+  -Switched to buildIdempotencyKeyV2 API; removed legacy idempotency helper. Added RefundLine type. Minor formatting.
+
+### Styles / theming
+
+- src/app/(payload)/custom.scss
+  - Major stylesheet reorganization; added comprehensive refunds UI styles and a payload-default theming layer for surfaces/backgrounds and motion utilities.
+
+### Misc formatting
+
+- src/modules/library/ui/components/product-list.tsx
+  - Minor whitespace/trailing comma/comment cleanup; no behavioral changes.
