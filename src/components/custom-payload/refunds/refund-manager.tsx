@@ -69,9 +69,9 @@ export function RefundManager() {
       };
       if (!json?.ok) return;
       setRemainingQtyByItemId(json.byItemId ?? {});
-      if (typeof json.remainingCents === 'number') {
-        setRemainingCentsFromServer(json.remainingCents);
-      }
+      setRemainingCentsFromServer(
+        typeof json.remainingCents === 'number' ? json.remainingCents : null
+      );
     } catch {
       // ignore network hiccups; UI will still prevent invalid refunds
     }

@@ -54,13 +54,9 @@ export async function buildClientIdempotencyKeyV2(input: {
   const normalized = {
     reason: o.reason ?? null,
     restockingFeeCents:
-      typeof o.restockingFeeCents === 'number'
-        ? Math.max(0, o.restockingFeeCents)
-        : 0,
+      typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
     refundShippingCents:
-      typeof o.refundShippingCents === 'number'
-        ? Math.max(0, o.refundShippingCents)
-        : 0,
+      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0,
   };
   const payload = JSON.stringify({
     orderId: input.orderId,

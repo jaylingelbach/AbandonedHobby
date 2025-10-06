@@ -3631,3 +3631,25 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/orders/ui/OrderSummaryCard.tsx
   - Removes “Quantity” row; no other UI changes.
+
+# Combine items in order route 10/05/25
+
+## Walkthrough
+
+## New Features
+
+- Added a staff-only refunds management panel in Order editing: per-item quantities, shipping refunds, restocking fee, live total preview, and “fully refunded” state.
+- Displays remaining refundable amounts per item and overall; prevents over-refunds.
+- Streamlined, responsive grid with skeleton loading and subtle animations.
+
+## Bug Fixes
+
+- Corrected dashboard background and theming consistency across admin views.
+
+## Style
+
+- Introduced new surface tokens and refined button/chip styles for improved clarity and contrast.
+
+## Refactor
+
+- Replaced the legacy single-click refund button with the new refunds panel.
