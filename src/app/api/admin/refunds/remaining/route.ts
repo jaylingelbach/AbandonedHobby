@@ -4,7 +4,13 @@ import config from '@/payload.config';
 
 export const runtime = 'nodejs';
 
-// GET /api/admin/refunds/remaining?orderId=...&includePending=true
+/**
+ * Compute remaining per-item quantities and the remaining order total (in cents) for a specified order.
+ *
+ * Requires an `orderId` query parameter and a staff (super-admin) authenticated user; responds with appropriate HTTP error statuses for missing parameters, unauthorized access, not-found orders, or internal errors.
+ *
+ * @returns An object with `ok: true`, `byItemId` — a mapping from item ID to remaining quantity (non-negative integer), and `remainingCents` — the non-negative remaining order total in cents
+ */
 export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
