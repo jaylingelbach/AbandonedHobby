@@ -62,3 +62,12 @@ export type OrderWithTotals = OrderLike & {
   total?: number | null;
   refundedTotalCents?: number | null;
 };
+
+export type RefundLine = {
+  itemId: string;
+  name: string;
+  unitAmount: number; // cents
+  quantityPurchased: number;
+  quantitySelected: number; // controlled by the UI
+  amountTotal?: number; // optional line total (tax/discount incl)
+};

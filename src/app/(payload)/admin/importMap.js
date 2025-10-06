@@ -1,4 +1,4 @@
-import { RefundButton as RefundButton_f29aaea820df920cae59377ae4bc9aa5 } from '@/components/custom-payload/refund-button.tsx'
+import { RefundManager as RefundManager_afa548313656ae5a7ddf6e03666f1f9c } from '@/components/custom-payload/refunds/refund-manager.tsx'
 import { TenantField as TenantField_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
 import { RscEntryLexicalCell as RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
 import { RscEntryLexicalField as RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e } from '@payloadcms/richtext-lexical/rsc'
@@ -36,7 +36,7 @@ import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7
 import { SellerDashboard as SellerDashboard_b0b31e3aee2c31a4370f81d78a6e7b3e } from '@/payload/views/seller-dashboard.tsx'
 
 export const importMap = {
-  "@/components/custom-payload/refund-button.tsx#RefundButton": RefundButton_f29aaea820df920cae59377ae4bc9aa5,
+  "@/components/custom-payload/refunds/refund-manager.tsx#RefundManager": RefundManager_afa548313656ae5a7ddf6e03666f1f9c,
   "@payloadcms/plugin-multi-tenant/client#TenantField": TenantField_1d0591e3cf4f332c83a86da13a0de59a,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalCell": RscEntryLexicalCell_44fe37237e0ebf4470c9990d8cb7b07e,
   "@payloadcms/richtext-lexical/rsc#RscEntryLexicalField": RscEntryLexicalField_44fe37237e0ebf4470c9990d8cb7b07e,

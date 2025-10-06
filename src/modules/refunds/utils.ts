@@ -6,7 +6,7 @@ import {
   LineSelection,
   LocalRefundStatus,
   OrderLike,
-  StripeRefundReason
+  StripeRefundReason,
 } from './types';
 import crypto from 'node:crypto';
 import type { Payload } from 'payload';
@@ -23,26 +23,6 @@ export function toMapById(items: OrderItem[]): Map<string, OrderItem> {
     if (typeof item.id === 'string' && item.id) newMap.set(item.id, item);
   }
   return newMap;
-}
-
-/**
- * Builds a stable idempotency key for a refund request based on order data and options.
- *
- * @param orderId - The identifier of the order the refund targets
- * @param selections - The line selections included in the refund
- * @param options - Optional engine options that influence the refund payload
- * @returns A hex-encoded SHA-256 digest of the string `refund:v1:` concatenated with the JSON payload of `{ orderId, selections, options }`
- */
-export function buildIdempotencyKey(
-  orderId: string,
-  selections: LineSelection[],
-  options?: EngineOptions
-): string {
-  const payload = JSON.stringify({ orderId, selections, options });
-  return crypto
-    .createHash('sha256')
-    .update(`refund:v1:${payload}`)
-    .digest('hex');
 }
 
 /**
@@ -154,14 +134,14 @@ export function buildIdempotencyKeyV2(input: {
     restockingFeeCents:
       typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
     refundShippingCents:
-      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0
+      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0,
     // notes intentionally omitted so free-text doesn’t alter the key
   };
 
   const payload = JSON.stringify({
     orderId: input.orderId,
     selections: sortedSelections,
-    options: normalizedOptions
+    options: normalizedOptions,
   });
 
   return crypto
@@ -235,7 +215,7 @@ export async function recomputeRefundState(opts: {
         collection: 'orders',
         id: orderId,
         depth: 0,
-        overrideAccess: true
+        overrideAccess: true,
       })) as {
         id: string;
         total: number;
@@ -251,11 +231,11 @@ export async function recomputeRefundState(opts: {
       const { docs } = await payload.find({
         collection: 'refunds',
         where: {
-          and: [{ order: { equals: orderId } }, { status: { in: counted } }]
+          and: [{ order: { equals: orderId } }, { status: { in: counted } }],
         },
         pagination: false,
         depth: 0,
-        overrideAccess: true
+        overrideAccess: true,
       });
 
       const refunds = docs as Array<{
@@ -297,7 +277,7 @@ export async function recomputeRefundState(opts: {
         collection: 'orders',
         id: orderId,
         data: { refundedTotalCents, lastRefundAt, status: nextStatus },
-        overrideAccess: true
+        overrideAccess: true,
       });
 
       return; // success
@@ -323,13 +303,13 @@ export async function recomputeRefundState(opts: {
       console.warn('[refunds] recomputeRefundState failed', {
         orderId,
         attempt,
-        err
+        err,
       });
       return;
     }
   }
   console.warn('[refunds] recomputeRefundState exhausted retries', {
     orderId,
-    maxTries: MAX_TRIES
+    maxTries: MAX_TRIES,
   });
 }

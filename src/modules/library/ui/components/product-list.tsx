@@ -17,7 +17,7 @@ export const ProductList = () => {
         { limit: DEFAULT_LIMIT },
         {
           getNextPageParam: (lastPage) =>
-            lastPage.docs.length > 0 ? lastPage.nextPage : undefined
+            lastPage.docs.length > 0 ? lastPage.nextPage : undefined,
         }
       )
     );
@@ -26,7 +26,6 @@ export const ProductList = () => {
   const rows = data?.pages.flatMap((p) => p.docs) ?? [];
 
   // 2) Group ONLY by orderId (skip rows without an orderId)
-  // const byOrder = new Map<string, typeof rows>();
   type Row = (typeof rows)[number];
   const byOrder = new Map<string, Row[]>();
   for (const row of rows) {
@@ -55,7 +54,8 @@ export const ProductList = () => {
       tenantImageURL: first.tenant?.image?.url ?? null,
       reviewRating:
         typeof first.reviewRating === 'number' ? first.reviewRating : 0,
-      reviewCount: typeof first.reviewCount === 'number' ? first.reviewCount : 0
+      reviewCount:
+        typeof first.reviewCount === 'number' ? first.reviewCount : 0,
     };
   });
 
