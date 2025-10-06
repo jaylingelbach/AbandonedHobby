@@ -15,6 +15,18 @@ import {
   parseMoneyToCents,
 } from './utils/ui/utils';
 
+/**
+ * Render a staff-facing refund management UI for a single order.
+ *
+ * Presents per-item refund controls, staff-entered shipping and restocking amounts,
+ * a live preview of the refund total with validation against remaining refundable
+ * funds, and an action to submit the refund to the server. The component loads
+ * order data and server-sourced remaining refundable quantities, builds and
+ * validates refund selections, attempts to produce an idempotency key for the
+ * request, and refreshes order totals and remaining state after a successful refund.
+ *
+ * @returns The RefundManager React element, or `null` when not rendered for the orders collection.
+ */
 export function RefundManager() {
   const { id: documentId, collectionSlug } = useDocumentInfo();
   const { user } = useAuth();
