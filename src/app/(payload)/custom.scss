@@ -7,9 +7,7 @@
    ========================================================================== */
 
 @layer payload {
-  /* ==========  STRIPE VERIFY BANNER  ===================================== */
-
-  /* Light theme container styles */
+  /* ========== STRIPE VERIFY BANNER ======================================= */
   [data-theme='light'] .verify-banner {
     padding: 1rem;
     border: 1px solid #e5e7eb; /* gray-200 */
@@ -17,8 +15,6 @@
     background-color: #f9fafb; /* gray-50 */
     color: #111827; /* slate-900 */
   }
-
-  /* High-contrast button variants in banner (light) */
   [data-theme='light'] .verify-banner .verify-btn.btn,
   [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
   [data-theme='light'] .verify-banner .verify-btn.btn--style-secondary {
@@ -30,14 +26,10 @@
   [data-theme='light'] .verify-banner .verify-btn:focus-visible {
     background-color: #0f172a !important; /* slate-950-ish */
   }
-
-  /* Button label emphasis */
   [data-theme='light'] .verify-banner .verify-btn .btn__label {
     font-weight: 700;
     letter-spacing: 0.01em;
   }
-
-  /* Banner button layout for narrow sidebar */
   [data-theme='light'] .verify-banner .verify-btn {
     width: 100%;
     margin-top: 0.5rem;
@@ -51,21 +43,7 @@
     outline-offset: 2px;
   }
 
-  /* ==========  CURRENT USER BADGE  ======================================= */
-
-  /* Light theme badge */
-  [data-theme='light'] .current-user-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0.5rem 0.5rem 1rem;
-    border-radius: 0.5rem;
-    background: #f3f4f6; /* gray-100 */
-    color: #111827; /* slate-900 */
-    font-weight: 800;
-  }
-
-  /* Base badge (dark theme inherits admin colors) */
+  /* ========== CURRENT USER BADGE ======================================== */
   .current-user-badge {
     display: flex;
     align-items: center;
@@ -73,6 +51,10 @@
     margin: 0.5rem 0.5rem 1rem;
     border-radius: 0.5rem;
     font-weight: 800;
+  }
+  [data-theme='light'] .current-user-badge {
+    background: #f3f4f6; /* gray-100 */
+    color: #111827; /* slate-900 */
   }
   .current-user-label {
     font-size: 0.9rem;
@@ -82,13 +64,11 @@
     font-size: 1rem;
   }
 
-  /* ==========  NAV LINK (ABANDONED HOBBY LINK)  ========================== */
-
+  /* ========== NAV LINK (ABANDONED HOBBY LINK) =========================== */
   .ah-link {
     font-weight: 700;
     padding: 1rem 0;
   }
-
   .ah-link__inner {
     display: inline-flex;
     align-items: center;
@@ -105,8 +85,6 @@
   .ah-link__label {
     opacity: 0.95;
   }
-
-  /* Colors by theme */
   [data-theme='light'] .ah-link__inner {
     color: #111827;
   } /* slate-900 */
@@ -119,16 +97,12 @@
   [data-theme='dark'] .ah-link__inner:hover {
     color: #fff;
   }
-
-  /* Focus ring */
   .ah-link__inner:focus-visible {
     outline: 2px solid #1d4ed8;
     outline-offset: 2px;
   }
 
-  /* ==========  ONBOARDING BANNER  ======================================== */
-
-  /* Shared layout */
+  /* ========== ONBOARDING BANNER ========================================= */
   .ah-onboarding-banner {
     margin-bottom: 1rem;
     padding: 12px;
@@ -164,7 +138,6 @@
     outline-offset: 2px;
   }
 
-  /* Light theme */
   [data-theme='light'] .ah-onboarding-banner {
     border: 1px solid #e5e7eb;
     background: #f9fafb;
@@ -184,7 +157,6 @@
     color: #ffffff;
   }
 
-  /* Dark theme */
   [data-theme='dark'] .ah-onboarding-banner {
     border: 1px solid #374151;
     background: #0b1220;
@@ -204,7 +176,7 @@
     color: #0b1220;
   }
 
-  /* Skeleton state */
+  /* Skeleton */
   .ah-onboarding-skel .ah-skel {
     border-radius: 0.375rem;
     position: relative;
@@ -224,7 +196,6 @@
     border-radius: 0.375rem;
   }
 
-  /* Shimmer (theme-aware) */
   [data-theme='light'] .ah-onboarding-skel .ah-skel {
     background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
     background-size: 200% 100%;
@@ -236,28 +207,12 @@
     animation: ah-shimmer 1.2s infinite;
   }
 
-  @keyframes ah-shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ah-onboarding-skel .ah-skel {
-      animation: none !important;
-    }
-  }
-
-  /* ==========  GENERIC UI BLOCKS (CARDS, GRID)  ========================== */
-
+  /* ========== GENERIC UI BLOCKS (CARDS, GRID) =========================== */
   .ah-card {
     border: 1px solid var(--theme-elevation-100);
     border-radius: 8px;
     background: var(--theme-elevation-50);
   }
-
   .ah-card-header {
     padding: 12px 16px;
     border-bottom: 1px solid var(--theme-elevation-100);
@@ -270,7 +225,6 @@
   .ah-card-body {
     padding: 16px;
   }
-
   .ah-grid {
     display: grid;
     gap: 16px;
@@ -279,19 +233,13 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* ==========  SELLER DASHBOARD (SPACING & ACTIONS)  ===================== */
-
-  /* Title spacing (Payload often zeroes h1 margins) */
+  /* ========== SELLER DASHBOARD SPACING ================================== */
   .ah-dashboard-title {
     margin-bottom: 16px !important;
   }
-
-  /* Section spacing */
   .ah-section {
     margin-top: 24px;
   }
-
-  /* Quick Actions: base & stacked variant */
   .ah-actions {
     display: flex;
     gap: 8px;
@@ -306,16 +254,12 @@
     text-align: left;
   }
 
-  /* ==========  TRACKING FORM (INLINE + STACKED)  ========================= */
-
-  /* Support both old and new class APIs: `.ah-inline-form` and `.ah-form` */
+  /* ========== TRACKING FORM (INLINE + STACKED) ========================== */
   .ah-inline-form,
   .ah-form {
     display: grid;
     gap: 10px;
   }
-
-  /* Row layout: inline = 2 cols; stacked = 1 col */
   .ah-inline-row,
   .ah-form--inline .ah-form-row {
     display: grid;
@@ -328,7 +272,6 @@
     grid-template-columns: 1fr;
     gap: 6px;
   }
-
   .ah-label {
     font-size: 12px;
     opacity: 0.8;
@@ -343,7 +286,6 @@
   .ah-form-actions {
     margin-top: 4px;
   }
-
   .ah-error {
     color: var(--theme-error-500);
     margin: 4px 0 0;
@@ -355,77 +297,235 @@
     font-size: 12px;
   }
 
-  /* ==========  TABLE TWEAKS  ============================================= */
-
+  /* ========== TABLE TWEAKS ============================================== */
   .ah-table th,
   .ah-table td {
     padding: 8px 10px;
   }
-}
 
-/* ===== AH: fix root dashboard white background ===== */
-@layer payload-default {
-  /* your tokens (optional, if you don't already have them) */
-  :root {
-    --ah-paper: #f4f4f0; /* sidebar/body */
-    --ah-sheet: #fafaf8; /* main content */
-  }
+  /* ==========================================================================
+     REFUNDS UI — Full-width card at bottom of Order edit form
+     ========================================================================== */
 
-  /* Sidebar + body on paper */
-  body,
-  .app-elements,
-  .nav,
-  .app-nav {
-    background: var(--ah-paper);
-  }
-
-  /* The root wrapper that was forcing white */
-  .template-default__wrap {
-    background: var(--ah-sheet); /* lighter than paper */
-  }
-
-  /* Make inner canvases transparent so the sheet shows through */
-  .template-default .dashboard,
-  .template-default .render-dashboard,
-  .template-default .doc,
-  .template-default .collection-list,
-  .template-default main {
+  /* Placement: make the containing group “flat” */
+  .field-type.group[data-field-name='refunds'] {
+    padding: 0;
+    border: none;
     background: transparent;
   }
-
-  /* Gutter sometimes paints white — make it transparent too */
-  .template-default :where(.gutter, .payload__gutter) {
+  .field-type.group[data-field-name='refunds'] > .collapsible {
+    border: none;
     background: transparent;
+    padding: 0;
   }
 
-  /* ===== AH: Refund button (theme-aware, high-contrast) ===== */
+  .ah-refund-card {
+    margin-top: 8px;
+  }
 
+  /* Header */
+  .ah-refund-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .ah-refund-header-left {
+    display: grid;
+    gap: 2px;
+  }
+  .ah-refund-header .ah-card-title {
+    font-size: 14px;
+    font-weight: 700;
+    margin: 0;
+  }
+  .ah-subtitle {
+    margin: 0;
+    font-size: 12px;
+    opacity: 0.75;
+  }
+
+  /* Items grid */
+  .ah-refund-table {
+    margin-top: 4px;
+    margin-bottom: 20px; /* add space before the controls row */
+  }
+
+  .ah-refund-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr; /* 3-up */
+    gap: 16px;
+  }
+
+  .ah-refund-body {
+    display: grid;
+    gap: 10px;
+  }
+
+  .ah-refund-col {
+    min-width: 0;
+  } /* prevent overflow pushing cols */
+  .ah-refund-col--qty {
+    justify-self: end;
+  } /* numeric cols hug the right */
+  .ah-refund-col--unit {
+    justify-self: end;
+  }
+  /* bigger, squarer qty input */
+  .ah-refund-col--qty .ah-chip-input {
+    max-width: 140px; /* was 120 */
+    height: 42px; /* was 36 */
+    border-radius: 8px; /* was pill */
+    font-size: 14px;
+    padding: 0 12px;
+  }
+  /* Item title + meta stay in the first (fluid) column */
+  .ah-refund-col--name .ah-item-title {
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .ah-refund-col--name .ah-item-meta {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
+
+  .ah-refund-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 140px 110px;
+    align-items: center;
+    column-gap: 12px;
+  }
+  .ah-refund-head,
+  .ah-refund-row {
+    display: grid;
+    align-items: center;
+    gap: 12px;
+  }
+  /* One definition (merged) for the main grid; tweak at smaller widths */
+  .ah-refund-head,
+  .ah-refund-row {
+    grid-template-columns: 1fr 100px 160px 120px; /* name | purchased | qty | unit */
+  }
+  @media (max-width: 1200px) {
+    .ah-refund-head,
+    .ah-refund-row {
+      grid-template-columns: 1fr 90px 150px 100px;
+    }
+  }
+
+  /* Item text */
+  .ah-item-title {
+    font-weight: 600;
+    line-height: 1.2;
+  }
+  .ah-item-meta {
+    font-size: 12px;
+    opacity: 0.7;
+    margin-top: 2px;
+  }
+
+  /* Quantity pill input */
+  .ah-chip-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 10px;
+    text-align: right;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    font-variant-numeric: tabular-nums;
+    border-radius: 9999px;
+    border: 1px solid var(--theme-elevation-150);
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+    transition:
+      box-shadow 0.12s ease,
+      border-color 0.12s ease;
+  }
+  .ah-chip-input:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+  }
+  .ah-chip-input::-webkit-outer-spin-button,
+  .ah-chip-input::-webkit-inner-spin-button {
+    -webkit-appearance: none;
+    margin: 0;
+  }
+
+  /* Money input ($ prefix) */
+  .ah-money {
+    position: relative;
+    display: grid;
+    align-items: center;
+  }
+  .ah-money-prefix {
+    position: absolute;
+    left: 10px;
+    font-weight: 700;
+    opacity: 0.85;
+    pointer-events: none;
+  }
+  .ah-money-input {
+    padding-left: 22px;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Summary + CTA */
+  .ah-refund-summary {
+    margin-top: 24px; /* was 16 */
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 24px; /* space between total block and button */
+  }
+
+  /* add vertical separation above the button (helps when stacked) */
+  .ah-refund-cta {
+    margin-top: 10px;
+  }
+
+  .ah-refund-cta.btn {
+    min-width: 164px;
+    border-radius: 10px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+  }
+  .ah-mini-hint {
+    font-size: 12px;
+    opacity: 0.8;
+    margin-top: 4px;
+  }
+
+  /* Chips */
+  .ah-chip.ah-chip--muted {
+    background: #e5e7eb; /* gray-200 */
+    color: #374151; /* gray-700 */
+    border: 1px solid #e5e7eb;
+  }
+
+  /* Refund action button (standalone variant) */
   .ah-refund {
     display: flex;
     gap: 8px;
     align-items: center;
   }
-
   .ah-refund-btn.btn {
     border-radius: 0.5rem;
     font-weight: 700;
     letter-spacing: 0.01em;
     transition: opacity 120ms ease;
   }
-
-  /* Light theme */
   [data-theme='light'] .ah-refund-btn.btn,
   [data-theme='light'] .ah-refund-btn.btn--style-primary {
-    background-color: #111827; /* slate-900 */
+    background-color: #111827;
     color: #fff;
     border-color: #111827;
   }
   [data-theme='light'] .ah-refund-btn:hover,
   [data-theme='light'] .ah-refund-btn:focus-visible {
-    background-color: #0f172a; /* slate-950-ish */
+    background-color: #0f172a;
   }
-
-  /* Dark theme uses admin tokens for better contrast */
   [data-theme='dark'] .ah-refund-btn.btn,
   [data-theme='dark'] .ah-refund-btn.btn--style-primary {
     background-color: var(--theme-elevation-900);
@@ -436,27 +536,63 @@
   [data-theme='dark'] .ah-refund-btn:focus-visible {
     background-color: var(--theme-elevation-1000);
   }
-
-  /* Focus ring (both themes) */
   .ah-refund-btn:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue-600 */
+    outline: 2px solid #1d4ed8;
     outline-offset: 2px;
   }
-
-  /* Disabled/Loading states */
   .ah-refund-btn[disabled],
   .ah-refund-btn[aria-busy='true'] {
     opacity: 0.6;
-    transform: none;
     cursor: not-allowed;
     pointer-events: none;
   }
-
-  /* Full-width on tight layouts */
   @media (max-width: 900px) {
     .ah-refund-btn {
       width: 100%;
       text-align: center;
     }
+  }
+
+  /* ===== Animations (shared) ===== */
+  @keyframes ah-shimmer {
+    0% {
+      background-position: 200% 0;
+    }
+    100% {
+      background-position: -200% 0;
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .ah-onboarding-skel .ah-skel {
+      animation: none !important;
+    }
+  }
+}
+
+/* ===== AH: fix root dashboard white background / tokens ================== */
+@layer payload-default {
+  :root {
+    --ah-paper: #f4f4f0; /* sidebar/body */
+    --ah-sheet: #fafaf8; /* main content */
+  }
+
+  body,
+  .app-elements,
+  .nav,
+  .app-nav {
+    background: var(--ah-paper);
+  }
+  .template-default__wrap {
+    background: var(--ah-sheet);
+  }
+  .template-default .dashboard,
+  .template-default .render-dashboard,
+  .template-default .doc,
+  .template-default .collection-list,
+  .template-default main {
+    background: transparent;
+  }
+  .template-default :where(.gutter, .payload__gutter) {
+    background: transparent;
   }
 }

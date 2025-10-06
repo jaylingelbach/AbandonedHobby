@@ -479,6 +479,10 @@ export interface Order {
     trackingUrl?: string | null;
     shippedAt?: string | null;
   };
+  /**
+   * Issue a refund for this order
+   */
+  refunds?: {};
   updatedAt: string;
   createdAt: string;
 }
@@ -808,6 +812,7 @@ export interface OrdersSelect<T extends boolean = true> {
         trackingUrl?: T;
         shippedAt?: T;
       };
+  refunds?: T | {};
   updatedAt?: T;
   createdAt?: T;
 }

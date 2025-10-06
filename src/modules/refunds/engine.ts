@@ -3,10 +3,10 @@ import type { Stripe } from 'stripe';
 import { stripe } from '@/lib/stripe';
 import { LineSelection, EngineOptions, OrderWithTotals } from './types';
 import {
-  buildIdempotencyKey,
+  buildIdempotencyKeyV2,
   computeRefundAmountCents,
   toLocalRefundStatus,
-  toStripeRefundReason
+  toStripeRefundReason,
 } from './utils';
 import { ExceedsRefundableError, FullyRefundedError } from './errors';
 
@@ -36,7 +36,7 @@ export async function createRefundForOrder(args: {
     collection: 'orders',
     id: orderId,
     depth: 0,
-    overrideAccess: true
+    overrideAccess: true,
   })) as unknown as OrderWithTotals;
 
   if (!order?.id) throw new Error('Order not found');
@@ -84,15 +84,7 @@ export async function createRefundForOrder(args: {
 
   const idempotencyKey =
     options?.idempotencyKey ??
-    buildIdempotencyKey(orderId, selections, options);
-
-  // Validate all items exist before creating Stripe refund
-  for (const sel of selections) {
-    const item = (order.items ?? []).find((i) => i.id === sel.itemId);
-    if (!item) {
-      throw new Error(`Item ${sel.itemId} not found in order ${order.id}`);
-    }
-  }
+    buildIdempotencyKeyV2({ orderId, selections, options });
 
   // Build metadata without `any`, and omit empty values
   const metadata: Stripe.MetadataParam = {
@@ -100,19 +92,19 @@ export async function createRefundForOrder(args: {
     ...(order.orderNumber ? { orderNumber: order.orderNumber } : {}),
     selections: JSON.stringify(selections),
     ...(options?.reason ? { app_reason: options.reason } : {}),
-    stripeAccountId: accountId
+    stripeAccountId: accountId,
   };
 
   const stripeArgs: Stripe.RefundCreateParams = {
     amount: refundAmount,
     reason: toStripeRefundReason(options?.reason),
     ...(piId ? { payment_intent: piId } : { charge: chargeId! }),
-    metadata
+    metadata,
   };
 
   const refund = await stripe.refunds.create(stripeArgs, {
     idempotencyKey,
-    stripeAccount: accountId
+    stripeAccount: accountId,
   });
 
   const created = await payload.create({
@@ -133,17 +125,17 @@ export async function createRefundForOrder(args: {
           quantity: sel.quantity,
           unitAmount: typeof src?.unitAmount === 'number' ? src.unitAmount : 0,
           amountTotal:
-            typeof src?.amountTotal === 'number' ? src.amountTotal : 0
+            typeof src?.amountTotal === 'number' ? src.amountTotal : 0,
         };
       }),
       fees: {
         restockingFeeCents: options?.restockingFeeCents ?? undefined,
-        refundShippingCents: options?.refundShippingCents ?? undefined
+        refundShippingCents: options?.refundShippingCents ?? undefined,
       },
       notes: options?.notes ?? undefined,
-      idempotencyKey
+      idempotencyKey,
     },
-    overrideAccess: true
+    overrideAccess: true,
   });
 
   return { refund, record: created };
