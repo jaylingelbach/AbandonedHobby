@@ -181,9 +181,6 @@ export function toApiSelections(selections: LineSelection[]): ApiSelection[] {
       return { type: 'amount', itemId: s.itemId, amountCents: s.amountCents };
     }
     // quantity case
-    if (!('quantity' in s) || typeof s.quantity !== 'number') {
-      throw new Error(`Invalid LineSelection: missing or invalid quantity`);
-    }
     return { type: 'quantity', itemId: s.itemId, quantity: s.quantity };
   });
 }
@@ -196,10 +193,6 @@ export function assertApiSelectionsShape(
   for (const it of sel) {
     if (!it || typeof it !== 'object')
       throw new Error('selection must be an object');
-    if (typeof it.itemId !== 'string') {
-      console.error('Bad selection object:', it);
-      throw new Error('selection.itemId must be a string');
-    }
     const t = it.type;
     if (t !== 'quantity' && t !== 'amount') {
       console.error('Bad selection object:', it);

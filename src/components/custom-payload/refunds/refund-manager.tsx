@@ -116,7 +116,6 @@ export function RefundManager() {
     } catch {
       setRemainingQtyByItemId({});
       setRefundedQtyByItemId({});
-      setRefundedAmountByItemId({});
       setRemainingCentsFromServer(null);
     }
   }
@@ -167,14 +166,26 @@ export function RefundManager() {
       isAborted = true;
     };
   }, [documentId, isOrdersCollection]);
+  const refundLines = useMemo(() => buildRefundLines(order), [order]);
+
+  useEffect(() => {
+    // when server says a line hit 0 remaining, clear the user’s qty entry
+    setQuantitiesByItemId((previous) => {
+      const next = { ...previous };
+      for (const line of refundLines) {
+        const refundedQty = refundedQtyByItemId[line.itemId] ?? 0;
+        const remaining = Math.max(0, line.quantityPurchased - refundedQty);
+        if (remaining === 0 && next[line.itemId]) delete next[line.itemId];
+      }
+      return next;
+    });
+  }, [refundLines, refundedQtyByItemId]);
 
   // ----- Derived values -----
   const effectiveRemainingRefundableCents = getEffectiveRemainingCents(
     order,
     remainingCentsFromServer
   );
-
-  const refundLines = useMemo(() => buildRefundLines(order), [order]);
 
   // Parse per-line partial amounts -> cents; ignore invalid/empty
   const partialAmountCentsByItemId = useMemo(
@@ -371,7 +382,7 @@ export function RefundManager() {
     try {
       idempotencyKey = await buildClientIdempotencyKeyV2({
         orderId: order.id,
-        selections,
+        selections, // internal selections are fine as idempotency basis
         options: {
           reason,
           restockingFeeCents: restockingCents,

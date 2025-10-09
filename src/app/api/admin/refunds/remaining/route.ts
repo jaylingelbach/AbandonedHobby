@@ -83,8 +83,9 @@ export async function GET(req: NextRequest) {
   }
 
   function pickAmountCents(sel: SelBlockAmount | SelLegacyAmount): number {
-    if (isFiniteNumber(sel.amountCents)) return Math.trunc(sel.amountCents);
-    if (isFiniteNumber(sel.amount)) return Math.trunc(sel.amount);
+    if (isFiniteNumber(sel.amountCents))
+      return Math.trunc(sel.amountCents as number);
+    if (isFiniteNumber(sel.amount)) return Math.trunc(sel.amount as number);
     return 0;
   }
 
@@ -246,11 +247,10 @@ export async function GET(req: NextRequest) {
       if (
         !foundAnyPerLineAmount &&
         uniqueItemSeen &&
-        singleItemId !== null &&
         typeof doc.amount === 'number' &&
         doc.amount > 0
       ) {
-        addAmount(singleItemId, Math.trunc(doc.amount));
+        addAmount(singleItemId as string, Math.trunc(doc.amount));
       }
     }
 
