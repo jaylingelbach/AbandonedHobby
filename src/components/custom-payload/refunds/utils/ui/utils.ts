@@ -28,7 +28,6 @@ export function clampInteger(
  * @returns A string containing only digits and at most one decimal point with up to two digits after it; returns an empty string if no digits are present
  */
 // keeps digits + first dot, trims to 2 decimals
-// keeps digits + first dot, clamps to 2 decimals
 export function cleanMoneyInput(raw: string): string {
   if (raw == null) return '';
   let s = String(raw).trim();

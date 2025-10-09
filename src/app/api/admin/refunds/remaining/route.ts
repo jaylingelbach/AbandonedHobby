@@ -83,9 +83,8 @@ export async function GET(req: NextRequest) {
   }
 
   function pickAmountCents(sel: SelBlockAmount | SelLegacyAmount): number {
-    if (isFiniteNumber(sel.amountCents))
-      return Math.trunc(sel.amountCents as number);
-    if (isFiniteNumber(sel.amount)) return Math.trunc(sel.amount as number);
+    if (isFiniteNumber(sel.amountCents)) return Math.trunc(sel.amountCents);
+    if (isFiniteNumber(sel.amount)) return Math.trunc(sel.amount);
     return 0;
   }
 
@@ -247,10 +246,11 @@ export async function GET(req: NextRequest) {
       if (
         !foundAnyPerLineAmount &&
         uniqueItemSeen &&
+        singleItemId !== null &&
         typeof doc.amount === 'number' &&
         doc.amount > 0
       ) {
-        addAmount(singleItemId as string, Math.trunc(doc.amount));
+        addAmount(singleItemId, Math.trunc(doc.amount));
       }
     }
 
@@ -262,6 +262,9 @@ export async function GET(req: NextRequest) {
         ? (item.quantity as number)
         : 1;
       const already = refundedQtyByItemId.get(id) ?? 0;
+      if (already > purchased) {
+        console.log('Possible over refund');
+      }
       byItemId[id] = Math.max(0, purchased - already);
     }
 

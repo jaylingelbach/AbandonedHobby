@@ -118,11 +118,11 @@ export async function createRefundForOrder(args: {
     );
   }
 
+  const itemsMap = new Map((order.items ?? []).map((item) => [item.id, item]));
+
   // Validate items exist
   for (const selection of selections) {
-    const orderItem = (order.items ?? []).find(
-      (item) => item.id === selection.itemId
-    );
+    const orderItem = itemsMap.get(selection.itemId);
     if (!orderItem) {
       throw new Error(
         `Item ${selection.itemId} not found on order ${order.id}`
@@ -142,12 +142,14 @@ export async function createRefundForOrder(args: {
     stripeAccountId
   };
 
+  const paymentReference = paymentIntentId
+    ? { payment_intent: paymentIntentId }
+    : { charge: chargeId as string }; // guaranteed non-null by guard at L94-96
+
   const createParams: Stripe.RefundCreateParams = {
     amount: refundAmountCents,
     reason: toStripeRefundReason(options?.reason),
-    ...(paymentIntentId
-      ? { payment_intent: paymentIntentId }
-      : { charge: chargeId! }),
+    ...paymentReference,
     metadata
   };
 
@@ -160,7 +162,7 @@ export async function createRefundForOrder(args: {
   const selectionBlocks: SelectionBlock[] = selections.map((selection) => {
     // capture common fields BEFORE narrowing to avoid “never”
     const itemId = selection.itemId;
-    const orderItem = (order.items ?? []).find((item) => item.id === itemId);
+    const orderItem = itemsMap.get(itemId);
 
     if (isQuantitySelection(selection)) {
       return {

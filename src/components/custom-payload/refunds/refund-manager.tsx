@@ -371,7 +371,7 @@ export function RefundManager() {
     try {
       idempotencyKey = await buildClientIdempotencyKeyV2({
         orderId: order.id,
-        selections, // internal selections are fine as idempotency basis
+        selections,
         options: {
           reason,
           restockingFeeCents: restockingCents,
