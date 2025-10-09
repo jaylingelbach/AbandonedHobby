@@ -22,6 +22,10 @@ export type RefundLine = {
   quantitySelected: number;
   amountTotal?: number; // cents
 };
+// API expects individual refund selections by either quantity or amount
+export type LineSelection =
+  | { itemId: string; quantity: number; amountCents?: never }
+  | { itemId: string; amountCents: number; quantity?: never };
 
 export type RefundReason =
   | 'requested_by_customer'
@@ -31,7 +35,7 @@ export type RefundReason =
 
 export type RefundPostBody = {
   orderId: string;
-  selections: Array<{ itemId: string; quantity: number }>;
+  selections: LineSelection[];
   reason?: RefundReason;
   restockingFeeCents?: number;
   refundShippingCents?: number;
