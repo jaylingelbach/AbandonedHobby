@@ -1,8 +1,8 @@
 import { isSuperAdmin } from '@/lib/access';
-import { CollectionConfig, Payload } from 'payload';
+import type { CollectionConfig, Payload } from 'payload';
 import { recomputeRefundState } from '@/modules/refunds/utils';
 import { getRelId } from '@/lib/server/utils';
-import { Refund } from '@/payload-types';
+import type { Refund } from '@/payload-types';
 
 export const Refunds: CollectionConfig = {
   slug: 'refunds',
@@ -18,6 +18,7 @@ export const Refunds: CollectionConfig = {
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   fields: [
+    // Core refund info
     {
       name: 'order',
       type: 'relationship',
@@ -42,6 +43,7 @@ export const Refunds: CollectionConfig = {
       min: 0,
       admin: { description: 'Cents' }
     },
+
     {
       name: 'status',
       type: 'select',
@@ -54,6 +56,7 @@ export const Refunds: CollectionConfig = {
         { label: 'Canceled', value: 'canceled' }
       ]
     },
+
     {
       name: 'reason',
       type: 'select',
@@ -64,28 +67,49 @@ export const Refunds: CollectionConfig = {
         { label: 'Other', value: 'other' }
       ]
     },
+
+    // ✅ Store both quantity and amount selections
     {
       name: 'selections',
-      type: 'array',
-      labels: { singular: 'Line', plural: 'Lines' },
-      fields: [
-        { name: 'itemId', type: 'text', required: true },
-        { name: 'quantity', type: 'number', required: true, min: 1 },
-        { name: 'unitAmount', type: 'number', required: true, min: 0 }, // snapshot used to compute
-        { name: 'amountTotal', type: 'number', required: true, min: 0 } // snapshot used to compute
+      type: 'blocks',
+      labels: { singular: 'Selection', plural: 'Selections' },
+      blocks: [
+        {
+          slug: 'quantity',
+          labels: { singular: 'Quantity', plural: 'Quantities' },
+          fields: [
+            { name: 'itemId', type: 'text', required: true },
+            { name: 'quantity', type: 'number', required: true, min: 1 },
+
+            // optional snapshots to make audit math easy:
+            { name: 'unitAmount', type: 'number', min: 0 }, // cents
+            { name: 'amountTotal', type: 'number', min: 0 } // cents
+          ]
+        },
+        {
+          slug: 'amount',
+          labels: { singular: 'Amount', plural: 'Amounts' },
+          fields: [
+            { name: 'itemId', type: 'text', required: true },
+            { name: 'amountCents', type: 'number', required: true, min: 1 } // cents
+          ]
+        }
       ]
     },
+
     {
       name: 'fees',
       type: 'group',
       fields: [
         { name: 'restockingFeeCents', type: 'number', min: 0 },
-        { name: 'refundShippingCents', type: 'number', min: 0 } // if you also refund shipping
+        { name: 'refundShippingCents', type: 'number', min: 0 }
       ]
     },
+
     { name: 'notes', type: 'textarea' },
     { name: 'idempotencyKey', type: 'text', index: true, unique: true }
   ],
+
   hooks: {
     afterChange: [
       async ({ req, doc }: { req: { payload: Payload }; doc: Refund }) => {

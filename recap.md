@@ -3690,3 +3690,17 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/library/ui/components/product-list.tsx
   - Minor whitespace/trailing comma/comment cleanup; no behavioral changes.
+
+# Partial refund 10/09/25
+
+## New Features
+
+- Refund Manager now supports partial refunds per item by amount or quantity.
+- Per-line inputs for quantities and custom amounts with improved refund preview and summary (items, shipping, restocking).
+- Displays server-truth per-item refunded totals and remaining refundable amount.
+
+## Improvements
+
+- Refreshed refund UI: responsive 5‑column grid, clearer labels, aligned values, and squarer inputs.
+- Enhanced table padding, consolidated headers, and standardized styling for dashboard elements.
+- Better error messages, safer submission with idempotency, and automatic data refresh after refunds.

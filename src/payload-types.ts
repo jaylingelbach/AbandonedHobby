@@ -504,13 +504,24 @@ export interface Refund {
   status: 'succeeded' | 'pending' | 'failed' | 'canceled';
   reason?: ('requested_by_customer' | 'duplicate' | 'fraudulent' | 'other') | null;
   selections?:
-    | {
-        itemId: string;
-        quantity: number;
-        unitAmount: number;
-        amountTotal: number;
-        id?: string | null;
-      }[]
+    | (
+        | {
+            itemId: string;
+            quantity: number;
+            unitAmount?: number | null;
+            amountTotal?: number | null;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'quantity';
+          }
+        | {
+            itemId: string;
+            amountCents: number;
+            id?: string | null;
+            blockName?: string | null;
+            blockType: 'amount';
+          }
+      )[]
     | null;
   fees?: {
     restockingFeeCents?: number | null;
@@ -861,11 +872,24 @@ export interface RefundsSelect<T extends boolean = true> {
   selections?:
     | T
     | {
-        itemId?: T;
-        quantity?: T;
-        unitAmount?: T;
-        amountTotal?: T;
-        id?: T;
+        quantity?:
+          | T
+          | {
+              itemId?: T;
+              quantity?: T;
+              unitAmount?: T;
+              amountTotal?: T;
+              id?: T;
+              blockName?: T;
+            };
+        amount?:
+          | T
+          | {
+              itemId?: T;
+              amountCents?: T;
+              id?: T;
+              blockName?: T;
+            };
       };
   fees?:
     | T

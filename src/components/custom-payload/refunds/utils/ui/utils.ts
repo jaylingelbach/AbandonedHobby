@@ -27,12 +27,39 @@ export function clampInteger(
  * @param raw - The input string possibly containing currency symbols, spaces, or other non-numeric characters
  * @returns A string containing only digits and at most one decimal point with up to two digits after it; returns an empty string if no digits are present
  */
+// keeps digits + first dot, trims to 2 decimals
 export function cleanMoneyInput(raw: string): string {
-  const trimmed = raw.trim().replace(/[^\d.]/g, '');
-  const parts = trimmed.split('.');
-  const dollars = parts[0] ?? '';
-  const cents = (parts[1] ?? '').slice(0, 2);
-  return cents.length > 0 ? `${dollars}.${cents}` : dollars;
+  if (raw == null) return '';
+  let s = String(raw).trim();
+
+  // allow just "." while typing
+  if (s === '.') return '0.';
+
+  // remove everything except digits and dots
+  s = s.replace(/[^\d.]/g, '');
+
+  // keep first dot, drop later ones
+  const firstDot = s.indexOf('.');
+  if (firstDot !== -1) {
+    s = s.slice(0, firstDot + 1) + s.slice(firstDot + 1).replace(/\./g, '');
+  }
+
+  // normalize leading zeros (but keep "0." and "0" as-is)
+  if (s.startsWith('0') && !s.startsWith('0.') && s.length > 1) {
+    // keep a single leading 0 for whole numbers like "05" -> "5"
+    s = String(Number(s)); // "0005" -> "5"
+  }
+
+  // cap to 2 decimals if any
+  const parts = s.split('.');
+  if (parts.length === 2) {
+    if (parts[1]) parts[1] = parts[1].slice(0, 2);
+    s = parts[0] + '.' + parts[1];
+    // if user typed trailing dot: allow "1."
+    if (s.endsWith('.')) return s;
+  }
+
+  return s;
 }
 
 /**
@@ -59,36 +86,45 @@ export function parseMoneyToCents(raw: string): number {
  */
 export async function buildClientIdempotencyKeyV2(input: {
   orderId: string;
-  selections: Array<{ itemId: string; quantity: number }>;
+  selections: Array<{
+    itemId: string;
+    quantity?: number;
+    amountCents?: number;
+  }>;
   options?: {
     reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
     restockingFeeCents?: number;
     refundShippingCents?: number;
   };
 }): Promise<string> {
-  if (!input.orderId?.trim()) {
-    throw new Error('orderId is required');
-  }
-  if (!input.selections?.length) {
-    throw new Error('selections array cannot be empty');
-  }
-  const sortedSelections = [...input.selections].sort(
-    (a, b) =>
-      a.itemId.localeCompare(b.itemId, 'en-US') || a.quantity - b.quantity
-  );
+  const normSelections = [...input.selections]
+    .map((s) => ({
+      itemId: s.itemId,
+      quantity: typeof s.quantity === 'number' ? s.quantity : null,
+      amountCents: typeof s.amountCents === 'number' ? s.amountCents : null
+    }))
+    .sort(
+      (a, b) =>
+        a.itemId.localeCompare(b.itemId) ||
+        (a.quantity ?? -1) - (b.quantity ?? -1) ||
+        (a.amountCents ?? -1) - (b.amountCents ?? -1)
+    );
+
   const o = input.options ?? {};
-  const normalized = {
+  const normalizedOptions = {
     reason: o.reason ?? null,
     restockingFeeCents:
       typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
     refundShippingCents:
-      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0,
+      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0
   };
+
   const payload = JSON.stringify({
     orderId: input.orderId,
-    selections: sortedSelections,
-    options: normalized,
+    selections: normSelections,
+    options: normalizedOptions
   });
+
   const enc = new TextEncoder().encode(`refund:v2:${payload}`);
   const digest = await crypto.subtle.digest('SHA-256', enc);
   return [...new Uint8Array(digest)]

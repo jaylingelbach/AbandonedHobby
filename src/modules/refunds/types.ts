@@ -22,7 +22,20 @@ export type OrderLike = {
   stripeAccountId: string;
 };
 
-export type LineSelection = { itemId: string; quantity: number };
+export type LineSelectionQty = {
+  itemId: string;
+  quantity: number;
+  amountCents?: undefined;
+};
+
+export type LineSelectionAmount = {
+  itemId: string;
+  amountCents: number;
+  quantity?: undefined;
+};
+
+/** Exactly one of quantity OR amountCents */
+export type LineSelection = LineSelectionQty | LineSelectionAmount;
 
 export type EngineOptions = {
   reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';

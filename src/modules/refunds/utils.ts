@@ -6,8 +6,9 @@ import {
   LineSelection,
   LocalRefundStatus,
   OrderLike,
-  StripeRefundReason,
+  StripeRefundReason
 } from './types';
+
 import crypto from 'node:crypto';
 import type { Payload } from 'payload';
 
@@ -47,25 +48,53 @@ export function computeRefundAmountCents(
   for (const sel of selections) {
     const src = byId.get(sel.itemId);
     if (!src) throw new Error(`Item not found: ${sel.itemId}`);
+
+    // If explicit amountCents is provided, use it (with basic validation)
+    if (typeof sel.amountCents === 'number') {
+      const amt = sel.amountCents;
+      if (!Number.isInteger(amt) || amt <= 0) {
+        throw new Error(
+          `amountCents must be a positive integer for item ${sel.itemId}`
+        );
+      }
+      const itemTotal =
+        typeof src.amountTotal === 'number'
+          ? src.amountTotal
+          : (src.unitAmount ?? 0) * (src.quantity ?? 1);
+      if (amt > itemTotal) {
+        throw new Error(
+          `amountCents (${amt}) exceeds item total (${itemTotal}) for item ${sel.itemId}`
+        );
+      }
+      sum += amt;
+      continue;
+    }
+
+    // Else fall back to quantity-based proration (original behavior)
     const originalQty = assertPositiveInt(src.quantity ?? 1, 'item.quantity');
     const unitBase =
       typeof src.unitAmount === 'number'
         ? src.unitAmount
         : Math.round((src.amountTotal ?? 0) / originalQty);
-    // Prefer true per-line totals if present (includes discounts/taxes)
+
     const lineTotal =
       typeof src.amountTotal === 'number'
         ? src.amountTotal
         : unitBase * originalQty;
 
-    const qtySelected = assertPositiveInt(sel.quantity, 'selection.quantity');
+    const qtySelected = assertPositiveInt(
+      sel.quantity as number,
+      'selection.quantity'
+    );
     if (qtySelected > originalQty) {
       throw new Error(
         `selection.quantity exceeds purchased quantity for item ${sel.itemId}`
       );
     }
+
     sum += Math.round((lineTotal * qtySelected) / originalQty);
   }
+
   return sum;
 }
 
@@ -120,28 +149,40 @@ export function toLocalRefundStatus(status: string | null): LocalRefundStatus {
  */
 export function buildIdempotencyKeyV2(input: {
   orderId: string;
-  selections: LineSelection[];
+  selections: Array<{
+    itemId: string;
+    quantity?: number;
+    amountCents?: number;
+  }>;
   options?: EngineOptions;
 }): string {
-  const sortedSelections = [...input.selections].sort(
-    (a, b) => a.itemId.localeCompare(b.itemId) || a.quantity - b.quantity
-  );
+  const normSelections = [...input.selections]
+    .map((s) => ({
+      itemId: s.itemId,
+      quantity: typeof s.quantity === 'number' ? s.quantity : null,
+      amountCents: typeof s.amountCents === 'number' ? s.amountCents : null
+    }))
+    .sort(
+      (a, b) =>
+        a.itemId.localeCompare(b.itemId) ||
+        (a.quantity ?? -1) - (b.quantity ?? -1) ||
+        (a.amountCents ?? -1) - (b.amountCents ?? -1)
+    );
 
   const o = input.options ?? {};
   const normalizedOptions = {
-    // include only fields that should affect idempotency
     reason: o.reason ?? null,
     restockingFeeCents:
       typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
     refundShippingCents:
-      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0,
-    // notes intentionally omitted so free-text doesn’t alter the key
+      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0
+    // notes intentionally omitted
   };
 
   const payload = JSON.stringify({
     orderId: input.orderId,
-    selections: sortedSelections,
-    options: normalizedOptions,
+    selections: normSelections,
+    options: normalizedOptions
   });
 
   return crypto
@@ -215,7 +256,7 @@ export async function recomputeRefundState(opts: {
         collection: 'orders',
         id: orderId,
         depth: 0,
-        overrideAccess: true,
+        overrideAccess: true
       })) as {
         id: string;
         total: number;
@@ -231,11 +272,11 @@ export async function recomputeRefundState(opts: {
       const { docs } = await payload.find({
         collection: 'refunds',
         where: {
-          and: [{ order: { equals: orderId } }, { status: { in: counted } }],
+          and: [{ order: { equals: orderId } }, { status: { in: counted } }]
         },
         pagination: false,
         depth: 0,
-        overrideAccess: true,
+        overrideAccess: true
       });
 
       const refunds = docs as Array<{
@@ -277,7 +318,7 @@ export async function recomputeRefundState(opts: {
         collection: 'orders',
         id: orderId,
         data: { refundedTotalCents, lastRefundAt, status: nextStatus },
-        overrideAccess: true,
+        overrideAccess: true
       });
 
       return; // success
@@ -303,13 +344,13 @@ export async function recomputeRefundState(opts: {
       console.warn('[refunds] recomputeRefundState failed', {
         orderId,
         attempt,
-        err,
+        err
       });
       return;
     }
   }
   console.warn('[refunds] recomputeRefundState exhausted retries', {
     orderId,
-    maxTries: MAX_TRIES,
+    maxTries: MAX_TRIES
   });
 }
