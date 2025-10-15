@@ -3,7 +3,15 @@ import { createJSONStorage, persist } from 'zustand/middleware';
 
 const DEFAULT_TENANT = '__global__';
 
-// Keep storage shape stable: strip any accidental "::user" suffix
+/**
+ * Normalize a tenant slug into a stable base tenant identifier.
+ *
+ * Trims whitespace, defaults to DEFAULT_TENANT when the input is empty or missing, and strips any `"::..."` suffix returning only the portion before the first `"::"`.
+ *
+ * @param raw - The raw tenant slug which may be empty, null, or contain a composite `"tenant::sub"` form
+ * @returns The normalized tenant slug (base portion without any `"::"` suffix, or DEFAULT_TENANT when input is empty)
+ */
+
 function normalizeTenantSlug(raw?: string | null): string {
   const s = (raw ?? '').trim();
   if (!s) return DEFAULT_TENANT;
@@ -13,6 +21,14 @@ function normalizeTenantSlug(raw?: string | null): string {
 
 const ANON_KEY_PREFIX = 'anon:';
 const DEVICE_ID_KEY = 'ah_device_id';
+
+/**
+ * Returns a stable device identifier, creating and persisting one in localStorage when needed.
+ *
+ * Generates and stores a new identifier if none exists in localStorage; on server-side execution returns the string `'server'`.
+ *
+ * @returns The device identifier string (persisted to localStorage when newly created).
+ */
 
 function getOrCreateDeviceId(): string {
   if (typeof window === 'undefined') return 'server';
@@ -30,6 +46,15 @@ function getOrCreateDeviceId(): string {
     return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
   }
 }
+
+/**
+ * Produce a stable user key for scoping cart data.
+ *
+ * Uses the provided `userId` trimmed when it contains characters; otherwise returns an anonymous key prefixed with `anon:` and a persistent device identifier.
+ *
+ * @param userId - Optional user identifier; whitespace-only or empty values are treated as absent
+ * @returns The derived user key: the trimmed `userId` if present, otherwise `anon:<deviceId>`
+ */
 
 function deriveUserKey(userId?: string | null): string {
   const id = (userId ?? '').trim();
@@ -81,7 +106,15 @@ type CartMessage =
   | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
   | { type: 'CLEAR_ALL_GLOBAL' };
 
-// --- internal cleanup that merges composite tenant keys into plain tenant ---
+/**
+ * Merge composite tenant keys of the form "tenant::sub" into their base tenant per user,
+ * combining product IDs and removing duplicates.
+ *
+ * @param byUser - Mapping from user key to that user's tenant map to normalize
+ * @returns A new UserMap where tenant keys containing `::` are collapsed to their base tenant,
+ * with each tenant's `productIds` array deduplicated; tenants with empty names are omitted
+ */
+
 function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   const out: UserMap = {};
   for (const [userKey, tenantMap] of Object.entries(byUser || {})) {

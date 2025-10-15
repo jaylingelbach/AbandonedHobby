@@ -20,6 +20,15 @@ interface Props {
   sessionId: string;
 }
 
+/**
+ * Renders the order confirmation page for a checkout session.
+ *
+ * Displays a pending "finalizing" state while confirmation data is awaited, an unauthorized sign-in prompt if the user is not authorized, or a detailed receipt view for one or more confirmed orders. The component also clears the shopping cart once per tenant when an order is present or the order status is settled.
+ *
+ * @param sessionId - The checkout session identifier used to fetch confirmation data
+ * @returns The order confirmation UI for the given session
+ */
+
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
