@@ -145,6 +145,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     libraryFilter
   ]);
 
+  // inside CheckoutView component
   useEffect(() => {
     const isSuccess =
       searchParams.get('success') === 'true' ||
@@ -157,10 +158,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         ? localStorage.getItem('ah_checkout_scope')
         : null;
 
-    if (scope && 'clearCart' in useCartStore.getState()) {
-      clearCart();
+    if (scope) {
+      // scope format: `${tenant}::${userKey}`
+      useCartStore.getState().clearCartForScope(scope);
       localStorage.removeItem('ah_checkout_scope');
     } else {
+      // Fallback to current user’s cart for this tenant
       clearCart();
     }
 

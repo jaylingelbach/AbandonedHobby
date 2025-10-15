@@ -1,11 +1,9 @@
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-// ---------- constants / helpers ----------
 const DEFAULT_TENANT = '__global__';
 
-// We store carts by *tenant only*. If a composite sneaks in ("tenant::user"),
-// strip the suffix to keep storage shape stable.
+// Keep storage shape stable: strip any accidental "::user" suffix
 function normalizeTenantSlug(raw?: string | null): string {
   const s = (raw ?? '').trim();
   if (!s) return DEFAULT_TENANT;
@@ -13,7 +11,6 @@ function normalizeTenantSlug(raw?: string | null): string {
   return i >= 0 ? s.slice(0, i) : s;
 }
 
-// ---------- user key helpers ----------
 const ANON_KEY_PREFIX = 'anon:';
 const DEVICE_ID_KEY = 'ah_device_id';
 
@@ -49,8 +46,8 @@ type TenantMap = Record<string, TenantCart>; // tenantSlug -> TenantCart
 type UserMap = Record<string, TenantMap>; // userKey -> TenantMap
 
 export interface CartState {
-  byUser: UserMap; // userKey -> tenantSlug -> { productIds }
-  currentUserKey: string; // active user namespace (anon:... or real user id)
+  byUser: UserMap;
+  currentUserKey: string;
 
   setCurrentUserKey: (userId?: string | null) => void;
 
@@ -63,11 +60,12 @@ export interface CartState {
     productId: string
   ) => void;
   clearCart: (tenantSlug: string | null | undefined) => void;
+  /** NEW: clear by `${tenant}::${userKey}` without switching current user */
+  clearCartForScope: (scopeKey: string) => void;
   clearAllCartsForCurrentUser: () => void;
   clearAllCartsEverywhere: () => void;
   migrateAnonToUser: (tenantSlug: string, newUserId: string) => void;
 
-  // dev-only helper (exposed in non-prod)
   __cleanupTenantKeys?: () => void;
 }
 
@@ -86,18 +84,16 @@ type CartMessage =
 // --- internal cleanup that merges composite tenant keys into plain tenant ---
 function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   const out: UserMap = {};
-  for (const userKey in byUser) {
-    const tenantMap = byUser[userKey];
+  for (const [userKey, tenantMap] of Object.entries(byUser || {})) {
     const merged: TenantMap = {};
-    for (const rawTenant in tenantMap) {
-      const cart = tenantMap[rawTenant];
+    for (const [rawTenant, cart] of Object.entries(tenantMap || {})) {
       const cleanTenant = rawTenant.includes('::')
         ? rawTenant.split('::')[0]
         : rawTenant;
       if (!cleanTenant) continue;
       const prev = merged[cleanTenant]?.productIds ?? [];
       const next = Array.from(
-        new Set<string>([...prev, ...(cart?.productIds ?? [])])
+        new Set([...(prev ?? []), ...(cart?.productIds ?? [])])
       );
       merged[cleanTenant] = { productIds: next };
     }
@@ -106,53 +102,11 @@ function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   return out;
 }
 
-// ---------- typed migration helpers (no any) ----------
-type PersistedV1 = {
-  state?: {
-    tenantCarts?: Record<string, TenantCart>;
-  };
-};
-
-type PersistedVx = {
-  state?: {
-    byUser?: UserMap;
-    currentUserKey?: string;
-  };
-};
-
-function isPersistedV1(value: unknown): value is PersistedV1 {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
-  if (!('state' in v)) return false;
-  const s = v.state as Record<string, unknown> | undefined;
-  if (!s) return false;
-  if (!('tenantCarts' in s)) return false;
-  const tc = s.tenantCarts;
-  if (tc === undefined) return true;
-  if (typeof tc !== 'object' || tc === null) return false;
-  return true;
-}
-
-function isPersistedVx(value: unknown): value is PersistedVx {
-  if (typeof value !== 'object' || value === null) return false;
-  const v = value as Record<string, unknown>;
-  if (!('state' in v)) return false;
-  const s = v.state as Record<string, unknown> | undefined;
-  if (!s) return false;
-  // byUser optional, if present must be object
-  if ('byUser' in s && (typeof s.byUser !== 'object' || s.byUser === null)) {
-    return false;
-  }
-  return true;
-}
-
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => {
-      // initialize currentUserKey (guest by default)
       const initialUserKey = deriveUserKey(null);
 
-      // broadcast listeners
       if (bc) {
         bc.onmessage = (evt: MessageEvent<CartMessage>) => {
           const msg = evt.data;
@@ -167,7 +121,7 @@ export const useCartStore = create<CartState>()(
 
           if (msg.type === 'CLEAR_ALL_FOR_USER') {
             if (!byUser[msg.userKey]) return;
-            const next: UserMap = { ...byUser };
+            const next = { ...byUser };
             delete next[msg.userKey];
             set({ byUser: next });
             return;
@@ -269,11 +223,39 @@ export const useCartStore = create<CartState>()(
           bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: tenant });
         },
 
+        // NEW: clear a cart given `${tenant}::${userKey}`, without changing currentUserKey
+        clearCartForScope: (scopeKey) => {
+          const sep = scopeKey.indexOf('::');
+          const tenantPart = sep > -1 ? scopeKey.slice(0, sep) : scopeKey;
+          const userKey = sep > -1 ? scopeKey.slice(sep + 2) : '';
+
+          const tenant = normalizeTenantSlug(tenantPart);
+          if (!tenant || !userKey) return;
+
+          set((state) => {
+            const userBucket = state.byUser[userKey] ?? {};
+            const current = userBucket[tenant]?.productIds ?? [];
+            if (current.length === 0) return state;
+
+            return {
+              byUser: {
+                ...state.byUser,
+                [userKey]: {
+                  ...userBucket,
+                  [tenant]: { productIds: [] }
+                }
+              }
+            };
+          });
+
+          bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: tenant });
+        },
+
         clearAllCartsForCurrentUser: () => {
           const userKey = get().currentUserKey;
           set((state) => {
             if (!state.byUser[userKey]) return state;
-            const next: UserMap = { ...state.byUser };
+            const next = { ...state.byUser };
             delete next[userKey];
             return { byUser: next };
           });
@@ -289,15 +271,14 @@ export const useCartStore = create<CartState>()(
           const state = get();
           const anonKey = state.currentUserKey;
 
-          // Only migrate if we're currently anon
           if (!isAnonKey(anonKey)) {
-            // still make sure our tenant key is normalized for the authed user
             const tenant = normalizeTenantSlug(tenantSlug);
             set((prev) => {
-              const byUser: UserMap = { ...prev.byUser };
-              const dst: TenantMap = { ...(byUser[newUserId] || {}) };
-              const existing = dst[tenant]?.productIds ?? [];
-              dst[tenant] = { productIds: Array.from(new Set(existing)) };
+              const byUser = { ...prev.byUser };
+              const dst = { ...(byUser[newUserId] || {}) };
+              dst[tenant] = {
+                productIds: Array.from(new Set(dst[tenant]?.productIds ?? []))
+              };
               byUser[newUserId] = dst;
               return { byUser, currentUserKey: newUserId };
             });
@@ -307,20 +288,16 @@ export const useCartStore = create<CartState>()(
           const tenant = normalizeTenantSlug(tenantSlug);
           const srcBucket = state.byUser[anonKey] || {};
           const dstUserKey = newUserId.trim();
-          if (!dstUserKey) {
-            // keep silent in strict mode; caller passed empty id
-            return;
-          }
+          if (!dstUserKey) return;
 
           const srcIds = srcBucket[tenant]?.productIds ?? [];
           set((prev) => {
-            const sanitized = collapseCompositeTenantKeys(prev.byUser);
-            const byUser: UserMap = { ...sanitized };
-            const src: TenantMap = { ...(byUser[anonKey] || {}) };
-            const dst: TenantMap = { ...(byUser[dstUserKey] || {}) };
+            const byUser = collapseCompositeTenantKeys(prev.byUser);
+            const src = { ...(byUser[anonKey] || {}) };
+            const dst = { ...(byUser[dstUserKey] || {}) };
 
             const merged = Array.from(
-              new Set<string>([...(dst[tenant]?.productIds ?? []), ...srcIds])
+              new Set([...(dst[tenant]?.productIds ?? []), ...srcIds])
             );
 
             byUser[anonKey] = { ...src, [tenant]: { productIds: [] } };
@@ -330,64 +307,91 @@ export const useCartStore = create<CartState>()(
           });
         },
 
-        // dev helper (wired below in non-prod)
         __cleanupTenantKeys: undefined
       };
     },
     {
       name: 'abandonedHobbies-cart',
-      version: 4, // ← v4 forcibly collapses any 'tenant::whatever' keys
-      storage: createJSONStorage((): Storage => localStorage),
-      migrate: (persisted: unknown, fromVersion: number): unknown => {
-        // v1→v2 (legacy: {tenantCarts} → byUser[currentUserKey])
-        if (fromVersion < 2 && isPersistedV1(persisted)) {
-          const tenantCarts = persisted.state?.tenantCarts;
+      version: 4,
+      storage: createJSONStorage(() => localStorage),
+      migrate: (persisted: unknown, fromVersion: number) => {
+        if (fromVersion < 2 && persisted && typeof persisted === 'object') {
+          const maybeState = persisted as Record<string, unknown>;
+          const legacy = maybeState['state'] as
+            | Record<string, unknown>
+            | undefined;
+          const tenantCarts = (legacy?.['tenantCarts'] ?? null) as Record<
+            string,
+            TenantCart
+          > | null;
+
           const currentUserKey = deriveUserKey(null);
-          const byUser: UserMap =
-            tenantCarts !== undefined ? { [currentUserKey]: tenantCarts } : {};
+          const byUser: UserMap = tenantCarts
+            ? { [currentUserKey]: tenantCarts }
+            : {};
+
           return { state: { byUser, currentUserKey } };
         }
 
-        // v2→v3 or v3→v4: collapse composite keys (idempotent)
-        if (fromVersion < 4 && isPersistedVx(persisted)) {
-          const s = persisted.state;
+        if (fromVersion < 3 && persisted && typeof persisted === 'object') {
+          const s = (persisted as { state?: { byUser?: UserMap } }).state;
           if (!s?.byUser) return persisted;
           return {
             state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
           };
         }
 
-        return persisted;
+        if (fromVersion < 4 && persisted && typeof persisted === 'object') {
+          const s = (persisted as { state?: { byUser?: UserMap } }).state;
+          if (!s?.byUser) return persisted;
+          return {
+            state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
+          };
+        }
+
+        return persisted as unknown;
       },
-      // Extra safety: after hydration, sanitize once more in-memory
-      onRehydrateStorage:
-        () =>
-        (rehydratedState?: CartState): void => {
-          if (!rehydratedState) return;
+      onRehydrateStorage: () => (rehydratedState) => {
+        if (!rehydratedState) return;
+        try {
           const fixed = collapseCompositeTenantKeys(rehydratedState.byUser);
-          // shallow compare object references by serializing keys per user (cheap)
-          const sameRef = fixed === rehydratedState.byUser;
-          if (!sameRef) {
+          if (fixed !== rehydratedState.byUser) {
             useCartStore.setState({ byUser: fixed });
           }
+        } catch {
+          // no-op
         }
+      }
     }
   )
 );
 
-// Dev helper: expose the store + a manual cleanup trigger
-declare global {
-  interface Window {
-    ahCartStore?: typeof useCartStore;
-  }
-}
-
+// Dev helper
 if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+  // @ts-expect-error – dev only
   window.ahCartStore = useCartStore;
   useCartStore.setState({
     __cleanupTenantKeys: () => {
       const { byUser } = useCartStore.getState();
-      const fixed = collapseCompositeTenantKeys(byUser);
+      const fixed = (function collapse(byUserIn: UserMap): UserMap {
+        const out: UserMap = {};
+        for (const [userKey, tenantMap] of Object.entries(byUserIn || {})) {
+          const merged: TenantMap = {};
+          for (const [rawTenant, cart] of Object.entries(tenantMap || {})) {
+            const cleanTenant = rawTenant.includes('::')
+              ? rawTenant.split('::')[0]
+              : rawTenant;
+            if (!cleanTenant) continue;
+            const prev = merged[cleanTenant]?.productIds ?? [];
+            const next = Array.from(
+              new Set([...(prev ?? []), ...(cart?.productIds ?? [])])
+            );
+            merged[cleanTenant] = { productIds: next };
+          }
+          out[userKey] = merged;
+        }
+        return out;
+      })(byUser);
       if (fixed !== byUser) useCartStore.setState({ byUser: fixed });
     }
   });
