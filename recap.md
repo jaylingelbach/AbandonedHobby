@@ -3761,7 +3761,7 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 ## Walkthrough
 
--
+- Adds device-scoped/user-scoped cart infrastructure and session migration across client, server, and UI layers. Introduces middleware-set device ID cookie, client/server cart scope builders, expanded cart store with per-user maps and migrations, updated useCart API, session-aware UI components, checkout success scope stashing, and a debug logger. Also updates docs (partial refunds).
 
 ## New Features
 
@@ -3782,3 +3782,48 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 - Added a detailed partial refund walkthrough, covering per-line refunds, UI inputs, idempotency, and lookups.
 
 ## File changes
+
+### Docs: Partial refund recap
+
+- recap.md
+  - Adds documentation describing per-line partial refunds, inputs, idempotency, remaining/refunded lookups, API/UI notes, and admin styling references.
+
+### Middleware: Device ID cookie & rewrite logic
+
+- src/middleware.ts
+  - Adds ensureDeviceIdCookie and DEVICE_ID_COOKIE; sets stable anon device id cookie on all paths; validates tenant slug; normalizes root domain; ensures cookie before all returns; rewrites to /tenants//; robust fallback handling.
+
+### Debug utilities
+
+- src/modules/checkout/debug.ts
+  - Adds DEBUG_CART flag and cartDebug(label, payload?) for conditional grouped console logging.
+
+### Cart scoping (client + server)
+
+- src/modules/checkout/hooks/cart-scope.ts, src/modules/checkout/server/cart-scope-server.ts
+  - Introduces DEFAULT_TENANT, ANON_PREFIX, DEVICE_ID_KEY. Client: getOrCreateDeviceIdClient and buildScopeClient. Server: buildScopeServer using cookies for anon device ID; returns "tenant::user" scope.
+
+### Cart hook API and behavior
+
+- src/modules/checkout/hooks/use-cart.ts
+  - Changes useCart signature to (tenantSlug?, userId?); normalizes tenant; returns totalItems; wraps actions with tenant scope; exposes clearAllCartsForCurrentUser; reads tenant/user-scoped productIds.
+
+### Cart store: per-user namespacing & migrations
+
+- src/modules/checkout/store/use-cart-store.ts
+  - Replaces tenantCarts with byUser map and currentUserKey; adds setCurrentUserKey, clearAllCartsForCurrentUser, clearAllCartsEverywhere, migrateAnonToUser, dev helpers; cross-tab messaging updated; persistence version/migrations added; composite key cleanup.
+
+### Checkout UI: session-aware cart & migration
+
+- src/modules/checkout/ui/components/checkout-button.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+  - Integrates TRPC session; uses useCart(tenantSlug, session.user.id); migrates anon to user on sign-in; checkout-view stashes checkout scope, handles success/cancel flows, clears scoped carts, invalidates queries, and logs debug info.
+
+### Order confirmation UI
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Uses session-aware useCart; clears cart once per tenant on settled/any order; adjusts “Visit seller” link to /tenants/{tenantSlug}; refactors effect dependencies and memoization.
+
+### Product UI: Cart button
+
+- src/modules/products/ui/components/cart-button.tsx
+  - Adds TRPC session; uses useCart with userId; migrates anon cart to user on login; expands Props with purchase context.
