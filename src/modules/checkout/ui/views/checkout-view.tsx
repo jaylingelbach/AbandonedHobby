@@ -158,28 +158,30 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         ? localStorage.getItem('ah_checkout_scope')
         : null;
 
-    if (scope) {
-      // scope format: `${tenant}::${userKey}`
-      useCartStore.getState().clearCartForScope(scope);
-      localStorage.removeItem('ah_checkout_scope');
-    } else {
-      // Fallback to current user’s cart for this tenant
-      clearCart();
-    }
+    const run = () => {
+      if (scope) {
+        useCartStore.getState().clearCartForScope(scope);
+        localStorage.removeItem('ah_checkout_scope');
+      } else {
+        clearCart();
+      }
 
-    setStates({ success: false, cancel: false });
+      setStates({ success: false, cancel: false });
 
-    // clean URL
-    const url = new URL(window.location.href);
-    url.searchParams.delete('success');
-    url.searchParams.delete('session_id');
-    const qs = url.searchParams.toString();
-    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
-      scroll: false
-    });
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('session_id');
+      const qs = url.searchParams.toString();
+      router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
+        scroll: false
+      });
 
-    // refresh any dependent data
-    queryClient.invalidateQueries(libraryFilter);
+      queryClient.invalidateQueries(libraryFilter);
+    };
+
+    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsub?.();
   }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
 
   // ---- Analytics: checkout_canceled on page load with cancel=true ----

@@ -35,9 +35,23 @@ export const CheckoutButton = ({
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    const state = useCartStore.getState();
-    const isAnon = state.currentUserKey.startsWith('anon:');
-    if (isAnon) state.migrateAnonToUser(tenantSlug, session.user.id);
+
+    const run = () => {
+      const state = useCartStore.getState();
+      if (state.currentUserKey.startsWith('anon:')) {
+        if (session.user) {
+          state.migrateAnonToUser(tenantSlug, session.user.id);
+        }
+      } else {
+        if (session.user) {
+          state.setCurrentUserKey?.(session.user.id);
+        }
+      }
+    };
+
+    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsub?.();
   }, [tenantSlug, session?.user?.id]);
 
   const { totalItems } = useCart(tenantSlug, session?.user?.id);
