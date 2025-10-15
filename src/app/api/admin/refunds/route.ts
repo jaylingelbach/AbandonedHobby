@@ -6,22 +6,63 @@ import {
   ExceedsRefundableError,
   FullyRefundedError
 } from '@/modules/refunds/errors';
-import { refundRequestSchema } from './schema';
 import { recomputeRefundState } from '@/modules/refunds/utils';
+import {
+  refundRequestSchema,
+  type RefundRequest,
+  type ApiLineSelection
+} from './schema';
+
+import type { LineSelection } from '@/modules/refunds/types';
 
 export const runtime = 'nodejs';
 
-/**
- * Create a refund for an order via the admin API.
- *
- * Validates the request body, requires the authenticated user to have the `super-admin` role, creates the refund, and attempts to recompute refund state before returning the created refund details.
- *
- * @param req - Incoming Next.js request containing the refund payload (orderId, selections, and refund options)
- * @returns On success, an object `{ ok: true, stripeRefundId, status, amount, refundId }`. On validation failure returns status 400 with `{ error: 'Invalid request body', details: { fieldErrors, formErrors } }`. If the user is not authorized returns status 403 with `{ error: 'FORBIDDEN' }`. If the order is already fully refunded returns status 409 with `{ error: string, code: 'ALREADY_FULLY_REFUNDED', orderId }`. If the refund exceeds remaining refundable amount returns status 409 with `{ error: string, code: 'EXCEEDS_REMAINING', orderId }`. On other failures returns status 500 with `{ error: string }`.
- */
-export async function POST(req: NextRequest) {
-  console.log('hit /api/admin/refunds');
+// --- Types used for persisting selections on the refund record ---
+type PersistedSelectionQty = {
+  blockType: 'quantity';
+  itemId: string;
+  quantity: number;
+};
 
+type PersistedSelectionAmt = {
+  blockType: 'amount';
+  itemId: string;
+  amountCents: number;
+};
+
+type PersistedSelection = PersistedSelectionQty | PersistedSelectionAmt;
+
+// API -> Engine
+function toEngineSelections(
+  apiSelections: ApiLineSelection[]
+): LineSelection[] {
+  return apiSelections.map((s) =>
+    s.type === 'amount'
+      ? { itemId: s.itemId, amountCents: Math.trunc(s.amountCents) }
+      : { itemId: s.itemId, quantity: Math.trunc(s.quantity) }
+  );
+}
+
+// API -> Persisted (normalized for refunds.selections)
+function toPersistedSelections(
+  apiSelections: ApiLineSelection[]
+): PersistedSelection[] {
+  return apiSelections.map((s) =>
+    s.type === 'amount'
+      ? {
+          blockType: 'amount',
+          itemId: s.itemId,
+          amountCents: Math.trunc(s.amountCents)
+        }
+      : {
+          blockType: 'quantity',
+          itemId: s.itemId,
+          quantity: Math.trunc(s.quantity)
+        }
+  );
+}
+
+export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const parsed = refundRequestSchema.safeParse(body);
@@ -33,8 +74,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // use safe data in createRefundOrder instead of body.
-    const input = parsed.data;
+    const input: RefundRequest = parsed.data;
 
     const payload = await getPayload({ config });
     const payloadReq = req as unknown as PayloadRequest;
@@ -49,10 +89,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
 
+    const engineSelections = toEngineSelections(input.selections);
+
     const { refund, record } = await createRefundForOrder({
       payload,
       orderId: input.orderId,
-      selections: input.selections,
+      selections: engineSelections,
       options: {
         reason: input.reason,
         restockingFeeCents: input.restockingFeeCents,
@@ -62,12 +104,33 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // Immediately persist normalized selections on the refund doc
+    // so the "remaining" endpoint can attribute by-line deterministically.
+    try {
+      const normalized: PersistedSelection[] = toPersistedSelections(
+        input.selections
+      );
+      await payload.update({
+        collection: 'refunds',
+        id: record.id,
+        data: { selections: normalized },
+        overrideAccess: true,
+        depth: 0
+      });
+    } catch (persistErr) {
+      console.warn(
+        '[admin] failed to persist normalized selections on refund (non-fatal)',
+        persistErr
+      );
+    }
+
+    // Kick a recompute to make the GET /remaining reflect this refund ASAP
     try {
       await recomputeRefundState({
         payload,
         orderId: input.orderId,
         includePending: true,
-        getFreshPayload: async () => getPayload({ config }) // fallback if disconnected
+        getFreshPayload: async () => getPayload({ config })
       });
     } catch (error) {
       console.warn('[admin] recomputeRefundState failed (non-fatal)', error);

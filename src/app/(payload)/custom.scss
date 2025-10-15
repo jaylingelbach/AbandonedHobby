@@ -1,13 +1,13 @@
 /* ==========================================================================
    Abandoned Hobby — Admin overrides for Payload
    Notes:
-   - All rules live under `@layer payload` so they cascade after core admin CSS.
-   - Theme-aware rules target `[data-theme='light']` / `[data-theme='dark']`.
-   - Avoid `!important` unless Payload’s base styles force it.
+   - Everything lives in @layer payload to cascade after core admin CSS.
+   - Theme-aware rules target [data-theme='light'] / [data-theme='dark'].
+   - Avoid !important unless Payload base styles force it.
    ========================================================================== */
 
 @layer payload {
-  /* ========== STRIPE VERIFY BANNER ======================================= */
+  /* ===== Stripe: Verify banner (light theme) ============================ */
   [data-theme='light'] .verify-banner {
     padding: 1rem;
     border: 1px solid #e5e7eb; /* gray-200 */
@@ -43,7 +43,7 @@
     outline-offset: 2px;
   }
 
-  /* ========== CURRENT USER BADGE ======================================== */
+  /* ===== Current user badge ============================================ */
   .current-user-badge {
     display: flex;
     align-items: center;
@@ -64,7 +64,7 @@
     font-size: 1rem;
   }
 
-  /* ========== NAV LINK (ABANDONED HOBBY LINK) =========================== */
+  /* ===== Nav link (Abandoned Hobby link) ================================ */
   .ah-link {
     font-weight: 700;
     padding: 1rem 0;
@@ -93,7 +93,7 @@
   } /* slate-950 */
   [data-theme='dark'] .ah-link__inner {
     color: #e5e7eb;
-  } /* gray-200 */
+  } /* gray-200  */
   [data-theme='dark'] .ah-link__inner:hover {
     color: #fff;
   }
@@ -102,7 +102,7 @@
     outline-offset: 2px;
   }
 
-  /* ========== ONBOARDING BANNER ========================================= */
+  /* ===== Onboarding banner ============================================= */
   .ah-onboarding-banner {
     margin-bottom: 1rem;
     padding: 12px;
@@ -176,7 +176,7 @@
     color: #0b1220;
   }
 
-  /* Skeleton */
+  /* Skeleton shimmer */
   .ah-onboarding-skel .ah-skel {
     border-radius: 0.375rem;
     position: relative;
@@ -195,7 +195,6 @@
     width: 110px;
     border-radius: 0.375rem;
   }
-
   [data-theme='light'] .ah-onboarding-skel .ah-skel {
     background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
     background-size: 200% 100%;
@@ -207,7 +206,7 @@
     animation: ah-shimmer 1.2s infinite;
   }
 
-  /* ========== GENERIC UI BLOCKS (CARDS, GRID) =========================== */
+  /* ===== Generic UI (cards, grid, tables) =============================== */
   .ah-card {
     border: 1px solid var(--theme-elevation-100);
     border-radius: 8px;
@@ -233,7 +232,12 @@
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 
-  /* ========== SELLER DASHBOARD SPACING ================================== */
+  .ah-table th,
+  .ah-table td {
+    padding: 8px 10px;
+  }
+
+  /* ===== Seller dashboard spacing ======================================= */
   .ah-dashboard-title {
     margin-bottom: 16px !important;
   }
@@ -254,7 +258,7 @@
     text-align: left;
   }
 
-  /* ========== TRACKING FORM (INLINE + STACKED) ========================== */
+  /* ===== Forms (inline + stacked) ======================================= */
   .ah-inline-form,
   .ah-form {
     display: grid;
@@ -297,17 +301,11 @@
     font-size: 12px;
   }
 
-  /* ========== TABLE TWEAKS ============================================== */
-  .ah-table th,
-  .ah-table td {
-    padding: 8px 10px;
-  }
-
   /* ==========================================================================
      REFUNDS UI — Full-width card at bottom of Order edit form
      ========================================================================== */
 
-  /* Placement: make the containing group “flat” */
+  /* Flatten the containing group block */
   .field-type.group[data-field-name='refunds'] {
     padding: 0;
     border: none;
@@ -323,7 +321,7 @@
     margin-top: 8px;
   }
 
-  /* Header */
+  /* Header area */
   .ah-refund-header {
     display: flex;
     align-items: center;
@@ -345,76 +343,56 @@
     opacity: 0.75;
   }
 
-  /* Items grid */
+  /* Table container */
   .ah-refund-table {
     margin-top: 4px;
-    margin-bottom: 20px; /* add space before the controls row */
-  }
+    margin-bottom: 20px;
+  } /* space before controls row */
 
-  .ah-refund-grid {
+  /* Header row (labels) + data rows share the same 5-column grid
+     Columns: name | purchased | return qty | amount | unit */
+  .ah-refund-head,
+  .ah-refund-row {
     display: grid;
-    grid-template-columns: 1fr 1fr 1fr; /* 3-up */
-    gap: 16px;
+    align-items: center;
+    column-gap: 12px;
+    grid-template-columns: 1fr 100px 120px 160px 120px;
+  }
+  @media (max-width: 1200px) {
+    .ah-refund-head,
+    .ah-refund-row {
+      grid-template-columns: 1fr 90px 110px 140px 100px;
+    }
   }
 
+  /* Header visuals */
+  .ah-refund-head {
+    padding: 6px 8px;
+    margin-bottom: 8px;
+    font-size: 12px;
+    opacity: 0.7;
+  }
+  .ah-refund-head .ah-refund-head-cell {
+    font-weight: 600;
+  }
+
+  /* Body rows stack */
   .ah-refund-body {
     display: grid;
     gap: 10px;
   }
 
+  /* Column alignment helpers */
   .ah-refund-col {
     min-width: 0;
   } /* prevent overflow pushing cols */
-  .ah-refund-col--qty {
-    justify-self: end;
-  } /* numeric cols hug the right */
+  .ah-refund-col--qty,
+  .ah-refund-col--amount,
   .ah-refund-col--unit {
     justify-self: end;
-  }
-  /* bigger, squarer qty input */
-  .ah-refund-col--qty .ah-chip-input {
-    max-width: 140px; /* was 120 */
-    height: 42px; /* was 36 */
-    border-radius: 8px; /* was pill */
-    font-size: 14px;
-    padding: 0 12px;
-  }
-  /* Item title + meta stay in the first (fluid) column */
-  .ah-refund-col--name .ah-item-title {
-    font-weight: 600;
-    line-height: 1.2;
-  }
-  .ah-refund-col--name .ah-item-meta {
-    font-size: 12px;
-    opacity: 0.7;
-    margin-top: 2px;
-  }
+  } /* numeric-ish columns hug right */
 
-  .ah-refund-row {
-    display: grid;
-    grid-template-columns: 1fr 110px 140px 110px;
-    align-items: center;
-    column-gap: 12px;
-  }
-  .ah-refund-head,
-  .ah-refund-row {
-    display: grid;
-    align-items: center;
-    gap: 12px;
-  }
-  /* One definition (merged) for the main grid; tweak at smaller widths */
-  .ah-refund-head,
-  .ah-refund-row {
-    grid-template-columns: 1fr 100px 160px 120px; /* name | purchased | qty | unit */
-  }
-  @media (max-width: 1200px) {
-    .ah-refund-head,
-    .ah-refund-row {
-      grid-template-columns: 1fr 90px 150px 100px;
-    }
-  }
-
-  /* Item text */
+  /* Item text (col 1) */
   .ah-item-title {
     font-weight: 600;
     line-height: 1.2;
@@ -425,7 +403,7 @@
     margin-top: 2px;
   }
 
-  /* Quantity pill input */
+  /* Quantity input (rounded pill) */
   .ah-chip-input {
     width: 100%;
     height: 36px;
@@ -442,6 +420,13 @@
       box-shadow 0.12s ease,
       border-color 0.12s ease;
   }
+  .ah-refund-col--qty .ah-chip-input {
+    max-width: 140px;
+    height: 42px;
+    border-radius: 8px;
+    font-size: 14px;
+    padding: 0 12px;
+  } /* squarer variant */
   .ah-chip-input:focus-visible {
     outline: 2px solid #1d4ed8;
     outline-offset: 2px;
@@ -470,21 +455,22 @@
     text-align: right;
     font-variant-numeric: tabular-nums;
   }
+  .ah-refund-col--amount .ah-money {
+    width: 100%;
+    max-width: 160px;
+  }
 
-  /* Summary + CTA */
+  /* Summary + CTA row */
   .ah-refund-summary {
-    margin-top: 24px; /* was 16 */
+    margin-top: 24px;
     display: flex;
     align-items: flex-start;
     justify-content: space-between;
-    gap: 24px; /* space between total block and button */
+    gap: 24px;
   }
-
-  /* add vertical separation above the button (helps when stacked) */
   .ah-refund-cta {
     margin-top: 10px;
   }
-
   .ah-refund-cta.btn {
     min-width: 164px;
     border-radius: 10px;
@@ -497,11 +483,11 @@
     margin-top: 4px;
   }
 
-  /* Chips */
+  /* Chips (muted) */
   .ah-chip.ah-chip--muted {
-    background: #e5e7eb; /* gray-200 */
-    color: #374151; /* gray-700 */
-    border: 1px solid #e5e7eb;
+    background: #e5e7eb;
+    color: #374151;
+    border: 1px solid #e5e7eb; /* gray-200 / gray-700 */
   }
 
   /* Refund action button (standalone variant) */
@@ -553,7 +539,7 @@
     }
   }
 
-  /* ===== Animations (shared) ===== */
+  /* ===== Shared animations ============================================== */
   @keyframes ah-shimmer {
     0% {
       background-position: 200% 0;
@@ -569,7 +555,9 @@
   }
 }
 
-/* ===== AH: fix root dashboard white background / tokens ================== */
+/* ==========================================================================
+   Base surface tokens for the dashboard shell (outside payload layer)
+   ========================================================================== */
 @layer payload-default {
   :root {
     --ah-paper: #f4f4f0; /* sidebar/body */
@@ -585,6 +573,7 @@
   .template-default__wrap {
     background: var(--ah-sheet);
   }
+
   .template-default .dashboard,
   .template-default .render-dashboard,
   .template-default .doc,
@@ -592,6 +581,7 @@
   .template-default main {
     background: transparent;
   }
+
   .template-default :where(.gutter, .payload__gutter) {
     background: transparent;
   }

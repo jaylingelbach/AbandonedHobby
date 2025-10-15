@@ -4,7 +4,7 @@ import {
   canEditOrderFulfillmentStatus,
   canEditOrderShipment,
   readOrdersAccess,
-  updateOrdersAccess,
+  updateOrdersAccess
 } from '@/lib/server/payload-utils/orders';
 
 import type { CollectionConfig, FieldAccess } from 'payload';
@@ -18,8 +18,6 @@ const readIfSuperAdmin: FieldAccess = ({ req }) => {
  * Orders
  *
  * Canonical buyer field: `buyer`
- * - We removed the duplicate `user` field (was also a relationship to users).
- * - Run the migration below to copy `user` -> `buyer` and then drop `user`.
  *
  * Seller identity: `sellerTenant`
  * - This is the tenant that received payment; used for access scoping.
@@ -29,13 +27,14 @@ const readIfSuperAdmin: FieldAccess = ({ req }) => {
  *   items is the `items[]` array (each with its own `product`).
  * - You can remove this later once all callers use `items[]`.
  */
+
 export const Orders: CollectionConfig = {
   slug: 'orders',
   access: {
     read: readOrdersAccess,
     create: ({ req: { user } }) => isSuperAdmin(user),
     update: updateOrdersAccess,
-    delete: ({ req: { user } }) => isSuperAdmin(user),
+    delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   fields: [
     // ----- Display / identifiers -----
@@ -45,7 +44,7 @@ export const Orders: CollectionConfig = {
       type: 'text',
       index: true,
       unique: true,
-      required: true,
+      required: true
     },
 
     // ----- Buyer (canonical) -----
@@ -53,7 +52,7 @@ export const Orders: CollectionConfig = {
       name: 'buyer',
       type: 'relationship',
       relationTo: 'users',
-      required: true,
+      required: true
     },
     { name: 'buyerEmail', type: 'email' },
 
@@ -64,7 +63,7 @@ export const Orders: CollectionConfig = {
       type: 'relationship',
       relationTo: 'tenants',
       required: true,
-      index: true, // faster access filters
+      index: true // faster access filters
     },
 
     // ----- Legacy primary product pointer (keep for compatibility) -----
@@ -76,8 +75,8 @@ export const Orders: CollectionConfig = {
       hasMany: false,
       admin: {
         description:
-          'Legacy primary product reference. The authoritative list is in `items[]`.',
-      },
+          'Legacy primary product reference. The authoritative list is in `items[]`.'
+      }
     },
 
     // ----- Accounting / Stripe refs -----
@@ -88,7 +87,7 @@ export const Orders: CollectionConfig = {
       validate: (value: unknown): true | string =>
         typeof value === 'string' && /^[A-Z]{3}$/.test(value)
           ? true
-          : 'Currency must be ISO-4217 (e.g., USD)',
+          : 'Currency must be ISO-4217 (e.g., USD)'
     },
     {
       name: 'total',
@@ -96,15 +95,15 @@ export const Orders: CollectionConfig = {
       required: true,
       min: 0,
       admin: {
-        description: 'The total amount paid in cents (Stripe amount_total).',
-      },
+        description: 'The total amount paid in cents (Stripe amount_total).'
+      }
     },
     {
       name: 'stripeAccountId',
       type: 'text',
       index: true,
       required: true,
-      admin: { description: 'The Stripe account associated with the order.' },
+      admin: { description: 'The Stripe account associated with the order.' }
     },
     {
       name: 'stripeCheckoutSessionId',
@@ -112,27 +111,27 @@ export const Orders: CollectionConfig = {
       index: true,
       unique: true,
       admin: {
-        description: 'The Stripe checkout session associated with the order.',
-      },
+        description: 'The Stripe checkout session associated with the order.'
+      }
     },
     {
       name: 'stripeEventId',
       type: 'text',
       unique: true,
       index: true,
-      admin: { readOnly: true },
+      admin: { readOnly: true }
     },
     {
       name: 'stripePaymentIntentId',
       type: 'text',
       index: true,
-      admin: { readOnly: true },
+      admin: { readOnly: true }
     },
     {
       name: 'stripeChargeId',
       type: 'text',
       index: true,
-      admin: { readOnly: true },
+      admin: { readOnly: true }
     },
 
     // ----- Shipping address (kept for webhook / emails) -----
@@ -146,8 +145,8 @@ export const Orders: CollectionConfig = {
         { name: 'city', type: 'text' },
         { name: 'state', type: 'text' },
         { name: 'postalCode', type: 'text' },
-        { name: 'country', type: 'text' },
-      ],
+        { name: 'country', type: 'text' }
+      ]
     },
 
     // ----- Line items with quantity -----
@@ -160,7 +159,7 @@ export const Orders: CollectionConfig = {
           name: 'product',
           type: 'relationship',
           relationTo: 'products',
-          required: true,
+          required: true
         },
         { name: 'nameSnapshot', type: 'text', required: true },
         { name: 'unitAmount', type: 'number', required: true }, // cents
@@ -171,10 +170,10 @@ export const Orders: CollectionConfig = {
         {
           name: 'refundPolicy',
           type: 'select',
-          options: ['30 day', '14 day', '7 day', '1 day', 'no refunds'],
+          options: ['30 day', '14 day', '7 day', '1 day', 'no refunds']
         },
-        { name: 'returnsAcceptedThrough', type: 'date' },
-      ],
+        { name: 'returnsAcceptedThrough', type: 'date' }
+      ]
     },
 
     // order-level returns cutoff (earliest eligible item)
@@ -185,7 +184,7 @@ export const Orders: CollectionConfig = {
       name: 'status',
       type: 'select',
       defaultValue: 'paid',
-      options: ['paid', 'refunded', 'partially_refunded', 'canceled'],
+      options: ['paid', 'refunded', 'partially_refunded', 'canceled']
     },
     {
       name: 'fulfillmentStatus',
@@ -195,9 +194,9 @@ export const Orders: CollectionConfig = {
         { label: 'Unfulfilled', value: 'unfulfilled' },
         { label: 'Shipped', value: 'shipped' },
         { label: 'Delivered', value: 'delivered' },
-        { label: 'Returned', value: 'returned' },
+        { label: 'Returned', value: 'returned' }
       ],
-      access: { update: canEditOrderFulfillmentStatus },
+      access: { update: canEditOrderFulfillmentStatus }
     },
 
     // bookkeeping / inventory guard
@@ -206,13 +205,13 @@ export const Orders: CollectionConfig = {
       type: 'date',
       admin: {
         readOnly: true,
-        description: 'Set when stock was decremented',
+        description: 'Set when stock was decremented'
       },
       index: true,
       access: {
         create: () => false,
-        update: () => false,
-      },
+        update: () => false
+      }
     },
     {
       name: 'refundedTotalCents',
@@ -220,12 +219,12 @@ export const Orders: CollectionConfig = {
       defaultValue: 0,
       admin: {
         readOnly: true,
-        description: 'Amount of refund in cents',
+        description: 'Amount of refund in cents'
       },
       access: {
         create: () => false,
-        update: () => false,
-      },
+        update: () => false
+      }
     },
 
     {
@@ -233,13 +232,13 @@ export const Orders: CollectionConfig = {
       type: 'date',
       admin: {
         readOnly: true,
-        description: 'Set when last refunded',
+        description: 'Set when last refunded'
       },
       index: true,
       access: {
         create: () => false,
-        update: () => false,
-      },
+        update: () => false
+      }
     },
     // ----- Shipment / Tracking (seller can edit) -----
     {
@@ -255,13 +254,13 @@ export const Orders: CollectionConfig = {
             { label: 'USPS', value: 'usps' },
             { label: 'UPS', value: 'ups' },
             { label: 'FedEx', value: 'fedex' },
-            { label: 'Other', value: 'other' },
-          ],
+            { label: 'Other', value: 'other' }
+          ]
         },
         { name: 'trackingNumber', type: 'text' },
         { name: 'trackingUrl', type: 'text', admin: { readOnly: true } },
-        { name: 'shippedAt', type: 'date', admin: { readOnly: true } },
-      ],
+        { name: 'shippedAt', type: 'date', admin: { readOnly: true } }
+      ]
     },
     // renders refund manager component
     {
@@ -271,10 +270,10 @@ export const Orders: CollectionConfig = {
       access: {
         read: readIfSuperAdmin,
         create: () => false,
-        update: readIfSuperAdmin,
+        update: readIfSuperAdmin
       },
       admin: {
-        description: 'Issue a refund for this order',
+        description: 'Issue a refund for this order'
       },
       fields: [
         {
@@ -283,11 +282,11 @@ export const Orders: CollectionConfig = {
           admin: {
             components: {
               Field:
-                '@/components/custom-payload/refunds/refund-manager.tsx#RefundManager',
-            },
-          },
-        },
-      ],
-    },
-  ],
+                '@/components/custom-payload/refunds/refund-manager.tsx#RefundManager'
+            }
+          }
+        }
+      ]
+    }
+  ]
 };

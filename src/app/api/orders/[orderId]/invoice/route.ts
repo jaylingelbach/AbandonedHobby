@@ -3,12 +3,10 @@ import PDFDocument from 'pdfkit/js/pdfkit.standalone.js';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { ShippingAddress } from '@/modules/orders/types';
-import { OrderItemDoc } from './types';
+import { OrderItem } from './types';
 import { formatCurrency } from '@/lib/utils';
 
 export const runtime = 'nodejs';
-
-// --------------------- Types ---------------------
 
 // --------------------- Styling ---------------------
 const BRAND = {
@@ -36,6 +34,12 @@ const TABLE = {
 };
 
 // --------------------- Helpers ---------------------
+
+const isNum = (x: unknown): x is number =>
+  typeof x === 'number' && Number.isFinite(x);
+
+const isStr = (x: unknown): x is string =>
+  typeof x === 'string' && x.length > 0;
 
 function cityLine(addr?: ShippingAddress | null): string {
   if (!addr) return '';
@@ -354,9 +358,53 @@ export async function GET(
   doc.x = innerX;
   doc.y = y;
 
+  const toOrderItem = (li: unknown): OrderItem => {
+    const o = (li ?? {}) as Record<string, unknown>;
+
+    // pick the best available id and force it to a string
+    const rawId =
+      (o.id as unknown) ??
+      (o._id as unknown) ??
+      (o.product &&
+      typeof o.product === 'object' &&
+      o.product !== null &&
+      'id' in o.product
+        ? (o.product as { id: unknown }).id
+        : undefined) ??
+      (o.product as unknown);
+
+    const id = String(rawId ?? 'unknown');
+
+    const quantity =
+      isNum(o.quantity) && o.quantity > 0 ? Math.trunc(o.quantity) : 1;
+    const unitAmount = isNum(o.unitAmount) ? Math.trunc(o.unitAmount) : 0;
+    const amountTotal = isNum(o.amountTotal)
+      ? Math.trunc(o.amountTotal)
+      : unitAmount * quantity;
+
+    return {
+      id,
+      nameSnapshot: isStr(o.nameSnapshot) ? o.nameSnapshot : null,
+      unitAmount,
+      quantity,
+      amountSubtotal: isNum(o.amountSubtotal)
+        ? Math.trunc(o.amountSubtotal)
+        : null,
+      amountTax: isNum(o.amountTax) ? Math.trunc(o.amountTax) : null,
+      amountTotal,
+      refundPolicy: isStr(o.refundPolicy) ? o.refundPolicy : null,
+      returnsAcceptedThrough: isStr(o.returnsAcceptedThrough)
+        ? o.returnsAcceptedThrough
+        : null
+    };
+  };
+
   // ---------- Items ----------
   sectionTitle(doc, 'Items');
-  const items: OrderItemDoc[] = Array.isArray(order.items) ? order.items : [];
+  const items: OrderItem[] = (
+    Array.isArray(order.items) ? order.items : []
+  ).map(toOrderItem);
+
   const rows: ItemRow[] = items.map((li): ItemRow => {
     const qty =
       typeof li.quantity === 'number' && li.quantity > 0 ? li.quantity : 1;
