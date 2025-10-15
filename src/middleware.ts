@@ -4,9 +4,14 @@ import { NextRequest, NextResponse } from 'next/server';
 const DEVICE_ID_COOKIE = 'ah_device_id';
 
 /**
- * Ensure an anon device id cookie exists.
- * - Shared across subdomains when cookieDomain is provided (e.g., .example.com)
- * - 1 year lifetime, SameSite Lax, HttpOnly=false (client readable), Secure in prod
+ * Ensure a persistent anonymous device identifier cookie is present on the response.
+ *
+ * Sets the `ah_device_id` cookie with a 1-year lifetime, `SameSite=Lax`, `HttpOnly=false`,
+ * and `Secure` in production. If `cookieDomain` is provided the cookie will be scoped to that
+ * domain (allowing sharing across subdomains). If the request already contains the cookie,
+ * the function does nothing.
+ *
+ * @param cookieDomain - Optional domain to set on the cookie (e.g., `.example.com`) to share it across subdomains
  */
 function ensureDeviceIdCookie(
   req: NextRequest,
@@ -35,6 +40,12 @@ export const config = {
   matcher: ['/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)']
 };
 
+/**
+ * Rewrites tenant subdomain requests to a canonical /tenants/<slug>/ path when appropriate and ensures a persistent anonymous device ID cookie is present on the response.
+ *
+ * @param req - The incoming Next.js request
+ * @returns A NextResponse for the request; for valid tenant subdomains the response is rewritten to `/tenants/<slug>/<originalPath><originalSearch>`, otherwise a regular next response. The returned response will have the anonymous device ID cookie ensured (shared across subdomains when a root domain is configured).
+ */
 export default function middleware(req: NextRequest): NextResponse {
   const url = req.nextUrl;
   const hostname = url.hostname.toLowerCase();
