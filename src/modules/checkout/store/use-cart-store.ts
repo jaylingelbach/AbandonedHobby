@@ -14,11 +14,15 @@ const DEVICE_ID_KEY = 'ah_device_id';
 
 function getOrCreateDeviceId(): string {
   if (typeof window === 'undefined') return 'server';
-  const existing = localStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-  const generated = crypto?.randomUUID?.() ?? String(Date.now());
-  localStorage.setItem(DEVICE_ID_KEY, generated);
-  return generated;
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const generated = crypto?.randomUUID?.() ?? String(Date.now());
+    localStorage.setItem(DEVICE_ID_KEY, generated);
+    return generated;
+  } catch {
+    return crypto?.randomUUID?.() ?? String(Date.now());
+  }
 }
 
 function deriveUserKey(userId?: string | null): string {

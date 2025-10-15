@@ -22,6 +22,10 @@ function getOrCreateDeviceId(): string {
 
 function userKey(userId?: string | null): string {
   const trimmed = (userId ?? '').trim();
+  if (trimmed.includes('::')) {
+    throw new Error('userId cannot contain "::" separator');
+  }
+
   return trimmed.length > 0
     ? trimmed
     : `${ANON_PREFIX}${getOrCreateDeviceId()}`;

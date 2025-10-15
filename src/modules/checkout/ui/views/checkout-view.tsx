@@ -14,6 +14,10 @@ import {
   getTenantNameSafe,
   getTenantSlugSafe
 } from '@/lib/utils';
+
+import { useCartStore } from '../../store/use-cart-store';
+
+import { buildScope } from '../../hooks/cart-scope';
 import { Product } from '@/payload-types';
 import { useTRPC } from '@/trpc/client';
 
@@ -61,6 +65,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
+        // stash the scope that initiated this checkout
+        const scope = buildScope(tenantSlug, session?.user?.id);
+        localStorage.setItem('ah_checkout_scope', scope);
         window.location.assign(payload.url);
       },
       onError: (err) => {
@@ -123,6 +130,40 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     queryClient,
     libraryFilter
   ]);
+
+  useEffect(() => {
+    const isSuccess =
+      searchParams.get('success') === 'true' ||
+      !!searchParams.get('session_id');
+    if (!isSuccess) return;
+
+    // Prefer clearing the exact scope that initiated checkout
+    const scope =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('ah_checkout_scope')
+        : null;
+
+    if (scope && 'clearCart' in useCartStore.getState()) {
+      clearCart();
+      localStorage.removeItem('ah_checkout_scope');
+    } else {
+      clearCart();
+    }
+
+    setStates({ success: false, cancel: false });
+
+    // clean URL
+    const url = new URL(window.location.href);
+    url.searchParams.delete('success');
+    url.searchParams.delete('session_id');
+    const qs = url.searchParams.toString();
+    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
+      scroll: false
+    });
+
+    // refresh any dependent data
+    queryClient.invalidateQueries(libraryFilter);
+  }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
 
   // ---- Analytics: checkout_canceled on page load with cancel=true ----
   const sentCancelEventRef = useRef(false);

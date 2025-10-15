@@ -3703,11 +3703,12 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 ## Improvements
 
-Updated refund UI: responsive 5-column layout, clearer labels, aligned values, squarer inputs, improved table/header spacing, and dashboard surface styling.
-Safer refunds: deterministic idempotency keys, better validation/error messaging, automatic refresh of refund totals after actions.
-Documentation
+- Updated refund UI: responsive 5-column layout, clearer labels, aligned values, squarer inputs, improved table/header spacing, and dashboard surface styling.
+- Safer refunds: deterministic idempotency keys, better validation/error messaging, automatic refresh of refund totals after actions.
 
-Added recap notes describing the partial-refund UX and behaviors.
+## Documentation
+
+- Added recap notes describing the partial-refund UX and behaviors.
 
 ## File changes
 
@@ -3724,12 +3725,12 @@ Added recap notes describing the partial-refund UX and behaviors.
 ### Refunds API route & schema
 
 - src/app/api/admin/refunds/route.ts, src/app/api/admin/refunds/schema.ts
-  - Introduces discriminated ApiLineSelection `type: 'quantity'
+  - Introduces discriminated ApiLineSelection with `type: 'quantity'` and corresponding payload structure for per-line refund selections.
 
 ### Collection & payload types
 
 - src/collections/Refunds.ts, src/payload-types.ts
-  - Switches Refund.selections to blocks-based discriminated union quantity
+  - Switches Refund.selections to blocks-based discriminated union with quantity-based selection types and expanded metadata.
 
 ### Admin RefundManager UI
 
