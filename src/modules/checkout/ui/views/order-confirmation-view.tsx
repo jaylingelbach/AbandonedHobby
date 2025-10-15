@@ -10,7 +10,7 @@ import { TRPCClientError } from '@trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
-import { buildSignInUrl, formatCents } from '@/lib/utils';
+import { buildSignInUrl, formatCents, generateTenantURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks ───────────────────────────────────────────────────────────
@@ -254,7 +254,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 {o.tenantSlug ? (
                   <Link
                     prefetch
-                    href={`/tenants/${o.tenantSlug}`}
+                    href={generateTenantURL(o.tenantSlug)}
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
                     Visit seller

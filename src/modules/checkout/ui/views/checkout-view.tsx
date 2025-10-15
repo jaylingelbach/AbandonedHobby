@@ -208,8 +208,16 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   useEffect(() => {
     if (!session?.user?.id) return;
-    useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
+    const run = () => {
+      if (session?.user?.id) {
+        useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
+      }
+    };
+    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsub?.();
   }, [tenantSlug, session?.user?.id]);
+
   // ----- Renders -----
 
   // Loading: show spinner if there are items to fetch
