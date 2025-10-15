@@ -7,19 +7,32 @@ import {
   FullyRefundedError
 } from '@/modules/refunds/errors';
 import { recomputeRefundState } from '@/modules/refunds/utils';
-
-// ✅ import from schema.ts
 import {
   refundRequestSchema,
   type RefundRequest,
   type ApiLineSelection
 } from './schema';
 
-// engine selection type (no `type` field)
 import type { LineSelection } from '@/modules/refunds/types';
 
 export const runtime = 'nodejs';
 
+// --- Types used for persisting selections on the refund record ---
+type PersistedSelectionQty = {
+  blockType: 'quantity';
+  itemId: string;
+  quantity: number;
+};
+
+type PersistedSelectionAmt = {
+  blockType: 'amount';
+  itemId: string;
+  amountCents: number;
+};
+
+type PersistedSelection = PersistedSelectionQty | PersistedSelectionAmt;
+
+// API -> Engine
 function toEngineSelections(
   apiSelections: ApiLineSelection[]
 ): LineSelection[] {
@@ -27,6 +40,25 @@ function toEngineSelections(
     s.type === 'amount'
       ? { itemId: s.itemId, amountCents: Math.trunc(s.amountCents) }
       : { itemId: s.itemId, quantity: Math.trunc(s.quantity) }
+  );
+}
+
+// API -> Persisted (normalized for refunds.selections)
+function toPersistedSelections(
+  apiSelections: ApiLineSelection[]
+): PersistedSelection[] {
+  return apiSelections.map((s) =>
+    s.type === 'amount'
+      ? {
+          blockType: 'amount',
+          itemId: s.itemId,
+          amountCents: Math.trunc(s.amountCents)
+        }
+      : {
+          blockType: 'quantity',
+          itemId: s.itemId,
+          quantity: Math.trunc(s.quantity)
+        }
   );
 }
 
@@ -57,7 +89,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
     }
 
-    // 🔁 Adapt API selections (with `type`) → engine selections (no `type`)
     const engineSelections = toEngineSelections(input.selections);
 
     const { refund, record } = await createRefundForOrder({
@@ -73,6 +104,27 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    // Immediately persist normalized selections on the refund doc
+    // so the "remaining" endpoint can attribute by-line deterministically.
+    try {
+      const normalized: PersistedSelection[] = toPersistedSelections(
+        input.selections
+      );
+      await payload.update({
+        collection: 'refunds',
+        id: record.id,
+        data: { selections: normalized },
+        overrideAccess: true,
+        depth: 0
+      });
+    } catch (persistErr) {
+      console.warn(
+        '[admin] failed to persist normalized selections on refund (non-fatal)',
+        persistErr
+      );
+    }
+
+    // Kick a recompute to make the GET /remaining reflect this refund ASAP
     try {
       await recomputeRefundState({
         payload,

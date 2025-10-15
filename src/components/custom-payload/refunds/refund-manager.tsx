@@ -656,6 +656,7 @@ export function RefundManager() {
           <div className="ah-refund-body">
             {refundLines.map((line) => {
               const itemId = line.itemId;
+              const readyForLine = serverTruthReadyFor(itemId);
 
               const hasQtyKey = hasKey(
                 remainingQtyByItemId as Record<string, unknown>,
@@ -702,7 +703,7 @@ export function RefundManager() {
                 maxQty
               );
 
-              if (DEBUG_REFUNDS && serverTruthReadyFor(itemId)) {
+              if (DEBUG_REFUNDS && readyForLine) {
                 console.groupCollapsed(
                   `[refunds][ui] line ${itemId} — chip? ${isLineFullyRefunded ? 'YES' : 'no'}`
                 );
@@ -729,12 +730,30 @@ export function RefundManager() {
                   <div className="ah-refund-col ah-refund-col--name">
                     <div className="ah-item-title">
                       {line.name}
+                      {!readyForLine && (
+                        <span
+                          className="ah-chip ah-chip--muted"
+                          style={{ marginLeft: 8 }}
+                        >
+                          loading…
+                        </span>
+                      )}
                       {serverTruthReadyFor(itemId) && isLineFullyRefunded && (
                         <span
                           className="ah-chip ah-chip--muted"
                           style={{ marginLeft: 8 }}
                         >
-                          {qtyFully ? 'Refunded' : 'Refunded (amount)'}
+                          {qtyFully
+                            ? 'Refunded'
+                            : `Refunded ${formatCurrency(
+                                Math.min(
+                                  typeof refundedAmtCents === 'number'
+                                    ? refundedAmtCents
+                                    : 0,
+                                  lineTotalCents
+                                ) / 100,
+                                currency
+                              )}`}
                         </span>
                       )}
                     </div>
@@ -773,7 +792,9 @@ export function RefundManager() {
                       min={0}
                       max={maxQty}
                       value={selectedQty}
-                      disabled={isLineFullyRefunded || isLoading}
+                      disabled={
+                        !readyForLine || isLineFullyRefunded || isLoading
+                      }
                       onKeyDown={(e) => handleQtyKeyDown(e, itemId, maxQty)}
                       onChange={(e) => {
                         const parsed = Number(e.target.value);
@@ -807,7 +828,9 @@ export function RefundManager() {
                           className="ah-input ah-money-input"
                           placeholder="0.00"
                           value={partialAmountByItemId[itemId] ?? ''}
-                          disabled={isLineFullyRefunded || isLoading}
+                          disabled={
+                            !readyForLine || isLineFullyRefunded || isLoading
+                          }
                           onChange={(e) =>
                             setPartialAmountByItemId((prev) => ({
                               ...prev,

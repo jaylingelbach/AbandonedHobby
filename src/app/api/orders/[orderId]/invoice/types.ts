@@ -1,15 +1,70 @@
-import {
-  OrderForInvoice,
-  OrderItemCore,
-  ShippingAddress
-} from '@/domain/orders/types';
+import type { OrderCore, OrderItemCore } from '@/domain/orders/types';
 
-export type OrderItemDoc = Pick<
-  OrderItemCore,
-  'nameSnapshot' | 'quantity' | 'unitAmount' | 'amountTotal'
+export type OrderItem = OrderItemCore;
+
+export type OrderLike = Pick<
+  OrderCore,
+  | 'id'
+  | 'orderNumber'
+  | 'currency'
+  | 'total'
+  | 'items'
+  | 'stripePaymentIntentId'
+  | 'stripeChargeId'
+  | 'stripeAccountId'
 >;
 
-export type OrderDoc = OrderForInvoice; // ← unify name in this module
+export type OrderDoc = Pick<
+  OrderCore,
+  'id' | 'total' | 'status' | 'refundedTotalCents' | 'lastRefundAt'
+>;
 
-// If you referenced ShippingAddress here before, re-export it:
-export type { ShippingAddress };
+export type OrderWithTotals = OrderLike & {
+  total?: number | null;
+  refundedTotalCents?: number | null;
+};
+
+export type RefundLine = {
+  itemId: string;
+  name: string;
+  unitAmount: number; // cents
+  quantityPurchased: number;
+  quantitySelected: number;
+  amountTotal?: number;
+};
+
+// (rest of your refund types unchanged)
+export type LineSelectionQty = {
+  itemId: string;
+  quantity: number;
+  amountCents?: undefined;
+};
+export type LineSelectionAmount = {
+  itemId: string;
+  amountCents: number;
+  quantity?: undefined;
+};
+export type LineSelection = LineSelectionQty | LineSelectionAmount;
+
+export type EngineOptions = {
+  reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
+  restockingFeeCents?: number;
+  refundShippingCents?: number;
+  notes?: string;
+  idempotencyKey?: string;
+};
+
+export type StripeRefundReason =
+  | 'requested_by_customer'
+  | 'duplicate'
+  | 'fraudulent'
+  | 'other';
+export type LocalRefundStatus = 'succeeded' | 'pending' | 'failed' | 'canceled';
+export type RefundDoc = {
+  id: string;
+  order: string | { id: string };
+  amount: number; // cents
+  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  createdAt?: string;
+  updatedAt?: string;
+};
