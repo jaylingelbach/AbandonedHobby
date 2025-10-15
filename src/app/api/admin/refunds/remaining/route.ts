@@ -4,17 +4,6 @@ import config from '@/payload.config';
 
 export const runtime = 'nodejs';
 
-/**
- * GET /api/admin/refunds/remaining?orderId=...&includePending=true|false
- *
- * Returns:
- * {
- *   ok: true,
- *   byItemId: { [itemId]: remainingQty },
- *   remainingCents: number,
- *   refundedAmountByItemId: { [itemId]: cents }   // NEW
- * }
- */
 export async function GET(req: NextRequest) {
   type SelBlockQuantity = {
     blockType: 'quantity';
@@ -27,77 +16,54 @@ export async function GET(req: NextRequest) {
     amountCents?: number;
     amount?: number;
   };
-  type SelLegacyQty = { itemId: string; quantity: number }; // no blockType
+  type SelLegacyQty = { itemId: string; quantity: number };
   type SelLegacyAmount = {
     itemId: string;
     amountCents?: number;
     amount?: number;
-  }; // no blockType
+  };
 
-  function isObject(x: unknown): x is Record<string, unknown> {
-    return typeof x === 'object' && x !== null;
-  }
+  const isObj = (x: unknown): x is Record<string, unknown> =>
+    typeof x === 'object' && x !== null;
+  const isStr = (x: unknown): x is string => typeof x === 'string';
+  const isNum = (x: unknown): x is number =>
+    typeof x === 'number' && Number.isFinite(x);
 
-  function isString(x: unknown): x is string {
-    return typeof x === 'string';
-  }
-
-  function isFiniteNumber(x: unknown): x is number {
-    return typeof x === 'number' && Number.isFinite(x);
-  }
-
-  function isBlockQuantity(sel: unknown): sel is SelBlockQuantity {
-    return (
-      isObject(sel) &&
-      sel['blockType'] === 'quantity' &&
-      isString(sel['itemId']) &&
-      isFiniteNumber(sel['quantity'])
-    );
-  }
-
-  function isBlockAmount(sel: unknown): sel is SelBlockAmount {
-    return (
-      isObject(sel) &&
-      sel['blockType'] === 'amount' &&
-      isString(sel['itemId']) &&
-      (isFiniteNumber(sel['amountCents']) || isFiniteNumber(sel['amount']))
-    );
-  }
-
-  function isLegacyQty(sel: unknown): sel is SelLegacyQty {
-    return (
-      isObject(sel) &&
-      isString(sel['itemId']) &&
-      isFiniteNumber(sel['quantity']) &&
-      !('blockType' in sel)
-    );
-  }
-
-  function isLegacyAmount(sel: unknown): sel is SelLegacyAmount {
-    return (
-      isObject(sel) &&
-      isString(sel['itemId']) &&
-      (isFiniteNumber(sel['amountCents']) || isFiniteNumber(sel['amount'])) &&
-      !('blockType' in sel)
-    );
-  }
-
-  function pickAmountCents(sel: SelBlockAmount | SelLegacyAmount): number {
-    if (isFiniteNumber(sel.amountCents))
-      return Math.trunc(sel.amountCents as number);
-    if (isFiniteNumber(sel.amount)) return Math.trunc(sel.amount as number);
-    return 0;
-  }
+  const isBlockQty = (sel: unknown): sel is SelBlockQuantity =>
+    isObj(sel) &&
+    sel['blockType'] === 'quantity' &&
+    isStr(sel['itemId']) &&
+    isNum(sel['quantity']);
+  const isBlockAmt = (sel: unknown): sel is SelBlockAmount =>
+    isObj(sel) &&
+    sel['blockType'] === 'amount' &&
+    isStr(sel['itemId']) &&
+    (isNum(sel['amountCents']) || isNum(sel['amount']));
+  const isLegacyQty = (sel: unknown): sel is SelLegacyQty =>
+    isObj(sel) &&
+    isStr(sel['itemId']) &&
+    isNum(sel['quantity']) &&
+    !('blockType' in sel);
+  const isLegacyAmt = (sel: unknown): sel is SelLegacyAmount =>
+    isObj(sel) &&
+    isStr(sel['itemId']) &&
+    (isNum(sel['amountCents']) || isNum(sel['amount'])) &&
+    !('blockType' in sel);
+  const pickAmountCents = (sel: SelBlockAmount | SelLegacyAmount): number =>
+    isNum(sel.amountCents)
+      ? Math.trunc(sel.amountCents)
+      : isNum(sel.amount)
+        ? Math.trunc(sel.amount)
+        : 0;
 
   try {
     const { searchParams } = new URL(req.url);
     const orderId = searchParams.get('orderId')?.toString();
-    if (!orderId) {
+    if (!orderId)
       return NextResponse.json(
         { error: 'orderId is required' },
         { status: 400 }
       );
-    }
 
     const includePending = searchParams.get('includePending') === 'true';
 
@@ -110,10 +76,10 @@ export async function GET(req: NextRequest) {
 
     const isStaff =
       Array.isArray(user?.roles) && user.roles.includes('super-admin');
-    if (!isStaff) {
+    if (!isStaff)
       return NextResponse.json({ error: 'FORBIDDEN' }, { status: 403 });
-    }
 
+    // ---- Load order (need item totals to decide full coverage by amount)
     const order = (await payload.findByID({
       collection: 'orders',
       id: orderId,
@@ -123,15 +89,19 @@ export async function GET(req: NextRequest) {
       id: string;
       total?: number;
       refundedTotalCents?: number;
-      items?: Array<{ id?: string; quantity?: number }>;
+      items?: Array<{
+        id?: string;
+        quantity?: number;
+        unitAmount?: number;
+        amountTotal?: number;
+      }>;
     } | null;
 
-    if (!order?.id) {
+    if (!order?.id)
       return NextResponse.json({ error: 'Order not found' }, { status: 404 });
-    }
 
+    // ---- Fetch refunds
     const counted = includePending ? ['succeeded', 'pending'] : ['succeeded'];
-
     const { docs } = await payload.find({
       collection: 'refunds',
       where: {
@@ -142,13 +112,9 @@ export async function GET(req: NextRequest) {
       overrideAccess: true
     });
 
-    // ---- Order-level remaining cents
-    const refundedCentsFromDocs = (docs as Array<{ amount?: unknown }>).reduce(
-      (sum, doc) => {
-        const numeric =
-          typeof doc.amount === 'number' ? doc.amount : Number(doc.amount);
-        return sum + (Number.isFinite(numeric) ? Math.trunc(numeric) : 0);
-      },
+    // ---- Order-level remaining cents (for header)
+    const refundedCentsFromDocs = (docs as Array<{ amount?: number }>).reduce(
+      (sum, r) => sum + (typeof r.amount === 'number' ? r.amount : 0),
       0
     );
 
@@ -160,115 +126,128 @@ export async function GET(req: NextRequest) {
       0,
       (order.total ?? 0) - (order.refundedTotalCents ?? 0)
     );
-
     const remainingCents =
       refundedCentsFromDocs > 0
         ? remainingCentsFromDocs
         : remainingCentsFromOrderCol;
 
-    // ---- Per-item remaining quantities (legacy + blocks) + refunded amounts
+    // ---- Aggregate per-line qty + amount
+
+    // ---- Aggregate per-line qty + amount
     const refundedQtyByItemId = new Map<string, number>();
     const refundedAmountByItemId = new Map<string, number>();
 
-    function addQty(itemId: string, quantity: number) {
-      if (!itemId || quantity <= 0) return;
+    const addQty = (idRaw: unknown, n: number) => {
+      const id = idRaw == null ? '' : String(idRaw);
+      if (!id || n <= 0) return;
       refundedQtyByItemId.set(
-        itemId,
-        (refundedQtyByItemId.get(itemId) ?? 0) + Math.trunc(quantity)
+        id,
+        (refundedQtyByItemId.get(id) ?? 0) + Math.trunc(n)
       );
-    }
-    function addAmount(itemId: string, cents: number) {
-      if (!itemId || cents <= 0) return;
+    };
+
+    const addAmt = (idRaw: unknown, cents: number) => {
+      const id = idRaw == null ? '' : String(idRaw);
+      if (!id || cents <= 0) return;
       refundedAmountByItemId.set(
-        itemId,
-        (refundedAmountByItemId.get(itemId) ?? 0) + Math.trunc(cents)
+        id,
+        (refundedAmountByItemId.get(id) ?? 0) + Math.trunc(cents)
       );
-    }
+    };
 
     for (const doc of docs as Array<{
       selections?: unknown[];
       amount?: number;
     }>) {
-      const rawSelections = Array.isArray(doc.selections) ? doc.selections : [];
-
+      const sels = Array.isArray(doc.selections) ? doc.selections : [];
       let foundAnyPerLineAmount = false;
       let singleItemId: string | null = null;
-      let uniqueItemSeen = false;
+      let unique = true;
 
-      for (const sel of rawSelections) {
-        if (isBlockQuantity(sel)) {
-          addQty(sel.itemId, Math.trunc(sel.quantity));
-          // track uniqueness
-          if (singleItemId === null) {
-            singleItemId = sel.itemId;
-            uniqueItemSeen = true;
-          } else if (singleItemId !== sel.itemId) {
-            uniqueItemSeen = false;
-          }
+      for (const sel of sels) {
+        if (isBlockQty(sel)) {
+          const selId = String(sel.itemId);
+          addQty(selId, sel.quantity);
+          if (singleItemId === null) singleItemId = selId;
+          else if (singleItemId !== selId) unique = false;
           continue;
         }
-        if (isBlockAmount(sel)) {
-          addAmount(sel.itemId, pickAmountCents(sel));
+        if (isBlockAmt(sel)) {
+          const selId = String(sel.itemId);
+          addAmt(selId, pickAmountCents(sel));
           foundAnyPerLineAmount = true;
-          if (singleItemId === null) {
-            singleItemId = sel.itemId;
-            uniqueItemSeen = true;
-          } else if (singleItemId !== sel.itemId) {
-            uniqueItemSeen = false;
-          }
+          if (singleItemId === null) singleItemId = selId;
+          else if (singleItemId !== selId) unique = false;
           continue;
         }
         if (isLegacyQty(sel)) {
-          addQty(sel.itemId, Math.trunc(sel.quantity));
-          if (singleItemId === null) {
-            singleItemId = sel.itemId;
-            uniqueItemSeen = true;
-          } else if (singleItemId !== sel.itemId) {
-            uniqueItemSeen = false;
-          }
+          const selId = String(sel.itemId);
+          addQty(selId, sel.quantity);
+          if (singleItemId === null) singleItemId = selId;
+          else if (singleItemId !== selId) unique = false;
           continue;
         }
-        if (isLegacyAmount(sel)) {
-          addAmount(sel.itemId, pickAmountCents(sel));
+        if (isLegacyAmt(sel)) {
+          const selId = String(sel.itemId);
+          addAmt(selId, pickAmountCents(sel));
           foundAnyPerLineAmount = true;
-          if (singleItemId === null) {
-            singleItemId = sel.itemId;
-            uniqueItemSeen = true;
-          } else if (singleItemId !== sel.itemId) {
-            uniqueItemSeen = false;
-          }
+          if (singleItemId === null) singleItemId = selId;
+          else if (singleItemId !== selId) unique = false;
           continue;
         }
       }
 
-      // Fallback:
-      // If there were NO per-line amount entries in selections,
-      // but there is exactly one unique item referenced, attribute the doc.amount to that item.
+      // Fallback: attribute doc.amount to the single item
       if (
         !foundAnyPerLineAmount &&
-        uniqueItemSeen &&
+        unique &&
+        singleItemId &&
         typeof doc.amount === 'number' &&
         doc.amount > 0
       ) {
-        addAmount(singleItemId as string, Math.trunc(doc.amount));
+        addAmt(singleItemId, Math.trunc(doc.amount));
       }
     }
 
+    // ---- Compute remaining qty by item (server truth)
     const byItemId: Record<string, number> = {};
+    const lineTotalByItemId = new Map<string, number>();
+
     for (const item of order.items ?? []) {
-      const id = item?.id?.toString();
+      // 👇 normalize item id from either id or _id
+      const idRaw = (item as any)?.id ?? (item as any)?._id;
+      const id = idRaw == null ? '' : String(idRaw);
       if (!id) continue;
+
       const purchased = Number.isFinite(item.quantity)
-        ? (item.quantity as number)
+        ? Math.trunc(item.quantity as number)
         : 1;
-      const already = refundedQtyByItemId.get(id) ?? 0;
-      if (already > purchased) {
-        console.log('Possible over refund');
-      }
-      byItemId[id] = Math.max(0, purchased - already);
+      const alreadyQty = refundedQtyByItemId.get(id) ?? 0;
+      byItemId[id] = Math.max(0, purchased - alreadyQty);
+
+      const lineTotal =
+        typeof item.amountTotal === 'number'
+          ? item.amountTotal
+          : (item.unitAmount ?? 0) * (item.quantity ?? 1);
+      lineTotalByItemId.set(id, Math.trunc(lineTotal));
     }
 
-    // materialize maps → plain objects
+    // ---- Decide which items are fully refunded
+    const fullyRefundedItemIds: string[] = [];
+    for (const item of order.items ?? []) {
+      const idRaw = (item as any)?.id ?? (item as any)?._id;
+      const id = idRaw == null ? '' : String(idRaw);
+      if (!id) continue;
+
+      const qtyRemaining = byItemId[id] ?? 0;
+      const lineTotal = lineTotalByItemId.get(id) ?? 0;
+      const refundedAmt = refundedAmountByItemId.get(id) ?? 0;
+
+      const coveredByAmount = refundedAmt >= Math.max(0, lineTotal - 1);
+      if (qtyRemaining === 0 || coveredByAmount) fullyRefundedItemIds.push(id);
+    }
+
+    // materialize maps
     const refundedQtyByItemIdObj: Record<string, number> = {};
     for (const [id, qty] of refundedQtyByItemId)
       refundedQtyByItemIdObj[id] = qty;
@@ -279,10 +258,11 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      byItemId,
-      remainingCents,
+      byItemId, // remaining qty by item (server truth)
+      remainingCents, // order-level remaining (for header)
       refundedQtyByItemId: refundedQtyByItemIdObj,
-      refundedAmountByItemId: refundedAmountByItemIdObj
+      refundedAmountByItemId: refundedAmountByItemIdObj,
+      fullyRefundedItemIds // 👈 NEW: authoritative list for UI
     });
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);

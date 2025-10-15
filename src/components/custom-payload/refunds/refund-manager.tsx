@@ -25,185 +25,333 @@ import {
   buildSelections
 } from './utils/ui/refund-calc';
 
-/**
- * Staff-facing refund management UI for a single order.
- * - Per-line quantity refunds OR per-line partial amount refunds
- * - Optional refund shipping / restocking fee
- * - Live preview and server-validated submission
- */
+const DEBUG_REFUNDS = true;
+
+function dbg(title: string, data?: unknown) {
+  if (!DEBUG_REFUNDS) return;
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(`[refunds][ui] ${title}`);
+  if (data !== undefined) console.log(data);
+  console.groupEnd();
+}
+
+function dbgTable(
+  title: string,
+  rows: Record<string, unknown> | Array<Record<string, unknown>>
+) {
+  if (!DEBUG_REFUNDS) return;
+  // eslint-disable-next-line no-console
+  console.groupCollapsed(`[refunds][ui] ${title}`);
+  try {
+    console.table(rows);
+  } catch (e) {
+    console.log(rows);
+  }
+  console.groupEnd();
+}
+
+const hasKey = (obj: Record<string, unknown>, key: string) =>
+  Object.prototype.hasOwnProperty.call(obj, key);
+
 export function RefundManager() {
   const { id: documentId, collectionSlug } = useDocumentInfo();
   const { user } = useAuth();
 
-  // ----- Local state -----
   const [isLoading, setIsLoading] = useState(false);
   const [order, setOrder] = useState<OrderLite | null>(null);
   const [currency, setCurrency] = useState<string>('USD');
   const [formError, setFormError] = useState<string | null>(null);
 
-  // Server-truth remaining quantities by item
+  // SERVER TRUTH (all four maps below come from the endpoint)
   const [remainingQtyByItemId, setRemainingQtyByItemId] = useState<
     Record<string, number>
   >({});
-
-  // Server-truth remaining refundable cents for the whole order
+  const [refundedQtyByItemId, setRefundedQtyByItemId] = useState<
+    Record<string, number>
+  >({});
+  const [refundedAmountByItemId, setRefundedAmountByItemId] = useState<
+    Record<string, number>
+  >({});
+  const [fullyRefundedByItemId, setFullyRefundedByItemId] = useState<
+    Record<string, boolean>
+  >({});
   const [remainingCentsFromServer, setRemainingCentsFromServer] = useState<
     number | null
   >(null);
 
-  // Refund form state
+  // LOCAL FORM
   const [quantitiesByItemId, setQuantitiesByItemId] = useState<
     Record<string, number>
   >({});
   const [partialAmountByItemId, setPartialAmountByItemId] = useState<
     Record<string, string>
-  >({}); // dollars.cents per line
+  >({});
   const [reason, setReason] = useState<
     'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other'
   >('requested_by_customer');
-
-  const [refundedAmountByItemId, setRefundedAmountByItemId] = useState<
-    Record<string, number>
-  >({});
-
-  const [refundedQtyByItemId, setRefundedQtyByItemId] = useState<
-    Record<string, number>
-  >({});
-
-  // Dollars.cents fields → converted later
   const [refundShippingDollars, setRefundShippingDollars] =
     useState<string>('0.00');
   const [restockingFeeDollars, setRestockingFeeDollars] =
     useState<string>('0.00');
 
-  // Guards
+  const [fullyRefundedSet, setFullyRefundedSet] = useState<Set<string>>(
+    new Set()
+  );
+
   const isOrdersCollection = collectionSlug === 'orders';
   const isStaff =
     Array.isArray(user?.roles) && user.roles.includes('super-admin');
 
-  // ----- Helpers -----
+  useEffect(() => {
+    if (!DEBUG_REFUNDS) return;
+    dbgTable('STATE remainingQtyByItemId', remainingQtyByItemId);
+    dbgTable('STATE refundedQtyByItemId', refundedQtyByItemId);
+    dbgTable('STATE refundedAmountByItemId', refundedAmountByItemId);
+    dbgTable('STATE fullyRefundedByItemId', fullyRefundedByItemId);
+    dbg('STATE remainingCentsFromServer', remainingCentsFromServer);
+  }, [
+    remainingQtyByItemId,
+    refundedQtyByItemId,
+    refundedAmountByItemId,
+    fullyRefundedByItemId,
+    remainingCentsFromServer
+  ]);
+
   async function fetchRemainingForOrder(orderId: string): Promise<void> {
     try {
-      const response = await fetch(
+      console.log('[refunds][ui] GET /api/admin/refunds/remaining → start');
+      const res = await fetch(
         `/api/admin/refunds/remaining?orderId=${orderId}&includePending=true`,
         { credentials: 'include', cache: 'no-store' }
       );
-      if (!response.ok) {
-        setRemainingQtyByItemId({});
-        setRemainingCentsFromServer(null);
-        return;
-      }
-      const json = (await response.json()) as {
+      if (!res.ok) throw new Error('failed');
+
+      const json: {
         ok?: boolean;
         byItemId?: Record<string, number>;
         remainingCents?: number;
         refundedAmountByItemId?: Record<string, number>;
         refundedQtyByItemId?: Record<string, number>;
-      };
-      if (!json?.ok) {
-        setRemainingQtyByItemId({});
-        setRemainingCentsFromServer(null);
-        setRefundedAmountByItemId({});
-        setRefundedQtyByItemId({});
-        return;
-      }
-      setRemainingQtyByItemId(json.byItemId ?? {});
+        fullyRefundedItemIds?: string[];
+      } = await res.json();
+
+      console.log('[refunds][ui] GET /api/admin/refunds/remaining → payload');
+      console.log(
+        '[refunds][ui] refundLines itemIds',
+        refundLines.map((l) => l.itemId)
+      );
+      console.log(
+        '[refunds][ui] server.byItemId keys',
+        Object.keys(json.byItemId ?? {})
+      );
+
+      if (!json?.ok) throw new Error('not ok');
+
+      // 1) order-level remaining (for header)
       setRemainingCentsFromServer(
         typeof json.remainingCents === 'number' ? json.remainingCents : null
       );
-      setRefundedAmountByItemId(json.refundedAmountByItemId ?? {});
+
+      // 2) per-line maps (server truth)
+      setRemainingQtyByItemId(json.byItemId ?? {});
       setRefundedQtyByItemId(json.refundedQtyByItemId ?? {});
+      setRefundedAmountByItemId(json.refundedAmountByItemId ?? {});
+
+      // 3) materialize array → boolean map for chip rendering
+      const fullyMap = Array.isArray(json.fullyRefundedItemIds)
+        ? Object.fromEntries(json.fullyRefundedItemIds.map((id) => [id, true]))
+        : {};
+      setFullyRefundedByItemId(fullyMap);
+
+      // (optional) debug
+      console.log('[refunds][ui] remainingQtyByItemId (server)');
+      console.log('[refunds][ui] refundedQtyByItemId (server)');
+      console.log('[refunds][ui] refundedAmountByItemId (server)');
+      console.log('[refunds][ui] fullyRefundedItemIds (server)');
     } catch {
+      // Reset everything on error so UI doesn’t get stuck
+      setRemainingCentsFromServer(null);
       setRemainingQtyByItemId({});
       setRefundedQtyByItemId({});
-      setRemainingCentsFromServer(null);
+      setRefundedAmountByItemId({});
+      setFullyRefundedByItemId({});
     }
   }
 
   async function refreshAfterRefund(orderId: string): Promise<void> {
-    // 1) refresh order totals
-    const orderResponse = await fetch(`/api/orders/${orderId}?depth=0`, {
+    dbg('refreshAfterRefund → begin', { orderId });
+
+    const orderRes = await fetch(`/api/orders/${orderId}?depth=0`, {
       credentials: 'include',
       cache: 'no-store'
     });
-    if (orderResponse.ok) {
-      const updatedOrder: OrderLite = await orderResponse.json();
-      setOrder(updatedOrder);
+    if (orderRes.ok) {
+      const next: OrderLite = await orderRes.json();
+      setOrder(next);
+      dbg('refreshAfterRefund → order loaded', {
+        total: next.total,
+        refundedTotalCents: next.refundedTotalCents,
+        status: next.status
+      });
+    } else {
+      dbg('refreshAfterRefund → order load failed', {
+        status: orderRes.status
+      });
     }
-    // 2) refresh remaining (order-level cents + per-item remaining qty)
+
     await fetchRemainingForOrder(orderId);
+    dbg('refreshAfterRefund → done');
   }
 
-  // ----- Effects -----
   useEffect(() => {
-    if (!documentId || !isOrdersCollection) return;
-    void fetchRemainingForOrder(String(documentId));
-  }, [documentId, isOrdersCollection]);
+    if (order?.id) {
+      void fetchRemainingForOrder(order.id);
+    }
+  }, [order?.id]);
 
   useEffect(() => {
-    let isAborted = false;
-    async function load() {
+    let aborted = false;
+    (async () => {
       if (!documentId || !isOrdersCollection) return;
       setIsLoading(true);
       try {
-        const response = await fetch(`/api/orders/${documentId}?depth=0`, {
+        const res = await fetch(`/api/orders/${documentId}?depth=0`, {
           credentials: 'include',
           cache: 'no-store'
         });
-        if (!response.ok) throw new Error('Failed to load order');
-        const data: OrderLite = await response.json();
-        if (isAborted) return;
+        if (!res.ok) throw new Error('load failed');
+        const data: OrderLite = await res.json();
+        if (aborted) return;
         setOrder(data);
+        dbg('initial order load', {
+          total: data.total,
+          refundedTotalCents: data.refundedTotalCents,
+          status: data.status
+        });
         setCurrency((data.currency ?? 'USD').toUpperCase());
       } catch {
         toast.error('Failed to load order for refunds.');
       } finally {
-        if (!isAborted) setIsLoading(false);
+        if (!aborted) setIsLoading(false);
       }
-    }
-    load();
+    })();
     return () => {
-      isAborted = true;
+      aborted = true;
     };
   }, [documentId, isOrdersCollection]);
-  const refundLines = useMemo(() => buildRefundLines(order), [order]);
 
-  useEffect(() => {
-    // when server says a line hit 0 remaining, clear the user’s qty entry
-    setQuantitiesByItemId((previous) => {
-      const next = { ...previous };
-      for (const line of refundLines) {
-        const refundedQty = refundedQtyByItemId[line.itemId] ?? 0;
-        const remaining = Math.max(0, line.quantityPurchased - refundedQty);
-        if (remaining === 0 && next[line.itemId]) delete next[line.itemId];
-      }
-      return next;
-    });
-  }, [refundLines, refundedQtyByItemId]);
-
-  // ----- Derived values -----
   const effectiveRemainingRefundableCents = getEffectiveRemainingCents(
     order,
     remainingCentsFromServer
   );
+  const refundLines = useMemo(() => buildRefundLines(order), [order]);
 
-  // Parse per-line partial amounts -> cents; ignore invalid/empty
+  // Derive fully-refunded per line from server truth we already have
+  const derivedFullyRefundedByItemId = useMemo(() => {
+    const out: Record<string, boolean> = {};
+
+    for (const line of refundLines) {
+      const itemId = line.itemId;
+
+      const hasQtyKey = Object.prototype.hasOwnProperty.call(
+        remainingQtyByItemId,
+        itemId
+      );
+      const hasAmtKey = Object.prototype.hasOwnProperty.call(
+        refundedAmountByItemId,
+        itemId
+      );
+      const hasRefQtyKey = Object.prototype.hasOwnProperty.call(
+        refundedQtyByItemId,
+        itemId
+      );
+
+      const remainingQty = hasQtyKey ? remainingQtyByItemId[itemId] : null;
+      const refundedAmtCents = hasAmtKey
+        ? refundedAmountByItemId[itemId]
+        : null;
+      const refundedQty = hasRefQtyKey ? refundedQtyByItemId[itemId] : null;
+
+      const lineTotalCents =
+        typeof line.amountTotal === 'number'
+          ? line.amountTotal
+          : line.unitAmount * line.quantityPurchased;
+
+      // “Fully refunded” if any dimension indicates fully covered:
+      // - quantity path: remainingQty === 0
+      // - amount path: refundedAmt >= line total (epsilon 1 cent)
+      // - refund-qty path: refundedQty >= purchased qty (covers legacy or eventual-consistency gaps)
+      const qtyFully = hasQtyKey ? remainingQty === 0 : false;
+      const amountCovers = hasAmtKey
+        ? (refundedAmtCents as number) >= Math.max(0, lineTotalCents - 1)
+        : false;
+      const refQtyCovers = hasRefQtyKey
+        ? (refundedQty as number) >= Math.max(1, line.quantityPurchased)
+        : false;
+
+      if (
+        (hasQtyKey || hasAmtKey || hasRefQtyKey) &&
+        (qtyFully || amountCovers || refQtyCovers)
+      ) {
+        out[itemId] = true;
+      }
+
+      if (DEBUG_REFUNDS) {
+        // Helpful, explicit comparison log for each line
+        console.log('[refunds][ui] compare', {
+          itemId,
+          remainingQty: hasQtyKey ? remainingQty : undefined,
+          refundedAmtCents: hasAmtKey ? refundedAmtCents : undefined,
+          refundedQty: hasRefQtyKey ? refundedQty : undefined,
+          lineTotalCents,
+          qtyFully,
+          amountCovers,
+          refQtyCovers
+        });
+        // Detect mismatches quickly
+        if (!hasQtyKey && !hasAmtKey && !hasRefQtyKey) {
+          console.warn('[refunds][ui] id not found in server maps', {
+            itemId,
+            remainingQtyKeys: Object.keys(remainingQtyByItemId),
+            refundedAmountKeys: Object.keys(refundedAmountByItemId)
+          });
+        }
+      }
+    }
+
+    return out;
+  }, [
+    refundLines,
+    remainingQtyByItemId,
+    refundedAmountByItemId,
+    refundedQtyByItemId
+  ]);
+
+  // Merge: either server explicitly flags the item, or our derivation does
+  const mergedFullyRefundedByItemId = useMemo(() => {
+    const out: Record<string, boolean> = { ...derivedFullyRefundedByItemId };
+    for (const [id, v] of Object.entries(fullyRefundedByItemId)) {
+      if (v) out[id] = true;
+    }
+    return out;
+  }, [derivedFullyRefundedByItemId, fullyRefundedByItemId]);
+
+  // dollars → cents maps
   const partialAmountCentsByItemId = useMemo(
     () => dollarsMapToCents(partialAmountByItemId),
     [partialAmountByItemId]
   );
-
   const partialAmountsTotalCents = useMemo(
     () => sumObjectValues(partialAmountCentsByItemId),
     [partialAmountCentsByItemId]
   );
 
-  // Only prorate by quantity for lines WITHOUT an explicit amount
   const itemsSubtotalCents = useMemo(
     () =>
       computeItemsSubtotalCents({
         refundLines,
         quantitiesByItemId,
+        // NOTE: we use server truth here.
         remainingQtyByItemId,
         partialAmountCentsByItemId,
         clamp: clampInteger
@@ -216,7 +364,6 @@ export function RefundManager() {
     ]
   );
 
-  // Convert staff-entered dollars → cents for math and preview
   const refundShippingCentsValue = useMemo(
     () => parseMoneyToCents(refundShippingDollars),
     [refundShippingDollars]
@@ -260,28 +407,27 @@ export function RefundManager() {
     }
   }, [order, previewCents, effectiveRemainingRefundableCents, currency]);
 
-  // ----- Handlers -----
   function setQuantityFor(itemId: string, next: number, maxQty: number): void {
-    setQuantitiesByItemId((previous) => ({
-      ...previous,
+    setQuantitiesByItemId((prev) => ({
+      ...prev,
       [itemId]: clampInteger(next, 0, maxQty)
     }));
   }
 
   function handleQtyKeyDown(
-    keyboardEvent: KeyboardEvent<HTMLInputElement>,
+    e: KeyboardEvent<HTMLInputElement>,
     itemId: string,
     maxQty: number
   ): void {
-    if (keyboardEvent.key === 'ArrowUp' || keyboardEvent.key === 'ArrowDown') {
-      keyboardEvent.preventDefault();
-      const currentValue = clampInteger(
-        Number((keyboardEvent.currentTarget as HTMLInputElement).value) || 0,
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      const current = clampInteger(
+        Number((e.currentTarget as HTMLInputElement).value) || 0,
         0,
         maxQty
       );
-      const delta = keyboardEvent.key === 'ArrowUp' ? 1 : -1;
-      setQuantityFor(itemId, currentValue + delta, maxQty);
+      const delta = e.key === 'ArrowUp' ? 1 : -1;
+      setQuantityFor(itemId, current + delta, maxQty);
     }
   }
 
@@ -290,28 +436,19 @@ export function RefundManager() {
     amountCents?: number;
     quantity?: number;
   };
+  const hasAmount = (
+    s: InternalSelection
+  ): s is { itemId: string; amountCents: number } =>
+    typeof s.amountCents === 'number' &&
+    Number.isFinite(s.amountCents) &&
+    s.amountCents > 0;
+  const hasQuantity = (
+    s: InternalSelection
+  ): s is { itemId: string; quantity: number } =>
+    typeof s.quantity === 'number' &&
+    Number.isFinite(s.quantity) &&
+    Math.trunc(s.quantity) > 0;
 
-  function hasAmount(
-    sel: InternalSelection
-  ): sel is { itemId: string; amountCents: number } {
-    return (
-      typeof sel.amountCents === 'number' &&
-      Number.isFinite(sel.amountCents) &&
-      sel.amountCents > 0
-    );
-  }
-
-  function hasQuantity(
-    sel: InternalSelection
-  ): sel is { itemId: string; quantity: number } {
-    return (
-      typeof sel.quantity === 'number' &&
-      Number.isFinite(sel.quantity) &&
-      Math.trunc(sel.quantity) > 0
-    );
-  }
-
-  // Convert to API shape: { type: 'amount'|'quantity', ... }
   type ApiSelection =
     | { type: 'amount'; itemId: string; amountCents: number }
     | { type: 'quantity'; itemId: string; quantity: number };
@@ -319,10 +456,10 @@ export function RefundManager() {
   async function submitRefund(): Promise<void> {
     if (!order) return;
 
-    // 1) Build internal selections (amount overrides qty)
     const selections = buildSelections({
       refundLines,
       quantitiesByItemId,
+      // CRITICAL: server remaining drives quantity clamping
       remainingQtyByItemId,
       partialAmountCentsByItemId,
       clamp: clampInteger
@@ -334,74 +471,49 @@ export function RefundManager() {
       );
       return;
     }
-    const internalSelections: InternalSelection[] = buildSelections({
-      refundLines,
-      quantitiesByItemId,
-      remainingQtyByItemId,
-      partialAmountCentsByItemId,
-      clamp: clampInteger
-    });
 
-    const apiSelections = internalSelections.reduce<ApiSelection[]>(
-      (accumulator, selection) => {
-        if (hasAmount(selection)) {
-          accumulator.push({
-            type: 'amount',
-            itemId: selection.itemId,
-            amountCents: Math.trunc(selection.amountCents)
-          });
-          return accumulator;
-        }
-
-        if (hasQuantity(selection)) {
-          accumulator.push({
-            type: 'quantity',
-            itemId: selection.itemId,
-            quantity: Math.trunc(selection.quantity)
-          });
-          return accumulator;
-        }
-
-        // Invalid selection (neither amount nor quantity) — skip it
-        return accumulator;
-      },
-      []
-    );
-
+    const apiSelections = selections.reduce<ApiSelection[]>((acc, s) => {
+      if (hasAmount(s))
+        acc.push({
+          type: 'amount',
+          itemId: s.itemId,
+          amountCents: Math.trunc(s.amountCents)
+        });
+      else if (hasQuantity(s))
+        acc.push({
+          type: 'quantity',
+          itemId: s.itemId,
+          quantity: Math.trunc(s.quantity)
+        });
+      return acc;
+    }, []);
     if (apiSelections.length === 0) {
       toast.error('Nothing to refund — check amounts/quantities.');
       return;
     }
 
-    // 3) Convert the extra UI money fields to cents (kept here if your API supports them)
     const shippingCents = parseMoneyToCents(refundShippingDollars);
     const restockingCents = parseMoneyToCents(restockingFeeDollars);
 
-    // 4) Idempotency (best-effort)
     let idempotencyKey: string | undefined;
     try {
       idempotencyKey = await buildClientIdempotencyKeyV2({
         orderId: order.id,
-        selections, // internal selections are fine as idempotency basis
+        selections,
         options: {
           reason,
           restockingFeeCents: restockingCents,
           refundShippingCents: shippingCents
         }
       });
-    } catch {
-      /* server can generate if needed */
-    }
+    } catch {}
 
-    // 5) Build request body with the expected discriminator
     const body = {
       orderId: order.id,
       reason,
-      selections: apiSelections, // <-- uses `type: 'amount'|'quantity'`
-      // include these only if your API accepts them; otherwise remove
-      // restockingFeeCents: Math.max(0, restockingCents) || undefined,
-      // refundShippingCents: Math.max(0, shippingCents) || undefined,
+      selections: apiSelections,
       idempotencyKey
+      // (optionally include shipping/restocking if your POST handler accepts them)
     };
 
     setIsLoading(true);
@@ -410,25 +522,11 @@ export function RefundManager() {
         method: 'POST',
         credentials: 'include',
         cache: 'no-store',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-ah-debug-refund': 'true'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)
       });
 
-      let json = null;
-      try {
-        json = await res.json();
-      } catch {}
-
-      console.log(
-        `[refund] POST /api/admin/refunds → ${res.status}\nBody:`,
-        JSON.stringify(body, null, 2),
-        '\nResponse:',
-        JSON.stringify(json, null, 2)
-      );
-
+      const json = await res.json().catch(() => null);
       if (!res.ok || !json?.ok) {
         const msg =
           json?.error ||
@@ -444,7 +542,6 @@ export function RefundManager() {
         `Refund ${json.status}: ${formatCurrency((json.amount ?? 0) / 100, currency)}`
       );
 
-      // Refresh + reset UI
       await refreshAfterRefund(order.id);
       setQuantitiesByItemId({});
       setPartialAmountByItemId({});
@@ -455,7 +552,6 @@ export function RefundManager() {
     }
   }
 
-  // ----- Render guards AFTER hooks -----
   if (!isOrdersCollection) return null;
 
   if (!isStaff) {
@@ -486,8 +582,16 @@ export function RefundManager() {
       </div>
     );
   }
+  const serverTruthReady =
+    Object.keys(remainingQtyByItemId).length > 0 ||
+    Object.keys(refundedAmountByItemId).length > 0 ||
+    Object.keys(fullyRefundedByItemId).length > 0;
 
-  // ----- UI -----
+  const serverTruthReadyFor = (id: string) =>
+    hasKey(remainingQtyByItemId as Record<string, unknown>, id) ||
+    hasKey(refundedAmountByItemId as Record<string, unknown>, id) ||
+    hasKey(fullyRefundedByItemId as Record<string, unknown>, id);
+
   return (
     <div className="ah-card ah-refund-card">
       <div className="ah-card-header">
@@ -532,7 +636,6 @@ export function RefundManager() {
       </div>
 
       <div className="ah-card-body">
-        {/* Items grid */}
         <div className="ah-refund-table">
           <div className="ah-refund-head">
             <div className="ah-refund-col ah-refund-col--name ah-refund-head-cell">
@@ -551,55 +654,82 @@ export function RefundManager() {
               Unit Price
             </div>
           </div>
+
           <div className="ah-refund-body">
             {refundLines.map((line) => {
-              // how many units already refunded (server truth)
-              const alreadyRefundedQty =
-                typeof refundedQtyByItemId[line.itemId] === 'number'
-                  ? refundedQtyByItemId[line.itemId]
-                  : 0;
+              const itemId = line.itemId;
 
-              // how many units still refundable
-              const remainingQuantityForLine = Math.max(
-                0,
-                line.quantityPurchased - (alreadyRefundedQty ?? 0)
+              const hasQtyKey = Object.prototype.hasOwnProperty.call(
+                remainingQtyByItemId,
+                itemId
+              );
+              const hasAmtKey = Object.prototype.hasOwnProperty.call(
+                refundedAmountByItemId,
+                itemId
               );
 
-              // line total in cents (prefer snapshot total, else unit * qty)
+              const remainingQty = hasQtyKey
+                ? (remainingQtyByItemId[itemId] as number)
+                : null;
+              const refundedAmtCents = hasAmtKey
+                ? (refundedAmountByItemId[itemId] as number)
+                : null;
+
               const lineTotalCents =
                 typeof line.amountTotal === 'number'
                   ? line.amountTotal
                   : line.unitAmount * line.quantityPurchased;
 
-              // dollars refunded by amount-based refunds (server truth)
-              const refundedAmountForLineCents =
-                typeof refundedAmountByItemId[line.itemId] === 'number'
-                  ? refundedAmountByItemId[line.itemId]
-                  : 0;
+              // Prefer merged map (server OR derived). If not present, fall back to local checks,
+              // but only when we actually have keys for those dimensions.
+              const fromMerged = !!mergedFullyRefundedByItemId[itemId];
+              const qtyFully = hasQtyKey
+                ? (remainingQty as number) === 0
+                : false;
+              const amountCovers = hasAmtKey
+                ? (refundedAmtCents as number) >=
+                  Math.max(0, lineTotalCents - 1)
+                : false;
 
-              // if the refunded-by-amount fully covers this line
-              const isFullyCoveredByAmount =
-                (refundedAmountForLineCents ?? 0) >=
-                Math.max(0, lineTotalCents - 1);
-
-              // final fully-refunded flag
               const isLineFullyRefunded =
-                remainingQuantityForLine === 0 || isFullyCoveredByAmount;
+                fromMerged ||
+                ((hasQtyKey || hasAmtKey) && (qtyFully || amountCovers));
+              const serverSaysFully = !!fullyRefundedByItemId[itemId];
 
-              // current qty input value (clamped to latest remaining from server)
-              const selectedQuantity = clampInteger(
-                quantitiesByItemId[line.itemId] ?? 0,
+              // Input clamping: if we don't have remainingQty yet, allow up to purchased qty
+              const maxQty = hasQtyKey
+                ? (remainingQty as number)
+                : line.quantityPurchased;
+              const selectedQty = clampInteger(
+                quantitiesByItemId[itemId] ?? 0,
                 0,
-                remainingQuantityForLine
+                maxQty
               );
+
+              if (DEBUG_REFUNDS) {
+                console.groupCollapsed(
+                  `[refunds][ui] line ${itemId} — chip? ${isLineFullyRefunded ? 'YES' : 'no'}`
+                );
+                console.log({
+                  name: line.name,
+                  remainingQtyFromServer: hasQtyKey
+                    ? remainingQty
+                    : '(unknown)',
+                  refundedAmtCents: hasAmtKey ? refundedAmtCents : '(unknown)',
+                  lineTotalCents,
+                  serverSaysFully,
+                  qtyFully,
+                  amountCovers
+                });
+                console.groupEnd();
+              }
 
               return (
                 <div
-                  key={line.itemId}
+                  key={itemId}
                   className="ah-refund-row"
-                  data-item-id={line.itemId}
+                  data-item-id={itemId}
                 >
-                  {/* Col 1: name + chips */}
                   <div className="ah-refund-col ah-refund-col--name">
                     <div className="ah-item-title">
                       {line.name}
@@ -608,20 +738,18 @@ export function RefundManager() {
                           className="ah-chip ah-chip--muted"
                           style={{ marginLeft: 8 }}
                         >
-                          {remainingQuantityForLine === 0
-                            ? 'Refunded'
-                            : 'Refunded (amount)'}
+                          {qtyFully ? 'Refunded' : 'Refunded (amount)'}
                         </span>
                       )}
                     </div>
 
-                    {/* show “refunded so far” when partially refunded by amount */}
                     {!isLineFullyRefunded &&
-                      (refundedAmountForLineCents ?? 0) > 0 && (
+                      hasAmtKey &&
+                      (refundedAmtCents ?? 0) > 0 && (
                         <div className="ah-item-meta">
                           Refunded so far:{' '}
                           {formatCurrency(
-                            (refundedAmountForLineCents ?? 0) / 100,
+                            (refundedAmtCents as number) / 100,
                             currency
                           )}
                         </div>
@@ -636,12 +764,10 @@ export function RefundManager() {
                     </div>
                   </div>
 
-                  {/* Col 2: qty purchased */}
                   <div className="ah-refund-col ah-refund-col--qty text-right">
                     {line.quantityPurchased}
                   </div>
 
-                  {/* Col 3: qty selector */}
                   <div className="ah-refund-col ah-refund-col--qty">
                     <input
                       type="number"
@@ -649,49 +775,30 @@ export function RefundManager() {
                       pattern="[0-9]*"
                       className="ah-chip-input"
                       min={0}
-                      max={remainingQuantityForLine}
-                      value={selectedQuantity}
+                      max={maxQty}
+                      value={selectedQty}
                       disabled={isLineFullyRefunded || isLoading}
-                      onKeyDown={(event) =>
-                        handleQtyKeyDown(
-                          event,
-                          line.itemId,
-                          remainingQuantityForLine
-                        )
-                      }
-                      onChange={(event) => {
-                        const parsed = Number(event.target.value);
-                        setQuantityFor(
-                          line.itemId,
-                          parsed,
-                          remainingQuantityForLine
-                        );
+                      onKeyDown={(e) => handleQtyKeyDown(e, itemId, maxQty)}
+                      onChange={(e) => {
+                        const parsed = Number(e.target.value);
+                        setQuantityFor(itemId, parsed, maxQty);
                       }}
-                      onBlur={(event) => {
-                        const parsed = Number(event.target.value);
-                        const clamped = clampInteger(
-                          parsed,
-                          0,
-                          remainingQuantityForLine
-                        );
-                        if (clamped !== parsed) {
-                          setQuantityFor(
-                            line.itemId,
-                            clamped,
-                            remainingQuantityForLine
-                          );
-                        }
+                      onBlur={(e) => {
+                        const parsed = Number(e.target.value);
+                        const clamped = clampInteger(parsed, 0, maxQty);
+                        if (clamped !== parsed)
+                          setQuantityFor(itemId, clamped, maxQty);
                       }}
                     />
-                    {remainingQuantityForLine < line.quantityPurchased &&
+                    {hasQtyKey &&
+                      remainingQty! < line.quantityPurchased &&
                       !isLineFullyRefunded && (
                         <div className="ah-mini-hint">
-                          Remaining: {remainingQuantityForLine}
+                          Remaining: {remainingQty}
                         </div>
                       )}
                   </div>
 
-                  {/* Col 4: partial amount input */}
                   <div className="ah-refund-col ah-refund-col--amount">
                     <label className="ah-field" style={{ marginTop: 0 }}>
                       <div className="ah-money">
@@ -703,23 +810,22 @@ export function RefundManager() {
                           inputMode="decimal"
                           className="ah-input ah-money-input"
                           placeholder="0.00"
-                          value={partialAmountByItemId[line.itemId] ?? ''}
-                          onChange={(event) =>
-                            setPartialAmountByItemId((previous) => ({
-                              ...previous,
-                              [line.itemId]: cleanMoneyInput(event.target.value)
+                          value={partialAmountByItemId[itemId] ?? ''}
+                          disabled={isLineFullyRefunded || isLoading}
+                          onChange={(e) =>
+                            setPartialAmountByItemId((prev) => ({
+                              ...prev,
+                              [itemId]: cleanMoneyInput(e.target.value)
                             }))
                           }
-                          disabled={isLineFullyRefunded || isLoading}
                         />
                       </div>
-                      {(partialAmountCentsByItemId[line.itemId] ?? 0) > 0 && (
+                      {(partialAmountCentsByItemId[itemId] ?? 0) > 0 && (
                         <div className="ah-mini-hint">Overrides quantity</div>
                       )}
                     </label>
                   </div>
 
-                  {/* Col 5: unit price */}
                   <div className="ah-refund-col ah-refund-col--unit text-right">
                     {formatCurrency(line.unitAmount / 100, currency)}
                   </div>
@@ -729,7 +835,6 @@ export function RefundManager() {
           </div>
         </div>
 
-        {/* Controls (staff enters dollars.cents) */}
         <div className="ah-grid ah-grid-3 ah-refund-grid mt-3">
           <label className="ah-field">
             <span className="ah-mini-label">Reason</span>
@@ -796,7 +901,6 @@ export function RefundManager() {
 
         <Separator className="my-3" />
 
-        {/* Summary + Action */}
         <div className="ah-refund-summary">
           <div className="ah-refund-summary-left">
             <div className="ah-summary-row">

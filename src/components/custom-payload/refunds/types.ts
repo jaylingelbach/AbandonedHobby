@@ -12,6 +12,7 @@ export type OrderLite = {
   refundedTotalCents?: number; // cents
   total: number; // cents
   currency?: string | null;
+  status?: string;
 };
 
 export type RefundLine = {
