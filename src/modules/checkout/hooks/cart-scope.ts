@@ -1,4 +1,3 @@
-// modules/checkout/hooks/cart-scope.ts
 'use client'; // this file can be imported from client hooks/components
 export const DEFAULT_TENANT = '__global__';
 export const ANON_PREFIX = 'anon:';

@@ -1,11 +1,15 @@
 'use client';
 
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
+import { useEffect, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { track } from '@/lib/analytics';
 import {
   buildSignInUrl,
@@ -14,19 +18,22 @@ import {
   getTenantNameSafe,
   getTenantSlugSafe
 } from '@/lib/utils';
-
-import { useCartStore } from '../../store/use-cart-store';
-
-import { buildScopeClient } from '@/modules/checkout/hooks/cart-scope';
-import { Product } from '@/payload-types';
 import { useTRPC } from '@/trpc/client';
 
-import CheckoutBanner from './checkout-banner';
+// ─── Project Types ───────────────────────────────────────────────────────────
+import { Product } from '@/payload-types';
+
+// ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
-import { CheckoutItem } from '../components/checkout-item';
-import CheckoutSidebar from '../components/checkout-sidebar';
+import { useCartStore } from '../../store/use-cart-store';
+import { buildScopeClient } from '@/modules/checkout/hooks/cart-scope';
 import { cartDebug } from '../../debug';
+
+// ─── Project Components ──────────────────────────────────────────────────────
+import CheckoutBanner from './checkout-banner';
+import CheckoutSidebar from '../components/checkout-sidebar';
+import { CheckoutItem } from '../components/checkout-item';
 
 interface CheckoutViewProps {
   tenantSlug: string;

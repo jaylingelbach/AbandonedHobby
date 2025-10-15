@@ -3756,3 +3756,29 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/domain/orders/types.ts, src/app/api/orders/[orderId]/invoice/types.ts, src/collections/Orders.ts
   - Adds canonical OrderCore/OrderItemCore types and derived views for invoice/refunds; restructures invoice types to use core picks and new union/selection types; minor formatting/import tweaks in Orders collection.
+
+# Cart state bugged 10/15/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Device-based anonymous identifier for stable carts.
+- Tenant- and user-scoped carts with session-aware totals.
+- Automatic migration of cart contents from anonymous to signed-in users.
+- Checkout flow now stashes scope for reliable post-success cleanup and redirects.
+- Order confirmation auto-clears the relevant cart once per tenant.
+- Optional cart debug logging toggle.
+
+## Improvements
+
+- More reliable middleware handling and redirects; cookie is consistently set.
+- More consistent cart behavior across tabs and after redirects.
+
+## Documentation
+
+- Added a detailed partial refund walkthrough, covering per-line refunds, UI inputs, idempotency, and lookups.
+
+## File changes

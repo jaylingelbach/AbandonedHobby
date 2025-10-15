@@ -1,14 +1,20 @@
-import { ShoppingCartIcon } from 'lucide-react';
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
+import { useEffect } from 'react';
 import Link from 'next/link';
 
-import { Button } from '@/components/ui/button';
-import { cn, generateTenantURL } from '@/lib/utils';
-
-import { useCart } from '@/modules/checkout/hooks/use-cart';
-import { useTRPC } from '@/trpc/client';
+// ─── Third-party Libraries ───────────────────────────────────────────────────
+import { ShoppingCartIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
-import { useEffect } from 'react';
 
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { cn, generateTenantURL } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
+// ─── Project Components ──────────────────────────────────────────────────────
+import { Button } from '@/components/ui/button';
+
+// ─── Project Hooks / Stores ──────────────────────────────────────────────────
+import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 interface CheckoutButtonProps {

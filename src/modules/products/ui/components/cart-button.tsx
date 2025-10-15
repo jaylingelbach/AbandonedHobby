@@ -1,11 +1,20 @@
-import { Button } from '@/components/ui/button';
-import { cn } from '@/lib/utils';
-import { useCart } from '@/modules/checkout/hooks/use-cart';
-import { useTRPC } from '@/trpc/client';
-import { useQuery } from '@tanstack/react-query';
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
 import { useEffect } from 'react';
 
+// ─── Third-party Libraries ───────────────────────────────────────────────────
+import { useQuery } from '@tanstack/react-query';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { cn } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
+// ─── Project Components ──────────────────────────────────────────────────────
+import { Button } from '@/components/ui/button';
+
+// ─── Project Hooks / Stores ──────────────────────────────────────────────────
+import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+
 interface Props {
   tenantSlug: string;
   productId: string;
