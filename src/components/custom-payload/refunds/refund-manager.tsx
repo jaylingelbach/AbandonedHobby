@@ -31,7 +31,7 @@ import {
   buildSelections
 } from './utils/ui/refund-calc';
 
-const DEBUG_REFUNDS = true;
+const DEBUG_REFUNDS = process.env.NODE_ENV === 'development';
 
 function dbg(title: string, data?: unknown) {
   if (!DEBUG_REFUNDS) return;
@@ -53,9 +53,6 @@ function dbgTable(
   }
   console.groupEnd();
 }
-
-const hasKey = (obj: Record<string, unknown>, key: string) =>
-  Object.prototype.hasOwnProperty.call(obj, key);
 
 export function RefundManager() {
   const { id: documentId, collectionSlug } = useDocumentInfo();
@@ -121,7 +118,7 @@ export function RefundManager() {
   const fetchRemainingForOrder = useCallback(
     async (orderId: string): Promise<void> => {
       try {
-        console.log('[refunds][ui] GET /api/admin/refunds/remaining → start');
+        dbg('GET /api/admin/refunds/remaining → start');
         const res = await fetch(
           `/api/admin/refunds/remaining?orderId=${orderId}&includePending=true`,
           { credentials: 'include', cache: 'no-store' }
@@ -137,11 +134,10 @@ export function RefundManager() {
           fullyRefundedItemIds?: string[];
         } = await res.json();
 
-        console.log('[refunds][ui] GET /api/admin/refunds/remaining → payload');
-        console.log(
-          '[refunds][ui] server.byItemId keys',
-          Object.keys(json.byItemId ?? {})
-        );
+        dbg('GET /api/admin/refunds/remaining → payload', {
+          byItemIdKeys: Object.keys(json.byItemId ?? {}),
+          remainingCents: json.remainingCents
+        });
 
         if (!json?.ok) throw new Error('not ok');
 
@@ -162,13 +158,8 @@ export function RefundManager() {
             )
           : {};
         setFullyRefundedByItemId(fullyMap);
-
-        // (optional) debug
-        console.log('[refunds][ui] remainingQtyByItemId (server)');
-        console.log('[refunds][ui] refundedQtyByItemId (server)');
-        console.log('[refunds][ui] refundedAmountByItemId (server)');
-        console.log('[refunds][ui] fullyRefundedItemIds (server)');
-      } catch {
+      } catch (error) {
+        console.error('[refunds][ui] Failed to fetch remaining:', error);
         // Reset everything on error so UI doesn’t get stuck
         setRemainingCentsFromServer(null);
         setRemainingQtyByItemId({});
@@ -259,15 +250,12 @@ export function RefundManager() {
     for (const line of refundLines) {
       const itemId = line.itemId;
 
-      const hasQtyKey = hasKey(
-        remainingQtyByItemId as Record<string, unknown>,
-        itemId
-      );
-      const hasAmtKey = hasKey(
+      const hasQtyKey = Object.hasOwn(remainingQtyByItemId, itemId);
+      const hasAmtKey = Object.hasOwn(
         refundedAmountByItemId as Record<string, unknown>,
         itemId
       );
-      const hasRefQtyKey = hasKey(
+      const hasRefQtyKey = Object.hasOwn(
         refundedQtyByItemId as Record<string, unknown>,
         itemId
       );
@@ -586,9 +574,9 @@ export function RefundManager() {
   }
 
   const serverTruthReadyFor = (id: string) =>
-    hasKey(remainingQtyByItemId as Record<string, unknown>, id) ||
-    hasKey(refundedAmountByItemId as Record<string, unknown>, id) ||
-    hasKey(fullyRefundedByItemId as Record<string, unknown>, id);
+    Object.hasOwn(remainingQtyByItemId as Record<string, unknown>, id) ||
+    Object.hasOwn(refundedAmountByItemId as Record<string, unknown>, id) ||
+    Object.hasOwn(fullyRefundedByItemId as Record<string, unknown>, id);
 
   return (
     <div className="ah-card ah-refund-card">
@@ -658,11 +646,11 @@ export function RefundManager() {
               const itemId = line.itemId;
               const readyForLine = serverTruthReadyFor(itemId);
 
-              const hasQtyKey = hasKey(
+              const hasQtyKey = Object.hasOwn(
                 remainingQtyByItemId as Record<string, unknown>,
                 itemId
               );
-              const hasAmtKey = hasKey(
+              const hasAmtKey = Object.hasOwn(
                 refundedAmountByItemId as Record<string, unknown>,
                 itemId
               );

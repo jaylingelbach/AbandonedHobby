@@ -65,7 +65,7 @@ export type LineSelection = LineSelectionQty | LineSelectionAmount;
 /* ---------- Engine options / statuses ---------- */
 
 export type EngineOptions = {
-  reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
+  reason?: StripeRefundReason;
   restockingFeeCents?: number; // optional negative adjustment
   refundShippingCents?: number; // include shipping in refund
   notes?: string;

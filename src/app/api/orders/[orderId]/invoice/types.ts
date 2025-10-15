@@ -30,7 +30,7 @@ export type RefundLine = {
   unitAmount: number; // cents
   quantityPurchased: number;
   quantitySelected: number;
-  amountTotal?: number;
+  amountTotal?: number; // cents
 };
 
 // (rest of your refund types unchanged)
@@ -47,7 +47,7 @@ export type LineSelectionAmount = {
 export type LineSelection = LineSelectionQty | LineSelectionAmount;
 
 export type EngineOptions = {
-  reason?: 'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other';
+  reason?: StripeRefundReason;
   restockingFeeCents?: number;
   refundShippingCents?: number;
   notes?: string;
@@ -64,7 +64,7 @@ export type RefundDoc = {
   id: string;
   order: string | { id: string };
   amount: number; // cents
-  status: 'succeeded' | 'pending' | 'failed' | 'canceled';
+  status: LocalRefundStatus;
   createdAt?: string;
   updatedAt?: string;
 };

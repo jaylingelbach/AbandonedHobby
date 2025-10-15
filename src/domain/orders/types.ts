@@ -31,7 +31,7 @@ export type OrderCore = {
   currency: CurrencyCode;
   total: number; // cents
 
-  status?: 'paid' | 'partially_refunded' | 'refunded' | 'canceled' | string;
+  status?: 'paid' | 'partially_refunded' | 'refunded' | 'canceled';
 
   refundedTotalCents?: number | null;
   lastRefundAt?: string | null;

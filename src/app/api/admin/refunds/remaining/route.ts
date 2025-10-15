@@ -4,7 +4,7 @@ import config from '@/payload.config';
 
 export const runtime = 'nodejs';
 
-const DEBUG_REMAINING = true;
+const DEBUG_REMAINING = process.env.NODE_ENV === 'development';
 const dbg = (title: string, data?: unknown) => {
   if (!DEBUG_REMAINING) return;
   console.log(`[refunds][server] ${title}`, data ?? '');
@@ -133,28 +133,6 @@ export async function GET(req: NextRequest) {
       ? (docs as RefundDoc[])
       : [];
 
-    dbg('order', {
-      id: order.id,
-      total: order.total,
-      refundedTotalCents: order.refundedTotalCents,
-      items: (order.items ?? []).map((i) => ({
-        id: getItemId(i),
-        qty: i.quantity,
-        unit: i.unitAmount,
-        total: i.amountTotal
-      }))
-    });
-    dbg(
-      'refundDocs',
-      refundDocs.map((r) => ({
-        amount: r.amount,
-        status: r.status,
-        selections: Array.isArray(r.selections)
-          ? r.selections.map((s) => (isObj(s) ? { ...s } : s))
-          : []
-      }))
-    );
-
     // ---- Order-level remaining
     const refundedCentsFromDocs = refundDocs.reduce(
       (sum, r) =>
@@ -246,10 +224,6 @@ export async function GET(req: NextRequest) {
         isNum(doc.amount) &&
         doc.amount > 0
       ) {
-        dbg('fallback:A attribute doc.amount to single selection item', {
-          docAmount: doc.amount,
-          itemId: singleItemId
-        });
         addAmt(singleItemId, Math.trunc(doc.amount));
         continue;
       }
@@ -273,10 +247,6 @@ export async function GET(req: NextRequest) {
           }
         }
         if (candidates.length === 1) {
-          dbg('fallback:B matched order-level amount uniquely to line', {
-            docAmount: amt,
-            itemId: candidates[0]
-          });
           addAmt(candidates[0], amt);
         } else {
           dbg('fallback:B no unique match for order-level amount', {
@@ -317,14 +287,6 @@ export async function GET(req: NextRequest) {
     const refundedAmountByItemIdObj = Object.fromEntries(
       refundedAmountByItemId.entries()
     );
-
-    dbg('computed', {
-      remainingCents,
-      remainingQtyByItemId,
-      refundedQtyByItemId: refundedQtyByItemIdObj,
-      refundedAmountByItemId: refundedAmountByItemIdObj,
-      fullyRefundedItemIds
-    });
 
     return NextResponse.json({
       ok: true,
