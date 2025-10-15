@@ -52,7 +52,7 @@ export const CheckoutButton = ({
     const unsub = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
     return () => unsub?.();
-  }, [tenantSlug, session?.user?.id]);
+  }, [tenantSlug, session?.user?.id, session?.user]);
 
   const { totalItems } = useCart(tenantSlug, session?.user?.id);
   if (hideIfEmpty && totalItems === 0) return null;

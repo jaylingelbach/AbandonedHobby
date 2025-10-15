@@ -49,7 +49,7 @@ export const CartButton = ({ tenantSlug, productId }: Props) => {
     const unsub = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
     return () => unsub?.();
-  }, [tenantSlug, session?.user?.id]);
+  }, [tenantSlug, session?.user?.id, session?.user]);
 
   return (
     <Button

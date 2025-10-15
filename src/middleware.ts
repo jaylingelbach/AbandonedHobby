@@ -84,7 +84,6 @@ export default function middleware(req: NextRequest): NextResponse {
   // If no root domain (e.g., local dev without config), just pass through but set cookie (no domain attr).
   if (!rootDomain) {
     if (process.env.NODE_ENV === 'production') {
-      // eslint-disable-next-line no-console
       console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
     }
     res = NextResponse.next();
@@ -123,7 +122,6 @@ export default function middleware(req: NextRequest): NextResponse {
 
   // Validate tenant slug (lowercase letters, numbers, hyphens)
   if (!/^[a-z0-9-]+$/.test(tenantSlug)) {
-    // eslint-disable-next-line no-console
     console.warn(`Invalid tenant slug detected: ${rawSlug}`);
     res = NextResponse.next();
     ensureDeviceIdCookie(req, res, cookieDomain);
@@ -138,7 +136,6 @@ export default function middleware(req: NextRequest): NextResponse {
     );
     res = NextResponse.rewrite(destination);
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('Failed to rewrite URL in middleware:', err);
     res = NextResponse.next();
   }
