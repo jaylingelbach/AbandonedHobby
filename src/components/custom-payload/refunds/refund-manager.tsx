@@ -1,6 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useState, KeyboardEvent } from 'react';
+import {
+  useEffect,
+  useMemo,
+  useState,
+  useCallback,
+  KeyboardEvent
+} from 'react';
 import { useAuth, useDocumentInfo } from '@payloadcms/ui';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -29,7 +35,6 @@ const DEBUG_REFUNDS = true;
 
 function dbg(title: string, data?: unknown) {
   if (!DEBUG_REFUNDS) return;
-  // eslint-disable-next-line no-console
   console.groupCollapsed(`[refunds][ui] ${title}`);
   if (data !== undefined) console.log(data);
   console.groupEnd();
@@ -40,12 +45,11 @@ function dbgTable(
   rows: Record<string, unknown> | Array<Record<string, unknown>>
 ) {
   if (!DEBUG_REFUNDS) return;
-  // eslint-disable-next-line no-console
   console.groupCollapsed(`[refunds][ui] ${title}`);
   try {
     console.table(rows);
-  } catch (e) {
-    console.log(rows);
+  } catch (error) {
+    console.log(`rows:${rows}, error: ${error}`);
   }
   console.groupEnd();
 }
@@ -94,10 +98,6 @@ export function RefundManager() {
   const [restockingFeeDollars, setRestockingFeeDollars] =
     useState<string>('0.00');
 
-  const [fullyRefundedSet, setFullyRefundedSet] = useState<Set<string>>(
-    new Set()
-  );
-
   const isOrdersCollection = collectionSlug === 'orders';
   const isStaff =
     Array.isArray(user?.roles) && user.roles.includes('super-admin');
@@ -117,97 +117,103 @@ export function RefundManager() {
     remainingCentsFromServer
   ]);
 
-  async function fetchRemainingForOrder(orderId: string): Promise<void> {
-    try {
-      console.log('[refunds][ui] GET /api/admin/refunds/remaining → start');
-      const res = await fetch(
-        `/api/admin/refunds/remaining?orderId=${orderId}&includePending=true`,
-        { credentials: 'include', cache: 'no-store' }
-      );
-      if (!res.ok) throw new Error('failed');
+  /** Stable: no external reactive values used except state setters */
+  const fetchRemainingForOrder = useCallback(
+    async (orderId: string): Promise<void> => {
+      try {
+        console.log('[refunds][ui] GET /api/admin/refunds/remaining → start');
+        const res = await fetch(
+          `/api/admin/refunds/remaining?orderId=${orderId}&includePending=true`,
+          { credentials: 'include', cache: 'no-store' }
+        );
+        if (!res.ok) throw new Error('failed');
 
-      const json: {
-        ok?: boolean;
-        byItemId?: Record<string, number>;
-        remainingCents?: number;
-        refundedAmountByItemId?: Record<string, number>;
-        refundedQtyByItemId?: Record<string, number>;
-        fullyRefundedItemIds?: string[];
-      } = await res.json();
+        const json: {
+          ok?: boolean;
+          byItemId?: Record<string, number>;
+          remainingCents?: number;
+          refundedAmountByItemId?: Record<string, number>;
+          refundedQtyByItemId?: Record<string, number>;
+          fullyRefundedItemIds?: string[];
+        } = await res.json();
 
-      console.log('[refunds][ui] GET /api/admin/refunds/remaining → payload');
-      console.log(
-        '[refunds][ui] refundLines itemIds',
-        refundLines.map((l) => l.itemId)
-      );
-      console.log(
-        '[refunds][ui] server.byItemId keys',
-        Object.keys(json.byItemId ?? {})
-      );
+        console.log('[refunds][ui] GET /api/admin/refunds/remaining → payload');
+        console.log(
+          '[refunds][ui] server.byItemId keys',
+          Object.keys(json.byItemId ?? {})
+        );
 
-      if (!json?.ok) throw new Error('not ok');
+        if (!json?.ok) throw new Error('not ok');
 
-      // 1) order-level remaining (for header)
-      setRemainingCentsFromServer(
-        typeof json.remainingCents === 'number' ? json.remainingCents : null
-      );
+        // 1) order-level remaining (for header)
+        setRemainingCentsFromServer(
+          typeof json.remainingCents === 'number' ? json.remainingCents : null
+        );
 
-      // 2) per-line maps (server truth)
-      setRemainingQtyByItemId(json.byItemId ?? {});
-      setRefundedQtyByItemId(json.refundedQtyByItemId ?? {});
-      setRefundedAmountByItemId(json.refundedAmountByItemId ?? {});
+        // 2) per-line maps (server truth)
+        setRemainingQtyByItemId(json.byItemId ?? {});
+        setRefundedQtyByItemId(json.refundedQtyByItemId ?? {});
+        setRefundedAmountByItemId(json.refundedAmountByItemId ?? {});
 
-      // 3) materialize array → boolean map for chip rendering
-      const fullyMap = Array.isArray(json.fullyRefundedItemIds)
-        ? Object.fromEntries(json.fullyRefundedItemIds.map((id) => [id, true]))
-        : {};
-      setFullyRefundedByItemId(fullyMap);
+        // 3) materialize array → boolean map for chip rendering
+        const fullyMap = Array.isArray(json.fullyRefundedItemIds)
+          ? Object.fromEntries(
+              json.fullyRefundedItemIds.map((id) => [id, true])
+            )
+          : {};
+        setFullyRefundedByItemId(fullyMap);
 
-      // (optional) debug
-      console.log('[refunds][ui] remainingQtyByItemId (server)');
-      console.log('[refunds][ui] refundedQtyByItemId (server)');
-      console.log('[refunds][ui] refundedAmountByItemId (server)');
-      console.log('[refunds][ui] fullyRefundedItemIds (server)');
-    } catch {
-      // Reset everything on error so UI doesn’t get stuck
-      setRemainingCentsFromServer(null);
-      setRemainingQtyByItemId({});
-      setRefundedQtyByItemId({});
-      setRefundedAmountByItemId({});
-      setFullyRefundedByItemId({});
-    }
-  }
+        // (optional) debug
+        console.log('[refunds][ui] remainingQtyByItemId (server)');
+        console.log('[refunds][ui] refundedQtyByItemId (server)');
+        console.log('[refunds][ui] refundedAmountByItemId (server)');
+        console.log('[refunds][ui] fullyRefundedItemIds (server)');
+      } catch {
+        // Reset everything on error so UI doesn’t get stuck
+        setRemainingCentsFromServer(null);
+        setRemainingQtyByItemId({});
+        setRefundedQtyByItemId({});
+        setRefundedAmountByItemId({});
+        setFullyRefundedByItemId({});
+      }
+    },
+    []
+  );
 
-  async function refreshAfterRefund(orderId: string): Promise<void> {
-    dbg('refreshAfterRefund → begin', { orderId });
+  /** Stable: depends only on fetchRemainingForOrder */
+  const refreshAfterRefund = useCallback(
+    async (orderId: string): Promise<void> => {
+      dbg('refreshAfterRefund → begin', { orderId });
 
-    const orderRes = await fetch(`/api/orders/${orderId}?depth=0`, {
-      credentials: 'include',
-      cache: 'no-store'
-    });
-    if (orderRes.ok) {
-      const next: OrderLite = await orderRes.json();
-      setOrder(next);
-      dbg('refreshAfterRefund → order loaded', {
-        total: next.total,
-        refundedTotalCents: next.refundedTotalCents,
-        status: next.status
+      const orderRes = await fetch(`/api/orders/${orderId}?depth=0`, {
+        credentials: 'include',
+        cache: 'no-store'
       });
-    } else {
-      dbg('refreshAfterRefund → order load failed', {
-        status: orderRes.status
-      });
-    }
+      if (orderRes.ok) {
+        const next: OrderLite = await orderRes.json();
+        setOrder(next);
+        dbg('refreshAfterRefund → order loaded', {
+          total: next.total,
+          refundedTotalCents: next.refundedTotalCents,
+          status: next.status
+        });
+      } else {
+        dbg('refreshAfterRefund → order load failed', {
+          status: orderRes.status
+        });
+      }
 
-    await fetchRemainingForOrder(orderId);
-    dbg('refreshAfterRefund → done');
-  }
+      await fetchRemainingForOrder(orderId);
+      dbg('refreshAfterRefund → done');
+    },
+    [fetchRemainingForOrder]
+  );
 
   useEffect(() => {
     if (order?.id) {
       void fetchRemainingForOrder(order.id);
     }
-  }, [order?.id]);
+  }, [order?.id, fetchRemainingForOrder]);
 
   useEffect(() => {
     let aborted = false;
@@ -253,16 +259,16 @@ export function RefundManager() {
     for (const line of refundLines) {
       const itemId = line.itemId;
 
-      const hasQtyKey = Object.prototype.hasOwnProperty.call(
-        remainingQtyByItemId,
+      const hasQtyKey = hasKey(
+        remainingQtyByItemId as Record<string, unknown>,
         itemId
       );
-      const hasAmtKey = Object.prototype.hasOwnProperty.call(
-        refundedAmountByItemId,
+      const hasAmtKey = hasKey(
+        refundedAmountByItemId as Record<string, unknown>,
         itemId
       );
-      const hasRefQtyKey = Object.prototype.hasOwnProperty.call(
-        refundedQtyByItemId,
+      const hasRefQtyKey = hasKey(
+        refundedQtyByItemId as Record<string, unknown>,
         itemId
       );
 
@@ -277,10 +283,6 @@ export function RefundManager() {
           ? line.amountTotal
           : line.unitAmount * line.quantityPurchased;
 
-      // “Fully refunded” if any dimension indicates fully covered:
-      // - quantity path: remainingQty === 0
-      // - amount path: refundedAmt >= line total (epsilon 1 cent)
-      // - refund-qty path: refundedQty >= purchased qty (covers legacy or eventual-consistency gaps)
       const qtyFully = hasQtyKey ? remainingQty === 0 : false;
       const amountCovers = hasAmtKey
         ? (refundedAmtCents as number) >= Math.max(0, lineTotalCents - 1)
@@ -297,7 +299,6 @@ export function RefundManager() {
       }
 
       if (DEBUG_REFUNDS) {
-        // Helpful, explicit comparison log for each line
         console.log('[refunds][ui] compare', {
           itemId,
           remainingQty: hasQtyKey ? remainingQty : undefined,
@@ -308,7 +309,6 @@ export function RefundManager() {
           amountCovers,
           refQtyCovers
         });
-        // Detect mismatches quickly
         if (!hasQtyKey && !hasAmtKey && !hasRefQtyKey) {
           console.warn('[refunds][ui] id not found in server maps', {
             itemId,
@@ -506,7 +506,9 @@ export function RefundManager() {
           refundShippingCents: shippingCents
         }
       });
-    } catch {}
+    } catch {
+      // swallow – idempotencyKey stays undefined
+    }
 
     const body = {
       orderId: order.id,
@@ -582,10 +584,6 @@ export function RefundManager() {
       </div>
     );
   }
-  const serverTruthReady =
-    Object.keys(remainingQtyByItemId).length > 0 ||
-    Object.keys(refundedAmountByItemId).length > 0 ||
-    Object.keys(fullyRefundedByItemId).length > 0;
 
   const serverTruthReadyFor = (id: string) =>
     hasKey(remainingQtyByItemId as Record<string, unknown>, id) ||
@@ -659,12 +657,12 @@ export function RefundManager() {
             {refundLines.map((line) => {
               const itemId = line.itemId;
 
-              const hasQtyKey = Object.prototype.hasOwnProperty.call(
-                remainingQtyByItemId,
+              const hasQtyKey = hasKey(
+                remainingQtyByItemId as Record<string, unknown>,
                 itemId
               );
-              const hasAmtKey = Object.prototype.hasOwnProperty.call(
-                refundedAmountByItemId,
+              const hasAmtKey = hasKey(
+                refundedAmountByItemId as Record<string, unknown>,
                 itemId
               );
 
@@ -680,8 +678,6 @@ export function RefundManager() {
                   ? line.amountTotal
                   : line.unitAmount * line.quantityPurchased;
 
-              // Prefer merged map (server OR derived). If not present, fall back to local checks,
-              // but only when we actually have keys for those dimensions.
               const fromMerged = !!mergedFullyRefundedByItemId[itemId];
               const qtyFully = hasQtyKey
                 ? (remainingQty as number) === 0
@@ -706,7 +702,7 @@ export function RefundManager() {
                 maxQty
               );
 
-              if (DEBUG_REFUNDS) {
+              if (DEBUG_REFUNDS && serverTruthReadyFor(itemId)) {
                 console.groupCollapsed(
                   `[refunds][ui] line ${itemId} — chip? ${isLineFullyRefunded ? 'YES' : 'no'}`
                 );
@@ -733,7 +729,7 @@ export function RefundManager() {
                   <div className="ah-refund-col ah-refund-col--name">
                     <div className="ah-item-title">
                       {line.name}
-                      {isLineFullyRefunded && (
+                      {serverTruthReadyFor(itemId) && isLineFullyRefunded && (
                         <span
                           className="ah-chip ah-chip--muted"
                           style={{ marginLeft: 8 }}

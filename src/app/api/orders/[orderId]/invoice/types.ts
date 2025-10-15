@@ -1,20 +1,15 @@
-import { ShippingAddress } from '@/modules/orders/types';
+import {
+  OrderForInvoice,
+  OrderItemCore,
+  ShippingAddress
+} from '@/domain/orders/types';
 
-export type OrderItemDoc = {
-  nameSnapshot?: string | null;
-  quantity?: number | null; // positive int
-  unitAmount?: number | null; // cents
-  amountTotal?: number | null; // cents
-};
+export type OrderItemDoc = Pick<
+  OrderItemCore,
+  'nameSnapshot' | 'quantity' | 'unitAmount' | 'amountTotal'
+>;
 
-export type OrderDoc = {
-  id: string;
-  orderNumber: string;
-  createdAt: string;
-  currency: string; // e.g., "USD"
-  total: number; // cents
-  items?: OrderItemDoc[];
-  shipping?: ShippingAddress | null;
-  returnsAcceptedThrough?: string | null;
-  // sellerTenant?: string | {...} // not used for label here; see BRAND.name below
-};
+export type OrderDoc = OrderForInvoice; // ← unify name in this module
+
+// If you referenced ShippingAddress here before, re-export it:
+export type { ShippingAddress };
