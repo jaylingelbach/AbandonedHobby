@@ -1,11 +1,15 @@
 'use client';
 
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
+import { useEffect, useMemo, useRef } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { useEffect, useMemo, useRef } from 'react';
 import { toast } from 'sonner';
 
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { track } from '@/lib/analytics';
 import {
   buildSignInUrl,
@@ -14,15 +18,22 @@ import {
   getTenantNameSafe,
   getTenantSlugSafe
 } from '@/lib/utils';
-import { Product } from '@/payload-types';
 import { useTRPC } from '@/trpc/client';
 
-import CheckoutBanner from './checkout-banner';
+// ─── Project Types ───────────────────────────────────────────────────────────
+import { Product } from '@/payload-types';
+
+// ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
-import { CheckoutItem } from '../components/checkout-item';
-import CheckoutSidebar from '../components/checkout-sidebar';
+import { useCartStore } from '../../store/use-cart-store';
+import { buildScopeClient } from '@/modules/checkout/hooks/cart-scope';
+import { cartDebug } from '../../debug';
 
+// ─── Project Components ──────────────────────────────────────────────────────
+import CheckoutBanner from './checkout-banner';
+import CheckoutSidebar from '../components/checkout-sidebar';
+import { CheckoutItem } from '../components/checkout-item';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -32,8 +43,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { productIds, removeProduct, clearCart } = useCart(tenantSlug);
   const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
+  const { productIds, removeProduct, clearCart } = useCart(
+    tenantSlug,
+    session?.user?.id
+  );
   const queryClient = useQueryClient();
 
   // Build query options once for stable keys
@@ -54,13 +69,19 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     [trpc.library.getMany]
   );
 
-  // Session (to label userType)
-  const { data: session } = useQuery(trpc.auth.session.queryOptions());
-
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
+        // stash the scope that initiated this checkout
+        const scope = buildScopeClient(tenantSlug, session?.user?.id);
+        localStorage.setItem('ah_checkout_scope', scope);
+        cartDebug('redirecting to Stripe', {
+          tenantSlug,
+          userId: session?.user?.id ?? null,
+          stashedScope: scope,
+          currentProductIds: productIds
+        });
         window.location.assign(payload.url);
       },
       onError: (err) => {
@@ -124,6 +145,45 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     libraryFilter
   ]);
 
+  // inside CheckoutView component
+  useEffect(() => {
+    const isSuccess =
+      searchParams.get('success') === 'true' ||
+      !!searchParams.get('session_id');
+    if (!isSuccess) return;
+
+    // Prefer clearing the exact scope that initiated checkout
+    const scope =
+      typeof window !== 'undefined'
+        ? localStorage.getItem('ah_checkout_scope')
+        : null;
+
+    const run = () => {
+      if (scope) {
+        useCartStore.getState().clearCartForScope(scope);
+        localStorage.removeItem('ah_checkout_scope');
+      } else {
+        clearCart();
+      }
+
+      setStates({ success: false, cancel: false });
+
+      const url = new URL(window.location.href);
+      url.searchParams.delete('success');
+      url.searchParams.delete('session_id');
+      const qs = url.searchParams.toString();
+      router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
+        scroll: false
+      });
+
+      queryClient.invalidateQueries(libraryFilter);
+    };
+
+    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsub?.();
+  }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
+
   // ---- Analytics: checkout_canceled on page load with cancel=true ----
   const sentCancelEventRef = useRef(false);
   useEffect(() => {
@@ -147,6 +207,18 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     sentCancelEventRef.current = true;
   }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
+
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    const run = () => {
+      if (session?.user?.id) {
+        useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
+      }
+    };
+    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsub?.();
+  }, [tenantSlug, session?.user?.id]);
 
   // ----- Renders -----
 

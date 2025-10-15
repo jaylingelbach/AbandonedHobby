@@ -3693,14 +3693,137 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 # Partial refund 10/09/25
 
+## Walkthrough
+
+- Implements per-line partial refunds (by quantity or explicit amount) across UI, API, engine, data model, types, idempotency, remaining/refunded lookups, and admin styles; adds utilities for refund calculations and normalizes persisted selection block shapes.
+
 ## New Features
 
-- Refund Manager now supports partial refunds per item by amount or quantity.
-- Per-line inputs for quantities and custom amounts with improved refund preview and summary (items, shipping, restocking).
-- Displays server-truth per-item refunded totals and remaining refundable amount.
+- Refund Manager: per-item partial refunds by amount or quantity with per-line amount inputs, merged server-truth remaining totals, and idempotent submissions.
 
 ## Improvements
 
-- Refreshed refund UI: responsive 5‑column grid, clearer labels, aligned values, and squarer inputs.
-- Enhanced table padding, consolidated headers, and standardized styling for dashboard elements.
-- Better error messages, safer submission with idempotency, and automatic data refresh after refunds.
+- Updated refund UI: responsive 5-column layout, clearer labels, aligned values, squarer inputs, improved table/header spacing, and dashboard surface styling.
+- Safer refunds: deterministic idempotency keys, better validation/error messaging, automatic refresh of refund totals after actions.
+
+## Documentation
+
+- Added recap notes describing the partial-refund UX and behaviors.
+
+## File changes
+
+### Admin styles overhaul
+
+- src/app/(payload)/custom.scss
+  - Rewrote payload-layer comments/structure; refactored refund UI into a 5‑column responsive grid; adjusted card/grid/table/token rules and many selector/comment/name tweaks.
+
+### Remaining/refunded lookup endpoint
+
+- src/app/api/admin/refunds/remaining/route.ts
+  - Aggregates per-item refunded qty/amount from existing refunds (block & legacy shapes), computes per-item remaining qty and order remainingCents with fallback heuristics, exposes maps and fullyRefundedItemIds, and returns 400 if orderId missing.
+
+### Refunds API route & schema
+
+- src/app/api/admin/refunds/route.ts, src/app/api/admin/refunds/schema.ts
+  - Introduces discriminated ApiLineSelection with `type: 'quantity'` and corresponding payload structure for per-line refund selections.
+
+### Collection & payload types
+
+- src/collections/Refunds.ts, src/payload-types.ts
+  - Switches Refund.selections to blocks-based discriminated union with quantity-based selection types and expanded metadata.
+
+### Admin RefundManager UI
+
+- src/components/custom-payload/refunds/refund-manager.tsx
+  - Reworks UI to fetch server-truth remaining/refunded maps, render per-item amount/quantity columns, compute previews via utilities, build discriminated selections, create idempotent POSTs, refresh state, and handle loading/errors.
+
+### UI types & calc utilities
+
+- src/components/custom-payload/refunds/types.ts, src/components/custom-payload/refunds/utils/ui/refund-calc.ts, src/components/custom-payload/refunds/utils/ui/utils.ts
+  - Adds LineSelection union types, parsing/convert helpers, refund-calc utilities (buildRefundLines, computeItemsSubtotalCents, computePreviewCents, buildSelections, toApiSelections, assertApiSelectionsShape), and extends idempotency key builder to accept optional amountCents.
+
+### Engine, core types & utils
+
+- src/modules/refunds/engine.ts, src/modules/refunds/types.ts, src/modules/refunds/utils.ts
+  - Engine createRefundForOrder now accepts union LineSelection[], validates per-line qty/amount, computes amountCents (with explicit amount support), generates idempotency/metadata, composes Stripe params, persists block selections, and returns { refund, record }; utils updated for normalized idempotency payloads.
+
+### Remaining / recompute integration
+
+- src/app/api/admin/refunds/remaining/route.ts,
+  - collection hooks (indirect) Aggregation and exposure of refundedQtyByItemId and refundedAmountByItemId to drive UI hints and remaining calculations; recompute invoked after persistence where possible.
+
+### Order/domain types & invoice types
+
+- src/domain/orders/types.ts, src/app/api/orders/[orderId]/invoice/types.ts, src/collections/Orders.ts
+  - Adds canonical OrderCore/OrderItemCore types and derived views for invoice/refunds; restructures invoice types to use core picks and new union/selection types; minor formatting/import tweaks in Orders collection.
+
+# Cart state bugged 10/15/25
+
+## Walkthrough
+
+- Adds device-scoped/user-scoped cart infrastructure and session migration across client, server, and UI layers. Introduces middleware-set device ID cookie, client/server cart scope builders, expanded cart store with per-user maps and migrations, updated useCart API, session-aware UI components, checkout success scope stashing, and a debug logger. Also updates docs (partial refunds).
+
+## New Features
+
+- Device-based anonymous identifier for stable carts.
+- Tenant- and user-scoped carts with session-aware totals.
+- Automatic migration of cart contents from anonymous to signed-in users.
+- Checkout flow now stashes scope for reliable post-success cleanup and redirects.
+- Order confirmation auto-clears the relevant cart once per tenant.
+- Optional cart debug logging toggle.
+
+## Improvements
+
+- More reliable middleware handling and redirects; cookie is consistently set.
+- More consistent cart behavior across tabs and after redirects.
+
+## Documentation
+
+- Added a detailed partial refund walkthrough, covering per-line refunds, UI inputs, idempotency, and lookups.
+
+## File changes
+
+### Docs: Partial refund recap
+
+- recap.md
+  - Adds documentation describing per-line partial refunds, inputs, idempotency, remaining/refunded lookups, API/UI notes, and admin styling references.
+
+### Middleware: Device ID cookie & rewrite logic
+
+- src/middleware.ts
+  - Adds ensureDeviceIdCookie and DEVICE_ID_COOKIE; sets stable anon device id cookie on all paths; validates tenant slug; normalizes root domain; ensures cookie before all returns; rewrites to /tenants//; robust fallback handling.
+
+### Debug utilities
+
+- src/modules/checkout/debug.ts
+  - Adds DEBUG_CART flag and cartDebug(label, payload?) for conditional grouped console logging.
+
+### Cart scoping (client + server)
+
+- src/modules/checkout/hooks/cart-scope.ts, src/modules/checkout/server/cart-scope-server.ts
+  - Introduces DEFAULT_TENANT, ANON_PREFIX, DEVICE_ID_KEY. Client: getOrCreateDeviceIdClient and buildScopeClient. Server: buildScopeServer using cookies for anon device ID; returns "tenant::user" scope.
+
+### Cart hook API and behavior
+
+- src/modules/checkout/hooks/use-cart.ts
+  - Changes useCart signature to (tenantSlug?, userId?); normalizes tenant; returns totalItems; wraps actions with tenant scope; exposes clearAllCartsForCurrentUser; reads tenant/user-scoped productIds.
+
+### Cart store: per-user namespacing & migrations
+
+- src/modules/checkout/store/use-cart-store.ts
+  - Replaces tenantCarts with byUser map and currentUserKey; adds setCurrentUserKey, clearAllCartsForCurrentUser, clearAllCartsEverywhere, migrateAnonToUser, dev helpers; cross-tab messaging updated; persistence version/migrations added; composite key cleanup.
+
+### Checkout UI: session-aware cart & migration
+
+- src/modules/checkout/ui/components/checkout-button.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+  - Integrates TRPC session; uses useCart(tenantSlug, session.user.id); migrates anon to user on sign-in; checkout-view stashes checkout scope, handles success/cancel flows, clears scoped carts, invalidates queries, and logs debug info.
+
+### Order confirmation UI
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Uses session-aware useCart; clears cart once per tenant on settled/any order; adjusts “Visit seller” link to /tenants/{tenantSlug}; refactors effect dependencies and memoization.
+
+### Product UI: Cart button
+
+- src/modules/products/ui/components/cart-button.tsx
+  - Adds TRPC session; uses useCart with userId; migrates anon cart to user on login; expands Props with purchase context.

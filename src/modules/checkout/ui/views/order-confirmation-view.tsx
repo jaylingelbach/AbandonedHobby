@@ -1,27 +1,37 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
-import { buildSignInUrl, formatCents } from '@/lib/utils';
+import { buildSignInUrl, formatCents, generateTenantURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks ───────────────────────────────────────────────────────────
-import { useCart } from '../../hooks/use-cart';
+import { useCart } from '@/modules/checkout/hooks/use-cart';
 
 interface Props {
   sessionId: string;
 }
 
+/**
+ * Renders the order confirmation page for a checkout session.
+ *
+ * Displays a pending "finalizing" state while confirmation data is awaited, an unauthorized sign-in prompt if the user is not authorized, or a detailed receipt view for one or more confirmed orders. The component also clears the shopping cart once per tenant when an order is present or the order status is settled.
+ *
+ * @param sessionId - The checkout session identifier used to fetch confirmation data
+ * @returns The order confirmation UI for the given session
+ */
+
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   // Query (always call hooks)
   const queryOptions = trpc.orders.getConfirmationBySession.queryOptions(
@@ -43,16 +53,39 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
   const firstOrder = orders[0]; // may be undefined while webhook is pending
-  const { clearCart } = useCart(firstOrder?.tenantSlug); // your hook should accept string | undefined
+  const { clearCart } = useCart(firstOrder?.tenantSlug, session?.user?.id);
 
-  // Clear the cart once the first order is confirmed paid
+  // Derive stable primitives for deps
+  const tenantSlug = firstOrder?.tenantSlug ?? null;
+  const status = firstOrder?.status ?? null;
+  const hasAnyOrder = orders.length > 0;
+
+  // Optionally decide what statuses count as “paid”
+  const isSettled = useMemo(
+    () =>
+      status === 'paid' ||
+      status === 'succeeded' ||
+      status === 'complete' ||
+      status === 'processing',
+    [status]
+  );
+
+  // Prevent multiple clears if component re-renders
+  const clearedForTenantRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (firstOrder?.status === 'paid') {
-      clearCart();
-    }
-  }, [firstOrder?.status, clearCart]);
+    if (!tenantSlug) return;
 
-  // Now do conditional rendering
+    // Only clear once per tenantSlug
+    if (clearedForTenantRef.current === tenantSlug) return;
+
+    // Clear when we have any order OR a settled status (pick either/both)
+    if (hasAnyOrder || isSettled) {
+      console.log('[cart] clearing on confirmation', { tenantSlug, status });
+      clearCart();
+      clearedForTenantRef.current = tenantSlug;
+    }
+  }, [tenantSlug, hasAnyOrder, isSettled, clearCart, status]);
 
   // Not signed in
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
@@ -230,7 +263,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 {o.tenantSlug ? (
                   <Link
                     prefetch
-                    href={`/${o.tenantSlug}`}
+                    href={generateTenantURL(o.tenantSlug)}
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
                     Visit seller
