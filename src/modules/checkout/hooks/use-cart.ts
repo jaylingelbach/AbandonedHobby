@@ -1,32 +1,63 @@
+// hooks/use-cart.ts
 import { useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-
 import { useCartStore } from '../store/use-cart-store';
 
-/** Keep this in sync with the store’s normalization if you exported it there */
-const DEFAULT_SCOPE = '__global__';
-function normalizeTenantSlug(raw?: string | null): string {
-  const s = (raw ?? '').trim();
-  return s.length > 0 ? s : DEFAULT_SCOPE;
+const DEFAULT_TENANT = '__global__';
+const ANON_PREFIX = 'anon:';
+const DEVICE_ID_KEY = 'ah_device_id';
+
+function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+  const generated =
+    (typeof crypto !== 'undefined' &&
+      'randomUUID' in crypto &&
+      crypto.randomUUID()) ||
+    `${Date.now()}-${Math.random()}`;
+  localStorage.setItem(DEVICE_ID_KEY, generated);
+  return generated;
 }
 
-/**
- * useCart
- * - Works even if tenantSlug is undefined/null by falling back to a default scope
- * - Exposes the same API already in use
- */
-export const useCart = (tenantSlug?: string | null) => {
-  const scope = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
+function userKey(userId?: string | null): string {
+  const trimmed = (userId ?? '').trim();
+  return trimmed.length > 0
+    ? trimmed
+    : `${ANON_PREFIX}${getOrCreateDeviceId()}`;
+}
 
-  // actions
-  const addProduct = useCartStore((state) => state.addProduct);
-  const removeProduct = useCartStore((state) => state.removeProduct);
-  const clearCart = useCartStore((state) => state.clearCart);
-  const clearAllCarts = useCartStore((state) => state.clearAllCarts);
+function tenantKey(tenantSlug?: string | null): string {
+  const trimmed = (tenantSlug ?? '').trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_TENANT;
+}
 
-  // reactive list for this scope
+/** Compose a unique key per-tenant-per-user */
+function scopeKey(tenantSlug?: string | null, userId?: string | null): string {
+  return `${tenantKey(tenantSlug)}::${userKey(userId)}`;
+}
+
+export const useCart = (tenantSlug?: string | null, userId?: string | null) => {
+  // composite scope
+  const scope = useMemo(
+    () => scopeKey(tenantSlug, userId),
+    [tenantSlug, userId]
+  );
+
+  // actions (match the per-user store API)
+  const addProduct = useCartStore((s) => s.addProduct);
+  const removeProduct = useCartStore((s) => s.removeProduct);
+  const clearCart = useCartStore((s) => s.clearCart);
+  const clearAllCartsForCurrentUser = useCartStore(
+    (s) => s.clearAllCartsForCurrentUser
+  );
+
+  // ✅ selector updated to per-user shape: byUser[currentUserKey][scope].productIds
   const productIds = useCartStore(
-    useShallow((state) => state.tenantCarts[scope]?.productIds ?? [])
+    useShallow((s) => {
+      const userBucket = s.byUser[s.currentUserKey];
+      return (userBucket?.[scope]?.productIds ?? []) as string[];
+    })
   );
 
   const handleAddProduct = useCallback(
@@ -59,7 +90,9 @@ export const useCart = (tenantSlug?: string | null) => {
   );
 
   const isProductInCart = useCallback(
-    (productId: string) => productIds.includes(productId),
+    (productId: string) => {
+      return productIds.includes(productId);
+    },
     [productIds]
   );
 
@@ -68,7 +101,7 @@ export const useCart = (tenantSlug?: string | null) => {
     addProduct: handleAddProduct,
     removeProduct: handleRemoveProduct,
     clearCart: clearTenantCart,
-    clearAllCarts,
+    clearAllCartsForCurrentUser,
     toggleProduct,
     isProductInCart,
     totalItems: productIds.length

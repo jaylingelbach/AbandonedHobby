@@ -1,19 +1,45 @@
+// /store/use-cart-store.ts
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-/** Single place to normalize tenant scope */
 const DEFAULT_SCOPE = '__global__';
 function normalizeTenantSlug(raw?: string | null): string {
-  const s = (raw ?? '').trim();
-  return s.length > 0 ? s : DEFAULT_SCOPE;
+  const trimmed = (raw ?? '').trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_SCOPE;
 }
 
+// ---------- user key helpers ----------
+const ANON_KEY_PREFIX = 'anon:';
+const DEVICE_ID_KEY = 'ah_device_id';
+
+function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  const existing = localStorage.getItem(DEVICE_ID_KEY);
+  if (existing) return existing;
+  const generated = crypto?.randomUUID?.() ?? String(Date.now());
+  localStorage.setItem(DEVICE_ID_KEY, generated);
+  return generated;
+}
+
+function deriveUserKey(userId?: string | null): string {
+  if (userId && userId.trim().length > 0) return userId.trim();
+  return `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
+}
+
+// ---------- types ----------
 interface TenantCart {
   productIds: string[];
 }
 
+type TenantMap = Record<string, TenantCart>;
+type UserMap = Record<string, TenantMap>;
+
 interface CartState {
-  tenantCarts: Record<string, TenantCart>;
+  byUser: UserMap; // userKey -> tenantSlug -> TenantCart
+  currentUserKey: string; // active user namespace
+
+  setCurrentUserKey: (userId?: string | null) => void;
+
   addProduct: (
     tenantSlug: string | null | undefined,
     productId: string
@@ -22,11 +48,12 @@ interface CartState {
     tenantSlug: string | null | undefined,
     productId: string
   ) => void;
-  clearCart: (tenantSlug: string | null | undefined) => void;
-  clearAllCarts: () => void;
+  clearCart: (tenantSlug: string | null | undefined) => void; // current user only
+  clearAllCartsForCurrentUser: () => void; // current user only
+  clearAllCartsEverywhere: () => void; // admin/dev helper
 }
 
-/** Optional cross-tab broadcast (persist already listens to storage events) */
+// ---------- optional cross-tab sync ----------
 const CHANNEL_NAME = 'cart';
 const bc: BroadcastChannel | null =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
@@ -34,27 +61,49 @@ const bc: BroadcastChannel | null =
     : null;
 
 type CartMessage =
-  | { type: 'CLEAR_CART'; tenantSlug: string }
-  | { type: 'CLEAR_ALL' };
+  | { type: 'CLEAR_CART'; userKey: string; tenantSlug: string }
+  | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
+  | { type: 'CLEAR_ALL_GLOBAL' };
 
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => {
-      // Listen for broadcasts from other tabs
+      // initialize currentUserKey (guest by default)
+      const initialUserKey = deriveUserKey(null);
+
+      // broadcast listeners
       if (bc) {
         bc.onmessage = (evt: MessageEvent<CartMessage>) => {
           const msg = evt.data;
           if (!msg) return;
-          if (msg.type === 'CLEAR_ALL') {
-            set({ tenantCarts: {} });
-          } else if (msg.type === 'CLEAR_CART') {
+
+          const { byUser } = get();
+
+          if (msg.type === 'CLEAR_ALL_GLOBAL') {
+            set({ byUser: {} });
+            return;
+          }
+
+          if (msg.type === 'CLEAR_ALL_FOR_USER') {
+            if (!byUser[msg.userKey]) return;
+            const next = { ...byUser };
+            delete next[msg.userKey];
+            set({ byUser: next });
+            return;
+          }
+
+          if (msg.type === 'CLEAR_CART') {
             const scope = normalizeTenantSlug(msg.tenantSlug);
-            const { tenantCarts } = get();
-            if (!tenantCarts[scope]?.productIds?.length) return; // idempotent
+            const userBucket = byUser[msg.userKey];
+            if (!userBucket?.[scope]?.productIds?.length) return;
+
             set({
-              tenantCarts: {
-                ...tenantCarts,
-                [scope]: { productIds: [] }
+              byUser: {
+                ...byUser,
+                [msg.userKey]: {
+                  ...userBucket,
+                  [scope]: { productIds: [] }
+                }
               }
             });
           }
@@ -62,18 +111,31 @@ export const useCartStore = create<CartState>()(
       }
 
       return {
-        tenantCarts: {},
+        byUser: {},
+        currentUserKey: initialUserKey,
+
+        setCurrentUserKey: (userId) => {
+          const nextKey = deriveUserKey(userId);
+          if (nextKey === get().currentUserKey) return;
+          set({ currentUserKey: nextKey });
+        },
 
         addProduct: (tenantSlug, productId) => {
           const scope = normalizeTenantSlug(tenantSlug);
+          const userKey = get().currentUserKey;
+
           set((state) => {
-            const current = state.tenantCarts[scope]?.productIds ?? [];
-            // Avoid duplicates
+            const userBucket = state.byUser[userKey] ?? {};
+            const current = userBucket[scope]?.productIds ?? [];
             if (current.includes(productId)) return state;
+
             return {
-              tenantCarts: {
-                ...state.tenantCarts,
-                [scope]: { productIds: [...current, productId] }
+              byUser: {
+                ...state.byUser,
+                [userKey]: {
+                  ...userBucket,
+                  [scope]: { productIds: [...current, productId] }
+                }
               }
             };
           });
@@ -81,14 +143,21 @@ export const useCartStore = create<CartState>()(
 
         removeProduct: (tenantSlug, productId) => {
           const scope = normalizeTenantSlug(tenantSlug);
+          const userKey = get().currentUserKey;
+
           set((state) => {
-            const current = state.tenantCarts[scope]?.productIds ?? [];
-            if (!current.includes(productId)) return state; // idempotent
+            const userBucket = state.byUser[userKey] ?? {};
+            const current = userBucket[scope]?.productIds ?? [];
+            if (!current.includes(productId)) return state;
+
             return {
-              tenantCarts: {
-                ...state.tenantCarts,
-                [scope]: {
-                  productIds: current.filter((id) => id !== productId)
+              byUser: {
+                ...state.byUser,
+                [userKey]: {
+                  ...userBucket,
+                  [scope]: {
+                    productIds: current.filter((id) => id !== productId)
+                  }
                 }
               }
             };
@@ -97,32 +166,75 @@ export const useCartStore = create<CartState>()(
 
         clearCart: (tenantSlug) => {
           const scope = normalizeTenantSlug(tenantSlug);
+          const userKey = get().currentUserKey;
+
           set((state) => {
-            const current = state.tenantCarts[scope]?.productIds ?? [];
-            if (current.length === 0) return state; // idempotent
-            const next = {
-              ...state.tenantCarts,
-              [scope]: { productIds: [] }
+            const userBucket = state.byUser[userKey] ?? {};
+            const current = userBucket[scope]?.productIds ?? [];
+            if (current.length === 0) return state;
+
+            return {
+              byUser: {
+                ...state.byUser,
+                [userKey]: {
+                  ...userBucket,
+                  [scope]: { productIds: [] }
+                }
+              }
             };
-            return { tenantCarts: next };
           });
-          // tell other tabs
-          bc?.postMessage({ type: 'CLEAR_CART', tenantSlug: scope });
+
+          bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: scope });
         },
 
-        clearAllCarts: () => {
-          // idempotent by design
-          set({ tenantCarts: {} });
-          // tell other tabs
-          bc?.postMessage({ type: 'CLEAR_ALL' });
+        clearAllCartsForCurrentUser: () => {
+          const userKey = get().currentUserKey;
+          set((state) => {
+            if (!state.byUser[userKey]) return state;
+            const next = { ...state.byUser };
+            delete next[userKey];
+            return { byUser: next };
+          });
+          bc?.postMessage({ type: 'CLEAR_ALL_FOR_USER', userKey });
+        },
+
+        // Optional: only use in admin/debug tools
+        clearAllCartsEverywhere: () => {
+          set({ byUser: {} });
+          bc?.postMessage({ type: 'CLEAR_ALL_GLOBAL' });
         }
       };
     },
     {
-      name: 'abandonedHobbies-cart',
-      storage: createJSONStorage(() => localStorage)
-      // persist already syncs across tabs via the 'storage' event;
-      // BroadcastChannel just makes CLEAR actions immediate.
+      name: 'abandonedHobbies-cart', // keep the same key
+      version: 2,
+      storage: createJSONStorage(() => localStorage),
+      // migrate old { tenantCarts } shape into byUser[currentUserKey]
+      migrate: (persisted: unknown, fromVersion: number) => {
+        if (fromVersion < 2 && persisted && typeof persisted === 'object') {
+          const maybeState = persisted as Record<string, unknown>;
+          const legacy = maybeState['state'] as
+            | Record<string, unknown>
+            | undefined;
+          const tenantCarts = (legacy?.['tenantCarts'] ?? null) as Record<
+            string,
+            TenantCart
+          > | null;
+
+          const currentUserKey = deriveUserKey(null);
+          const byUser: UserMap = tenantCarts
+            ? { [currentUserKey]: tenantCarts }
+            : {};
+
+          return {
+            state: {
+              byUser,
+              currentUserKey
+            }
+          };
+        }
+        return persisted as unknown;
+      }
     }
   )
 );

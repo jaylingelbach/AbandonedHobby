@@ -5,6 +5,8 @@ import { Button } from '@/components/ui/button';
 import { cn, generateTenantURL } from '@/lib/utils';
 
 import { useCart } from '../../hooks/use-cart';
+import { useTRPC } from '@/trpc/client';
+import { useQuery } from '@tanstack/react-query';
 
 interface CheckoutButtonProps {
   className?: string;
@@ -17,7 +19,10 @@ export const CheckoutButton = ({
   tenantSlug,
   hideIfEmpty
 }: CheckoutButtonProps) => {
-  const { totalItems } = useCart(tenantSlug);
+  const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
+
+  const { totalItems } = useCart(tenantSlug, session?.user?.id);
   if (hideIfEmpty && totalItems === 0) return null;
   return (
     <Button

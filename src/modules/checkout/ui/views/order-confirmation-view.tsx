@@ -5,7 +5,7 @@ import { useEffect } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
@@ -22,6 +22,7 @@ interface Props {
 
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   // Query (always call hooks)
   const queryOptions = trpc.orders.getConfirmationBySession.queryOptions(
@@ -43,7 +44,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
   const firstOrder = orders[0]; // may be undefined while webhook is pending
-  const { clearCart } = useCart(firstOrder?.tenantSlug); // your hook should accept string | undefined
+  const { clearCart } = useCart(firstOrder?.tenantSlug, session?.user?.id);
 
   // Clear the cart once the first order is confirmed paid
   useEffect(() => {

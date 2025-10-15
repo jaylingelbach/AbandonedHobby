@@ -3693,14 +3693,65 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 # Partial refund 10/09/25
 
+## Walkthrough
+
+- Implements per-line partial refunds (by quantity or explicit amount) across UI, API, engine, data model, types, idempotency, remaining/refunded lookups, and admin styles; adds utilities for refund calculations and normalizes persisted selection block shapes.
+
 ## New Features
 
-- Refund Manager now supports partial refunds per item by amount or quantity.
-- Per-line inputs for quantities and custom amounts with improved refund preview and summary (items, shipping, restocking).
-- Displays server-truth per-item refunded totals and remaining refundable amount.
+- Refund Manager: per-item partial refunds by amount or quantity with per-line amount inputs, merged server-truth remaining totals, and idempotent submissions.
 
 ## Improvements
 
-- Refreshed refund UI: responsive 5‑column grid, clearer labels, aligned values, and squarer inputs.
-- Enhanced table padding, consolidated headers, and standardized styling for dashboard elements.
-- Better error messages, safer submission with idempotency, and automatic data refresh after refunds.
+Updated refund UI: responsive 5-column layout, clearer labels, aligned values, squarer inputs, improved table/header spacing, and dashboard surface styling.
+Safer refunds: deterministic idempotency keys, better validation/error messaging, automatic refresh of refund totals after actions.
+Documentation
+
+Added recap notes describing the partial-refund UX and behaviors.
+
+## File changes
+
+### Admin styles overhaul
+
+- src/app/(payload)/custom.scss
+  - Rewrote payload-layer comments/structure; refactored refund UI into a 5‑column responsive grid; adjusted card/grid/table/token rules and many selector/comment/name tweaks.
+
+### Remaining/refunded lookup endpoint
+
+- src/app/api/admin/refunds/remaining/route.ts
+  - Aggregates per-item refunded qty/amount from existing refunds (block & legacy shapes), computes per-item remaining qty and order remainingCents with fallback heuristics, exposes maps and fullyRefundedItemIds, and returns 400 if orderId missing.
+
+### Refunds API route & schema
+
+- src/app/api/admin/refunds/route.ts, src/app/api/admin/refunds/schema.ts
+  - Introduces discriminated ApiLineSelection `type: 'quantity'
+
+### Collection & payload types
+
+- src/collections/Refunds.ts, src/payload-types.ts
+  - Switches Refund.selections to blocks-based discriminated union quantity
+
+### Admin RefundManager UI
+
+- src/components/custom-payload/refunds/refund-manager.tsx
+  - Reworks UI to fetch server-truth remaining/refunded maps, render per-item amount/quantity columns, compute previews via utilities, build discriminated selections, create idempotent POSTs, refresh state, and handle loading/errors.
+
+### UI types & calc utilities
+
+- src/components/custom-payload/refunds/types.ts, src/components/custom-payload/refunds/utils/ui/refund-calc.ts, src/components/custom-payload/refunds/utils/ui/utils.ts
+  - Adds LineSelection union types, parsing/convert helpers, refund-calc utilities (buildRefundLines, computeItemsSubtotalCents, computePreviewCents, buildSelections, toApiSelections, assertApiSelectionsShape), and extends idempotency key builder to accept optional amountCents.
+
+### Engine, core types & utils
+
+- src/modules/refunds/engine.ts, src/modules/refunds/types.ts, src/modules/refunds/utils.ts
+  - Engine createRefundForOrder now accepts union LineSelection[], validates per-line qty/amount, computes amountCents (with explicit amount support), generates idempotency/metadata, composes Stripe params, persists block selections, and returns { refund, record }; utils updated for normalized idempotency payloads.
+
+### Remaining / recompute integration
+
+- src/app/api/admin/refunds/remaining/route.ts,
+  - collection hooks (indirect) Aggregation and exposure of refundedQtyByItemId and refundedAmountByItemId to drive UI hints and remaining calculations; recompute invoked after persistence where possible.
+
+### Order/domain types & invoice types
+
+- src/domain/orders/types.ts, src/app/api/orders/[orderId]/invoice/types.ts, src/collections/Orders.ts
+  - Adds canonical OrderCore/OrderItemCore types and derived views for invoice/refunds; restructures invoice types to use core picks and new union/selection types; minor formatting/import tweaks in Orders collection.

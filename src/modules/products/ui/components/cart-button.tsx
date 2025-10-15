@@ -1,6 +1,8 @@
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useCart } from '@/modules/checkout/hooks/use-cart';
+import { useTRPC } from '@/trpc/client';
+import { useQuery } from '@tanstack/react-query';
 interface Props {
   tenantSlug: string;
   productId: string;
@@ -9,7 +11,10 @@ interface Props {
 }
 
 export const CartButton = ({ tenantSlug, productId }: Props) => {
-  const cart = useCart(tenantSlug);
+  const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
+
+  const cart = useCart(tenantSlug, session?.user?.id);
 
   return (
     <Button

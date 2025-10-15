@@ -23,7 +23,6 @@ import { useCheckoutState } from '../../hooks/use-checkout-states';
 import { CheckoutItem } from '../components/checkout-item';
 import CheckoutSidebar from '../components/checkout-sidebar';
 
-
 interface CheckoutViewProps {
   tenantSlug: string;
 }
@@ -32,8 +31,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { productIds, removeProduct, clearCart } = useCart(tenantSlug);
   const trpc = useTRPC();
+  const { data: session } = useQuery(trpc.auth.session.queryOptions());
+  const { productIds, removeProduct, clearCart } = useCart(
+    tenantSlug,
+    session?.user?.id
+  );
   const queryClient = useQueryClient();
 
   // Build query options once for stable keys
@@ -53,9 +56,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     () => trpc.library.getMany.infiniteQueryFilter(),
     [trpc.library.getMany]
   );
-
-  // Session (to label userType)
-  const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
