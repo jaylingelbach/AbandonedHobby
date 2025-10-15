@@ -26,6 +26,7 @@ import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
 import { CheckoutItem } from '../components/checkout-item';
 import CheckoutSidebar from '../components/checkout-sidebar';
+import { cartDebug } from '../../debug';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -68,6 +69,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         // stash the scope that initiated this checkout
         const scope = buildScope(tenantSlug, session?.user?.id);
         localStorage.setItem('ah_checkout_scope', scope);
+        cartDebug('redirecting to Stripe', {
+          tenantSlug,
+          userId: session?.user?.id ?? null,
+          stashedScope: scope,
+          currentProductIds: productIds
+        });
         window.location.assign(payload.url);
       },
       onError: (err) => {
@@ -102,6 +109,36 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       scroll: false
     });
   }, [router, searchParams, setStates]);
+
+  useEffect(() => {
+    const isSuccess =
+      searchParams.get('success') === 'true' ||
+      !!searchParams.get('session_id');
+
+    if (!isSuccess) return;
+
+    const stashed = localStorage.getItem('ah_checkout_scope');
+    cartDebug('returned from Stripe (success detected)', {
+      url: window.location.href,
+      query: Object.fromEntries(searchParams.entries()),
+      stashedScope: stashed,
+      currentTenantSlug: tenantSlug,
+      currentUserId: session?.user?.id ?? null
+    });
+
+    // Do NOT change behavior here yet—just log and run your existing clear:
+    clearCart();
+
+    // Also show persisted blob for inspection
+    try {
+      const persisted = JSON.parse(
+        localStorage.getItem('abandonedHobbies-cart') ?? '{}'
+      );
+      cartDebug('persisted after clearCart()', persisted);
+    } catch {
+      /* ignore parse errors */
+    }
+  }, [searchParams, clearCart, tenantSlug, session?.user?.id]);
 
   // Clear cart if server says products are invalid
   useEffect(() => {
@@ -189,6 +226,10 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     sentCancelEventRef.current = true;
   }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
 
+  useEffect(() => {
+    if (!session?.user?.id) return;
+    useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
+  }, [tenantSlug, session?.user?.id]);
   // ----- Renders -----
 
   // Loading: show spinner if there are items to fetch

@@ -1,11 +1,16 @@
-// /store/use-cart-store.ts
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
-const DEFAULT_SCOPE = '__global__';
+// ---------- constants / helpers ----------
+const DEFAULT_TENANT = '__global__';
+
+// We store carts by *tenant only*. If a composite sneaks in ("tenant::user"),
+// strip the suffix to keep storage shape stable.
 function normalizeTenantSlug(raw?: string | null): string {
-  const trimmed = (raw ?? '').trim();
-  return trimmed.length > 0 ? trimmed : DEFAULT_SCOPE;
+  const s = (raw ?? '').trim();
+  if (!s) return DEFAULT_TENANT;
+  const i = s.indexOf('::');
+  return i >= 0 ? s.slice(0, i) : s;
 }
 
 // ---------- user key helpers ----------
@@ -17,30 +22,35 @@ function getOrCreateDeviceId(): string {
   try {
     const existing = localStorage.getItem(DEVICE_ID_KEY);
     if (existing) return existing;
-    const generated = crypto?.randomUUID?.() ?? String(Date.now());
+    const generated =
+      (typeof crypto !== 'undefined' &&
+        'randomUUID' in crypto &&
+        crypto.randomUUID()) ||
+      String(Date.now());
     localStorage.setItem(DEVICE_ID_KEY, generated);
     return generated;
   } catch {
-    return crypto?.randomUUID?.() ?? String(Date.now());
+    return String(Date.now());
   }
 }
 
 function deriveUserKey(userId?: string | null): string {
-  if (userId && userId.trim().length > 0) return userId.trim();
-  return `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
+  const id = (userId ?? '').trim();
+  return id.length > 0 ? id : `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
 }
+
+const isAnonKey = (k: string) => k.startsWith(ANON_KEY_PREFIX);
 
 // ---------- types ----------
 interface TenantCart {
   productIds: string[];
 }
+type TenantMap = Record<string, TenantCart>; // tenantSlug -> TenantCart
+type UserMap = Record<string, TenantMap>; // userKey -> TenantMap
 
-type TenantMap = Record<string, TenantCart>;
-type UserMap = Record<string, TenantMap>;
-
-interface CartState {
-  byUser: UserMap; // userKey -> tenantSlug -> TenantCart
-  currentUserKey: string; // active user namespace
+export interface CartState {
+  byUser: UserMap; // userKey -> tenantSlug -> { productIds }
+  currentUserKey: string; // active user namespace (anon:... or real user id)
 
   setCurrentUserKey: (userId?: string | null) => void;
 
@@ -52,9 +62,13 @@ interface CartState {
     tenantSlug: string | null | undefined,
     productId: string
   ) => void;
-  clearCart: (tenantSlug: string | null | undefined) => void; // current user only
-  clearAllCartsForCurrentUser: () => void; // current user only
-  clearAllCartsEverywhere: () => void; // admin/dev helper
+  clearCart: (tenantSlug: string | null | undefined) => void;
+  clearAllCartsForCurrentUser: () => void;
+  clearAllCartsEverywhere: () => void;
+  migrateAnonToUser: (tenantSlug: string, newUserId: string) => void;
+
+  // dev-only helper (exposed in non-prod)
+  __cleanupTenantKeys?: () => void;
 }
 
 // ---------- optional cross-tab sync ----------
@@ -68,6 +82,27 @@ type CartMessage =
   | { type: 'CLEAR_CART'; userKey: string; tenantSlug: string }
   | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
   | { type: 'CLEAR_ALL_GLOBAL' };
+
+// --- internal cleanup that merges composite tenant keys into plain tenant ---
+function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
+  const out: UserMap = {};
+  for (const [userKey, tenantMap] of Object.entries(byUser || {})) {
+    const merged: TenantMap = {};
+    for (const [rawTenant, cart] of Object.entries(tenantMap || {})) {
+      const cleanTenant = rawTenant.includes('::')
+        ? rawTenant.split('::')[0]
+        : rawTenant;
+      if (!cleanTenant) continue;
+      const prev = merged[cleanTenant]?.productIds ?? [];
+      const next = Array.from(
+        new Set([...(prev ?? []), ...(cart?.productIds ?? [])])
+      );
+      merged[cleanTenant] = { productIds: next };
+    }
+    out[userKey] = merged;
+  }
+  return out;
+}
 
 export const useCartStore = create<CartState>()(
   persist(
@@ -97,19 +132,20 @@ export const useCartStore = create<CartState>()(
           }
 
           if (msg.type === 'CLEAR_CART') {
-            const scope = normalizeTenantSlug(msg.tenantSlug);
+            const tenant = normalizeTenantSlug(msg.tenantSlug);
             const userBucket = byUser[msg.userKey];
-            if (!userBucket?.[scope]?.productIds?.length) return;
+            if (!userBucket?.[tenant]?.productIds?.length) return;
 
             set({
               byUser: {
                 ...byUser,
                 [msg.userKey]: {
                   ...userBucket,
-                  [scope]: { productIds: [] }
+                  [tenant]: { productIds: [] }
                 }
               }
             });
+            return;
           }
         };
       }
@@ -125,12 +161,12 @@ export const useCartStore = create<CartState>()(
         },
 
         addProduct: (tenantSlug, productId) => {
-          const scope = normalizeTenantSlug(tenantSlug);
+          const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[scope]?.productIds ?? [];
+            const current = userBucket[tenant]?.productIds ?? [];
             if (current.includes(productId)) return state;
 
             return {
@@ -138,7 +174,7 @@ export const useCartStore = create<CartState>()(
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [scope]: { productIds: [...current, productId] }
+                  [tenant]: { productIds: [...current, productId] }
                 }
               }
             };
@@ -146,12 +182,12 @@ export const useCartStore = create<CartState>()(
         },
 
         removeProduct: (tenantSlug, productId) => {
-          const scope = normalizeTenantSlug(tenantSlug);
+          const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[scope]?.productIds ?? [];
+            const current = userBucket[tenant]?.productIds ?? [];
             if (!current.includes(productId)) return state;
 
             return {
@@ -159,7 +195,7 @@ export const useCartStore = create<CartState>()(
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [scope]: {
+                  [tenant]: {
                     productIds: current.filter((id) => id !== productId)
                   }
                 }
@@ -169,12 +205,12 @@ export const useCartStore = create<CartState>()(
         },
 
         clearCart: (tenantSlug) => {
-          const scope = normalizeTenantSlug(tenantSlug);
+          const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[scope]?.productIds ?? [];
+            const current = userBucket[tenant]?.productIds ?? [];
             if (current.length === 0) return state;
 
             return {
@@ -182,13 +218,13 @@ export const useCartStore = create<CartState>()(
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [scope]: { productIds: [] }
+                  [tenant]: { productIds: [] }
                 }
               }
             };
           });
 
-          bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: scope });
+          bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: tenant });
         },
 
         clearAllCartsForCurrentUser: () => {
@@ -202,43 +238,122 @@ export const useCartStore = create<CartState>()(
           bc?.postMessage({ type: 'CLEAR_ALL_FOR_USER', userKey });
         },
 
-        // Optional: only use in admin/debug tools
         clearAllCartsEverywhere: () => {
           set({ byUser: {} });
           bc?.postMessage({ type: 'CLEAR_ALL_GLOBAL' });
-        }
+        },
+
+        migrateAnonToUser: (tenantSlug, newUserId) => {
+          const state = get();
+          const anonKey = state.currentUserKey;
+
+          // Only migrate if we're currently anon
+          if (!isAnonKey(anonKey)) {
+            // still make sure our tenant key is normalized for the authed user
+            const tenant = normalizeTenantSlug(tenantSlug);
+            set((prev) => {
+              const byUser = { ...prev.byUser };
+              const dst = { ...(byUser[newUserId] || {}) };
+              dst[tenant] = {
+                productIds: Array.from(new Set(dst[tenant]?.productIds ?? []))
+              };
+              byUser[newUserId] = dst;
+              return { byUser, currentUserKey: newUserId };
+            });
+            return;
+          }
+
+          const tenant = normalizeTenantSlug(tenantSlug);
+          const srcBucket = state.byUser[anonKey] || {};
+          const dstUserKey = newUserId.trim();
+
+          const srcIds = srcBucket[tenant]?.productIds ?? [];
+          set((prev) => {
+            const byUser = collapseCompositeTenantKeys(prev.byUser); // sanitize before move
+            const src = { ...(byUser[anonKey] || {}) };
+            const dst = { ...(byUser[dstUserKey] || {}) };
+
+            const merged = Array.from(
+              new Set([...(dst[tenant]?.productIds ?? []), ...srcIds])
+            );
+
+            byUser[anonKey] = { ...src, [tenant]: { productIds: [] } };
+            byUser[dstUserKey] = { ...dst, [tenant]: { productIds: merged } };
+
+            return { byUser, currentUserKey: dstUserKey };
+          });
+        },
+
+        // dev helper (wired below in non-prod)
+        __cleanupTenantKeys: undefined
       };
     },
     {
-      name: 'abandonedHobbies-cart', // keep the same key
-      version: 2,
+      name: 'abandonedHobbies-cart',
+      version: 4, // ← v4 forcibly collapses any 'tenant::whatever' keys
       storage: createJSONStorage(() => localStorage),
-      // migrate old { tenantCarts } shape into byUser[currentUserKey]
       migrate: (persisted: unknown, fromVersion: number) => {
+        // v1→v2 (legacy: {tenantCarts} → byUser[currentUserKey])
         if (fromVersion < 2 && persisted && typeof persisted === 'object') {
-          const maybeState = persisted as Record<string, unknown>;
-          const legacy = maybeState['state'] as
-            | Record<string, unknown>
+          const maybeState = persisted as Record<string, any>;
+          const tenantCarts = maybeState?.state?.tenantCarts as
+            | Record<string, TenantCart>
             | undefined;
-          const tenantCarts = (legacy?.['tenantCarts'] ?? null) as Record<
-            string,
-            TenantCart
-          > | null;
 
           const currentUserKey = deriveUserKey(null);
           const byUser: UserMap = tenantCarts
             ? { [currentUserKey]: tenantCarts }
             : {};
 
+          return { state: { byUser, currentUserKey } };
+        }
+
+        // v2→v3 already collapsed composites once; keep idempotent:
+        if (fromVersion < 3 && persisted && typeof persisted === 'object') {
+          const s = (persisted as any).state;
+          if (!s?.byUser) return persisted;
           return {
-            state: {
-              byUser,
-              currentUserKey
-            }
+            state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
           };
         }
+
+        // v3→v4: run the collapse again (idempotent), ensures any lingering composites are gone
+        if (fromVersion < 4 && persisted && typeof persisted === 'object') {
+          const s = (persisted as any).state;
+          if (!s?.byUser) return persisted;
+          return {
+            state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
+          };
+        }
+
         return persisted as unknown;
+      },
+      // Extra safety: after hydration, sanitize once more in-memory
+      onRehydrateStorage: () => (rehydratedState) => {
+        if (!rehydratedState) return;
+        try {
+          const fixed = collapseCompositeTenantKeys(rehydratedState.byUser);
+          // Only patch if anything actually changed
+          if (fixed !== rehydratedState.byUser) {
+            useCartStore.setState({ byUser: fixed });
+          }
+        } catch {
+          // no-op
+        }
       }
     }
   )
 );
+
+// Dev helper: expose the store + a manual cleanup trigger
+if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+  // @ts-expect-error – dev only
+  window.ahCartStore = useCartStore;
+  useCartStore.setState({
+    __cleanupTenantKeys: () => {
+      const { byUser } = useCartStore.getState();
+      const fixed = collapseCompositeTenantKeys(byUser);
+      if (fixed !== byUser) useCartStore.setState({ byUser: fixed });
+    }
+  });
+}

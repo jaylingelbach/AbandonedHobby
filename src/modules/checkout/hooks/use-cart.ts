@@ -1,113 +1,81 @@
-// hooks/use-cart.ts
+'use client';
+
 import { useCallback, useMemo } from 'react';
 import { useShallow } from 'zustand/react/shallow';
-import { useCartStore } from '../store/use-cart-store';
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 const DEFAULT_TENANT = '__global__';
-const ANON_PREFIX = 'anon:';
-const DEVICE_ID_KEY = 'ah_device_id';
 
-function getOrCreateDeviceId(): string {
-  if (typeof window === 'undefined') return 'server';
-  const existing = localStorage.getItem(DEVICE_ID_KEY);
-  if (existing) return existing;
-  const generated =
-    (typeof crypto !== 'undefined' &&
-      'randomUUID' in crypto &&
-      crypto.randomUUID()) ||
-    `${Date.now()}-${Math.random()}`;
-  localStorage.setItem(DEVICE_ID_KEY, generated);
-  return generated;
+// Keep storage shape stable: strip any accidental "::user" suffix
+function normalizeTenantSlug(raw?: string | null): string {
+  const s = (raw ?? '').trim();
+  if (!s) return DEFAULT_TENANT;
+  const i = s.indexOf('::');
+  return i >= 0 ? s.slice(0, i) : s;
 }
 
-function userKey(userId?: string | null): string {
-  const trimmed = (userId ?? '').trim();
-  if (trimmed.includes('::')) {
-    throw new Error('userId cannot contain "::" separator');
-  }
+/**
+ * useCart(tenantSlug, userId?)
+ * - userId is accepted for convenience but ignored (store is tenant-scoped).
+ */
+export function useCart(tenantSlug?: string | null, _userId?: string | null) {
+  const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
-  return trimmed.length > 0
-    ? trimmed
-    : `${ANON_PREFIX}${getOrCreateDeviceId()}`;
-}
-
-function tenantKey(tenantSlug?: string | null): string {
-  const trimmed = (tenantSlug ?? '').trim();
-  return trimmed.length > 0 ? trimmed : DEFAULT_TENANT;
-}
-
-/** Compose a unique key per-tenant-per-user */
-function scopeKey(tenantSlug?: string | null, userId?: string | null): string {
-  return `${tenantKey(tenantSlug)}::${userKey(userId)}`;
-}
-
-export const useCart = (tenantSlug?: string | null, userId?: string | null) => {
-  // composite scope
-  const scope = useMemo(
-    () => scopeKey(tenantSlug, userId),
-    [tenantSlug, userId]
-  );
-
-  // actions (match the per-user store API)
-  const addProduct = useCartStore((s) => s.addProduct);
-  const removeProduct = useCartStore((s) => s.removeProduct);
-  const clearCart = useCartStore((s) => s.clearCart);
+  // actions from store
+  const addProductRaw = useCartStore((s) => s.addProduct);
+  const removeProductRaw = useCartStore((s) => s.removeProduct);
+  const clearCartRaw = useCartStore((s) => s.clearCart);
   const clearAllCartsForCurrentUser = useCartStore(
     (s) => s.clearAllCartsForCurrentUser
   );
 
-  // ✅ selector updated to per-user shape: byUser[currentUserKey][scope].productIds
+  // read current productIds for this tenant
   const productIds = useCartStore(
-    useShallow((s) => {
-      const userBucket = s.byUser[s.currentUserKey];
-      return (userBucket?.[scope]?.productIds ?? []) as string[];
-    })
+    useShallow(
+      (s) =>
+        (s.byUser[s.currentUserKey]?.[tenant]?.productIds ?? []) as string[]
+    )
   );
 
-  const handleAddProduct = useCallback(
-    (productId: string) => {
-      addProduct(scope, productId);
-    },
-    [addProduct, scope]
+  // stable wrappers
+  const addProduct = useCallback(
+    (productId: string) => addProductRaw(tenant, productId),
+    [tenant, addProductRaw]
   );
 
-  const handleRemoveProduct = useCallback(
-    (productId: string) => {
-      removeProduct(scope, productId);
-    },
-    [removeProduct, scope]
+  const removeProduct = useCallback(
+    (productId: string) => removeProductRaw(tenant, productId),
+    [tenant, removeProductRaw]
   );
 
-  const clearTenantCart = useCallback(() => {
-    clearCart(scope);
-  }, [clearCart, scope]);
+  const clearCart = useCallback(
+    () => clearCartRaw(tenant),
+    [tenant, clearCartRaw]
+  );
 
   const toggleProduct = useCallback(
-    (productId: string) => {
-      if (productIds.includes(productId)) {
-        removeProduct(scope, productId);
-      } else {
-        addProduct(scope, productId);
-      }
-    },
-    [productIds, addProduct, removeProduct, scope]
+    (productId: string) =>
+      productIds.includes(productId)
+        ? removeProduct(productId)
+        : addProduct(productId),
+    [productIds, removeProduct, addProduct]
   );
 
   const isProductInCart = useCallback(
-    (productId: string) => {
-      return productIds.includes(productId);
-    },
+    (productId: string) => productIds.includes(productId),
     [productIds]
   );
 
   return {
     productIds,
-    addProduct: handleAddProduct,
-    removeProduct: handleRemoveProduct,
-    clearCart: clearTenantCart,
+    totalItems: productIds.length,
+    addProduct,
+    removeProduct,
+    clearCart,
     clearAllCartsForCurrentUser,
     toggleProduct,
-    isProductInCart,
-    totalItems: productIds.length
+    isProductInCart
   };
-};
+}
+
+export default useCart;

@@ -14,7 +14,7 @@ import { buildSignInUrl, formatCents } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks ───────────────────────────────────────────────────────────
-import { useCart } from '../../hooks/use-cart';
+import { useCart } from '@/modules/checkout/hooks/use-cart';
 
 interface Props {
   sessionId: string;
@@ -46,14 +46,33 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   const firstOrder = orders[0]; // may be undefined while webhook is pending
   const { clearCart } = useCart(firstOrder?.tenantSlug, session?.user?.id);
 
-  // Clear the cart once the first order is confirmed paid
   useEffect(() => {
-    if (firstOrder?.status === 'paid') {
+    if (!firstOrder?.tenantSlug) return;
+    console.log('[cart] clearing on confirmation (any order present)', {
+      tenantSlug: firstOrder.tenantSlug,
+      status: firstOrder.status
+    });
+    clearCart();
+  }, [Boolean(firstOrder?.tenantSlug)]);
+
+  /**
+   * 2) Keep the status-based clear for extra safety (covers late status flips).
+   */
+  useEffect(() => {
+    if (!firstOrder?.tenantSlug) return;
+    const ok =
+      firstOrder.status === 'paid' ||
+      firstOrder.status === 'succeeded' ||
+      firstOrder.status === 'complete' ||
+      firstOrder.status === 'processing';
+    if (ok) {
+      console.log('[cart] clearing on confirmation (status match)', {
+        tenantSlug: firstOrder.tenantSlug,
+        status: firstOrder.status
+      });
       clearCart();
     }
-  }, [firstOrder?.status, clearCart]);
-
-  // Now do conditional rendering
+  }, [firstOrder?.tenantSlug, firstOrder?.status, clearCart]);
 
   // Not signed in
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
@@ -231,7 +250,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 {o.tenantSlug ? (
                   <Link
                     prefetch
-                    href={`/${o.tenantSlug}`}
+                    href={`/tenants/${o.tenantSlug}`}
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
                     Visit seller
