@@ -19,6 +19,7 @@ function normalizeTenantSlug(raw?: string | null): string {
  * - userId is accepted for convenience but ignored (store is tenant-scoped).
  */
 export function useCart(tenantSlug?: string | null, _userId?: string | null) {
+  void _userId;
   const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
   // actions from store

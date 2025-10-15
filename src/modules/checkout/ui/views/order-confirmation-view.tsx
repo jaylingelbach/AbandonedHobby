@@ -1,7 +1,7 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
@@ -46,33 +46,37 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   const firstOrder = orders[0]; // may be undefined while webhook is pending
   const { clearCart } = useCart(firstOrder?.tenantSlug, session?.user?.id);
 
-  useEffect(() => {
-    if (!firstOrder?.tenantSlug) return;
-    console.log('[cart] clearing on confirmation (any order present)', {
-      tenantSlug: firstOrder.tenantSlug,
-      status: firstOrder.status
-    });
-    clearCart();
-  }, [Boolean(firstOrder?.tenantSlug)]);
+  // Derive stable primitives for deps
+  const tenantSlug = firstOrder?.tenantSlug ?? null;
+  const status = firstOrder?.status ?? null;
+  const hasAnyOrder = orders.length > 0;
 
-  /**
-   * 2) Keep the status-based clear for extra safety (covers late status flips).
-   */
+  // Optionally decide what statuses count as “paid”
+  const isSettled = useMemo(
+    () =>
+      status === 'paid' ||
+      status === 'succeeded' ||
+      status === 'complete' ||
+      status === 'processing',
+    [status]
+  );
+
+  // Prevent multiple clears if component re-renders
+  const clearedForTenantRef = useRef<string | null>(null);
+
   useEffect(() => {
-    if (!firstOrder?.tenantSlug) return;
-    const ok =
-      firstOrder.status === 'paid' ||
-      firstOrder.status === 'succeeded' ||
-      firstOrder.status === 'complete' ||
-      firstOrder.status === 'processing';
-    if (ok) {
-      console.log('[cart] clearing on confirmation (status match)', {
-        tenantSlug: firstOrder.tenantSlug,
-        status: firstOrder.status
-      });
+    if (!tenantSlug) return;
+
+    // Only clear once per tenantSlug
+    if (clearedForTenantRef.current === tenantSlug) return;
+
+    // Clear when we have any order OR a settled status (pick either/both)
+    if (hasAnyOrder || isSettled) {
+      console.log('[cart] clearing on confirmation', { tenantSlug, status });
       clearCart();
+      clearedForTenantRef.current = tenantSlug;
     }
-  }, [firstOrder?.tenantSlug, firstOrder?.status, clearCart]);
+  }, [tenantSlug, hasAnyOrder, isSettled, clearCart, status]);
 
   // Not signed in
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
