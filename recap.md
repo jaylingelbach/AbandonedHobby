@@ -3827,3 +3827,10 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/products/ui/components/cart-button.tsx
   - Adds TRPC session; uses useCart with userId; migrates anon cart to user on login; expands Props with purchase context.
+
+# Pricing fee faq 10/16/25
+
+## New Features
+
+- Redesigned Pricing page with comprehensive pricing and fees information, detailed breakdowns, expanded FAQ section addressing key questions, improved accessibility features including keyboard navigation, and enhanced overall user experience.
+- Updated navigation menu to "Pricing & Fees" for improved clarity.
