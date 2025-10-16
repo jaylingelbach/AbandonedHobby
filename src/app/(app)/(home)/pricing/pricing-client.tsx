@@ -116,7 +116,7 @@ function Tldr() {
 
 function Hero() {
   return (
-    <header className={`${nbHeader} bg-yellow-300`} role="banner">
+    <header className={`${nbHeader} bg-yellow-300`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold tracking-tight">
@@ -144,7 +144,6 @@ export function PricingClient() {
         id="main"
         className="mx-auto max-w-4xl space-y-6 p-4 md:p-8"
         aria-labelledby="page-title"
-        role="main"
       >
         <h1 id="page-title" className="sr-only">
           Pricing & Fees
@@ -153,10 +152,7 @@ export function PricingClient() {
         <CalloutsSection items={callouts} />
         <Tldr />
         <FaqSection items={faqItems} />
-        <footer
-          className="mt-8 flex flex-wrap items-center justify-between gap-3"
-          role="contentinfo"
-        >
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">Need help with fees or payouts?</p>
           <div className="flex gap-3">
             <Link href="/support" className={nbButton}>

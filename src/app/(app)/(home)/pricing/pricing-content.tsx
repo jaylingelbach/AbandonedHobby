@@ -1,3 +1,4 @@
+import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
 import type { ReactElement } from 'react';
 
 export interface FaqItem {
@@ -73,7 +74,10 @@ export const faqItems: FaqItem[] = [
               Stripe processing (example): <strong>~$3.20</strong>
             </li>
             <li>
-              Abandoned Hobby fee (example 10%): <strong>$10.00</strong>
+              Abandoned Hobby fee ({PLATFORM_FEE_PERCENTAGE}%):{' '}
+              <strong>
+                ${((100 * PLATFORM_FEE_PERCENTAGE) / 100).toFixed(2)}
+              </strong>
             </li>
             <li>
               Seller receives: <strong>$86.80</strong>
