@@ -1,4 +1,5 @@
 import type { ReactElement } from 'react';
+import Link from 'next/link';
 
 export interface TermsSection {
   id: string;
@@ -77,9 +78,9 @@ export const sections: TermsSection[] = [
           Payments are processed via the Seller’s connected Stripe account.
           Stripe charges its own processing fees. Abandoned Hobby may charge a
           marketplace fee which is deducted from the Seller’s payout. See our{' '}
-          <a className="underline" href="/pricing">
+          <Link className="underline" href="/pricing">
             Pricing & Fees
-          </a>{' '}
+          </Link>{' '}
           page for details.
         </p>
         <p>
@@ -130,8 +131,8 @@ export const sections: TermsSection[] = [
         Sellers are responsible for shipping and delivery. Return and refund
         policies are set by the Seller and must be clearly disclosed on the
         listing. Refunds are processed via Stripe. Stripe processing fees are
-        generally not returned; Abandoned Hobby’s fee may be refunded at the
-        Seller’s discretion and only as permitted by Platform tools.
+        generally not returned; Abandoned Hobby&rsquo;s fee may be refunded at
+        the Platform&rsquo;s discretion and only as permitted by Platform tools.
       </p>
     )
   },
@@ -140,7 +141,7 @@ export const sections: TermsSection[] = [
     heading: 'Disputes & Chargebacks',
     body: (
       <p>
-        Disputes and chargebacks are owned by the Seller’s Stripe account.
+        Disputes and chargebacks are owned by the Seller&rsquo;s Stripe account.
         Stripe may debit the Seller for lost disputes. Abandoned Hobby may
         assist with guidance but is not a party to the dispute. Provide accurate
         records and tracking to improve outcomes.
@@ -219,22 +220,11 @@ export const sections: TermsSection[] = [
     body: (
       <p>
         Questions about these Terms? Email us at{' '}
-        <a className="underline" href="mailto:support@abandonedhobby.com">
+        <Link className="underline" href="mailto:support@abandonedhobby.com">
           support@abandonedhobby.com
-        </a>
+        </Link>
         .
       </p>
     )
   }
-  //   {
-  //     id: 'disclaimer',
-  //     heading: 'Disclaimer (Not Legal Advice)',
-  //     body: (
-  //       <p>
-  //         This page provides general information and does not constitute legal
-  //         advice. Consult an attorney to ensure these Terms meet your specific
-  //         needs and legal obligations.
-  //       </p>
-  //     )
-  //   }
 ];

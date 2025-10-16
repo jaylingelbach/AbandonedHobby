@@ -33,11 +33,7 @@ function TableOfContents({ items }: { items: TermsSection[] }) {
       <ol className="mt-3 list-decimal pl-6 space-y-1">
         {items.map((s) => (
           <li key={s.id}>
-            <a
-              className="underline"
-              href={`#${s.id}`}
-              aria-describedby={`h-${s.id}`}
-            >
+            <a className="underline" href={`#${s.id}`}>
               {s.heading}
             </a>
           </li>
@@ -83,13 +79,12 @@ export function TermsClient() {
         id="main"
         className="mx-auto max-w-4xl space-y-6 p-4 md:p-8"
         aria-labelledby="page-title"
-        role="main"
       >
         <h1 id="top" className={srOnly}>
-          Terms & Conditions
+          Top of page
         </h1>
 
-        <header className={nbHeader} role="banner">
+        <header className={nbHeader}>
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <h1
@@ -120,10 +115,7 @@ export function TermsClient() {
         <TableOfContents items={sections} />
         <SectionList items={sections} />
 
-        <footer
-          className="mt-8 flex flex-wrap items-center justify-between gap-3"
-          role="contentinfo"
-        >
+        <footer className="mt-8 flex flex-wrap items-center justify-between gap-3">
           <p className="text-sm">
             Questions about these Terms? We’re here to help.
           </p>
