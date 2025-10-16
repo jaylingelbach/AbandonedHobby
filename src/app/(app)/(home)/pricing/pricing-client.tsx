@@ -119,7 +119,10 @@ function Hero() {
     <header className={`${nbHeader} bg-yellow-300`}>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold tracking-tight">
+          <h1
+            id="page-title"
+            className="text-3xl font-extrabold tracking-tight"
+          >
             Pricing & Fees
           </h1>
           <p className="mt-1 max-w-prose text-base">
@@ -145,9 +148,6 @@ export function PricingClient() {
         className="mx-auto max-w-4xl space-y-6 p-4 md:p-8"
         aria-labelledby="page-title"
       >
-        <h1 id="page-title" className="sr-only">
-          Pricing & Fees
-        </h1>
         <Hero />
         <CalloutsSection items={callouts} />
         <Tldr />
