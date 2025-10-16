@@ -18,7 +18,7 @@ const navbarItems = [
   { href: '/welcome', children: 'Welcome' },
   { href: '/about', children: 'About' },
   { href: '/features', children: 'Features' },
-  { href: '/pricing', children: 'Pricing' },
+  { href: '/pricing', children: 'Pricing & Fees' },
   { href: '/support', children: 'Support' }
 ];
 
