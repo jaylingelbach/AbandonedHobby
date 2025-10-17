@@ -96,12 +96,22 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       : 'ah-form ah-form--inline';
 
   return (
-    <form>
+    <form
+      onSubmit={(e) => {
+        e.preventDefault();
+        startTransition(submit);
+      }}
+      noValidate
+    >
       <div className={rootClass}>
         <div className="ah-form-row">
+          <label htmlFor={`carrier-${orderId}`} className="ah-label sr-only">
+            Carrier
+          </label>
           <select
             id={`carrier-${orderId}`}
             className="ah-input"
+            name="shipment.carrier"
             value={carrier}
             onChange={(e) => setCarrier(e.target.value as Carrier)}
             disabled={isPending}
@@ -115,30 +125,31 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         </div>
 
         <div className="ah-form-row">
+          <label htmlFor={`tracking-${orderId}`} className="ah-label sr-only">
+            Tracking number
+          </label>
           <input
             id={`tracking-${orderId}`}
             className="ah-input"
             type="text"
+            name="shipment.trackingNumber"
             value={trackingNumber}
             onChange={(e) => setTrackingNumber(e.target.value)}
             placeholder="9400… / 1Z… / 7…"
             disabled={isPending}
+            aria-invalid={Boolean(error) || undefined}
+            aria-describedby={error ? `tracking-error-${orderId}` : undefined}
           />
         </div>
 
         <div className="ah-form-actions">
-          <button
-            type="button"
-            className="btn"
-            disabled={isPending}
-            onClick={() => startTransition(submit)}
-          >
+          <button type="submit" className="btn" disabled={isPending}>
             {isPending ? 'Saving…' : 'Save'}
           </button>
         </div>
 
         {error && (
-          <p className="ah-error" role="alert">
+          <p id={`tracking-error-${orderId}`} className="ah-error" role="alert">
             {error}
           </p>
         )}

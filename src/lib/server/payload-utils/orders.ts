@@ -188,9 +188,9 @@ export const beforeChangeOrderShipment: FieldHook = async ({
       nextValue.shippedAt = new Date().toISOString();
     }
   } else {
-    if (nextValue.trackingUrl) {
-      nextValue.trackingUrl = undefined;
-    }
+    if (nextValue.trackingUrl) nextValue.trackingUrl = undefined;
+    // Also clear shippedAt:
+    nextValue.shippedAt = undefined;
   }
 
   return nextValue;

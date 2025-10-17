@@ -448,12 +448,22 @@ export async function POST(req: Request) {
           if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
             const quantityByProductId = toQtyMap(
               existing.items
-                .filter((item) => typeof item.product === 'string')
-                .map((item) => ({
-                  product: item.product as string,
-                  quantity:
-                    typeof item.quantity === 'number' ? item.quantity : 1
-                }))
+                .map((item) => {
+                  const rel = item.product as unknown;
+                  const product =
+                    typeof rel === 'string'
+                      ? rel
+                      : rel && typeof rel === 'object' && 'id' in rel
+                        ? String((rel as { id?: string }).id)
+                        : null;
+                  if (!product) return null;
+                  return {
+                    product,
+                    quantity:
+                      typeof item.quantity === 'number' ? item.quantity : 1
+                  };
+                })
+                .filter(Boolean) as Array<{ product: string; quantity: number }>
             );
 
             console.log('[webhook] decrement on duplicate path', {
@@ -858,10 +868,6 @@ export async function POST(req: Request) {
           await addRecipientFromTenant(payoutTenantDocument);
           await addRecipientFromTenant(sellerTenantDocument);
         }
-
-        console.log('[email] seller recipients', {
-          recipients: [...recipientEmails]
-        });
 
         // Send seller notification(s) even if shipping is partial or missing
         for (const recipientEmail of recipientEmails) {

@@ -1,9 +1,8 @@
+import * as React from 'react';
+import Link from 'next/link';
+
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
-import Link from 'next/link';
-import * as React from 'react';
-
-import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
@@ -11,7 +10,6 @@ import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
-import { User } from '@/payload-types';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;

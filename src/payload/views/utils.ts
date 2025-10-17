@@ -4,6 +4,7 @@
 
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
+import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 
 /** Convert a Payload `count()` response to a plain number. */
 export function readCount(result: CountResult | unknown): number {
@@ -62,73 +63,6 @@ function isMinimalOrder(value: unknown): value is MinimalOrder {
   );
 }
 
-/** Shape used for probe logging. */
-type ProbeOrderFields = {
-  id: string;
-  sellerTenant: string | null;
-  status: unknown;
-  fulfillmentStatus: unknown;
-  createdAt: unknown;
-};
-
-/** Safely extract probe fields from an unknown order object. */
-function extractProbeOrderFields(value: unknown): ProbeOrderFields | null {
-  if (typeof value !== 'object' || value === null) return null;
-  const record = value as Record<string, unknown>;
-
-  const idValue = record.id;
-  if (typeof idValue !== 'string') return null;
-
-  const sellerTenantRaw = record.sellerTenant;
-  let sellerTenantId: string | null = null;
-  if (typeof sellerTenantRaw === 'string') {
-    sellerTenantId = sellerTenantRaw;
-  } else if (
-    typeof sellerTenantRaw === 'object' &&
-    sellerTenantRaw !== null &&
-    'id' in (sellerTenantRaw as { id?: unknown }) &&
-    typeof (sellerTenantRaw as { id?: unknown }).id === 'string'
-  ) {
-    sellerTenantId = (sellerTenantRaw as { id: string }).id;
-  }
-
-  return {
-    id: idValue,
-    sellerTenant: sellerTenantId,
-    status: record.status,
-    fulfillmentStatus: record.fulfillmentStatus,
-    createdAt: record.createdAt
-  };
-}
-
-/** Extract canonical tenant IDs (the relationship id), never array row ids. */
-function getTenantIdsFromUser(user: unknown): string[] {
-  type TenantRel = string | { id?: string | null };
-  type UserWithTenants = { tenants?: Array<{ tenant?: TenantRel }> };
-
-  const candidate = user as UserWithTenants | undefined;
-  const tenantEntries = Array.isArray(candidate?.tenants)
-    ? candidate!.tenants!
-    : [];
-
-  const tenantIds = tenantEntries
-    .map((entry) => {
-      const relation = entry?.tenant;
-      if (typeof relation === 'string') return relation;
-      if (
-        relation &&
-        typeof relation === 'object' &&
-        typeof relation.id === 'string'
-      ) {
-        return relation.id;
-      }
-      return null;
-    })
-    .filter((id): id is string => typeof id === 'string');
-
-  return tenantIds;
-}
-
 /** Treat missing/empty fulfillmentStatus as “unfulfilled”. */
 function buildUnfulfilledWhere(): Where {
   return {
@@ -173,7 +107,20 @@ export async function getData(
   }
 
   const tenantIds = getTenantIdsFromUser(currentUser);
-  const needsOnboarding = currentUser.stripeDetailsSubmitted === false;
+  // Compute from tenants: true if any visible tenant has not completed onboarding
+  let needsOnboarding = false;
+  if (tenantIds.length > 0) {
+    const tenantsRes = await payloadInstance.find({
+      collection: 'tenants',
+      where: { id: { in: tenantIds } },
+      depth: 0,
+      limit: tenantIds.length,
+      overrideAccess: true
+    });
+    needsOnboarding = (
+      tenantsRes.docs as Array<{ stripeDetailsSubmitted?: boolean | null }>
+    ).some((t) => t?.stripeDetailsSubmitted === false);
+  }
 
   console.log('[seller-dashboard] tenant identifiers for user', {
     userId: currentUser.id,
