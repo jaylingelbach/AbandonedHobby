@@ -54,9 +54,10 @@ export function getTenantIdsFromUser(user: unknown): string[] {
       }
       return null;
     })
-    .filter((id): id is string => typeof id === 'string');
-
-  return ids;
+    .filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0
+    );
+  return Array.from(new Set(ids));
 }
 
 /**
