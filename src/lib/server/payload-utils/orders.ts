@@ -192,6 +192,13 @@ export const beforeChangeOrderShipment: FieldHook = async ({
     if (nextValue.trackingUrl) nextValue.trackingUrl = undefined;
     // Also clear shippedAt:
     nextValue.shippedAt = undefined;
+    // Revert status if it was auto-promoted earlier
+    const currentStatus: OrderStatus =
+      (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
+      'unfulfilled';
+    if (currentStatus === 'shipped') {
+      (siblingData as OrderMutationShape).fulfillmentStatus = 'unfulfilled';
+    }
   }
 
   return nextValue;
