@@ -808,7 +808,7 @@ export async function POST(req: Request) {
           enabled: WEBHOOK_EMAILS_ENABLED,
           routingMode:
             process.env.ORDER_NOTIFICATIONS_TENANT ?? 'seller(default)',
-          buyerEmailAddress
+          buyerEmailPresent: Boolean(buyerEmailAddress)
         });
 
         // Send the customer confirmation email (best effort)

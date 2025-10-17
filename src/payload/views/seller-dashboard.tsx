@@ -11,8 +11,6 @@ import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
 
-import { formatCurrency } from '@/lib/utils';
-
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
