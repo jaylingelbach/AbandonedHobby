@@ -26,54 +26,42 @@ type OrderMutationShape = {
 };
 
 /**
- * @description Extract tenant IDs from a user record, resilient to different relationship shapes.
- * Supports:
+ * Extract tenant IDs from a user record, resilient to:
  * - `user.tenants: Array<{ id?: string }>`
  * - `user.tenants: Array<{ tenant?: string | { id?: string | null } }>`
- * @param {unknown} user - The user object from `req.user`.
- * @returns {string[]} Tenant IDs the user belongs to (empty if none).
- * @example
- * getTenantIdsFromUser({ tenants: [{ id: 't1' }, { tenant: { id: 't2' } }] })
- * // -> ['t1', 't2']
  */
 export function getTenantIdsFromUser(user: unknown): string[] {
   const candidate = user as
     | {
         tenants?: Array<{
-          id?: string;
           tenant?: string | { id?: string | null };
         }>;
       }
     | undefined;
 
-  const entries =
-    candidate && Array.isArray(candidate.tenants) ? candidate.tenants : [];
+  const entries = Array.isArray(candidate?.tenants) ? candidate!.tenants! : [];
 
   const ids = entries
     .map((entry) => {
-      if (typeof entry?.id === 'string') return entry.id;
-
-      const rel = entry?.tenant as string | { id?: string | null } | undefined;
-      if (typeof rel === 'string') return rel;
-      if (rel && typeof rel.id === 'string') return rel.id;
-
+      const relation = entry?.tenant;
+      if (typeof relation === 'string') return relation;
+      if (
+        relation &&
+        typeof relation === 'object' &&
+        typeof relation.id === 'string'
+      ) {
+        return relation.id;
+      }
       return null;
     })
-    .filter((value): value is string => typeof value === 'string');
+    .filter((id): id is string => typeof id === 'string');
 
   return ids;
 }
 
 /**
- * @description Determine if a user is a seller for the given order document.
- * Primary check: `order.sellerTenant`
- * Fallback check: `order.product.tenant` when `sellerTenant` is missing.
- * @param {unknown} documentValue - Raw order doc (from access/hooks).
- * @param {unknown} user - Value from `req.user`.
- * @returns {boolean} True if user's tenant set includes the order's seller tenant.
- * @example
- * isSellerOfOrderDoc({ sellerTenant: { id: 't1' } }, { tenants: [{ tenant: 't1' }] })
- * // -> true
+ * Determine if a user is the seller for the given order document.
+ * Primary check: `order.sellerTenant`, fallback to `order.product.tenant`.
  */
 export function isSellerOfOrderDoc(
   documentValue: unknown,
@@ -112,101 +100,71 @@ export function isSellerOfOrderDoc(
 }
 
 /**
- * @description Collection read access for Orders.
- * Super-admins: full access. Sellers: restricted to orders whose `sellerTenant` is in their tenant set.
- * Returns boolean for allow/deny, or a `Where` filter to scope results.
- * @param {{ req: { user?: unknown } }} ctx - Payload access args (only `req.user` is used).
- * @returns {boolean | Where} `true` (super-admin), `false` (no access), or tenant filter.
+ * Collection read access for Orders.
+ * - Super-admins: full access
+ * - Non-admins: buyer of the order OR seller by `sellerTenant` membership
  */
-// export const readOrdersAccess: Access = ({ req: { user } }) => {
-//   if (isSuperAdmin(user)) return true;
-
-//   const tenantIds = getTenantIdsFromUser(user);
-//   if (tenantIds.length === 0) return false;
-
-//   const where: Where = { sellerTenant: { in: tenantIds } };
-//   return where;
-// };
 export const readOrdersAccess: Access = ({ req: { user } }) => {
-  // Super-admins: full access
   if (isSuperAdmin(user)) return true;
-
-  // No user -> no access
   if (!user?.id) return false;
 
-  // Buyer can read their own orders
-  const buyerFilter: Where = { buyer: { equals: user.id } };
+  const buyerScope: Where = { buyer: { equals: user.id } };
 
-  // Seller can read orders for any of their tenants
   const tenantIds = getTenantIdsFromUser(user);
-
   if (tenantIds.length > 0) {
-    const sellerFilter: Where = { sellerTenant: { in: tenantIds } };
-    // Return OR of buyer + seller scopes
-    return { or: [buyerFilter, sellerFilter] };
+    const sellerScope: Where = { sellerTenant: { in: tenantIds } };
+    return { or: [buyerScope, sellerScope] };
   }
-
-  // Only buyer scope
-  return buyerFilter;
+  return buyerScope;
 };
 
 /**
- * @description Collection update access for Orders.
- * Super-admins: full access. Sellers: can update their tenant orders.
- * Returns boolean or a `Where` filter.
- * @param {{ req: { user?: unknown } }} ctx - Payload access args (only `req.user` is used).
- * @returns {boolean | Where} `true` (super-admin), `false`, or tenant filter.
+ * Collection update access for Orders.
+ * - Super-admins: full access
+ * - Sellers: can update orders where their tenant matches `sellerTenant`
  */
 export const updateOrdersAccess: Access = ({ req }) => {
   if (isSuperAdmin(req.user)) return true;
-
   const tenantIds = getTenantIdsFromUser(req.user);
   if (tenantIds.length === 0) return false;
-
-  const where: Where = { sellerTenant: { in: tenantIds } };
-  return where;
+  return { sellerTenant: { in: tenantIds } };
 };
 
 /**
- * @description Field-level access for the `shipment` group.
- * Editable by super-admins or sellers that own the order's seller tenant.
- * @param {{ req: { user?: unknown }, doc: unknown }} ctx - Payload field access args.
- * @returns {boolean} Whether the current user may edit the `shipment` group.
+ * Field access: `shipment` group is editable by super-admins or matching sellers.
  */
 export const canEditOrderShipment: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
- * @description Field-level access for the `fulfillmentStatus` field.
- * Editable by super-admins or matching sellers.
- * @param {{ req: { user?: unknown }, doc: unknown }} ctx - Payload field access args.
- * @returns {boolean} Whether the current user may edit `fulfillmentStatus`.
+ * Field access: `fulfillmentStatus` field is editable by super-admins or matching sellers.
  */
 export const canEditOrderFulfillmentStatus: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
- * @description `beforeChange` hook for the `shipment` group.
- * IMPORTANT: For a field hook, RETURN THE FIELD VALUE (the group), not the entire doc.
+ * `beforeChange` hook for the `shipment` group.
+ * IMPORTANT: For a field hook, return the group value itself.
  */
 export const beforeChangeOrderShipment: FieldHook = async ({
-  value, // <-- the current value of the `shipment` group (this is what we must return)
-  siblingData, // the rest of the doc’s values at the same level (you can mutate this)
+  value,
+  siblingData,
   req
 }) => {
-  // Skip for webhook/system writes to avoid unintended side-effects & recursion paths
+  // Skip for webhook/system writes to avoid unintended side-effects
   if (req?.context && (req.context as Record<string, unknown>)?.ahSystem) {
     return value;
   }
 
-  const v = { ...(value ?? {}) } as ShipmentGroup;
+  const nextValue = { ...(value ?? {}) } as ShipmentGroup;
 
   const hasTrackingNumber =
-    typeof v.trackingNumber === 'string' && v.trackingNumber.trim().length > 0;
+    typeof nextValue.trackingNumber === 'string' &&
+    nextValue.trackingNumber.trim().length > 0;
 
   if (hasTrackingNumber) {
-    const carrier = v.carrier;
-    const trackingNumber = v.trackingNumber ?? '';
+    const carrier = nextValue.carrier;
+    const trackingNumber = nextValue.trackingNumber ?? '';
 
     let trackingUrl = '';
     if (carrier === 'usps') {
@@ -217,14 +175,8 @@ export const beforeChangeOrderShipment: FieldHook = async ({
       trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
     }
 
-    // Write back to the group value (the field)
-    if (trackingUrl) {
-      v.trackingUrl = trackingUrl;
-    } else if (v.trackingUrl) {
-      v.trackingUrl = undefined;
-    }
+    nextValue.trackingUrl = trackingUrl || undefined;
 
-    // Bump fulfillmentStatus (this lives in the parent object → siblingData)
     const currentStatus: OrderStatus =
       (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
       'unfulfilled';
@@ -232,17 +184,14 @@ export const beforeChangeOrderShipment: FieldHook = async ({
       (siblingData as OrderMutationShape).fulfillmentStatus = 'shipped';
     }
 
-    // Set shippedAt if missing (on the group)
-    if (!v.shippedAt) {
-      v.shippedAt = new Date().toISOString();
+    if (!nextValue.shippedAt) {
+      nextValue.shippedAt = new Date().toISOString();
     }
   } else {
-    // No tracking number: clear derived trackingUrl only (preserve shippedAt)
-    if (v.trackingUrl && !v.trackingNumber) {
-      v.trackingUrl = undefined;
+    if (nextValue.trackingUrl) {
+      nextValue.trackingUrl = undefined;
     }
   }
 
-  // RETURN THE GROUP VALUE, not args.data
-  return v;
+  return nextValue;
 };
