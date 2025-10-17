@@ -1,4 +1,3 @@
-// src/modules/server/utils.ts
 import { TRPCError } from '@trpc/server';
 
 import { isObjectRecord } from '@/lib/server/utils';
