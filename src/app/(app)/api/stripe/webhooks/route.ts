@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import Stripe from 'stripe';
+import crypto from 'node:crypto';
 
 import config from '@payload-config';
 
@@ -154,13 +155,19 @@ async function decrementInventoryBatch(args: {
 }): Promise<void> {
   const { payload: payloadInstance, qtyByProductId } = args;
 
+  const failures: Array<{ productId: string; reason: string }> = [];
   for (const [productId, purchasedQuantity] of qtyByProductId) {
-    const result = await decrementProductStockAtomic(
-      payloadInstance,
-      productId,
-      purchasedQuantity,
-      { autoArchive: true }
-    );
+    let attempts = 0,
+      result;
+    do {
+      attempts++;
+      result = await decrementProductStockAtomic(
+        payloadInstance,
+        productId,
+        purchasedQuantity,
+        { autoArchive: true }
+      );
+    } while (!result.ok && attempts < 3 && result.reason === 'insufficient');
 
     if (result.ok) {
       console.log('[inv] dec-atomic', {
@@ -175,7 +182,15 @@ async function decrementInventoryBatch(args: {
         purchasedQty: purchasedQuantity,
         reason: result.reason
       });
+      failures.push({ productId, reason: result.reason });
     }
+  }
+  if (failures.length) {
+    // Surface failures to caller for follow-up.
+    const detail = failures
+      .map((failure) => `${failure.productId}:${failure.reason}`)
+      .join(', ');
+    console.error(detail);
   }
 }
 
@@ -653,7 +668,7 @@ export async function POST(req: Request) {
         }
 
         const currencyCode = (expandedSession.currency ?? 'USD').toUpperCase();
-        const orderNumber = `AH-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
+        const orderNumber = `AH-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
         const firstItemName = orderItems[0]?.nameSnapshot ?? 'Order';
         const orderDisplayName =
           orderItems.length > 1
@@ -688,8 +703,11 @@ export async function POST(req: Request) {
           });
 
         if (mismatchedProductIds.length > 0) {
+          const detail = mismatchedProductIds
+            .map((id) => `${id}:${productById.get(id)?.name ?? 'Unknown'}`)
+            .join(', ');
           throw new Error(
-            `Order contains items from multiple tenants. Expected ${productTenantId}, mismatches: ${mismatchedProductIds.join(', ')}`
+            `Order contains items from multiple tenants. Expected ${productTenantId}, mismatches: ${detail}`
           );
         }
 
@@ -774,12 +792,7 @@ export async function POST(req: Request) {
           .join(', ');
 
         // Try to resolve shipping, but do not block emails if it is missing
-        const shippingResolved = resolveShippingForOrder({
-          expanded: expandedSession,
-          paymentIntent,
-          charge,
-          buyerFallbackName: user.firstName
-        });
+        const shippingResolved = shippingGroup;
 
         // Buyer email (prefer user.email, then Stripe customer_details.email)
         const buyerEmailAddress: string | null =
@@ -903,7 +916,7 @@ export async function POST(req: Request) {
         // Analytics (best-effort)
         try {
           posthogServer?.capture({
-            distinctId: user.id ?? expandedSession.customer_email ?? 'unknown',
+            distinctId: user.id ?? 'unknown',
             event: 'purchaseCompleted',
             properties: {
               stripeSessionId: session.id,
@@ -1179,12 +1192,7 @@ export async function POST(req: Request) {
           | { id?: string }
           | null
           | undefined;
-        const orderId =
-          typeof relation === 'string'
-            ? relation
-            : relation && relation.id
-              ? String(relation.id)
-              : null;
+ g       const orderId = normalizeRelationshipId(relation as unknown);
         if (orderId) return orderId;
       }
     }

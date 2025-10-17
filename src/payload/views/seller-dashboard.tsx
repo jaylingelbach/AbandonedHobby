@@ -11,9 +11,18 @@ import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
 
+import { formatCurrency } from '@/lib/utils';
+
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
+
+  const locale = 'en-US';
+  const fmtCurrency = new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency: 'USD'
+  });
+  const fmtDate = new Intl.DateTimeFormat(locale);
 
   return (
     <DefaultTemplate
@@ -86,10 +95,18 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <table className="ah-table">
               <thead>
                 <tr>
-                  <th className="ah-col--order">Order</th>
-                  <th className="ah-col--date">Date</th>
-                  <th className="ah-col--total">Total</th>
-                  <th className="ah-col--tracking">Tracking</th>
+                  <th scope="col" className="ah-col--order">
+                    Order
+                  </th>
+                  <th scope="col" className="ah-col--date">
+                    Date
+                  </th>
+                  <th scope="col" className="ah-col--total">
+                    Total
+                  </th>
+                  <th scope="col" className="ah-col--tracking">
+                    Tracking
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -97,10 +114,10 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                   <tr key={order.id}>
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {fmtDate.format(new Date(order.createdAt))}
                     </td>
                     <td className="ah-col--total">
-                      ${(order.totalCents / 100).toFixed(2)}
+                      {fmtCurrency.format(order.totalCents / 100)}
                     </td>
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">

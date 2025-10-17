@@ -177,8 +177,8 @@ export async function getData(
   const needsTracking: OrderListItem[] = (ordersResponse.docs as unknown[])
     .filter(isMinimalOrder)
     .map((orderDocument) => {
-      const totalCents =
-        typeof orderDocument.total === 'number' ? orderDocument.total : 0;
+      const num = Number(orderDocument.total);
+      const totalCents = Number.isFinite(num) && num >= 0 ? Math.trunc(num) : 0;
       return {
         id: orderDocument.id,
         orderNumber: String(orderDocument.orderNumber ?? orderDocument.id),
