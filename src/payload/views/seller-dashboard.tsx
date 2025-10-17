@@ -1,8 +1,6 @@
-import * as React from 'react';
-import Link from 'next/link';
-
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
+import Link from 'next/link'; // <-- use Next Link for internal nav
 
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
@@ -93,39 +91,29 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <table className="ah-table">
               <thead>
                 <tr>
-                  <th scope="col" className="ah-col--order">
-                    Order
-                  </th>
-                  <th scope="col" className="ah-col--date">
-                    Date
-                  </th>
-                  <th scope="col" className="ah-col--total">
-                    Total
-                  </th>
-                  <th scope="col" className="ah-col--tracking">
-                    Tracking
-                  </th>
+                  <th>Order</th>
+                  <th>Date</th>
+                  <th>Total</th>
+                  <th>Tracking</th>
                 </tr>
               </thead>
               <tbody>
-                {data.needsTracking.map((order) => (
-                  <tr key={order.id}>
-                    <td className="ah-col--order">#{order.orderNumber}</td>
-                    <td className="ah-col--date">
-                      {fmtDate.format(new Date(order.createdAt))}
-                    </td>
-                    <td className="ah-col--total">
-                      {fmtCurrency.format(order.totalCents / 100)}
-                    </td>
-                    <td className="ah-col--tracking">
-                      <div className="ah-tracking-cell">
-                        <InlineTrackingForm
-                          orderId={order.id}
-                          initialCarrier="usps"
-                          initialTracking=""
-                          layout="stacked"
-                        />
-                      </div>
+                {data.needsTracking.map((o) => (
+                  <tr key={o.id}>
+                    <td>#{o.orderNumber}</td>
+                    <td>{new Date(o.createdAt).toLocaleDateString()}</td>
+                    <td>${(o.totalCents / 100).toFixed(2)}</td>
+                    <td>
+                      <InlineTrackingForm
+                        orderId={o.id}
+                        initialCarrier="usps"
+                        initialTracking=""
+                        layout="stacked"
+                        onSuccess={() => {
+                          // optional: refresh or optimistically remove this row
+                          // location.reload();
+                        }}
+                      />
                     </td>
                   </tr>
                 ))}

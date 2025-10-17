@@ -1,12 +1,7 @@
-/**
- * This utils file is for the seller dashboard Data
- */
+import { AdminViewServerProps } from 'payload';
 
-import type { AdminViewServerProps, Where } from 'payload';
-import type { CountResult, CountSummary, OrderListItem } from './types';
-import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
+import { CountResult, CountSummary, OrderListItem } from './types';
 
-/** Convert a Payload `count()` response to a plain number. */
 export function readCount(result: CountResult | unknown): number {
   if (typeof result === 'number') return result;
   if (
@@ -20,82 +15,20 @@ export function readCount(result: CountResult | unknown): number {
   return 0;
 }
 
-/** Minimal order projection used to build the needsTracking list. */
-type MinimalOrder = {
-  id: string;
-  orderNumber?: string | null;
-  total?: number | null; // cents
-  createdAt?: string | null;
-  fulfillmentStatus?: OrderListItem['fulfillmentStatus'] | null;
-};
-
-/** Type guard for MinimalOrder. */
-function isMinimalOrder(value: unknown): value is MinimalOrder {
-  if (typeof value !== 'object' || value === null) return false;
-  const record = value as Record<string, unknown>;
-  if (typeof record.id !== 'string') return false;
-
-  const totalIsValid =
-    record.total === undefined ||
-    record.total === null ||
-    typeof record.total === 'number';
-
-  const orderNumberIsValid =
-    record.orderNumber === undefined ||
-    record.orderNumber === null ||
-    typeof record.orderNumber === 'string';
-
-  const createdAtIsValid =
-    record.createdAt === undefined ||
-    record.createdAt === null ||
-    typeof record.createdAt === 'string';
-
-  const fulfillmentStatusIsValid =
-    record.fulfillmentStatus === undefined ||
-    record.fulfillmentStatus === null ||
-    typeof record.fulfillmentStatus === 'string';
-
-  return (
-    totalIsValid &&
-    orderNumberIsValid &&
-    createdAtIsValid &&
-    fulfillmentStatusIsValid
-  );
-}
-
-/** Treat missing/empty fulfillmentStatus as “unfulfilled”. */
-function buildUnfulfilledWhere(): Where {
-  return {
-    or: [
-      { fulfillmentStatus: { equals: 'unfulfilled' } },
-      { fulfillmentStatus: { exists: false } },
-      { fulfillmentStatus: { equals: null } },
-      { fulfillmentStatus: { equals: '' } }
-    ]
-  };
-}
-
-/**
- * Fetches summary counts and the list of unfulfilled orders visible to the seller.
- * Uses sellerTenant-only scoping.
- */
 export async function getData(
   props: AdminViewServerProps
 ): Promise<{ summary: CountSummary; needsTracking: OrderListItem[] }> {
-  const request = props.initPageResult.req;
-  const payloadInstance = request.payload;
+  const {
+    initPageResult: { req }
+  } = props;
 
-  const currentUser = request.user as
-    | {
-        id?: string;
-        tenants?: Array<
-          { id?: string } | { tenant?: string | { id?: string } }
-        >;
-        stripeDetailsSubmitted?: boolean;
-      }
+  const { payload } = req;
+
+  const user = req.user as
+    | { tenants?: Array<{ id: string }>; stripeDetailsSubmitted?: boolean }
     | undefined;
 
-  if (!currentUser) {
+  if (!user) {
     return {
       summary: {
         unfulfilledOrders: 0,
@@ -106,46 +39,37 @@ export async function getData(
     };
   }
 
-  const tenantIds = getTenantIdsFromUser(currentUser);
-  // Compute from tenants: true if any visible tenant has not completed onboarding
-  let needsOnboarding = false;
-  if (tenantIds.length > 0) {
-    const tenantsRes = await payloadInstance.find({
-      collection: 'tenants',
-      where: { id: { in: tenantIds } },
-      depth: 0,
-      limit: tenantIds.length,
-      user: currentUser
-    });
-    needsOnboarding = (
-      tenantsRes.docs as Array<{ stripeDetailsSubmitted?: boolean | null }>
-    ).some((t) => t?.stripeDetailsSubmitted === false);
-  }
+  const tenantIds = Array.isArray(user.tenants)
+    ? user.tenants.map((tenant) => tenant.id)
+    : [];
 
   if (tenantIds.length === 0) {
     return {
-      summary: { unfulfilledOrders: 0, lowInventory: 0, needsOnboarding },
+      summary: {
+        unfulfilledOrders: 0,
+        lowInventory: 0,
+        needsOnboarding: user.stripeDetailsSubmitted === false
+      },
       needsTracking: []
     };
   }
 
-  const unfulfilledWhere = buildUnfulfilledWhere();
-
-  // ---------- KPI: Unfulfilled count (scoped) ----------
-  const scopedCountResponse = await payloadInstance.count({
+  // 1) Unfulfilled, PAID orders for this seller's tenant(s)
+  const orders = await payload.find({
     collection: 'orders',
+    depth: 0,
+    pagination: false,
     where: {
       and: [
         { sellerTenant: { in: tenantIds } },
         { status: { equals: 'paid' } },
-        unfulfilledWhere
+        { fulfillmentStatus: { equals: 'unfulfilled' } }
       ]
     }
   });
-  const unfulfilledCount = readCount(scopedCountResponse);
 
-  // ---------- Low inventory ----------
-  const lowInventoryResponse = await payloadInstance.count({
+  // 2) Low inventory products for the same tenant(s)
+  const lowInvRes = await payload.count({
     collection: 'products',
     where: {
       and: [
@@ -156,44 +80,46 @@ export async function getData(
       ]
     }
   });
-  const lowInventory = readCount(lowInventoryResponse);
 
-  // ---------- Unfulfilled list to act on ----------
-  const ordersResponse = await payloadInstance.find({
-    collection: 'orders',
-    depth: 0,
-    pagination: true,
-    limit: 25,
-    sort: '-createdAt',
-    where: {
-      and: [
-        { sellerTenant: { in: tenantIds } },
-        { status: { equals: 'paid' } },
-        unfulfilledWhere
-      ]
-    }
-  });
+  // normalize cross-version payload.count() return (number vs { totalDocs })
+  const lowInventory = readCount(lowInvRes);
 
-  const needsTracking: OrderListItem[] = (ordersResponse.docs as unknown[])
-    .filter(isMinimalOrder)
-    .map((orderDocument) => {
-      const num = Number(orderDocument.total);
-      const totalCents = Number.isFinite(num) && num >= 0 ? Math.trunc(num) : 0;
-      return {
-        id: orderDocument.id,
-        orderNumber: String(orderDocument.orderNumber ?? orderDocument.id),
-        totalCents,
-        createdAt: String(orderDocument.createdAt ?? new Date().toISOString()),
-        fulfillmentStatus:
-          (orderDocument.fulfillmentStatus as
-            | OrderListItem['fulfillmentStatus']
-            | null) ?? 'unfulfilled'
+  const needsOnboarding = user.stripeDetailsSubmitted === false;
+
+  const needsTracking: OrderListItem[] = orders.docs.flatMap(
+    (order: unknown) => {
+      const doc = order as Partial<OrderListItem> & {
+        id?: string;
+        orderNumber?: string;
+        totalCents?: number;
+        total?: number; // your field is `total` (cents)
+        createdAt?: string;
+        fulfillmentStatus?: OrderListItem['fulfillmentStatus'];
       };
-    });
+      if (!doc?.id) return [];
+      const cents =
+        typeof doc.totalCents === 'number'
+          ? doc.totalCents
+          : typeof doc.total === 'number'
+            ? doc.total
+            : 0;
+
+      return [
+        {
+          id: String(doc.id),
+          orderNumber: String(doc.orderNumber ?? doc.id),
+          totalCents: cents,
+          createdAt: String(doc.createdAt ?? new Date().toISOString()),
+          fulfillmentStatus: (doc.fulfillmentStatus ??
+            'unfulfilled') as OrderListItem['fulfillmentStatus']
+        }
+      ];
+    }
+  );
 
   return {
     summary: {
-      unfulfilledOrders: unfulfilledCount,
+      unfulfilledOrders: orders.totalDocs,
       lowInventory,
       needsOnboarding
     },
