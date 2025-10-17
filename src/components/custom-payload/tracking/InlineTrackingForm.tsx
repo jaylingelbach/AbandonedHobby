@@ -105,9 +105,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     >
       <div className={rootClass}>
         <div className="ah-form-row">
-          <label htmlFor={`carrier-${orderId}`} className="ah-label sr-only">
-            Carrier
-          </label>
           <select
             id={`carrier-${orderId}`}
             className="ah-input"
@@ -116,18 +113,15 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             onChange={(e) => setCarrier(e.target.value as Carrier)}
             disabled={isPending}
           >
-            {carriers.map((c) => (
-              <option key={c} value={c}>
-                {c.toUpperCase()}
+            {carriers.map((carrier) => (
+              <option key={carrier} value={carrier}>
+                {carrier.toUpperCase()}
               </option>
             ))}
           </select>
         </div>
 
         <div className="ah-form-row">
-          <label htmlFor={`tracking-${orderId}`} className="ah-label sr-only">
-            Tracking number
-          </label>
           <input
             id={`tracking-${orderId}`}
             className="ah-input"

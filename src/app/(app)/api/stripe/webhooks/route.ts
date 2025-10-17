@@ -422,7 +422,9 @@ export async function POST(req: Request) {
         const user = (await tryCall('users.findByID', () =>
           payloadInstance.findByID({
             collection: 'users',
-            id: userId
+            id: userId,
+            depth: 0,
+            overrideAccess: true
           })
         )) as User | null;
         if (!user) throw new Error('User is required');
@@ -553,7 +555,7 @@ export async function POST(req: Request) {
         );
 
         if (
-          !totalAmountInCents &&
+          totalAmountInCents <= 0 &&
           typeof paymentIntent.amount_received === 'number'
         ) {
           totalAmountInCents = paymentIntent.amount_received;

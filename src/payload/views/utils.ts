@@ -115,17 +115,12 @@ export async function getData(
       where: { id: { in: tenantIds } },
       depth: 0,
       limit: tenantIds.length,
-      overrideAccess: true
+      user: currentUser
     });
     needsOnboarding = (
       tenantsRes.docs as Array<{ stripeDetailsSubmitted?: boolean | null }>
     ).some((t) => t?.stripeDetailsSubmitted === false);
   }
-
-  console.log('[seller-dashboard] tenant identifiers for user', {
-    userId: currentUser.id,
-    tenantIds
-  });
 
   if (tenantIds.length === 0) {
     return {
