@@ -1,4 +1,3 @@
-// src/modules/stripe/line-items.ts
 import Stripe from 'stripe';
 
 import type { ExpandedLineItem } from './guards';

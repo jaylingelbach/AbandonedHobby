@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import Stripe from 'stripe';
+import crypto from 'node:crypto';
 
 import config from '@payload-config';
 
@@ -54,21 +55,13 @@ export type ExpandedLineItem = Stripe.LineItem & {
 
 /* ──────────────────────────────────────────────────────────────────────────────
  * Inventory decrement (atomic) + batch  (Mongo / Mongoose)
- * NOTE:
- * - Uses a single conditional findOneAndUpdate with $inc and stockQuantity >= qty
- *   so concurrent handlers cannot oversell.
- * - If stock hits 0 and autoArchive=true, we immediately set isArchived in a
- *   second, quick update. This isn't “atomic with the decrement”, but it’s safe:
- *   once stock is 0, archiving is idempotent and can’t cause oversell.
- * - This path bypasses Payload hooks (it updates via the underlying Mongoose
- *   Model), which also avoids re-entrancy issues. Keep your product hooks in mind.
  * ────────────────────────────────────────────────────────────────────────────── */
 
-async function decProductStockAtomic(
-  payload: import('payload').Payload,
+async function decrementProductStockAtomic(
+  payloadInstance: import('payload').Payload,
   productId: string,
-  qty: number,
-  opts: { autoArchive?: boolean } = {}
+  quantity: number,
+  options: { autoArchive?: boolean } = {}
 ): Promise<
   | { ok: true; after: { stockQuantity: number }; archived: boolean }
   | {
@@ -76,32 +69,31 @@ async function decProductStockAtomic(
       reason: 'not-supported' | 'not-tracked' | 'not-found' | 'insufficient';
     }
 > {
-  if (!Number.isInteger(qty) || qty <= 0) {
+  if (!Number.isInteger(quantity) || quantity <= 0) {
     return { ok: false, reason: 'insufficient' };
   }
 
-  // 1) Preferred: atomic Mongo update via underlying model (if available)
-  const ProductModel = getProductsModel(payload);
+  const ProductModel = getProductsModel(payloadInstance);
   if (ProductModel) {
     const updated = await ProductModel.findOneAndUpdate(
-      { _id: productId, stockQuantity: { $gte: qty } },
-      { $inc: { stockQuantity: -qty } },
+      { _id: productId, stockQuantity: { $gte: quantity } },
+      { $inc: { stockQuantity: -quantity } },
       { new: true, lean: true }
     );
 
     if (updated) {
-      const afterQty =
+      const afterQuantity =
         typeof updated.stockQuantity === 'number'
           ? updated.stockQuantity
           : null;
 
-      if (afterQty == null) {
+      if (afterQuantity == null) {
         return { ok: false, reason: 'not-tracked' };
       }
 
       let archived = Boolean(updated.isArchived);
 
-      if (opts.autoArchive === true && afterQty === 0 && !archived) {
+      if (options.autoArchive === true && afterQuantity === 0 && !archived) {
         await ProductModel.updateOne(
           { _id: productId, isArchived: { $ne: true } },
           { $set: { isArchived: true } }
@@ -109,17 +101,11 @@ async function decProductStockAtomic(
         archived = true;
       }
 
-      return { ok: true, after: { stockQuantity: afterQty }, archived };
+      return { ok: true, after: { stockQuantity: afterQuantity }, archived };
     }
-
-    // If model exists but no doc matched, it’s either not found or insufficient stock.
-    // We can’t easily distinguish without another read. Fall through to fallback which
-    // will give us a precise reason.
   }
 
-  // 2) Fallback: Payload read-modify-write (ensures decrement still happens)
-  //    (Not fully race-proof, but guarantees behavior when Model path isn’t available.)
-  const prod = (await payload.findByID({
+  const productDocument = (await payloadInstance.findByID({
     collection: 'products',
     id: productId,
     depth: 0,
@@ -131,22 +117,24 @@ async function decProductStockAtomic(
     isArchived?: boolean | null;
   } | null;
 
-  if (!prod) return { ok: false, reason: 'not-found' };
+  if (!productDocument) return { ok: false, reason: 'not-found' };
 
-  const current =
-    typeof prod.stockQuantity === 'number' ? prod.stockQuantity : null;
+  const currentQuantity =
+    typeof productDocument.stockQuantity === 'number'
+      ? productDocument.stockQuantity
+      : null;
 
-  if (current == null) return { ok: false, reason: 'not-tracked' };
-  if (current < qty) return { ok: false, reason: 'insufficient' };
+  if (currentQuantity == null) return { ok: false, reason: 'not-tracked' };
+  if (currentQuantity < quantity) return { ok: false, reason: 'insufficient' };
 
-  const next = current - qty;
-  const shouldArchive = opts.autoArchive === true && next === 0;
+  const nextQuantity = currentQuantity - quantity;
+  const shouldArchive = options.autoArchive === true && nextQuantity === 0;
 
-  const updated = (await payload.update({
+  const updated = (await payloadInstance.update({
     collection: 'products',
     id: productId,
     data: {
-      stockQuantity: next,
+      stockQuantity: nextQuantity,
       ...(shouldArchive ? { isArchived: true } : {})
     },
     overrideAccess: true,
@@ -156,7 +144,7 @@ async function decProductStockAtomic(
 
   return {
     ok: true,
-    after: { stockQuantity: (updated.stockQuantity as number) ?? next },
+    after: { stockQuantity: (updated.stockQuantity as number) ?? nextQuantity },
     archived: Boolean(updated.isArchived)
   };
 }
@@ -165,28 +153,44 @@ async function decrementInventoryBatch(args: {
   payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
 }): Promise<void> {
-  const { payload, qtyByProductId } = args;
+  const { payload: payloadInstance, qtyByProductId } = args;
 
-  for (const [productId, purchasedQty] of qtyByProductId) {
-    const res = await decProductStockAtomic(payload, productId, purchasedQty, {
-      autoArchive: true
-    });
+  const failures: Array<{ productId: string; reason: string }> = [];
+  for (const [productId, purchasedQuantity] of qtyByProductId) {
+    let attempts = 0,
+      result;
+    do {
+      attempts++;
+      result = await decrementProductStockAtomic(
+        payloadInstance,
+        productId,
+        purchasedQuantity,
+        { autoArchive: true }
+      );
+    } while (!result.ok && attempts < 3 && result.reason === 'insufficient');
 
-    if (res.ok) {
+    if (result.ok) {
       console.log('[inv] dec-atomic', {
         productId,
-        purchasedQty,
-        after: res.after,
-        archived: res.archived
+        purchasedQty: purchasedQuantity,
+        after: result.after,
+        archived: result.archived
       });
     } else {
       console.warn('[inv] dec-atomic failed', {
         productId,
-        purchasedQty,
-        reason: res.reason
+        purchasedQty: purchasedQuantity,
+        reason: result.reason
       });
-      // Optional: flag order for manual review on 'insufficient' etc.
+      failures.push({ productId, reason: result.reason });
     }
+  }
+  if (failures.length) {
+    // Surface failures to caller for follow-up.
+    const detail = failures
+      .map((failure) => `${failure.productId}:${failure.reason}`)
+      .join(', ');
+    console.error(detail);
   }
 }
 
@@ -195,12 +199,17 @@ const WEBHOOK_EMAILS_ENABLED: boolean = /^(1|true|yes)$/i.test(
   process.env.WEBHOOK_EMAILS_ENABLED ?? ''
 );
 
+// Choose who receives the seller “sale notification” email.
+// Allowed values: 'payout', 'seller' (default), 'both'
+type NotificationRouting = 'payout' | 'seller' | 'both';
+const NOTIFICATION_ROUTING: NotificationRouting =
+  process.env.ORDER_NOTIFICATIONS_TENANT === 'payout'
+    ? 'payout'
+    : process.env.ORDER_NOTIFICATIONS_TENANT === 'both'
+      ? 'both'
+      : 'seller';
 /**
  * Conditionally executes a provided async action when webhook emails are enabled.
- *
- * @param label - Short label used for logging/tracing the action
- * @param fn - Async function to run when emails are enabled
- * @returns The value returned by `fn`, or `null` if webhook emails are disabled
  */
 async function sendIfEnabled<T>(
   label: string,
@@ -215,54 +224,6 @@ async function sendIfEnabled<T>(
 
 /**
  * Resolve a normalized shipping address for an order from a Stripe Checkout flow.
- *
- * Stripe has moved shipping data through a few shapes over time. This resolver:
- *
- * Priority (newest → oldest) on the **Checkout Session**:
- *  1. `collected_information.shipping_details`  (new API shape)
- *  2. `shipping_details`                        (intermediate shape)
- *  3. `shipping`                                (legacy shape)
- *
- * If the Checkout Session provides no usable shipping, we then fall back to:
- *  - `paymentIntent.shipping`
- *  - `charge.shipping`
- * And finally to:
- *  - `session.customer_details` (billing details) as a last resort
- *
- * The function returns a normalized object compatible with your `orders.shipping` group:
- * ```
- * {
- *   name?: string;
- *   line1: string;
- *   line2?: string;
- *   city?: string;
- *   state?: string;
- *   postalCode?: string;
- *   country?: string; // ISO-2
- * }
- * ```
- * or `undefined` if no usable address was found.
- *
- * Type-safety notes:
- * - We avoid `any` and use small local structural types (`ShippingLike`, `AddressLike`),
- *   combined with `unknown`→narrowed casts for Stripe objects that may or may not
- *   expose these properties depending on API version/typing.
- *
- * @param args
- * @param args.expanded
- *   The **expanded** Stripe Checkout Session (should include `customer_details`,
- *   and may include `collected_information.shipping_details`, `shipping_details`,
- *   or legacy `shipping`).
- * @param args.paymentIntent
- *   The PaymentIntent associated with the Checkout Session; may contain `shipping`.
- * @param args.charge
- *   The Charge associated with the PaymentIntent; may contain `shipping`.
- * @param args.buyerFallbackName
- *   Optional display name to use when no explicit shipping/customer name is present.
- *
- * @returns
- *   A normalized shipping object suitable for persisting to `orders.shipping` field,
- *   or `undefined` when no address info can be resolved.
  */
 function resolveShippingForOrder(args: {
   expanded: Stripe.Checkout.Session;
@@ -280,7 +241,6 @@ function resolveShippingForOrder(args: {
 } | null {
   const { expanded, paymentIntent, charge, buyerFallbackName } = args;
 
-  // Minimal shapes (no `any`)
   type AddressLike = {
     line1?: string | null;
     line2?: string | null;
@@ -296,68 +256,129 @@ function resolveShippingForOrder(args: {
     shipping?: ShippingLike | null;
   };
 
-  const sx = expanded as unknown as SessionWithShipping;
+  const sessionWithShipping = expanded as unknown as SessionWithShipping;
 
   const sessionShipping =
-    sx.collected_information?.shipping_details ??
-    sx.shipping_details ??
-    sx.shipping ??
+    sessionWithShipping.collected_information?.shipping_details ??
+    sessionWithShipping.shipping_details ??
+    sessionWithShipping.shipping ??
     null;
 
   const billing = expanded.customer_details ?? null;
 
-  const piShipping =
+  const paymentIntentShipping =
     (paymentIntent.shipping as unknown as ShippingLike | null) ?? null;
   const chargeShipping =
     (charge.shipping as unknown as ShippingLike | null) ?? null;
 
   const resolvedName =
     sessionShipping?.name ??
-    piShipping?.name ??
+    paymentIntentShipping?.name ??
     chargeShipping?.name ??
     billing?.name ??
     buyerFallbackName ??
     'Customer';
 
-  const addr: AddressLike | null =
+  const address: AddressLike | null =
     sessionShipping?.address ??
-    piShipping?.address ??
+    paymentIntentShipping?.address ??
     chargeShipping?.address ??
     billing?.address ??
     null;
 
-  // Only return a shipping object when we actually have a line1.
-  if (!addr?.line1) return null;
+  if (!address?.line1) return null;
 
   return {
     name: resolvedName,
-    line1: addr.line1, // required
-    line2: addr.line2 ?? null,
-    city: addr.city ?? null,
-    state: addr.state ?? null,
-    postalCode: addr.postal_code ?? null,
-    country: addr.country ?? null
+    line1: address.line1,
+    line2: address.line2 ?? null,
+    city: address.city ?? null,
+    state: address.state ?? null,
+    postalCode: address.postal_code ?? null,
+    country: address.country ?? null
   };
 }
 
 /**
- * Handle incoming Stripe webhook POST requests for a subset of event types and perform corresponding side effects.
- *
- * Verifies the Stripe signature, rejects invalid payloads, deduplicates events, and processes:
- * - checkout.session.completed: creates idempotent orders, decrements inventory, sends emails, and records analytics.
- * - payment_intent.payment_failed and checkout.session.expired: records checkout failure analytics.
- * - account.updated: updates tenant Stripe submission status.
- *
- * Events not in the permitted set are marked processed and ignored to prevent retries.
- *
- * @param req - The incoming HTTP request containing the raw Stripe webhook body and signature header.
- * @returns A NextResponse with a JSON body describing the outcome (e.g., received/ignored/updated or an error message). */
+ * Utility: normalize a relationship id from string or { id }.
+ */
+function normalizeRelationshipId(value: unknown): string | null {
+  if (typeof value === 'string') return value;
+  if (
+    value &&
+    typeof value === 'object' &&
+    'id' in (value as { id?: unknown })
+  ) {
+    const maybeId = (value as { id?: unknown }).id;
+    return typeof maybeId === 'string' ? maybeId : null;
+  }
+  return null;
+}
 
+/**
+ * Utility: pick the seller (product) tenant id from the order items.
+ */
+function getProductTenantIdForOrder(
+  items: Array<{ product: string }>,
+  productsById: Map<string, Product>
+): string {
+  for (const item of items) {
+    const product = productsById.get(item.product);
+    const productTenantId = normalizeRelationshipId(product?.tenant);
+    if (productTenantId) return productTenantId;
+  }
+  throw new Error('Could not resolve a product tenant for the order.');
+}
+
+/**
+ * Utility: derive an email and display name from a tenant.
+ */
+async function deriveNotificationContactForTenant(args: {
+  payload: import('payload').Payload;
+  tenant: TenantWithContact;
+}): Promise<{ email: string | null; displayName: string }> {
+  const { payload: payloadInstance, tenant } = args;
+
+  const primaryRelationship = tenant.primaryContact;
+  let primaryUser: User | null = null;
+
+  if (typeof primaryRelationship === 'string') {
+    try {
+      primaryUser = (await tryCall('users.findByID(primaryRef)', () =>
+        payloadInstance.findByID({
+          collection: 'users',
+          id: primaryRelationship,
+          depth: 0,
+          overrideAccess: true
+        })
+      )) as User | null;
+    } catch {
+      primaryUser = null;
+    }
+  } else if (primaryRelationship && typeof primaryRelationship === 'object') {
+    primaryUser = primaryRelationship as User;
+  }
+
+  const email: string | null =
+    tenant.notificationEmail ?? primaryUser?.email ?? null;
+
+  const displayName: string =
+    tenant.notificationName ??
+    primaryUser?.firstName ??
+    (primaryUser ? primaryUser.username : undefined) ??
+    tenant.name ??
+    'Seller';
+
+  return { email, displayName };
+}
+
+/**
+ * Handle incoming Stripe webhook POST requests.
+ */
 export async function POST(req: Request) {
   let event: Stripe.Event;
 
   try {
-    // IMPORTANT: use raw body for signature verification
     const bodyText = await req.text();
     event = stripe.webhooks.constructEvent(
       bodyText,
@@ -377,9 +398,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const payload = await getPayload({ config });
+  const payloadInstance = await getPayload({ config });
 
-  // Only handle the small set we care about
   const permitted = new Set<Stripe.Event.Type>([
     'checkout.session.completed',
     'payment_intent.payment_failed',
@@ -390,115 +410,46 @@ export async function POST(req: Request) {
     'charge.refunded'
   ]);
   if (!permitted.has(event.type)) {
-    // mark processed so retries don't ping us forever (optional)
-    await markProcessed(payload, event.id);
+    await markProcessed(payloadInstance, event.id);
     return NextResponse.json({ message: 'Ignored' }, { status: 200 });
   }
 
-  // Global dedupe (across restarts/retries)
   try {
-    if (await hasProcessed(payload, event.id)) {
-      return NextResponse.json({ ok: true, deduped: true }, { status: 200 });
-    }
-  } catch (err) {
-    console.warn('[webhook] dedupe check failed (continuing):', err);
-  }
-
-  /**
-   * Resolve the local order ID associated with a Stripe refund.
-   *
-   * Searches the local refunds collection for a refund with the Stripe refund ID and returns its `order` relation if present; if not found, falls back to matching an order by the refund's `payment_intent` or `charge`.
-   *
-   * @param args.payload - Payload CMS instance used to query collections
-   * @param args.rf - Stripe Refund object to resolve
-   * @returns The matching order ID as a string, or `null` if no associated order is found
-   */
-  async function resolveOrderIdForRefund(args: {
-    payload: import('payload').Payload;
-    rf: Stripe.Refund;
-  }): Promise<string | null> {
-    const { payload, rf } = args;
-
-    // A) Preferred: find our local refund record by stripeRefundId and read its `order` relationship
-    {
-      const list = await payload.find({
-        collection: 'refunds',
-        where: { stripeRefundId: { equals: rf.id } },
-        depth: 0,
-        limit: 1,
-        overrideAccess: true
-      });
-
-      const doc = list.docs[0];
-      if (doc) {
-        const rel = doc.order as string | { id?: string } | null | undefined;
-        const orderId =
-          typeof rel === 'string' ? rel : rel && rel.id ? String(rel.id) : null;
-        if (orderId) return orderId;
+    try {
+      if (await hasProcessed(payloadInstance, event.id)) {
+        return NextResponse.json({ ok: true, deduped: true }, { status: 200 });
       }
+    } catch (dedupeError) {
+      console.warn('[webhook] dedupe check failed (continuing):', dedupeError);
     }
 
-    // B) Fallback: map from PI or Charge directly to an Order
-    const pi = typeof rf.payment_intent === 'string' ? rf.payment_intent : null;
-    const ch = typeof rf.charge === 'string' ? rf.charge : null;
-
-    if (pi) {
-      const ordersByPI = await payload.find({
-        collection: 'orders',
-        where: { stripePaymentIntentId: { equals: pi } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true
-      });
-      if (ordersByPI.docs[0]?.id) return String(ordersByPI.docs[0].id);
-    }
-
-    if (ch) {
-      const ordersByCharge = await payload.find({
-        collection: 'orders',
-        where: { stripeChargeId: { equals: ch } },
-        limit: 1,
-        depth: 0,
-        overrideAccess: true
-      });
-      if (ordersByCharge.docs[0]?.id) return String(ordersByCharge.docs[0].id);
-    }
-
-    console.warn('[webhook] resolveOrderIdForRefund failed', {
-      refundId: rf.id,
-      paymentIntent: pi,
-      charge: ch
-    });
-
-    return null;
-  }
-
-  try {
     switch (event.type) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        // Guards
         const userId = session.metadata?.userId;
         if (!userId) throw new Error('User ID is required');
         if (!event.account)
           throw new Error('Stripe account ID is required for order creation');
 
-        // Capture a strictly-typed account id for the rest of this handler
         const accountId: string = event.account;
 
-        // Buyer
         const user = (await tryCall('users.findByID', () =>
-          payload.findByID({
+          payloadInstance.findByID({
             collection: 'users',
-            id: userId
+            id: userId,
+            depth: 0,
+            overrideAccess: true
           })
         )) as User | null;
         if (!user) throw new Error('User is required');
 
-        // Fast pre-check by session/event
         const existing = await tryCall('orders.fast-precheck', () =>
-          findExistingOrderBySessionOrEvent(payload, session.id, event.id)
+          findExistingOrderBySessionOrEvent(
+            payloadInstance,
+            session.id,
+            event.id
+          )
         );
 
         if (existing) {
@@ -512,25 +463,39 @@ export async function POST(req: Request) {
           });
 
           if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
-            const qtyByProductId = toQtyMap(
+            const quantityByProductId = toQtyMap(
               existing.items
-                .filter((i) => typeof i.product === 'string')
-                .map((i) => ({
-                  product: i.product as string,
-                  quantity: typeof i.quantity === 'number' ? i.quantity : 1
-                }))
+                .map((item) => {
+                  const rel = item.product as unknown;
+                  const product =
+                    typeof rel === 'string'
+                      ? rel
+                      : rel && typeof rel === 'object' && 'id' in rel
+                        ? String((rel as { id?: string }).id)
+                        : null;
+                  if (!product) return null;
+                  return {
+                    product,
+                    quantity:
+                      typeof item.quantity === 'number' ? item.quantity : 1
+                  };
+                })
+                .filter(Boolean) as Array<{ product: string; quantity: number }>
             );
 
             console.log('[webhook] decrement on duplicate path', {
-              entries: [...qtyByProductId.entries()]
+              entries: [...quantityByProductId.entries()]
             });
 
             await tryCall('inventory.decrementBatch(dup)', () =>
-              decrementInventoryBatch({ payload, qtyByProductId })
+              decrementInventoryBatch({
+                payload: payloadInstance,
+                qtyByProductId: quantityByProductId
+              })
             );
 
             await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
-              payload.update({
+              payloadInstance.update({
                 collection: 'orders',
                 id: existing.id,
                 data: {
@@ -553,12 +518,11 @@ export async function POST(req: Request) {
             );
           }
 
-          await markProcessed(payload, event.id);
+          await markProcessed(payloadInstance, event.id);
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
-        // Fetch expanded session (from connected account)
-        const expanded = await tryCall(
+        const expandedSession = await tryCall(
           'stripe.sessions.retrieve(expanded)',
           () =>
             stripe.checkout.sessions.retrieve(
@@ -574,26 +538,24 @@ export async function POST(req: Request) {
             )
         );
 
-        const rawLines = (expanded.line_items?.data ?? []) as Stripe.LineItem[];
-        if (rawLines.length === 0) throw new Error('No line items found');
+        const rawLineItems = (expandedSession.line_items?.data ??
+          []) as Stripe.LineItem[];
+        if (rawLineItems.length === 0) throw new Error('No line items found');
 
-        // totals that don't require product metadata
-        let totalCents = sumAmountTotalCents(rawLines);
+        let totalAmountInCents = sumAmountTotalCents(rawLineItems);
 
-        // Narrow to expanded lines with product metadata.id
-        const lines = rawLines.filter(isExpandedLineItem);
-        if (lines.length === 0) {
+        const expandedLineItems = rawLineItems.filter(isExpandedLineItem);
+        if (expandedLineItems.length === 0) {
           throw new Error('No expanded line items with product metadata');
         }
 
-        const receiptLineItems = buildReceiptLineItems(lines);
+        const receiptLineItems = buildReceiptLineItems(expandedLineItems);
 
-        // Payment details
         const paymentIntent = await tryCall(
           'stripe.paymentIntents.retrieve',
           () =>
             stripe.paymentIntents.retrieve(
-              expanded.payment_intent as string,
+              expandedSession.payment_intent as string,
               { expand: ['charges.data.payment_method_details'] },
               { stripeAccount: accountId }
             )
@@ -607,70 +569,81 @@ export async function POST(req: Request) {
           })
         );
 
-        if (!totalCents && typeof paymentIntent.amount_received === 'number') {
-          totalCents = paymentIntent.amount_received;
+        if (
+          totalAmountInCents <= 0 &&
+          typeof paymentIntent.amount_received === 'number'
+        ) {
+          totalAmountInCents = paymentIntent.amount_received;
         }
 
-        // Resolve tenant (metadata first, then account)
-        const meta = (expanded.metadata ?? {}) as Record<string, string>;
-        let tenantDoc: TenantWithContact | null = null;
+        const metadata = (expandedSession.metadata ?? {}) as Record<
+          string,
+          string
+        >;
+        let payoutTenantDocument: TenantWithContact | null = null;
 
-        const tenantIdFromMeta = meta.tenantId;
-        if (tenantIdFromMeta) {
+        const tenantIdFromMetadata = metadata.tenantId;
+        if (tenantIdFromMetadata) {
           try {
-            tenantDoc = (await tryCall('tenants.findByID(meta.tenantId)', () =>
-              payload.findByID({
-                collection: 'tenants',
-                id: tenantIdFromMeta,
-                depth: 1,
-                overrideAccess: true
-              })
+            payoutTenantDocument = (await tryCall(
+              'tenants.findByID(meta.tenantId)',
+              () =>
+                payloadInstance.findByID({
+                  collection: 'tenants',
+                  id: tenantIdFromMetadata,
+                  depth: 1,
+                  overrideAccess: true
+                })
             )) as TenantWithContact | null;
           } catch {
-            tenantDoc = null;
+            payoutTenantDocument = null;
           }
         }
 
-        if (!tenantDoc && event.account) {
-          const lookup = await tryCall('tenants.find(stripeAccountId)', () =>
-            payload.find({
-              collection: 'tenants',
-              where: { stripeAccountId: { equals: accountId } },
-              limit: 1,
-              depth: 1,
-              overrideAccess: true
-            })
+        if (!payoutTenantDocument && event.account) {
+          const tenantLookup = await tryCall(
+            'tenants.find(stripeAccountId)',
+            () =>
+              payloadInstance.find({
+                collection: 'tenants',
+                where: { stripeAccountId: { equals: accountId } },
+                limit: 1,
+                depth: 1,
+                overrideAccess: true
+              })
           );
-          tenantDoc =
-            ((lookup.docs[0] ?? null) as TenantWithContact | null) ?? null;
+          payoutTenantDocument =
+            ((tenantLookup.docs[0] ?? null) as TenantWithContact | null) ??
+            null;
         }
 
-        if (!tenantDoc) {
+        if (!payoutTenantDocument) {
           throw new Error(
-            `No tenant resolved. meta.tenantId=${tenantIdFromMeta ?? 'null'} event.account=${event.account}`
+            `No tenant resolved. meta.tenantId=${tenantIdFromMetadata ?? 'null'} event.account=${event.account}`
           );
         }
 
         if (
-          isStringValue(meta.sellerStripeAccountId) &&
+          isStringValue(metadata.sellerStripeAccountId) &&
           isStringValue(event.account) &&
-          meta.sellerStripeAccountId !== event.account
+          metadata.sellerStripeAccountId !== event.account
         ) {
           console.warn(
             '[webhook] MISMATCH: event.account != metadata.sellerStripeAccountId',
             {
               eventAccount: event.account,
-              metaSellerAccount: meta.sellerStripeAccountId
+              metaSellerAccount: metadata.sellerStripeAccountId
             }
           );
         }
 
-        // Preload products (for refund policy → returns window)
-        const productIds = lines.map((l) => requireStripeProductId(l));
-        const productsRes =
+        const productIds = expandedLineItems.map((l) =>
+          requireStripeProductId(l)
+        );
+        const productsResult =
           productIds.length > 0
             ? await tryCall('products.findByIds', () =>
-                payload.find({
+                payloadInstance.find({
                   collection: 'products',
                   where: { id: { in: productIds } },
                   depth: 0,
@@ -679,11 +652,14 @@ export async function POST(req: Request) {
               )
             : { docs: [] as Product[] };
 
-        const productMap = new Map<string, Product>(
-          (productsRes.docs as Product[]).map((p) => [p.id, p])
+        const productById = new Map<string, Product>(
+          (productsResult.docs as Product[]).map((p) => [p.id, p])
         );
 
-        const orderItems: OrderItemInput[] = buildOrderItems(lines, productMap);
+        const orderItems: OrderItemInput[] = buildOrderItems(
+          expandedLineItems,
+          productById
+        );
         const returnsAcceptedThroughISO = earliestReturnsCutoffISO(orderItems);
 
         const firstProductId = orderItems.find(itemHasProductId)?.product;
@@ -691,33 +667,69 @@ export async function POST(req: Request) {
           throw new Error('No product id resolved from Stripe line items.');
         }
 
-        const currency = (expanded.currency ?? 'USD').toUpperCase();
-        const orderNumber = `AH-${Math.random().toString(36).slice(2, 10).toUpperCase()}`;
-        const firstName = orderItems[0]?.nameSnapshot ?? 'Order';
-        const orderName =
+        const currencyCode = (expandedSession.currency ?? 'USD').toUpperCase();
+        const orderNumber = `AH-${crypto.randomUUID().replace(/-/g, '').slice(0, 8).toUpperCase()}`;
+        const firstItemName = orderItems[0]?.nameSnapshot ?? 'Order';
+        const orderDisplayName =
           orderItems.length > 1
-            ? `${firstName} (+${orderItems.length - 1} more)`
-            : firstName;
+            ? `${firstItemName} (+${orderItems.length - 1} more)`
+            : firstItemName;
 
         const shippingGroup = resolveShippingForOrder({
-          expanded,
+          expanded: expandedSession,
           paymentIntent,
           charge,
           buyerFallbackName: user.firstName
         });
 
-        // Create order (idempotent via unique session id; catch unique violation)
-        let orderDocId: string;
+        // Resolve tenants for ownership vs payout
+        const productTenantId = getProductTenantIdForOrder(
+          orderItems,
+          productById
+        );
+
+        // Optional guard: ensure single-tenant cart
+        const mismatchedProductIds = orderItems
+          .map((item) => item.product)
+          .filter((productId) => {
+            const product = productById.get(productId);
+            const productTenantIdCurrent = normalizeRelationshipId(
+              product?.tenant
+            );
+            return (
+              !productTenantIdCurrent ||
+              productTenantIdCurrent !== productTenantId
+            );
+          });
+
+        if (mismatchedProductIds.length > 0) {
+          const detail = mismatchedProductIds
+            .map((id) => `${id}:${productById.get(id)?.name ?? 'Unknown'}`)
+            .join(', ');
+          throw new Error(
+            `Order contains items from multiple tenants. Expected ${productTenantId}, mismatches: ${detail}`
+          );
+        }
+
+        // Create order
+        let orderDocumentId: string;
+
+        console.log('[webhook] creating order with', {
+          sellerTenantId: productTenantId,
+          eventAccount: event.account,
+          sessionMetaTenantId: (expandedSession.metadata ?? {}).tenantId ?? null
+        });
+
         try {
           const created = await tryCall('orders.create', () =>
-            payload.create({
+            payloadInstance.create({
               collection: 'orders',
               data: {
-                name: orderName,
+                name: orderDisplayName,
                 orderNumber,
                 buyer: user.id,
-                sellerTenant: tenantDoc.id,
-                currency,
+                sellerTenant: productTenantId, // seller/storefront tenant
+                currency: currencyCode,
                 product: firstProductId, // legacy back-compat
                 stripeAccountId: accountId,
                 stripeCheckoutSessionId: session.id,
@@ -726,190 +738,226 @@ export async function POST(req: Request) {
                 stripeChargeId: charge.id,
                 items: orderItems,
                 returnsAcceptedThrough: returnsAcceptedThroughISO,
-                buyerEmail: expanded.customer_details?.email ?? undefined,
+                buyerEmail:
+                  expandedSession.customer_details?.email ?? undefined,
                 status: 'paid',
-                total: totalCents,
-                ...(shippingGroup ? { shipping: shippingGroup } : {}) // ← only when valid
+                fulfillmentStatus: 'unfulfilled',
+                total: totalAmountInCents,
+                ...(shippingGroup ? { shipping: shippingGroup } : {})
               },
               overrideAccess: true
             })
           );
-          orderDocId = String(created.id);
-        } catch (err) {
-          if (isUniqueViolation(err)) {
+          orderDocumentId = String(created.id);
+        } catch (createError) {
+          if (isUniqueViolation(createError)) {
             console.log(
               '[webhook] duplicate detected (unique-violation catch)',
               { sessionId: session.id, eventId: event.id }
             );
-            await markProcessed(payload, event.id);
+            await markProcessed(payloadInstance, event.id);
             return NextResponse.json({ received: true }, { status: 200 });
           }
-          throw err;
+          throw createError;
         }
 
-        // Inventory
-        const qtyByProductId = toQtyMap(
-          orderItems.map((i) => ({ product: i.product, quantity: i.quantity }))
+        // Inventory adjustments
+        const quantityByProductId = toQtyMap(
+          orderItems.map((item) => ({
+            product: item.product,
+            quantity: item.quantity
+          }))
         );
         await tryCall('inventory.decrementBatch(primary)', () =>
-          decrementInventoryBatch({ payload, qtyByProductId })
+          decrementInventoryBatch({
+            payload: payloadInstance,
+            qtyByProductId: quantityByProductId
+          })
         );
 
         await tryCall('orders.update(inventoryAdjustedAt)', () =>
-          payload.update({
+          payloadInstance.update({
             collection: 'orders',
-            id: orderDocId,
+            id: orderDocumentId,
             data: { inventoryAdjustedAt: new Date().toISOString() },
             overrideAccess: true
           })
         );
 
-        // Emails
-        const summary = receiptLineItems.map((i) => i.description).join(', ');
+        // -----------------------
+        // Email notifications
+        // -----------------------
+        const lineItemSummary = receiptLineItems
+          .map((item) => item.description)
+          .join(', ');
 
-        const customer = expanded.customer_details;
-        if (!customer) throw new Error('Missing customer details');
-        const address = customer.address;
-        if (!customer.name)
-          throw new Error('Cannot send sale email: customer name is missing');
-        if (!address?.line1)
-          throw new Error('Cannot send sale email: address line 1 is missing');
-        if (!address.city)
-          throw new Error('Cannot send sale email: shipping city is missing');
-        if (!address.state)
-          throw new Error('Cannot send sale email: shipping state is missing');
-        if (!address.postal_code)
-          throw new Error(
-            'Cannot send sale email: shipping postal code is missing'
+        // Try to resolve shipping, but do not block emails if it is missing
+        const shippingResolved = shippingGroup;
+
+        // Buyer email (prefer user.email, then Stripe customer_details.email)
+        const buyerEmailAddress: string | null =
+          (typeof user.email === 'string' && user.email.length > 0
+            ? user.email
+            : null) ??
+          (typeof expandedSession.customer_details?.email === 'string' &&
+          expandedSession.customer_details?.email.length > 0
+            ? expandedSession.customer_details.email
+            : null);
+
+        console.log('[email] config', {
+          enabled: WEBHOOK_EMAILS_ENABLED,
+          routingMode:
+            process.env.ORDER_NOTIFICATIONS_TENANT ?? 'seller(default)',
+          buyerEmailPresent: Boolean(buyerEmailAddress)
+        });
+
+        // Send the customer confirmation email (best effort)
+        if (buyerEmailAddress) {
+          await sendIfEnabled('email.sendOrderConfirmation', () =>
+            sendOrderConfirmationEmail({
+              to: buyerEmailAddress,
+              name: user.firstName,
+              creditCardStatement:
+                charge.statement_descriptor ?? 'ABANDONED HOBBY',
+              creditCardBrand:
+                charge.payment_method_details?.card?.brand ?? 'N/A',
+              creditCardLast4:
+                charge.payment_method_details?.card?.last4 ?? '0000',
+              receiptId: orderDocumentId,
+              orderDate: new Date().toLocaleDateString('en-US'),
+              lineItems: receiptLineItems,
+              total: `$${(totalAmountInCents / 100).toFixed(2)}`,
+              support_url:
+                process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
+              item_summary: lineItemSummary
+            })
           );
-        if (!address.country)
-          throw new Error(
-            'Cannot send sale email: shipping country is missing'
-          );
-
-        const primaryRef = tenantDoc.primaryContact;
-        let primaryContactUser: User | null = null;
-
-        if (typeof primaryRef === 'string') {
-          try {
-            primaryContactUser = (await tryCall(
-              'users.findByID(primaryRef)',
-              () =>
-                payload.findByID({
-                  collection: 'users',
-                  id: primaryRef,
-                  depth: 0,
-                  overrideAccess: true
-                })
-            )) as User | null;
-          } catch {
-            primaryContactUser = null;
-          }
-        } else if (primaryRef && typeof primaryRef === 'object') {
-          primaryContactUser = primaryRef as User;
-        }
-
-        const sellerEmail: string | null =
-          tenantDoc.notificationEmail ?? primaryContactUser?.email ?? null;
-
-        const tenantIdForGroup = tenantDoc.id;
-
-        const sellerNameFinal: string =
-          tenantDoc.notificationName ??
-          primaryContactUser?.firstName ??
-          (primaryContactUser ? primaryContactUser.username : undefined) ??
-          tenantDoc.name ??
-          'Seller';
-
-        await sendIfEnabled('email.sendOrderConfirmation', () =>
-          sendOrderConfirmationEmail({
-            // to: user.email ?? 'customer@example.com',
-            to: 'jay@abandonedhobby.com', // temp
-            name: user.firstName,
-            creditCardStatement:
-              charge.statement_descriptor ?? 'ABANDONED HOBBY',
-            creditCardBrand:
-              charge.payment_method_details?.card?.brand ?? 'N/A',
-            creditCardLast4:
-              charge.payment_method_details?.card?.last4 ?? '0000',
-            receiptId: orderDocId,
-            orderDate: new Date().toLocaleDateString('en-US'),
-            lineItems: receiptLineItems,
-            total: `$${(totalCents / 100).toFixed(2)}`,
-            support_url:
-              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-            item_summary: summary
-          })
-        );
-
-        if (!sellerEmail) {
-          throw new Error(
-            `No seller notification email configured for tenant ${tenantDoc.id}`
+        } else {
+          console.warn(
+            '[email] customer confirmation skipped: no buyer email resolved'
           );
         }
 
-        await sendIfEnabled('email.sendSaleNotification', () =>
-          sendSaleNotificationEmail({
-            // to: sellerEmail,
-            to: 'jay@abandonedhobby.com', // temp
-            sellerName: sellerNameFinal,
-            receiptId: orderDocId,
-            orderDate: new Date().toLocaleDateString('en-US'),
-            lineItems: receiptLineItems,
-            total: `$${(totalCents / 100).toFixed(2)}`,
-            item_summary: summary,
-            shipping_name: customer.name!,
-            shipping_address_line1: address.line1!,
-            shipping_address_line2: address.line2 ?? undefined,
-            shipping_city: address.city!,
-            shipping_state: address.state!,
-            shipping_zip: address.postal_code!,
-            shipping_country: address.country!,
-            support_url:
-              process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
-          })
-        );
+        // Resolve seller and payout tenant documents for notification routing
+        const sellerTenantDocument = (await tryCall(
+          'tenants.findByID(seller)',
+          () =>
+            payloadInstance.findByID({
+              collection: 'tenants',
+              id: productTenantId,
+              depth: 1,
+              overrideAccess: true
+            })
+        )) as TenantWithContact;
 
-        // Analytics (best-effort)
-        try {
-          posthogServer?.capture({
-            distinctId: user.id ?? expanded.customer_email ?? 'unknown',
-            event: 'purchaseCompleted',
-            properties: {
-              stripeSessionId: session.id,
-              amountTotal: totalCents,
-              currency,
-              productIdsFromLines: productIds,
-              tenantId: tenantIdForGroup,
-              $insert_id: `purchase:${session.id}`
-            },
-            groups: tenantIdForGroup ? { tenant: tenantIdForGroup } : undefined
+        // Build the unique recipient set based on routing mode
+        const recipientEmails = new Set<string>();
+        const recipientNameByEmail = new Map<string, string>();
+
+        async function addRecipientFromTenant(
+          tenantDocument: TenantWithContact
+        ): Promise<void> {
+          const contact = await deriveNotificationContactForTenant({
+            payload: payloadInstance,
+            tenant: tenantDocument
           });
-
-          await flushIfNeeded();
-        } catch (error) {
-          if (process.env.NODE_ENV !== 'production') {
+          if (contact.email) {
+            recipientEmails.add(contact.email);
+            recipientNameByEmail.set(contact.email, contact.displayName);
+          } else {
             console.warn(
-              '[analytics] purchaseCompleted capture failed:',
-              error
+              '[email] seller notification skipped: tenant has no email',
+              {
+                tenantId: tenantDocument.id,
+                tenantName: tenantDocument.name
+              }
             );
           }
         }
 
-        await markProcessed(payload, event.id);
+        if (NOTIFICATION_ROUTING === 'payout') {
+          await addRecipientFromTenant(payoutTenantDocument);
+        } else if (NOTIFICATION_ROUTING === 'seller') {
+          await addRecipientFromTenant(sellerTenantDocument);
+        } else {
+          await addRecipientFromTenant(payoutTenantDocument);
+          await addRecipientFromTenant(sellerTenantDocument);
+        }
+
+        // Send seller notification(s) even if shipping is partial or missing
+        for (const recipientEmail of recipientEmails) {
+          const recipientDisplayName =
+            recipientNameByEmail.get(recipientEmail) ?? 'Seller';
+
+          await sendIfEnabled('email.sendSaleNotification', () =>
+            sendSaleNotificationEmail({
+              to: recipientEmail,
+              sellerName: recipientDisplayName,
+              receiptId: orderDocumentId,
+              orderDate: new Date().toLocaleDateString('en-US'),
+              lineItems: receiptLineItems,
+              total: `$${(totalAmountInCents / 100).toFixed(2)}`,
+              item_summary: lineItemSummary,
+              // shipping fields are optional now; pass empty strings if missing
+              shipping_name:
+                shippingResolved?.name ?? user.firstName ?? 'Customer',
+              shipping_address_line1: shippingResolved?.line1 ?? '',
+              shipping_address_line2: shippingResolved?.line2 ?? undefined,
+              shipping_city: shippingResolved?.city ?? '',
+              shipping_state: shippingResolved?.state ?? '',
+              shipping_zip: shippingResolved?.postalCode ?? '',
+              shipping_country: shippingResolved?.country ?? '',
+              support_url:
+                process.env.SUPPORT_URL || 'https://abandonedhobby.com/support'
+            })
+          );
+        }
+
+        // Analytics (best-effort)
+        try {
+          posthogServer?.capture({
+            distinctId: user.id ?? 'unknown',
+            event: 'purchaseCompleted',
+            properties: {
+              stripeSessionId: session.id,
+              amountTotal: totalAmountInCents,
+              currency: currencyCode,
+              productIdsFromLines: productIds,
+              tenantId: payoutTenantDocument.id,
+              $insert_id: `purchase:${session.id}`
+            },
+            groups: payoutTenantDocument.id
+              ? { tenant: payoutTenantDocument.id }
+              : undefined
+          });
+
+          await flushIfNeeded();
+        } catch (analyticsError) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn(
+              '[analytics] purchaseCompleted capture failed:',
+              analyticsError
+            );
+          }
+        }
+
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'payment_intent.payment_failed': {
-        const pi = event.data.object as Stripe.PaymentIntent;
+        const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-        const md = (pi.metadata ?? {}) as Record<string, string>;
-        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
-        const tenantId = md.tenantId;
-        const tenantSlug = md.tenantSlug;
+        const metadata = (paymentIntent.metadata ?? {}) as Record<
+          string,
+          string
+        >;
+        const buyerId = metadata.userId ?? metadata.buyerId ?? 'anonymous';
+        const tenantId = metadata.tenantId;
+        const tenantSlug = metadata.tenantSlug;
         const productIds =
-          typeof md.productIds === 'string' && md.productIds.length
-            ? md.productIds
+          typeof metadata.productIds === 'string' && metadata.productIds.length
+            ? metadata.productIds
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean)
@@ -921,9 +969,9 @@ export async function POST(req: Request) {
             distinctId: buyerId,
             event: 'checkoutFailed',
             properties: {
-              stripePaymentIntentId: pi.id,
-              failureCode: pi.last_payment_error?.code,
-              failureMessage: pi.last_payment_error?.message,
+              stripePaymentIntentId: paymentIntent.id,
+              failureCode: paymentIntent.last_payment_error?.code,
+              failureMessage: paymentIntent.last_payment_error?.message,
               tenantId,
               tenantSlug,
               productIds,
@@ -934,30 +982,33 @@ export async function POST(req: Request) {
           });
 
           await flushIfNeeded();
-        } catch (err) {
+        } catch (analyticsError) {
           if (process.env.NODE_ENV !== 'production') {
-            console.warn('[analytics] checkoutFailed capture failed:', err);
+            console.warn(
+              '[analytics] checkoutFailed capture failed:',
+              analyticsError
+            );
           }
         }
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'checkout.session.expired': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const md = (session.metadata ?? {}) as Record<string, string>;
-        const buyerId = md.userId ?? md.buyerId ?? 'anonymous';
-        const tenantId = md.tenantId;
-        const tenantSlug = md.tenantSlug;
+        const metadata = (session.metadata ?? {}) as Record<string, string>;
+        const buyerId = metadata.userId ?? metadata.buyerId ?? 'anonymous';
+        const tenantId = metadata.tenantId;
+        const tenantSlug = metadata.tenantSlug;
         const productIds =
-          typeof md.productIds === 'string' && md.productIds.length
-            ? md.productIds
+          typeof metadata.productIds === 'string' && metadata.productIds.length
+            ? metadata.productIds
                 .split(',')
                 .map((s) => s.trim())
                 .filter(Boolean)
-                .filter((id, i, a) => a.indexOf(id) === i)
+                .filter((id, index, self) => self.indexOf(id) === index)
             : undefined;
 
         try {
@@ -980,23 +1031,23 @@ export async function POST(req: Request) {
           });
 
           await flushIfNeeded();
-        } catch (err) {
+        } catch (analyticsError) {
           if (process.env.NODE_ENV !== 'production') {
             console.warn(
               '[analytics] checkoutFailed(expired) capture failed:',
-              err
+              analyticsError
             );
           }
         }
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
       }
 
       case 'account.updated': {
         const account = event.data.object as Stripe.Account;
         await tryCall('tenants.update(stripeDetailsSubmitted)', () =>
-          payload.update({
+          payloadInstance.update({
             collection: 'tenants',
             where: { stripeAccountId: { equals: account.id } },
             data: { stripeDetailsSubmitted: account.details_submitted },
@@ -1004,111 +1055,181 @@ export async function POST(req: Request) {
           })
         );
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ updated: true }, { status: 200 });
       }
-      case 'refund.updated': {
-        const rf = event.data.object as Stripe.Refund;
 
-        // syncs the local refund doc’s status with Stripe.
+      case 'refund.updated': {
+        const refund = event.data.object as Stripe.Refund;
+
         try {
-          await payload.update({
+          await payloadInstance.update({
             collection: 'refunds',
-            where: { stripeRefundId: { equals: rf.id } },
-            data: { status: toLocalRefundStatus(rf.status) },
+            where: { stripeRefundId: { equals: refund.id } },
+            data: { status: toLocalRefundStatus(refund.status) },
             overrideAccess: true
           });
         } catch {
-          // ignore if we don’t have a local row (e.g., refund created in Stripe dashboard)
+          // ok if no local row
         }
 
-        const orderId = await resolveOrderIdForRefund({ payload, rf });
-        if (orderId) {
-          // totals all successful refunds for the order, updates refundTotalCents, lastRefundAt, and derived status (paid/partially_refunded/refunded).
-          // If you want in-flight refunds to count, pass includePending: true
+        const orderIdForRefund = await resolveOrderIdForRefund({
+          payload: payloadInstance,
+          rf: refund
+        });
+        if (orderIdForRefund) {
           await recomputeRefundState({
-            payload,
-            orderId,
+            payload: payloadInstance,
+            orderId: orderIdForRefund,
             includePending: true
           });
         }
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ ok: true }, { status: 200 });
       }
-      case 'refund.created': {
-        const rf = event.data.object as Stripe.Refund;
 
-        // Keep local refund row (if present) in sync with Stripe status
+      case 'refund.created': {
+        const refund = event.data.object as Stripe.Refund;
+
         try {
-          await payload.update({
+          await payloadInstance.update({
             collection: 'refunds',
-            where: { stripeRefundId: { equals: rf.id } },
-            data: { status: toLocalRefundStatus(rf.status) },
+            where: { stripeRefundId: { equals: refund.id } },
+            data: { status: toLocalRefundStatus(refund.status) },
             overrideAccess: true
           });
-        } catch (error) {
-          // It's fine if no local row exists (e.g. refund was created from Stripe Dashboard)
-          console.warn('[webhook] failed to sync refund row', error);
+        } catch (syncError) {
+          console.warn('[webhook] failed to sync refund row', syncError);
         }
 
-        // Find related order by (local row → payment_intent → charge)
-        const orderId = await resolveOrderIdForRefund({ payload, rf });
+        const orderIdForRefund = await resolveOrderIdForRefund({
+          payload: payloadInstance,
+          rf: refund
+        });
 
-        // Recompute order-level refund totals / derived status
-        if (orderId) {
+        if (orderIdForRefund) {
           await recomputeRefundState({
-            payload,
-            orderId,
-            includePending: true // set true to count pending in totals if you prefer
+            payload: payloadInstance,
+            orderId: orderIdForRefund,
+            includePending: true
           });
         }
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ ok: true }, { status: 200 });
       }
 
       case 'charge.refunded': {
-        // Some platforms prefer to key off charge-level events
-        const ch = event.data.object as Stripe.Charge;
+        const charge = event.data.object as Stripe.Charge;
 
-        // Try PI first (more stable), then charge id
-        const pi =
-          typeof ch.payment_intent === 'string' ? ch.payment_intent : null;
+        const paymentIntentId =
+          typeof charge.payment_intent === 'string'
+            ? charge.payment_intent
+            : null;
 
-        const rfLike = {
-          id: `charge:${ch.id}`, // not used when we’ve already updated our local row
-          payment_intent: pi ?? undefined,
-          charge: ch.id // synthetic ID for resolver
+        const refundLike = {
+          id: `charge:${charge.id}`,
+          payment_intent: paymentIntentId ?? undefined,
+          charge: charge.id
         } as unknown as Stripe.Refund;
 
-        const orderId = await resolveOrderIdForRefund({ payload, rf: rfLike });
-        if (orderId) {
+        const orderIdForRefund = await resolveOrderIdForRefund({
+          payload: payloadInstance,
+          rf: refundLike
+        });
+        if (orderIdForRefund) {
           await recomputeRefundState({
-            payload,
-            orderId,
+            payload: payloadInstance,
+            orderId: orderIdForRefund,
             includePending: true
           });
         }
 
-        await markProcessed(payload, event.id);
+        await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ ok: true }, { status: 200 });
       }
     }
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    const err = error as Error;
+  } catch (handlerError) {
+    const message =
+      handlerError instanceof Error
+        ? handlerError.message
+        : String(handlerError);
+    const asError = handlerError as Error;
     console.error('Webhook handler failed:', message);
-    if (err.stack) console.error('Error stack: ', err.stack);
+    if (asError.stack) console.error('Error stack: ', asError.stack);
 
     const status = process.env.NODE_ENV === 'production' ? 500 : 200;
     if (status === 200) {
-      // Optional: avoid noisy retries only during local development.
-      await markProcessed(payload, event.id);
+      await markProcessed(payloadInstance, event.id);
     }
     return NextResponse.json(
       { message: `Webhook handler failed: ${message}` },
       { status }
     );
+  }
+
+  // ------------- helpers inside POST -------------
+  async function resolveOrderIdForRefund(args: {
+    payload: import('payload').Payload;
+    rf: Stripe.Refund;
+  }): Promise<string | null> {
+    const { payload: payloadInstanceLocal, rf } = args;
+
+    {
+      const list = await payloadInstanceLocal.find({
+        collection: 'refunds',
+        where: { stripeRefundId: { equals: rf.id } },
+        depth: 0,
+        limit: 1,
+        overrideAccess: true
+      });
+
+      const document = list.docs[0];
+      if (document) {
+        const relation = document.order as
+          | string
+          | { id?: string }
+          | null
+          | undefined;
+        const orderId = normalizeRelationshipId(relation as unknown);
+        if (orderId) return orderId;
+      }
+    }
+
+    const paymentIntentId =
+      typeof rf.payment_intent === 'string' ? rf.payment_intent : null;
+    const chargeId = typeof rf.charge === 'string' ? rf.charge : null;
+
+    if (paymentIntentId) {
+      const ordersByPaymentIntent = await payloadInstanceLocal.find({
+        collection: 'orders',
+        where: { stripePaymentIntentId: { equals: paymentIntentId } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true
+      });
+      if (ordersByPaymentIntent.docs[0]?.id)
+        return String(ordersByPaymentIntent.docs[0].id);
+    }
+
+    if (chargeId) {
+      const ordersByCharge = await payloadInstanceLocal.find({
+        collection: 'orders',
+        where: { stripeChargeId: { equals: chargeId } },
+        limit: 1,
+        depth: 0,
+        overrideAccess: true
+      });
+      if (ordersByCharge.docs[0]?.id) return String(ordersByCharge.docs[0].id);
+    }
+
+    console.warn('[webhook] resolveOrderIdForRefund failed', {
+      refundId: rf.id,
+      paymentIntent: paymentIntentId,
+      charge: chargeId
+    });
+
+    return null;
   }
 }

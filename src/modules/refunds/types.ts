@@ -1,5 +1,3 @@
-// src/modules/refunds/types.ts
-
 import type { OrderCore, OrderItemCore } from '@/domain/orders/types';
 
 /* ---------- Items / Orders (UI-facing) ---------- */

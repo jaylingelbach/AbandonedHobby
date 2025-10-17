@@ -1,4 +1,3 @@
-// src/modules/products/ui/components/product-gallery.tsx
 'use client';
 
 import Image from 'next/image';

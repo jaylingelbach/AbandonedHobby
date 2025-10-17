@@ -3834,3 +3834,64 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - Redesigned Pricing page with comprehensive pricing and fees information, detailed breakdowns, expanded FAQ section addressing key questions, improved accessibility features including keyboard navigation, and enhanced overall user experience.
 - Updated navigation menu to "Pricing & Fees" for improved clarity.
+
+# Seller dashboard enhancements 10/17/25
+
+## Walkthrough
+
+- Refactors Stripe webhook POST handling to use a consistent payloadInstance, renames and reshapes inventory-decrement APIs, adds tenant/notification utilities and routing modes, rewrites refund/deduplication mapping, updates seller dashboard data fetching and tracking UI, and introduces SCSS styling and form markup changes.
+
+## New Features
+
+- Multi-tenant-aware webhook & order processing with configurable notification routing, tenant-aware recipient selection, and enhanced refund-to-order resolution.
+- Order creation now preserves tenant ownership, uses unified totals/currency fields, and emits updated analytics.
+
+## Style
+
+- Redesigned Orders table and responsive tracking form; inline tracking converted to a semantic form with improved accessibility and loading states.
+
+## Bug Fixes
+
+- More robust inventory decrementing, retry handling, deduplication, and webhook error flows.
+
+## File changes
+
+### Stripe webhook & inventory core
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Reworked webhook POST flow to use payloadInstance; renamed decProductStockAtomic → decrementProductStockAtomic and adjusted signature/arg names (payload→payloadInstance, qty→quantity, opts→options); updated batch decrement to call new API and added retry/aggregation on failures; renamed return fields (e.g., afterQuantity).
+
+### Webhook helpers & notification routing
+
+- src/app/(app)/api/stripe/... (same file additions)
+  - Added utilities: normalizeRelationshipId, getProductTenantIdForOrder, deriveNotificationContactForTenant; introduced NOTIFICATION_ROUTING
+
+### Shipping & order resolution
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Replaced legacy shipping resolution with resolveShippingForOrder adaptations (address/addr naming), expanded item/session shapes handled, and integrated tenant ownership resolution into order creation.
+
+### Refunds, deduplication & mapping
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Migrated dedupe and refund logic to use payloadInstance; added resolveOrderIdForRefund helper (local refunds → payment_intent → charge mapping) and updated refund/state recomputation to new shapes.
+
+### Server orders utilities
+
+- src/lib/server/payload-utils/orders.ts
+  - Expanded getTenantIdsFromUser to handle nested tenant shapes and dedupe IDs; simplified readOrdersAccess/updateOrdersAccess; rewrote beforeChangeOrderShipment to use nextValue, compute trackingUrl, set shippedAt and fulfillment transitions.
+
+### Seller dashboard data & view
+
+- src/payload/views/utils.ts, src/payload/views/seller-dashboard.tsx
+  - Introduced MinimalOrder type guard and buildUnfulfilledWhere; scoped KPI queries to tenantIds, switched orders list to paginated fetch and minimal projection; updated dashboard JSX to per-column classes and integrated InlineTrackingForm.
+
+### Inline tracking form component
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Converted to semantic form with onSubmit (uses startTransition(submit)), added named inputs and sr-only labels, submit row with loading state, and inline success/error messages; preserved submit/validation logic.
+
+### Styles
+
+- src/app/(payload)/custom.scss
+  - Added grid-based tracking form styles, fixed input/button sizing and states, responsive single-column behavior for small viewports, and table column sizing/whitespace adjustments.
