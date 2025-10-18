@@ -1,12 +1,12 @@
-/**
- * This utils file is for the seller dashboard Data
- */
-
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
-import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 
-/** Convert a Payload `count()` response to a plain number. */
+/**
+ * Normalize a Payload `count()` response into a numeric count.
+ *
+ * @param result - The value returned by Payload's `count()` (a number or an object that may contain `totalDocs`) or any other value.
+ * @returns The numeric count extracted from `result`, or `0` if a count cannot be determined.
+ */
 export function readCount(result: CountResult | unknown): number {
   if (typeof result === 'number') return result;
   if (
@@ -29,7 +29,12 @@ type MinimalOrder = {
   fulfillmentStatus?: OrderListItem['fulfillmentStatus'] | null;
 };
 
-/** Type guard for MinimalOrder. */
+/**
+ * Checks whether a value conforms to the MinimalOrder shape.
+ *
+ * @param value - The unknown value to test
+ * @returns `true` if `value` matches the MinimalOrder shape, `false` otherwise
+ */
 function isMinimalOrder(value: unknown): value is MinimalOrder {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -50,17 +55,91 @@ function isMinimalOrder(value: unknown): value is MinimalOrder {
     record.createdAt === null ||
     typeof record.createdAt === 'string';
 
-  const fulfillmentStatusIsValid =
-    record.fulfillmentStatus === undefined ||
-    record.fulfillmentStatus === null ||
-    typeof record.fulfillmentStatus === 'string';
+  return totalIsValid && orderNumberIsValid && createdAtIsValid;
+}
 
-  return (
-    totalIsValid &&
-    orderNumberIsValid &&
-    createdAtIsValid &&
-    fulfillmentStatusIsValid
-  );
+/** Shape used for probe logging (no `any`). */
+type ProbeOrderFields = {
+  id: string;
+  sellerTenant: string | null;
+  status: unknown;
+  fulfillmentStatus: unknown;
+  createdAt: unknown;
+};
+
+/**
+ * Extract a minimal set of diagnostic fields from an unknown order object.
+ *
+ * Attempts to read an `id` string from `value`; if missing or not a string, returns `null`.
+ * When present, returns an object with `id`, `sellerTenant` (string or `null`), and the raw
+ * `status`, `fulfillmentStatus`, and `createdAt` values as extracted from the input.
+ *
+ * @param value - The unknown value to inspect for order probe fields.
+ * @returns A `ProbeOrderFields` object when `value` contains a string `id`, `null` otherwise.
+ */
+function extractProbeOrderFields(value: unknown): ProbeOrderFields | null {
+  if (typeof value !== 'object' || value === null) return null;
+  const record = value as Record<string, unknown>;
+
+  const idValue = record.id;
+  if (typeof idValue !== 'string') return null;
+
+  const sellerTenantRaw = record.sellerTenant;
+  let sellerTenantId: string | null = null;
+  if (typeof sellerTenantRaw === 'string') {
+    sellerTenantId = sellerTenantRaw;
+  } else if (
+    typeof sellerTenantRaw === 'object' &&
+    sellerTenantRaw !== null &&
+    'id' in (sellerTenantRaw as { id?: unknown }) &&
+    typeof (sellerTenantRaw as { id?: unknown }).id === 'string'
+  ) {
+    sellerTenantId = (sellerTenantRaw as { id: string }).id;
+  }
+
+  return {
+    id: idValue,
+    sellerTenant: sellerTenantId,
+    status: record.status,
+    fulfillmentStatus: record.fulfillmentStatus,
+    createdAt: record.createdAt
+  };
+}
+
+/**
+ * Extracts canonical tenant IDs from a user object.
+ *
+ * Parses the user's tenants entries and returns an array of tenant relationship IDs.
+ * Accepts entries where the tenant is either a string ID or an object with an `id` string.
+ *
+ * @param user - A user-shaped object that may contain a `tenants` array of tenant relations
+ * @returns An array of tenant IDs (strings); entries without a usable ID are omitted
+ */
+export function getTenantIdsFromUser(user: unknown): string[] {
+  type TenantRel = string | { id?: string | null };
+  type UserWithTenants = { tenants?: Array<{ tenant?: TenantRel }> };
+
+  const candidate = user as UserWithTenants | undefined;
+  const tenantEntries = Array.isArray(candidate?.tenants)
+    ? candidate!.tenants!
+    : [];
+
+  const tenantIds = tenantEntries
+    .map((entry) => {
+      const relation = entry?.tenant;
+      if (typeof relation === 'string') return relation;
+      if (
+        relation &&
+        typeof relation === 'object' &&
+        typeof relation.id === 'string'
+      ) {
+        return relation.id;
+      }
+      return null;
+    })
+    .filter((id): id is string => typeof id === 'string');
+
+  return tenantIds;
 }
 
 /** Treat missing/empty fulfillmentStatus as “unfulfilled”. */
@@ -76,8 +155,11 @@ function buildUnfulfilledWhere(): Where {
 }
 
 /**
- * Fetches summary counts and the list of unfulfilled orders visible to the seller.
- * Uses sellerTenant-only scoping.
+ * Fetches seller-scoped KPI counts and a list of unfulfilled orders visible to the current user.
+ *
+ * If there is no authenticated user or no tenant IDs can be derived for the user, returns zeroed counts and an empty list.
+ *
+ * @returns An object with `summary` (contains `unfulfilledOrders`, `lowInventory`, and `needsOnboarding`) and `needsTracking` (an array of unfulfilled order items to act on)
  */
 export async function getData(
   props: AdminViewServerProps
@@ -88,9 +170,7 @@ export async function getData(
   const currentUser = request.user as
     | {
         id?: string;
-        tenants?: Array<
-          { id?: string } | { tenant?: string | { id?: string } }
-        >;
+        tenants?: Array<{ tenant?: string | { id?: string | null } }>;
         stripeDetailsSubmitted?: boolean;
       }
     | undefined;
@@ -107,20 +187,22 @@ export async function getData(
   }
 
   const tenantIds = getTenantIdsFromUser(currentUser);
-  // Compute from tenants: true if any visible tenant has not completed onboarding
-  let needsOnboarding = false;
-  if (tenantIds.length > 0) {
-    const tenantsRes = await payloadInstance.find({
-      collection: 'tenants',
-      where: { id: { in: tenantIds } },
-      depth: 0,
-      limit: tenantIds.length,
-      user: currentUser
-    });
-    needsOnboarding = (
-      tenantsRes.docs as Array<{ stripeDetailsSubmitted?: boolean | null }>
-    ).some((t) => t?.stripeDetailsSubmitted === false);
-  }
+  const needsOnboarding = currentUser.stripeDetailsSubmitted === false;
+
+  // optional: log plugin row ids to avoid confusing them with relation ids
+  const tenantArrayRowIds = Array.isArray(
+    (currentUser as { tenants?: Array<{ id?: string }> })?.tenants
+  )
+    ? ((currentUser as { tenants?: Array<{ id?: string }> }).tenants || [])
+        .map((t) => t.id)
+        .filter((v): v is string => typeof v === 'string')
+    : [];
+
+  console.log('[seller-dashboard]', {
+    userId: currentUser.id,
+    tenantIds, // ✅ use these in queries
+    tenantArrayRowIds // 🛠️ debug only
+  });
 
   if (tenantIds.length === 0) {
     return {
@@ -131,7 +213,65 @@ export async function getData(
 
   const unfulfilledWhere = buildUnfulfilledWhere();
 
-  // ---------- KPI: Unfulfilled count (scoped) ----------
+  // Probe (safe logs)
+  try {
+    const countSellerAnyStatus = await payloadInstance.count({
+      collection: 'orders',
+      where: { sellerTenant: { in: tenantIds } },
+      overrideAccess: true
+    });
+    const countSellerPaidOnly = await payloadInstance.count({
+      collection: 'orders',
+      where: {
+        and: [
+          { sellerTenant: { in: tenantIds } },
+          { status: { equals: 'paid' } }
+        ]
+      },
+      overrideAccess: true
+    });
+    const countSellerPaidUnfulfilled = await payloadInstance.count({
+      collection: 'orders',
+      where: {
+        and: [
+          { sellerTenant: { in: tenantIds } },
+          { status: { equals: 'paid' } },
+          unfulfilledWhere
+        ]
+      },
+      overrideAccess: true
+    });
+
+    console.log('[seller-dashboard probe]', {
+      sellerTenant_anyStatus: readCount(countSellerAnyStatus),
+      sellerTenant_paidOnly: readCount(countSellerPaidOnly),
+      sellerTenant_paid_unfulfilled: readCount(countSellerPaidUnfulfilled)
+    });
+
+    const sampleOrders = await payloadInstance.find({
+      collection: 'orders',
+      depth: 0,
+      limit: 5,
+      sort: '-createdAt',
+      where: {
+        and: [
+          { sellerTenant: { in: tenantIds } },
+          { status: { not_in: ['canceled'] } }
+        ]
+      },
+      overrideAccess: true
+    });
+
+    const sampleRows: ProbeOrderFields[] = sampleOrders.docs
+      .map(extractProbeOrderFields)
+      .filter((row): row is ProbeOrderFields => row !== null);
+
+    console.log('[seller-dashboard probe sample]', sampleRows);
+  } catch (probeError) {
+    console.warn('[seller-dashboard probe] failed', probeError);
+  }
+
+  // KPI: unfulfilled count
   const scopedCountResponse = await payloadInstance.count({
     collection: 'orders',
     where: {
@@ -144,7 +284,7 @@ export async function getData(
   });
   const unfulfilledCount = readCount(scopedCountResponse);
 
-  // ---------- Low inventory ----------
+  // Low inventory
   const lowInventoryResponse = await payloadInstance.count({
     collection: 'products',
     where: {
@@ -158,7 +298,7 @@ export async function getData(
   });
   const lowInventory = readCount(lowInventoryResponse);
 
-  // ---------- Unfulfilled list to act on ----------
+  // Unfulfilled list
   const ordersResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
@@ -177,8 +317,8 @@ export async function getData(
   const needsTracking: OrderListItem[] = (ordersResponse.docs as unknown[])
     .filter(isMinimalOrder)
     .map((orderDocument) => {
-      const num = Number(orderDocument.total);
-      const totalCents = Number.isFinite(num) && num >= 0 ? Math.trunc(num) : 0;
+      const totalCents =
+        typeof orderDocument.total === 'number' ? orderDocument.total : 0;
       return {
         id: orderDocument.id,
         orderNumber: String(orderDocument.orderNumber ?? orderDocument.id),

@@ -21,6 +21,14 @@ type InlineTrackingFormProps = {
   layout?: 'inline' | 'stacked';
 };
 
+/**
+ * Renders a compact tracking form for an order that lets users select a carrier and save a tracking number.
+ *
+ * The component validates the carrier and tracking number, and when the Save button is used it sends a PATCH request to the provided API base to update the order's shipment; on success it displays a success message and calls `onSuccess` if provided, otherwise displays an error message.
+ *
+ * @param props - Component props including `orderId` (target order), optional `initialCarrier`, `initialTracking`, `apiBase` (base URL for the PATCH request), `onSuccess` (called with `{ carrier, trackingNumber }` after a successful save), and `layout` (`'inline'` or `'stacked'`) to control visual arrangement.
+ * @returns The rendered form element containing carrier select, tracking input, action button, and inline status messages.
+ */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
     orderId,
@@ -28,7 +36,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     initialTracking = '',
     apiBase = '/api',
     onSuccess,
-    layout = 'stacked' // ⬅️ default to stacked
+    layout = 'inline' // inline rows in the table by default
   } = props;
 
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
@@ -48,7 +56,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     }
 
     try {
-      // Validate orderId format (adjust regex based on your ID format)
       if (!/^[a-zA-Z0-9_-]+$/.test(orderId)) {
         throw new Error('Invalid order ID format');
       }
@@ -96,63 +103,60 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       : 'ah-form ah-form--inline';
 
   return (
-    <form
-      onSubmit={(e) => {
-        e.preventDefault();
-        startTransition(submit);
-      }}
-      noValidate
-    >
-      <div className={rootClass}>
-        <div className="ah-form-row">
-          <select
-            id={`carrier-${orderId}`}
-            className="ah-input"
-            name="shipment.carrier"
-            value={carrier}
-            onChange={(e) => setCarrier(e.target.value as Carrier)}
-            disabled={isPending}
-          >
-            {carriers.map((carrier) => (
-              <option key={carrier} value={carrier}>
-                {carrier.toUpperCase()}
-              </option>
-            ))}
-          </select>
-        </div>
-
-        <div className="ah-form-row">
-          <input
-            id={`tracking-${orderId}`}
-            className="ah-input"
-            type="text"
-            name="shipment.trackingNumber"
-            value={trackingNumber}
-            onChange={(e) => setTrackingNumber(e.target.value)}
-            placeholder="9400… / 1Z… / 7…"
-            disabled={isPending}
-            aria-invalid={Boolean(error) || undefined}
-            aria-describedby={error ? `tracking-error-${orderId}` : undefined}
-          />
-        </div>
-
-        <div className="ah-form-actions">
-          <button type="submit" className="btn" disabled={isPending}>
-            {isPending ? 'Saving…' : 'Save'}
-          </button>
-        </div>
-
-        {error && (
-          <p id={`tracking-error-${orderId}`} className="ah-error" role="alert">
-            {error}
-          </p>
-        )}
-        {success && (
-          <p className="ah-success" role="status">
-            {success}
-          </p>
-        )}
+    <div className={rootClass}>
+      <div className="ah-form-row">
+        <select
+          id={`carrier-${orderId}`}
+          className="ah-input"
+          value={carrier}
+          onChange={(e) => setCarrier(e.target.value as Carrier)}
+          disabled={isPending}
+          aria-label="Carrier"
+        >
+          {carriers.map((carrier) => (
+            <option key={carrier} value={carrier}>
+              {carrier.toUpperCase()}
+            </option>
+          ))}
+        </select>
       </div>
-    </form>
+
+      <div className="ah-form-row">
+        <input
+          id={`tracking-${orderId}`}
+          className="ah-input"
+          type="text"
+          value={trackingNumber}
+          onChange={(e) => setTrackingNumber(e.target.value)}
+          placeholder="9400… / 1Z… / 7…"
+          disabled={isPending}
+          aria-label="Tracking number"
+          aria-invalid={Boolean(error) || undefined}
+          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
+        />
+      </div>
+
+      <div className="ah-form-actions">
+        <button
+          type="button"
+          className="btn"
+          disabled={isPending}
+          onClick={() => startTransition(submit)}
+        >
+          {isPending ? 'Saving…' : 'Save'}
+        </button>
+      </div>
+
+      {error && (
+        <p id={`tracking-error-${orderId}`} className="ah-error" role="alert">
+          {error}
+        </p>
+      )}
+      {success && (
+        <p className="ah-success" role="status">
+          {success}
+        </p>
+      )}
+    </div>
   );
 }

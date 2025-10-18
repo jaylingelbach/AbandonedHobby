@@ -1,26 +1,31 @@
-import * as React from 'react';
-import Link from 'next/link';
-
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
+import Link from 'next/link';
 
+import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
-
 import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
+import { User } from '@/payload-types';
+import { formatCurrency } from '@/lib/utils';
 
+/**
+ * Renders the Seller Dashboard page, displaying seller KPIs, quick actions, and orders that need tracking.
+ *
+ * @param props - Server-side props and request context used to fetch dashboard data and user/tenant information.
+ * @returns The dashboard UI containing: an onboarding banner when Stripe setup is required, KPI cards for unfulfilled orders and low inventory, quick action links, and a table of orders awaiting tracking (each row includes an inline tracking form).
+ */
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
 
-  const locale = 'en-US';
-  const fmtCurrency = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD'
-  });
-  const fmtDate = new Intl.DateTimeFormat(locale);
+  const tenantIds = getTenantIdsFromUser(initPageResult.req.user);
+  const user = initPageResult.req.user as User | undefined;
+  const rowIds = Array.isArray(user?.tenants)
+    ? user.tenants.map((tenant) => tenant?.id).filter(Boolean)
+    : [];
 
   return (
     <DefaultTemplate
@@ -35,7 +40,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
     >
       <Gutter>
         <div className="mb-1">
-          <h1 className="ah-dashboard-title ">Seller Dashboard</h1>
+          <h1 className="ah-dashboard-title">Seller Dashboard</h1>
 
           {data.summary.needsOnboarding && (
             <div className="ah-banner ah-banner-warning" role="alert">
@@ -87,6 +92,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
           style={{ marginTop: 24 }}
         >
           <h2 id="ah-tracking-heading">Orders needing tracking</h2>
+
           {data.needsTracking.length === 0 ? (
             <p>All set—no orders awaiting tracking.</p>
           ) : (
@@ -112,10 +118,10 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                   <tr key={order.id}>
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
-                      {fmtDate.format(new Date(order.createdAt))}
+                      {new Date(order.createdAt).toLocaleDateString()}
                     </td>
                     <td className="ah-col--total">
-                      {fmtCurrency.format(order.totalCents / 100)}
+                      {formatCurrency((order.totalCents / 100).toFixed(2))}
                     </td>
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">
@@ -123,7 +129,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                           orderId={order.id}
                           initialCarrier="usps"
                           initialTracking=""
-                          layout="stacked"
+                          layout="inline"
                         />
                       </div>
                     </td>
