@@ -11,6 +11,12 @@ import type { AdminViewServerProps } from 'payload';
 import { User } from '@/payload-types';
 import { formatCurrency } from '@/lib/utils';
 
+/**
+ * Renders the Seller Dashboard page, displaying seller KPIs, quick actions, and orders that need tracking.
+ *
+ * @param props - Server-side props and request context used to fetch dashboard data and user/tenant information.
+ * @returns The dashboard UI containing: an onboarding banner when Stripe setup is required, KPI cards for unfulfilled orders and low inventory, quick action links, and a table of orders awaiting tracking (each row includes an inline tracking form).
+ */
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);

@@ -21,6 +21,14 @@ type InlineTrackingFormProps = {
   layout?: 'inline' | 'stacked';
 };
 
+/**
+ * Renders a compact tracking form for an order that lets users select a carrier and save a tracking number.
+ *
+ * The component validates the carrier and tracking number, and when the Save button is used it sends a PATCH request to the provided API base to update the order's shipment; on success it displays a success message and calls `onSuccess` if provided, otherwise displays an error message.
+ *
+ * @param props - Component props including `orderId` (target order), optional `initialCarrier`, `initialTracking`, `apiBase` (base URL for the PATCH request), `onSuccess` (called with `{ carrier, trackingNumber }` after a successful save), and `layout` (`'inline'` or `'stacked'`) to control visual arrangement.
+ * @returns The rendered form element containing carrier select, tracking input, action button, and inline status messages.
+ */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
     orderId,

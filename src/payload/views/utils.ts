@@ -1,7 +1,12 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
 
-/** Convert a Payload `count()` response to a plain number. */
+/**
+ * Normalize a Payload `count()` response into a numeric count.
+ *
+ * @param result - The value returned by Payload's `count()` (a number or an object that may contain `totalDocs`) or any other value.
+ * @returns The numeric count extracted from `result`, or `0` if a count cannot be determined.
+ */
 export function readCount(result: CountResult | unknown): number {
   if (typeof result === 'number') return result;
   if (
@@ -24,7 +29,12 @@ type MinimalOrder = {
   fulfillmentStatus?: OrderListItem['fulfillmentStatus'] | null;
 };
 
-/** Type guard for MinimalOrder. */
+/**
+ * Checks whether a value conforms to the MinimalOrder shape.
+ *
+ * @param value - The unknown value to test
+ * @returns `true` if `value` matches the MinimalOrder shape, `false` otherwise
+ */
 function isMinimalOrder(value: unknown): value is MinimalOrder {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
@@ -57,7 +67,16 @@ type ProbeOrderFields = {
   createdAt: unknown;
 };
 
-/** Safely extract probe fields from an unknown order object. */
+/**
+ * Extract a minimal set of diagnostic fields from an unknown order object.
+ *
+ * Attempts to read an `id` string from `value`; if missing or not a string, returns `null`.
+ * When present, returns an object with `id`, `sellerTenant` (string or `null`), and the raw
+ * `status`, `fulfillmentStatus`, and `createdAt` values as extracted from the input.
+ *
+ * @param value - The unknown value to inspect for order probe fields.
+ * @returns A `ProbeOrderFields` object when `value` contains a string `id`, `null` otherwise.
+ */
 function extractProbeOrderFields(value: unknown): ProbeOrderFields | null {
   if (typeof value !== 'object' || value === null) return null;
   const record = value as Record<string, unknown>;
@@ -87,7 +106,15 @@ function extractProbeOrderFields(value: unknown): ProbeOrderFields | null {
   };
 }
 
-/** Extract canonical tenant IDs (the relationship id), never array row ids. */
+/**
+ * Extracts canonical tenant IDs from a user object.
+ *
+ * Parses the user's tenants entries and returns an array of tenant relationship IDs.
+ * Accepts entries where the tenant is either a string ID or an object with an `id` string.
+ *
+ * @param user - A user-shaped object that may contain a `tenants` array of tenant relations
+ * @returns An array of tenant IDs (strings); entries without a usable ID are omitted
+ */
 export function getTenantIdsFromUser(user: unknown): string[] {
   type TenantRel = string | { id?: string | null };
   type UserWithTenants = { tenants?: Array<{ tenant?: TenantRel }> };
@@ -128,8 +155,11 @@ function buildUnfulfilledWhere(): Where {
 }
 
 /**
- * Fetches summary counts and the list of unfulfilled orders visible to the seller.
- * Uses sellerTenant-only scoping.
+ * Fetches seller-scoped KPI counts and a list of unfulfilled orders visible to the current user.
+ *
+ * If there is no authenticated user or no tenant IDs can be derived for the user, returns zeroed counts and an empty list.
+ *
+ * @returns An object with `summary` (contains `unfulfilledOrders`, `lowInventory`, and `needsOnboarding`) and `needsTracking` (an array of unfulfilled order items to act on)
  */
 export async function getData(
   props: AdminViewServerProps
