@@ -18,7 +18,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
   const tenantIds = getTenantIdsFromUser(initPageResult.req.user);
   const user = initPageResult.req.user as User | undefined;
   const rowIds = Array.isArray(user?.tenants)
-    ? user.tenants.map((t: any) => t?.id).filter(Boolean)
+    ? user.tenants.map((tenant) => tenant?.id).filter(Boolean)
     : [];
 
   console.log('[seller-dashboard]', {
