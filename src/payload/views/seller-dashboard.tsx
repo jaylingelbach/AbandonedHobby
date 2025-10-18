@@ -1,7 +1,6 @@
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
 import Link from 'next/link';
-import * as React from 'react';
 
 import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
@@ -10,6 +9,7 @@ import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
 import { User } from '@/payload-types';
+import { formatCurrency } from '@/lib/utils';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
@@ -20,12 +20,6 @@ export async function SellerDashboard(props: AdminViewServerProps) {
   const rowIds = Array.isArray(user?.tenants)
     ? user.tenants.map((tenant) => tenant?.id).filter(Boolean)
     : [];
-
-  console.log('[seller-dashboard]', {
-    userId: user?.id,
-    tenantIds, // real ids used in queries
-    tenantArrayRowIds: rowIds // plugin row ids (never query with these)
-  });
 
   return (
     <DefaultTemplate
@@ -99,10 +93,18 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <table className="ah-table">
               <thead>
                 <tr>
-                  <th className="ah-col--order">Order</th>
-                  <th className="ah-col--date">Date</th>
-                  <th className="ah-col--total">Total</th>
-                  <th className="ah-col--tracking">Tracking</th>
+                  <th scope="col" className="ah-col--order">
+                    Order
+                  </th>
+                  <th scope="col" className="ah-col--date">
+                    Date
+                  </th>
+                  <th scope="col" className="ah-col--total">
+                    Total
+                  </th>
+                  <th scope="col" className="ah-col--tracking">
+                    Tracking
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -113,7 +115,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                       {new Date(order.createdAt).toLocaleDateString()}
                     </td>
                     <td className="ah-col--total">
-                      ${(order.totalCents / 100).toFixed(2)}
+                      {formatCurrency((order.totalCents / 100).toFixed(2))}
                     </td>
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">

@@ -103,10 +103,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           value={carrier}
           onChange={(e) => setCarrier(e.target.value as Carrier)}
           disabled={isPending}
+          aria-label="Carrier"
         >
-          {carriers.map((c) => (
-            <option key={c} value={c}>
-              {c.toUpperCase()}
+          {carriers.map((carrier) => (
+            <option key={carrier} value={carrier}>
+              {carrier.toUpperCase()}
             </option>
           ))}
         </select>
@@ -121,6 +122,9 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           onChange={(e) => setTrackingNumber(e.target.value)}
           placeholder="9400… / 1Z… / 7…"
           disabled={isPending}
+          aria-label="Tracking number"
+          aria-invalid={Boolean(error) || undefined}
+          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
         />
       </div>
 
@@ -136,7 +140,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       </div>
 
       {error && (
-        <p className="ah-error" role="alert">
+        <p id={`tracking-error-${orderId}`} className="ah-error" role="alert">
           {error}
         </p>
       )}
