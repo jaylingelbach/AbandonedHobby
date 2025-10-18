@@ -7,6 +7,219 @@
    ========================================================================== */
 
 @layer payload {
+  @layer payload {
+    /* --- Orders table layout ------------------------------------------------ */
+    .ah-table {
+      table-layout: fixed;
+      width: 100%;
+    }
+    .ah-table th,
+    .ah-table td {
+      padding: 12px 14px;
+    }
+    .ah-table td {
+      vertical-align: top;
+    }
+
+    /* tidy columns */
+    .ah-table .ah-col--order,
+    .ah-table .ah-col--date {
+      white-space: nowrap;
+    }
+    .ah-table .ah-col--date {
+      width: 140px;
+    }
+    .ah-table .ah-col--total {
+      width: 120px;
+      text-align: right;
+    }
+    .ah-table .ah-col--tracking {
+      min-width: 420px;
+    }
+
+    /* --- Inline tracking form grid (Carrier | Tracking | Save) -------------- */
+    .ah-col--tracking .ah-form,
+    .ah-col--tracking .ah-inline-form,
+    .ah-col--tracking .ah-form--inline {
+      display: grid;
+      grid-template-columns: 120px 1fr auto;
+      gap: 10px 12px;
+      align-items: start; /* top-align items in the grid row */
+    }
+
+    /* remove stray margins and make the action cell sit at top */
+    .ah-col--tracking .ah-form-row {
+      margin: 0;
+    }
+    .ah-col--tracking .ah-form-actions {
+      margin: 0; /* kill generic top margin */
+      padding: 0; /* no extra space */
+      align-self: start;
+    }
+
+    /* consistent control heights so baselines line up */
+    .ah-col--tracking select.ah-input,
+    .ah-col--tracking input.ah-input,
+    .ah-col--tracking .btn {
+      height: 36px;
+      line-height: 1;
+    }
+
+    /* inputs should look like input */
+    .ah-col--tracking select.ah-input,
+    .ah-col--tracking input.ah-input {
+      background: var(--theme-elevation-50);
+      color: var(--theme-text);
+      border: 1px solid var(--theme-elevation-100);
+      border-radius: 6px;
+      padding: 6px 8px;
+    }
+
+    /* real button styling */
+    .ah-col--tracking .btn {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      border: 1px solid #111827;
+      background: #111827;
+      color: #fff;
+    }
+    .ah-col--tracking .btn:hover {
+      background: #0f172a;
+      border-color: #0f172a;
+    }
+    .ah-col--tracking .btn:focus-visible {
+      outline: 2px solid #1d4ed8;
+      outline-offset: 2px;
+    }
+
+    /* compact success/error messages */
+    .ah-error,
+    .ah-success {
+      margin-top: 6px;
+      font-size: 12px;
+    }
+
+    /* mobile stacks */
+    @media (max-width: 900px) {
+      .ah-table .ah-col--tracking {
+        min-width: 0;
+      }
+      .ah-col--tracking .ah-form,
+      .ah-col--tracking .ah-inline-form,
+      .ah-col--tracking .ah-form--inline {
+        grid-template-columns: 1fr;
+      }
+      .ah-col--tracking .btn {
+        width: 100%;
+      }
+    }
+  }
+  /* Orders table layout */
+  .ah-table {
+    table-layout: fixed;
+    width: 100%;
+  }
+  .ah-table td {
+    vertical-align: baseline;
+    padding-top: 8px;
+  }
+  .ah-table .ah-col--order,
+  .ah-table .ah-col--date {
+    white-space: nowrap;
+  }
+  .ah-table .ah-col--date {
+    width: 140px;
+  }
+  .ah-table .ah-col--total {
+    width: 120px;
+    text-align: right;
+  }
+  .ah-table .ah-col--tracking {
+    min-width: 420px;
+  }
+
+  /* Tracking form (labels removed) */
+  .ah-col--tracking .ah-form,
+  .ah-col--tracking .ah-inline-form,
+  .ah-col--tracking .ah-form--inline {
+    display: grid;
+    grid-template-columns: 120px 1fr auto; /* Carrier | Tracking | Save */
+    gap: 10px 12px;
+    align-items: start; /* top-align everything in the row */
+  }
+
+  /* Promote children to grid items (kill wrapper offsets) */
+  .ah-col--tracking .ah-form-row,
+  .ah-col--tracking .ah-form-actions {
+    display: contents; /* wrapper contributes no box */
+  }
+
+  /* Every direct control aligns to the top and has no stray margins */
+  .ah-col--tracking .ah-form > * {
+    align-self: start;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Uniform control heights */
+  .ah-col--tracking select.ah-input,
+  .ah-col--tracking input.ah-input {
+    height: 36px;
+  }
+
+  /* Button (as a grid item) */
+  .ah-col--tracking .btn,
+  .ah-tracking-cell button[type='submit'] {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 36px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid #111827;
+    background: #111827;
+    color: #fff;
+    line-height: 1;
+    margin: 0; /* ensure no top offset */
+    align-self: start; /* explicit top pin */
+  }
+  .ah-col--tracking .btn:hover,
+  .ah-tracking-cell button[type='submit']:hover {
+    background: #0f172a;
+    border-color: #0f172a;
+  }
+  .ah-col--tracking .btn:focus-visible,
+  .ah-tracking-cell button[type='submit']:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+  }
+
+  /* Mobile: stack neatly */
+  @media (max-width: 900px) {
+    .ah-table .ah-col--tracking {
+      min-width: 0;
+    }
+    .ah-col--tracking .ah-form,
+    .ah-col--tracking .ah-inline-form,
+    .ah-col--tracking .ah-form--inline {
+      grid-template-columns: 1fr;
+    }
+    .ah-col--tracking .btn {
+      width: 100%;
+    }
+  }
+
   /* ===== Stripe: Verify banner (light theme) ============================ */
   [data-theme='light'] .verify-banner {
     padding: 1rem;
@@ -284,7 +497,7 @@
     padding: 6px 8px;
     border: 1px solid var(--theme-elevation-100);
     border-radius: 6px;
-    width: 100%;
+    width: max-content;
   }
   .ah-inline-actions,
   .ah-form-actions {

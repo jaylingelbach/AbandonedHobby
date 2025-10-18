@@ -1,24 +1,31 @@
 import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
-import Link from 'next/link'; // <-- use Next Link for internal nav
+import Link from 'next/link';
+import * as React from 'react';
 
+import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
-
 import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
+import { User } from '@/payload-types';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
 
-  const locale = 'en-US';
-  const fmtCurrency = new Intl.NumberFormat(locale, {
-    style: 'currency',
-    currency: 'USD'
+  const tenantIds = getTenantIdsFromUser(initPageResult.req.user);
+  const user = initPageResult.req.user as User | undefined;
+  const rowIds = Array.isArray(user?.tenants)
+    ? user.tenants.map((t: any) => t?.id).filter(Boolean)
+    : [];
+
+  console.log('[seller-dashboard]', {
+    userId: user?.id,
+    tenantIds, // real ids used in queries
+    tenantArrayRowIds: rowIds // plugin row ids (never query with these)
   });
-  const fmtDate = new Intl.DateTimeFormat(locale);
 
   return (
     <DefaultTemplate
@@ -33,7 +40,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
     >
       <Gutter>
         <div className="mb-1">
-          <h1 className="ah-dashboard-title ">Seller Dashboard</h1>
+          <h1 className="ah-dashboard-title">Seller Dashboard</h1>
 
           {data.summary.needsOnboarding && (
             <div className="ah-banner ah-banner-warning" role="alert">
@@ -85,35 +92,38 @@ export async function SellerDashboard(props: AdminViewServerProps) {
           style={{ marginTop: 24 }}
         >
           <h2 id="ah-tracking-heading">Orders needing tracking</h2>
+
           {data.needsTracking.length === 0 ? (
             <p>All set—no orders awaiting tracking.</p>
           ) : (
             <table className="ah-table">
               <thead>
                 <tr>
-                  <th>Order</th>
-                  <th>Date</th>
-                  <th>Total</th>
-                  <th>Tracking</th>
+                  <th className="ah-col--order">Order</th>
+                  <th className="ah-col--date">Date</th>
+                  <th className="ah-col--total">Total</th>
+                  <th className="ah-col--tracking">Tracking</th>
                 </tr>
               </thead>
               <tbody>
-                {data.needsTracking.map((o) => (
-                  <tr key={o.id}>
-                    <td>#{o.orderNumber}</td>
-                    <td>{new Date(o.createdAt).toLocaleDateString()}</td>
-                    <td>${(o.totalCents / 100).toFixed(2)}</td>
-                    <td>
-                      <InlineTrackingForm
-                        orderId={o.id}
-                        initialCarrier="usps"
-                        initialTracking=""
-                        layout="stacked"
-                        onSuccess={() => {
-                          // optional: refresh or optimistically remove this row
-                          // location.reload();
-                        }}
-                      />
+                {data.needsTracking.map((order) => (
+                  <tr key={order.id}>
+                    <td className="ah-col--order">#{order.orderNumber}</td>
+                    <td className="ah-col--date">
+                      {new Date(order.createdAt).toLocaleDateString()}
+                    </td>
+                    <td className="ah-col--total">
+                      ${(order.totalCents / 100).toFixed(2)}
+                    </td>
+                    <td className="ah-col--tracking">
+                      <div className="ah-tracking-cell">
+                        <InlineTrackingForm
+                          orderId={order.id}
+                          initialCarrier="usps"
+                          initialTracking=""
+                          layout="inline"
+                        />
+                      </div>
                     </td>
                   </tr>
                 ))}

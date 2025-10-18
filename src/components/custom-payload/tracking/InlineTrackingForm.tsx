@@ -18,7 +18,7 @@ type InlineTrackingFormProps = {
   initialTracking?: string;
   apiBase?: string; // default '/api'
   onSuccess?: (next: { carrier: Carrier; trackingNumber: string }) => void;
-  layout?: 'inline' | 'stacked'; // ⬅️ NEW
+  layout?: 'inline' | 'stacked';
 };
 
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
@@ -28,7 +28,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     initialTracking = '',
     apiBase = '/api',
     onSuccess,
-    layout = 'stacked' // ⬅️ default to stacked
+    layout = 'inline' // inline rows in the table by default
   } = props;
 
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
@@ -48,7 +48,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     }
 
     try {
-      // Validate orderId format (adjust regex based on your ID format)
       if (!/^[a-zA-Z0-9_-]+$/.test(orderId)) {
         throw new Error('Invalid order ID format');
       }
@@ -98,9 +97,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   return (
     <div className={rootClass}>
       <div className="ah-form-row">
-        <label className="ah-label" htmlFor={`carrier-${orderId}`}>
-          Carrier
-        </label>
         <select
           id={`carrier-${orderId}`}
           className="ah-input"
@@ -117,9 +113,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       </div>
 
       <div className="ah-form-row">
-        <label className="ah-label" htmlFor={`tracking-${orderId}`}>
-          Tracking #
-        </label>
         <input
           id={`tracking-${orderId}`}
           className="ah-input"
