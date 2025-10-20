@@ -14,7 +14,11 @@ const carrierLabels: Record<Carrier, string> = {
   other: 'Other'
 };
 
-/** Normalize: trim, collapse spaces/dashes, uppercase. */
+/**
+ * Normalize a tracking string by trimming whitespace, removing spaces and dash-like characters, and converting to uppercase.
+ *
+ * @returns The normalized tracking string.
+ */
 function normalizeTracking(raw: string): string {
   return raw
     .trim()
@@ -49,6 +53,13 @@ const patterns: Record<Carrier, RegExp[]> = {
   ]
 };
 
+/**
+ * Determines whether a tracking number matches the expected formats for a given carrier.
+ *
+ * @param carrier - The carrier to validate against.
+ * @param raw - The raw tracking input; it will be normalized before testing.
+ * @returns `true` if the normalized tracking number matches any pattern for `carrier`, `false` otherwise.
+ */
 function isLikelyValidTracking(carrier: Carrier, raw: string): boolean {
   const tn = normalizeTracking(raw);
   return patterns[carrier].some((re) => re.test(tn));
@@ -86,6 +97,23 @@ type InlineTrackingFormProps = {
   refreshOnSuccess?: boolean; // default true
 };
 
+/**
+ * Inline form for selecting a carrier and saving a shipment tracking number for an order.
+ *
+ * Normalizes and validates the tracking number against carrier-specific heuristics, submits a PATCH
+ * to `${apiBase}/orders/:orderId` with `{ shipment: { carrier, trackingNumber } }`, and displays
+ * inline success or error feedback. On successful save it updates the displayed tracking value to
+ * the normalized form and optionally triggers a router refresh.
+ *
+ * @param props - Component props
+ * @param props.orderId - Order identifier used in the API request and element IDs
+ * @param props.initialCarrier - Initial carrier selection; defaults to `'usps'`
+ * @param props.initialTracking - Initial tracking input value; defaults to `''`
+ * @param props.apiBase - Base URL for the API request; defaults to `'/api'`
+ * @param props.layout - Layout mode, either `'inline'` or `'stacked'`; defaults to `'inline'`
+ * @param props.refreshOnSuccess - When true, calls router.refresh() after a successful save; defaults to `true`
+ * @returns The rendered React element for the inline tracking form
+ */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
     orderId,
