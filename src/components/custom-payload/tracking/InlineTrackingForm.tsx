@@ -153,7 +153,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       }
 
       setTrackingNumber(normalized); // reflect normalization in UI
-      setSuccess('Tracking saved');
 
       if (refreshOnSuccess) {
         router.refresh();
