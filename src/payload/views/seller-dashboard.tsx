@@ -2,7 +2,6 @@ import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
 import Link from 'next/link';
 
-import { getTenantIdsFromUser } from '@/lib/server/payload-utils/orders';
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { getData } from './utils';
@@ -12,20 +11,17 @@ import { User } from '@/payload-types';
 import { formatCurrency } from '@/lib/utils';
 
 /**
- * Renders the Seller Dashboard page, displaying seller KPIs, quick actions, and orders that need tracking.
+ * Render the Seller Dashboard page that shows seller KPIs, quick actions, and orders requiring tracking.
  *
- * @param props - Server-side props and request context used to fetch dashboard data and user/tenant information.
- * @returns The dashboard UI containing: an onboarding banner when Stripe setup is required, KPI cards for unfulfilled orders and low inventory, quick action links, and a table of orders awaiting tracking (each row includes an inline tracking form).
+ * @param props - Server-side props and request context used to fetch dashboard data and resolve the current user and tenant IDs.
+ * @returns A React element representing the Seller Dashboard UI, including an onboarding banner when Stripe setup is required, KPI cards, quick action links, and a table of orders awaiting tracking.
  */
+
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
 
-  const tenantIds = getTenantIdsFromUser(initPageResult.req.user);
   const user = initPageResult.req.user as User | undefined;
-  const rowIds = Array.isArray(user?.tenants)
-    ? user.tenants.map((tenant) => tenant?.id).filter(Boolean)
-    : [];
 
   return (
     <DefaultTemplate
@@ -118,7 +114,10 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                   <tr key={order.id}>
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString(
+                        initPageResult.locale?.code?.replace('_', '-'),
+                        { dateStyle: 'medium' }
+                      )}
                     </td>
                     <td className="ah-col--total">
                       {formatCurrency((order.totalCents / 100).toFixed(2))}
