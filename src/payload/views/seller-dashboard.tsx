@@ -120,7 +120,8 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
                       {new Date(order.createdAt).toLocaleDateString(
-                        initPageResult.locale?.code
+                        initPageResult.locale?.code?.replace('_', '-'),
+                        { dateStyle: 'medium' }
                       )}
                     </td>
                     <td className="ah-col--total">

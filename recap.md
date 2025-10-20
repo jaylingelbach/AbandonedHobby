@@ -3895,3 +3895,23 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/app/(payload)/custom.scss
   - Added grid-based tracking form styles, fixed input/button sizing and states, responsive single-column behavior for small viewports, and table column sizing/whitespace adjustments.
+
+# Refresh tracking on success 10/20/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Tracking input now validates based on carrier type with auto-normalization (removes spaces/dashes, standardizes format)
+- Page automatically refreshes after successful tracking save
+- Order dates display in locale-specific format
+
+## Improvements
+
+- Enhanced error handling and messaging for tracking submissions
+
+## File changes
+
+###

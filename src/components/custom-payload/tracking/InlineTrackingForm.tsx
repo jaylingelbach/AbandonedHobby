@@ -7,35 +7,44 @@ import { z } from 'zod';
 
 const carriers = ['usps', 'ups', 'fedex', 'other'] as const;
 type Carrier = (typeof carriers)[number];
+const carrierLabels: Record<Carrier, string> = {
+  usps: 'USPS',
+  ups: 'UPS',
+  fedex: 'FedEx',
+  other: 'Other'
+};
 
 /** Normalize: trim, collapse spaces/dashes, uppercase. */
 function normalizeTracking(raw: string): string {
   return raw
     .trim()
-    .replace(/[\s-]+/g, '')
+    .replace(/[\s\u2010-\u2015-]+/g, '')
     .toUpperCase();
 }
 
 /** Heuristic regexes for common formats. */
 const patterns: Record<Carrier, RegExp[]> = {
   usps: [
-    // 20–22 digits (most USPS domestic)
-    /^\d{20,22}$/,
-    // UPU S10 format w/ US suffix (e.g., "EC123456789US")
-    /^[A-Z]{2}\d{9}US$/
+    // IMpb / domestic numeric labels — common lengths:
+    // 20, 22, 26, 30, 34 digits
+    /^(?:\d{20}|\d{22}|\d{26}|\d{30}|\d{34})$/,
+
+    // UPU S10: 2 letters + 9 digits + 2 letters (country code),
+    // e.g., EC123456789US, RX123456789DE, etc.
+    /^[A-Z]{2}\d{9}[A-Z]{2}$/
   ],
   ups: [
-    // 1Z + 16 A–Z0–9 (total 18 chars)
+    // 1Z + 16 alphanumeric (total 18)
     /^1Z[0-9A-Z]{16}$/
   ],
   fedex: [
-    // 12, 15, 20, or 22 digits (common FedEx lengths)
+    // 12, 15, 20, or 22 digits
     /^(?:\d{12}|\d{15}|\d{20}|\d{22})$/,
     // Door tag (e.g., DT123456789012)
     /^DT\d{12,14}$/
   ],
   other: [
-    // fallback: at least 6 visible characters after normalization
+    // Fallback: at least 6 visible characters after normalization
     /^.{6,}$/
   ]
 };
@@ -58,7 +67,7 @@ const FormSchema = z
         path: ['trackingNumber'],
         message:
           data.carrier === 'usps'
-            ? 'Expected 20–22 digits (e.g., 9400…) or format like EC123456789US.'
+            ? 'Expected 20/22/26/30/34 digits (IMpb) or an S10 code like EC123456789US.'
             : data.carrier === 'ups'
               ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z… ).'
               : data.carrier === 'fedex'
@@ -148,6 +157,8 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
 
       if (refreshOnSuccess) {
         router.refresh();
+      } else {
+        setSuccess('Tracking saved');
       }
     } catch (error) {
       console.error('Failed to save tracking:', error);
@@ -176,9 +187,9 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           disabled={isPending}
           aria-label="Carrier"
         >
-          {carriers.map((c) => (
-            <option key={c} value={c}>
-              {c.toUpperCase()}
+          {carriers.map((carrier) => (
+            <option key={carrier} value={carrier}>
+              {carrierLabels[carrier]}
             </option>
           ))}
         </select>
@@ -196,6 +207,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           disabled={isPending}
           aria-label="Tracking number"
           aria-invalid={Boolean(error) || undefined}
+          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
         />
       </div>
 
@@ -211,7 +223,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       </div>
 
       {error && (
-        <p className="ah-error" role="alert">
+        <p className="ah-error" role="alert" id={`tracking-error-${orderId}`}>
           {error}
         </p>
       )}
