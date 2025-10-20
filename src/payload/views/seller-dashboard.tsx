@@ -17,6 +17,7 @@ import { formatCurrency } from '@/lib/utils';
  * @param props - Server-side props and request context used to fetch dashboard data and user/tenant information.
  * @returns The dashboard UI containing: an onboarding banner when Stripe setup is required, KPI cards for unfulfilled orders and low inventory, quick action links, and a table of orders awaiting tracking (each row includes an inline tracking form).
  */
+
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
@@ -118,7 +119,9 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                   <tr key={order.id}>
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
-                      {new Date(order.createdAt).toLocaleDateString()}
+                      {new Date(order.createdAt).toLocaleDateString(
+                        initPageResult.locale?.code
+                      )}
                     </td>
                     <td className="ah-col--total">
                       {formatCurrency((order.totalCents / 100).toFixed(2))}

@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import * as React from 'react';
 import { useState, useTransition } from 'react';
 import { z } from 'zod';
@@ -7,38 +8,86 @@ import { z } from 'zod';
 const carriers = ['usps', 'ups', 'fedex', 'other'] as const;
 type Carrier = (typeof carriers)[number];
 
-const FormSchema = z.object({
-  carrier: z.enum(carriers),
-  trackingNumber: z.string().trim().min(1, 'Tracking number is required')
-});
+/** Normalize: trim, collapse spaces/dashes, uppercase. */
+function normalizeTracking(raw: string): string {
+  return raw
+    .trim()
+    .replace(/[\s-]+/g, '')
+    .toUpperCase();
+}
+
+/** Heuristic regexes for common formats. */
+const patterns: Record<Carrier, RegExp[]> = {
+  usps: [
+    // 20–22 digits (most USPS domestic)
+    /^\d{20,22}$/,
+    // UPU S10 format w/ US suffix (e.g., "EC123456789US")
+    /^[A-Z]{2}\d{9}US$/
+  ],
+  ups: [
+    // 1Z + 16 A–Z0–9 (total 18 chars)
+    /^1Z[0-9A-Z]{16}$/
+  ],
+  fedex: [
+    // 12, 15, 20, or 22 digits (common FedEx lengths)
+    /^(?:\d{12}|\d{15}|\d{20}|\d{22})$/,
+    // Door tag (e.g., DT123456789012)
+    /^DT\d{12,14}$/
+  ],
+  other: [
+    // fallback: at least 6 visible characters after normalization
+    /^.{6,}$/
+  ]
+};
+
+function isLikelyValidTracking(carrier: Carrier, raw: string): boolean {
+  const tn = normalizeTracking(raw);
+  return patterns[carrier].some((re) => re.test(tn));
+}
+
+/** Zod schema with carrier-aware refinement. */
+const FormSchema = z
+  .object({
+    carrier: z.enum(carriers),
+    trackingNumber: z.string().trim().min(1, 'Tracking number is required')
+  })
+  .superRefine((data, ctx) => {
+    if (!isLikelyValidTracking(data.carrier, data.trackingNumber)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['trackingNumber'],
+        message:
+          data.carrier === 'usps'
+            ? 'Expected 20–22 digits (e.g., 9400…) or format like EC123456789US.'
+            : data.carrier === 'ups'
+              ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z… ).'
+              : data.carrier === 'fedex'
+                ? 'Expected 12/15/20/22 digits or a door tag like DT123456789012.'
+                : 'Tracking looks too short — enter at least 6 characters.'
+      });
+    }
+  });
 
 type InlineTrackingFormProps = {
   orderId: string;
   initialCarrier?: Carrier;
   initialTracking?: string;
   apiBase?: string; // default '/api'
-  onSuccess?: (next: { carrier: Carrier; trackingNumber: string }) => void;
   layout?: 'inline' | 'stacked';
+  refreshOnSuccess?: boolean; // default true
 };
 
-/**
- * Renders a compact tracking form for an order that lets users select a carrier and save a tracking number.
- *
- * The component validates the carrier and tracking number, and when the Save button is used it sends a PATCH request to the provided API base to update the order's shipment; on success it displays a success message and calls `onSuccess` if provided, otherwise displays an error message.
- *
- * @param props - Component props including `orderId` (target order), optional `initialCarrier`, `initialTracking`, `apiBase` (base URL for the PATCH request), `onSuccess` (called with `{ carrier, trackingNumber }` after a successful save), and `layout` (`'inline'` or `'stacked'`) to control visual arrangement.
- * @returns The rendered form element containing carrier select, tracking input, action button, and inline status messages.
- */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
     orderId,
     initialCarrier = 'usps',
     initialTracking = '',
     apiBase = '/api',
-    onSuccess,
-    layout = 'inline' // inline rows in the table by default
+    layout = 'inline',
+    refreshOnSuccess = true
   } = props;
 
+  const router = useRouter();
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
   const [trackingNumber, setTrackingNumber] = useState<string>(initialTracking);
   const [error, setError] = useState<string | null>(null);
@@ -49,17 +98,19 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     setError(null);
     setSuccess(null);
 
-    const parsed = FormSchema.safeParse({ carrier, trackingNumber });
+    // Normalize before validation & submit
+    const normalized = normalizeTracking(trackingNumber);
+
+    const parsed = FormSchema.safeParse({
+      carrier,
+      trackingNumber: normalized
+    });
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? 'Invalid input');
       return;
     }
 
     try {
-      if (!/^[a-zA-Z0-9_-]+$/.test(orderId)) {
-        throw new Error('Invalid order ID format');
-      }
-
       const res = await fetch(
         `${apiBase}/orders/${encodeURIComponent(orderId)}`,
         {
@@ -67,33 +118,42 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { carrier, trackingNumber }
+            shipment: { carrier, trackingNumber: normalized }
           })
         }
       );
 
       if (!res.ok) {
-        const contentType = res.headers.get('content-type');
-        let errorMessage = `Failed with ${res.status}`;
-
-        if (contentType?.includes('application/json')) {
+        const ct = res.headers.get('content-type') || '';
+        let msg = `Failed with ${res.status}`;
+        if (ct.includes('application/json')) {
           try {
-            const json = await res.json();
-            errorMessage = json.message || json.error || errorMessage;
-          } catch {}
-        } else if (contentType?.includes('text/plain')) {
-          errorMessage = await res.text().catch(() => errorMessage);
+            const j = await res.json();
+            msg = j.message || j.error || msg;
+          } catch (error) {
+            console.warn('Failed to parse JSON error:', error);
+          }
+        } else if (ct.includes('text/plain')) {
+          try {
+            msg = await res.text();
+          } catch (error) {
+            console.warn('Failed to read text error:', error);
+          }
         }
-
-        throw new Error(errorMessage);
+        throw new Error(msg);
       }
 
+      setTrackingNumber(normalized); // reflect normalization in UI
       setSuccess('Tracking saved');
-      onSuccess?.({ carrier, trackingNumber });
-    } catch (e) {
-      const message =
-        e instanceof Error ? e.message : 'Failed to save tracking';
-      setError(message);
+
+      if (refreshOnSuccess) {
+        router.refresh();
+      }
+    } catch (error) {
+      console.error('Failed to save tracking:', error);
+      setError(
+        error instanceof Error ? error.message : 'Failed to save tracking'
+      );
     }
   }
 
@@ -109,13 +169,16 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           id={`carrier-${orderId}`}
           className="ah-input"
           value={carrier}
-          onChange={(e) => setCarrier(e.target.value as Carrier)}
+          onChange={(e) => {
+            setCarrier(e.target.value as Carrier);
+            setError(null);
+          }}
           disabled={isPending}
           aria-label="Carrier"
         >
-          {carriers.map((carrier) => (
-            <option key={carrier} value={carrier}>
-              {carrier.toUpperCase()}
+          {carriers.map((c) => (
+            <option key={c} value={c}>
+              {c.toUpperCase()}
             </option>
           ))}
         </select>
@@ -128,11 +191,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           type="text"
           value={trackingNumber}
           onChange={(e) => setTrackingNumber(e.target.value)}
-          placeholder="9400… / 1Z… / 7…"
+          onBlur={(e) => setTrackingNumber(normalizeTracking(e.target.value))}
+          placeholder="9400… / 1Z… / DT…"
           disabled={isPending}
           aria-label="Tracking number"
           aria-invalid={Boolean(error) || undefined}
-          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
         />
       </div>
 
@@ -148,7 +211,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       </div>
 
       {error && (
-        <p id={`tracking-error-${orderId}`} className="ah-error" role="alert">
+        <p className="ah-error" role="alert">
           {error}
         </p>
       )}
