@@ -22,11 +22,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
 
-  const tenantIds = getTenantIdsFromUser(initPageResult.req.user);
   const user = initPageResult.req.user as User | undefined;
-  const rowIds = Array.isArray(user?.tenants)
-    ? user.tenants.map((tenant) => tenant?.id).filter(Boolean)
-    : [];
 
   return (
     <DefaultTemplate
