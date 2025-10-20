@@ -12,10 +12,10 @@ import { User } from '@/payload-types';
 import { formatCurrency } from '@/lib/utils';
 
 /**
- * Renders the Seller Dashboard page, displaying seller KPIs, quick actions, and orders that need tracking.
+ * Render the Seller Dashboard page that shows seller KPIs, quick actions, and orders requiring tracking.
  *
- * @param props - Server-side props and request context used to fetch dashboard data and user/tenant information.
- * @returns The dashboard UI containing: an onboarding banner when Stripe setup is required, KPI cards for unfulfilled orders and low inventory, quick action links, and a table of orders awaiting tracking (each row includes an inline tracking form).
+ * @param props - Server-side props and request context used to fetch dashboard data and resolve the current user and tenant IDs.
+ * @returns A React element representing the Seller Dashboard UI, including an onboarding banner when Stripe setup is required, KPI cards, quick action links, and a table of orders awaiting tracking.
  */
 
 export async function SellerDashboard(props: AdminViewServerProps) {
