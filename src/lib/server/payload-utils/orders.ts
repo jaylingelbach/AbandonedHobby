@@ -144,10 +144,10 @@ export const canEditOrderFulfillmentStatus: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
- * Canonicalize tracking numbers:
- * - trim
- * - remove spaces and dash-like characters
- * - uppercase (helps UPS formats like "1z")
+ * Normalize a raw tracking number into a canonical uppercase string with no spaces or dashes.
+ *
+ * @param raw - Input value (if not a string it's treated as empty)
+ * @returns The tracking number trimmed, with all whitespace and dash-like characters removed, and converted to uppercase
  */
 
 function normalizeTrackingServer(raw: unknown): string {
@@ -158,6 +158,12 @@ function normalizeTrackingServer(raw: unknown): string {
     .toUpperCase();
 }
 
+/**
+ * Normalize a carrier identifier into a canonical shipment carrier value.
+ *
+ * @param input - A value to interpret as a carrier name; non-string inputs are treated as invalid.
+ * @returns `'usps'`, `'ups'`, `'fedex'`, or `'other'` if the input matches a recognized carrier (case- and whitespace-insensitive); `undefined` otherwise.
+ */
 function normalizeCarrier(input: unknown): ShipmentGroup['carrier'] {
   if (typeof input !== 'string') return undefined;
   const value = input.trim().toLowerCase();
@@ -189,6 +195,13 @@ const serverPatterns: Record<
   other: [/^.{6,}$/] // minimal sanity check
 };
 
+/**
+ * Determine whether a normalized tracking number matches known server-side patterns for a carrier.
+ *
+ * @param carrier - The carrier identifier to validate against (e.g., 'usps', 'ups', 'fedex', 'other').
+ * @param normalizedTrackingNumber - Tracking number already normalized (trimmed, uppercase, no spaces or dashes).
+ * @returns `true` if the tracking number matches any known pattern for the given carrier, `false` otherwise.
+ */
 function isLikelyValidTrackingServer(
   carrier: ShipmentGroup['carrier'],
   normalizedTrackingNumber: string
@@ -198,7 +211,13 @@ function isLikelyValidTrackingServer(
   return patterns.some((regex) => regex.test(normalizedTrackingNumber));
 }
 
-/** Build a public tracking URL for known carriers. */
+/**
+ * Constructs a public tracking URL for supported carriers.
+ *
+ * @param carrier - The carrier identifier (e.g., 'usps', 'ups', 'fedex', or 'other').
+ * @param normalizedTrackingNumber - A canonicalized tracking number (trimmed, uppercased, no spaces/dashes).
+ * @returns A carrier-specific tracking URL for the given tracking number, or `undefined` if the carrier is not supported or the tracking number is empty.
+ */
 function buildTrackingUrl(
   carrier: ShipmentGroup['carrier'],
   normalizedTrackingNumber: string

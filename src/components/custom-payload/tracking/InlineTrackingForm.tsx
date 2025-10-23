@@ -8,9 +8,9 @@ import { z } from 'zod';
 import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 /**
- * Normalize a tracking string by trimming whitespace, removing spaces and dash-like characters, and converting to uppercase.
+ * Normalize a tracking number for consistent storage and comparison.
  *
- * @returns The normalized tracking string.
+ * @returns The tracking number with surrounding whitespace removed, internal spaces and dash-like characters stripped, and letters converted to uppercase.
  */
 function normalizeTracking(raw: string): string {
   return raw
@@ -19,7 +19,12 @@ function normalizeTracking(raw: string): string {
     .toUpperCase();
 }
 
-/** Strong TS type guard for Carrier. */
+/**
+ * Type guard that asserts a value is a valid Carrier.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is one of the known carriers, `false` otherwise.
+ */
 function isCarrier(value: unknown): value is Carrier {
   return (
     typeof value === 'string' && (carriers as readonly string[]).includes(value)
@@ -97,12 +102,13 @@ type InlineTrackingFormProps = {
 };
 
 /**
- * Inline form for selecting a carrier and saving a shipment tracking number for an order.
+ * Render an inline form to view, edit, and save a shipment carrier and tracking number for an order.
  *
- * Normalizes and validates the tracking number against carrier-specific heuristics, submits a PATCH
- * to `${apiBase}/orders/:orderId` with `{ shipment: { carrier, trackingNumber } }`, and displays
- * inline success or error feedback. On successful save it updates the displayed tracking value to
- * the normalized form and optionally triggers a router refresh.
+ * The component normalizes the tracking input and validates it against carrier-specific heuristics,
+ * provides a compact view with a carrier-specific tracking link when available, and allows saving
+ * or removing the tracking value. On save/remove the component updates the order via a PATCH to
+ * `${apiBase}/orders/:orderId`, displays inline success or error feedback, and optionally triggers
+ * a router refresh when the operation succeeds.
  */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
@@ -133,6 +139,13 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     return () => currentRequestAbortRef.current?.abort();
   }, []);
 
+  /**
+   * Builds a carrier-specific public tracking URL for a normalized tracking number.
+   *
+   * @param selectedCarrier - The carrier identifier.
+   * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
+   * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
+   */
   function buildTrackingUrl(
     selectedCarrier: Carrier,
     normalizedTracking: string
@@ -156,6 +169,13 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     return undefined;
   }
 
+  /**
+   * Validate and submit a tracking number for the current order, updating component state and optionally refreshing the page.
+   *
+   * Normalizes the provided tracking value, validates it against the form schema for the selected carrier, aborts any in-flight request, and sends a PATCH to update the order's shipment (carrier and normalized tracking number). On success, updates local state (carrier, trackingNumber, viewMode) and either calls the router refresh or sets a success message. On error, sets an error message; abort errors are ignored.
+   *
+   * @param nextValues - Object containing the selected `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
+   */
   async function submit(nextValues: { carrier: Carrier; tracking: string }) {
     setErrorMessage(null);
     setSuccessMessage(null);
@@ -242,6 +262,14 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     }
   }
 
+  /**
+   * Clears the order's shipment tracking on the server and updates the component state accordingly.
+   *
+   * Sends a request to remove the tracking number for the current order, aborting any in-flight request first.
+   * On success, clears the local tracking number, switches the form to edit mode, and either refreshes the router
+   * (when `refreshOnSuccess` is true) or shows a "Tracking removed" success message. On failure, sets an
+   * error message derived from the server response. If the request is aborted, the function returns silently.
+   */
   async function removeTracking() {
     setErrorMessage(null);
     setSuccessMessage(null);

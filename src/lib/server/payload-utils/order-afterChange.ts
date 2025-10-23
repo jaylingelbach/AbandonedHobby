@@ -57,10 +57,22 @@ type OrdersAfterChangeHook = NonNullable<
   NonNullable<CollectionConfig['hooks']>['afterChange']
 >[number];
 
+/**
+ * Determine whether a value is a string containing at least one non-whitespace character.
+ *
+ * @returns `true` if `value` is a string containing at least one non-whitespace character, `false` otherwise.
+ */
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/**
+ * Determines whether a shipment tracking number was added, removed, updated, or unchanged.
+ *
+ * @param previousTracking - The previous tracking number value (may be empty or whitespace)
+ * @param nextTracking - The new tracking number value (may be empty or whitespace)
+ * @returns `'added'` if a tracking number was introduced, `'removed'` if it was cleared, `'updated'` if it changed, or `null` if there is no change
+ */
 function classifyChange(
   previousTracking: string,
   nextTracking: string
@@ -73,6 +85,14 @@ function classifyChange(
   return 'updated';
 }
 
+/**
+ * Produces a deterministic idempotency key for a shipment by hashing the order id, carrier, and tracking number.
+ *
+ * @param orderId - The order's unique identifier
+ * @param carrier - The carrier code (e.g., 'usps', 'ups', 'fedex', 'other') or `null`/`undefined` when unknown
+ * @param trackingNumber - The shipment tracking number
+ * @returns A SHA-256 hex digest of `orderId|carrier|trackingNumber`
+ */
 function buildMessageKey(
   orderId: string,
   carrier: Carrier | null | undefined,
