@@ -26,6 +26,13 @@ function normalizeTracking(raw: string): string {
     .toUpperCase();
 }
 
+// Prevent DOM manipulation from making it through to being accepted at compile time. (Still validates client side at submit by FormSchema: carrier: z.enum(carriers))
+function isCarrier(value: unknown) {
+  return (
+    typeof value === 'string' && (carriers as readonly string[]).includes(value)
+  );
+}
+
 /** Heuristic regexes for common formats. */
 const patterns: Record<Carrier, RegExp[]> = {
   usps: [
@@ -127,96 +134,243 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const router = useRouter();
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
   const [trackingNumber, setTrackingNumber] = useState<string>(initialTracking);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  async function submit() {
-    setError(null);
-    setSuccess(null);
+  // Show a compact summary when we already have tracking; otherwise show inputs
+  const [viewMode, setViewMode] = useState<'view' | 'edit'>(
+    initialTracking ? 'view' : 'edit'
+  );
 
-    // Normalize before validation & submit
-    const normalized = normalizeTracking(trackingNumber);
+  function buildTrackingUrl(
+    selectedCarrier: Carrier,
+    normalizedTracking: string
+  ): string | undefined {
+    if (!normalizedTracking) return undefined;
+    if (selectedCarrier === 'usps') {
+      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(normalizedTracking)}`;
+    }
+    if (selectedCarrier === 'ups') {
+      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(normalizedTracking)}`;
+    }
+    if (selectedCarrier === 'fedex') {
+      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(normalizedTracking)}`;
+    }
+    return undefined;
+  }
+
+  async function submit(nextValues: { carrier: Carrier; tracking: string }) {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    const normalizedTracking = normalizeTracking(nextValues.tracking);
 
     const parsed = FormSchema.safeParse({
-      carrier,
-      trackingNumber: normalized
+      carrier: nextValues.carrier,
+      trackingNumber: normalizedTracking
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Invalid input');
+      const firstIssue = parsed.error.issues[0]?.message ?? 'Invalid input';
+      setErrorMessage(firstIssue);
       return;
     }
 
     try {
-      const res = await fetch(
+      const response = await fetch(
         `${apiBase}/orders/${encodeURIComponent(orderId)}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { carrier, trackingNumber: normalized }
+            shipment: {
+              carrier: nextValues.carrier,
+              trackingNumber: normalizedTracking
+            }
           })
         }
       );
 
-      if (!res.ok) {
-        const ct = res.headers.get('content-type') || '';
-        let msg = `Failed with ${res.status}`;
-        if (ct.includes('application/json')) {
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        let message = `Failed with ${response.status}`;
+
+        if (contentType.includes('application/json')) {
           try {
-            const j = await res.json();
-            msg = j.message || j.error || msg;
-          } catch (error) {
-            console.warn('Failed to parse JSON error:', error);
+            const jsonBody: unknown = await response.json();
+            const asRecord = jsonBody as { message?: string; error?: string };
+            message = asRecord.message || asRecord.error || message;
+          } catch (_jsonParseError: unknown) {
+            // ignore parse failure; keep fallback message
           }
-        } else if (ct.includes('text/plain')) {
+        } else if (contentType.includes('text/plain')) {
           try {
-            msg = await res.text();
-          } catch (error) {
-            console.warn('Failed to read text error:', error);
+            const textBody = await response.text();
+            message = textBody || message;
+          } catch (_textReadError: unknown) {
+            // ignore read failure; keep fallback message
           }
         }
-        throw new Error(msg);
+
+        throw new Error(message);
       }
 
-      setTrackingNumber(normalized); // reflect normalization in UI
+      // reflect normalization in UI and go to view mode
+      setCarrier(nextValues.carrier);
+      setTrackingNumber(normalizedTracking);
+      setViewMode('view');
 
       if (refreshOnSuccess) {
         router.refresh();
       } else {
-        setSuccess('Tracking saved');
+        setSuccessMessage('Tracking saved');
       }
-    } catch (error) {
-      console.error('Failed to save tracking:', error);
-      setError(
-        error instanceof Error ? error.message : 'Failed to save tracking'
-      );
+    } catch (errorObject: unknown) {
+      const message =
+        errorObject instanceof Error
+          ? errorObject.message
+          : 'Failed to save tracking';
+      console.error('Failed to save tracking:', errorObject);
+      setErrorMessage(message);
     }
   }
 
-  const rootClass =
+  async function removeTracking() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    try {
+      const response = await fetch(
+        `${apiBase}/orders/${encodeURIComponent(orderId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
+          })
+        }
+      );
+
+      if (!response.ok) {
+        let message = `Failed with ${response.status}`;
+        try {
+          const textBody = await response.text();
+          if (textBody) message = textBody;
+        } catch (_readError: unknown) {
+          // ignore
+        }
+        throw new Error(message);
+      }
+
+      setTrackingNumber('');
+      setViewMode('edit');
+
+      if (refreshOnSuccess) {
+        router.refresh();
+      } else {
+        setSuccessMessage('Tracking removed');
+      }
+    } catch (errorObject: unknown) {
+      const message =
+        errorObject instanceof Error
+          ? errorObject.message
+          : 'Failed to remove tracking';
+      console.error('Failed to remove tracking:', errorObject);
+      setErrorMessage(message);
+    }
+  }
+
+  const rootClassName =
     layout === 'stacked'
       ? 'ah-form ah-form--stacked'
       : 'ah-form ah-form--inline';
 
+  if (viewMode === 'view' && trackingNumber) {
+    const trackingUrl = buildTrackingUrl(carrier, trackingNumber);
+
+    return (
+      <div className={rootClassName} aria-live="polite">
+        <div className="ah-form-row">
+          <div className="ah-summary">
+            <span className="ah-summary-label">Carrier:</span>{' '}
+            <strong>{carrierLabels[carrier]}</strong>
+          </div>
+        </div>
+
+        <div className="ah-form-row">
+          <div className="ah-summary">
+            <span className="ah-summary-label">Tracking #:</span>{' '}
+            <code>{trackingNumber}</code>{' '}
+            {trackingUrl ? (
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ah-link"
+              >
+                Track
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="ah-form-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setViewMode('edit')}
+            disabled={isPending}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="btn btn--danger"
+            onClick={() => {
+              const confirmed = window.confirm(
+                'Remove tracking number? This will revert the order to “Unfulfilled”.'
+              );
+              if (confirmed) startTransition(removeTracking);
+            }}
+            disabled={isPending}
+          >
+            Remove
+          </button>
+        </div>
+
+        {errorMessage && (
+          <p className="ah-error" role="alert" id={`tracking-error-${orderId}`}>
+            {errorMessage}
+          </p>
+        )}
+        {successMessage && (
+          <p className="ah-success" role="status">
+            {successMessage}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={rootClass}>
+    <div className={rootClassName}>
       <div className="ah-form-row">
         <select
           id={`carrier-${orderId}`}
           className="ah-input"
           value={carrier}
-          onChange={(e) => {
-            setCarrier(e.target.value as Carrier);
-            setError(null);
+          onChange={(event) => {
+            setCarrier(event.target.value as Carrier);
+            setErrorMessage(null);
           }}
           disabled={isPending}
           aria-label="Carrier"
         >
-          {carriers.map((carrier) => (
-            <option key={carrier} value={carrier}>
-              {carrierLabels[carrier]}
+          {carriers.map((carrierOption) => (
+            <option key={carrierOption} value={carrierOption}>
+              {carrierLabels[carrierOption]}
             </option>
           ))}
         </select>
@@ -228,13 +382,17 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           className="ah-input"
           type="text"
           value={trackingNumber}
-          onChange={(e) => setTrackingNumber(e.target.value)}
-          onBlur={(e) => setTrackingNumber(normalizeTracking(e.target.value))}
+          onChange={(event) => setTrackingNumber(event.target.value)}
+          onBlur={(event) =>
+            setTrackingNumber(normalizeTracking(event.target.value))
+          }
           placeholder="9400… / 1Z… / DT…"
           disabled={isPending}
           aria-label="Tracking number"
-          aria-invalid={Boolean(error) || undefined}
-          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
+          aria-invalid={Boolean(errorMessage) || undefined}
+          aria-describedby={
+            errorMessage ? `tracking-error-${orderId}` : undefined
+          }
         />
       </div>
 
@@ -243,20 +401,39 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           type="button"
           className="btn"
           disabled={isPending}
-          onClick={() => startTransition(submit)}
+          onClick={() =>
+            startTransition(() => submit({ carrier, tracking: trackingNumber }))
+          }
         >
           {isPending ? 'Saving…' : 'Save'}
         </button>
+
+        {initialTracking && (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => {
+              setCarrier(initialCarrier);
+              setTrackingNumber(initialTracking);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+              setViewMode('view');
+            }}
+            disabled={isPending}
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
-      {error && (
+      {errorMessage && (
         <p className="ah-error" role="alert" id={`tracking-error-${orderId}`}>
-          {error}
+          {errorMessage}
         </p>
       )}
-      {success && (
+      {successMessage && (
         <p className="ah-success" role="status">
-          {success}
+          {successMessage}
         </p>
       )}
     </div>
