@@ -217,7 +217,15 @@ export const sendSupportEmail = async ({
   }
 };
 
-/** Build a clean monetary line for an item. */
+/**
+ * Formats an item's monetary total for display using the given currency.
+ *
+ * Prefers `item.amountTotal` (cents) if present; otherwise computes `quantity * unitAmount` (both in cents). Returns an empty string when neither value is available.
+ *
+ * @param item - The item with `quantity`, `unitAmount` (per-unit amount in cents) and/or `amountTotal` (total amount in cents)
+ * @param currency - ISO currency code used by the formatter
+ * @returns A localized currency string (for example, "$1.23"), or an empty string when no monetary value is available
+ */
 function buildLineAmount(
   item: {
     quantity: number;
@@ -236,7 +244,12 @@ function buildLineAmount(
   return '';
 }
 
-/** Join non-empty parts with a single space, then trim. */
+/**
+ * Concatenates given parts, ignoring null, undefined, or whitespace-only entries, and returns a single space-separated trimmed string.
+ *
+ * @param parts - Values to join; null, undefined, or strings containing only whitespace are omitted.
+ * @returns The joined string with single spaces between parts, or an empty string if no valid parts were provided.
+ */
 function joinParts(...parts: Array<string | null | undefined>): string {
   return parts
     .filter((p) => typeof p === 'string' && p.trim().length > 0)
@@ -244,7 +257,16 @@ function joinParts(...parts: Array<string | null | undefined>): string {
     .trim();
 }
 
-/** Build a preformatted shipping block (HTML or Text). */
+/**
+ * Render a shipping address block as HTML or plain text for inclusion in an email template.
+ *
+ * The returned block contains only provided, trimmed address lines in the usual order:
+ * name, line1, line2, "city, state postalCode", country. Empty or missing fields are omitted.
+ *
+ * @param input - Address fields; each field may be undefined or null and will be trimmed before use.
+ * @param mode - Output format: `'html'` joins lines with `<br/>`, `'text'` joins with newlines.
+ * @returns The formatted address block, or `undefined` if no address fields were provided.
+ */
 function buildShippingBlock(
   input: {
     name?: string | null;
@@ -286,6 +308,13 @@ function buildShippingBlock(
   return lines.join('\n');
 }
 
+/**
+ * Send a shipment or tracking-update email for an order via Postmark.
+ *
+ * @param input - Object containing: recipient `to`, `variant` ('shipped' | 'tracking-updated'), `order` (id, orderNumber, name), `shipment` (carrier, trackingNumber, optional trackingUrl/shippedAt/previousCarrierName/previousTrackingNumber), `items` (name, quantity, unitAmount, amountTotal), optional `shippingAddress`, optional `messageKey` for idempotency, optional `currency` (defaults to "USD"), and `dryRun`/`debug` flags.
+ * @returns An object with `provider: 'postmark'` and `providerMessageId` containing the Postmark MessageID string, or `null` when the call was a dry-run.
+ * @throws Error when sending the email via Postmark fails.
+ */
 export async function sendTrackingEmail(input: {
   to: string;
   variant: TrackingEmailVariant; // 'shipped' | 'tracking-updated'
