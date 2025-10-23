@@ -7,6 +7,8 @@ import {
   updateOrdersAccess
 } from '@/lib/server/payload-utils/orders';
 
+import { afterChangeOrders } from '@/lib/server/payload-utils/order-afterChange';
+
 import type { CollectionConfig, FieldAccess } from 'payload';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
@@ -35,6 +37,9 @@ export const Orders: CollectionConfig = {
     create: ({ req: { user } }) => isSuperAdmin(user),
     update: updateOrdersAccess,
     delete: ({ req: { user } }) => isSuperAdmin(user)
+  },
+  hooks: {
+    afterChange: [afterChangeOrders]
   },
   fields: [
     // ----- Display / identifiers -----
@@ -245,7 +250,9 @@ export const Orders: CollectionConfig = {
       type: 'group',
       name: 'shipment',
       access: { update: canEditOrderShipment },
-      hooks: { beforeChange: [beforeChangeOrderShipment] },
+      hooks: {
+        beforeChange: [beforeChangeOrderShipment]
+      },
       fields: [
         {
           name: 'carrier',
@@ -259,7 +266,16 @@ export const Orders: CollectionConfig = {
         },
         { name: 'trackingNumber', type: 'text' },
         { name: 'trackingUrl', type: 'text', admin: { readOnly: true } },
-        { name: 'shippedAt', type: 'date', admin: { readOnly: true } }
+        { name: 'shippedAt', type: 'date', admin: { readOnly: true } },
+        {
+          name: 'lastNotifiedKey',
+          type: 'text',
+          admin: {
+            readOnly: true,
+            description:
+              'Tracks the last notification state/key sent for this shipment'
+          }
+        }
       ]
     },
     // renders refund manager component

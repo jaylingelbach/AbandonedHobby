@@ -144,6 +144,105 @@ export const canEditOrderFulfillmentStatus: FieldAccess = ({ req, doc }) =>
   isSuperAdmin(req.user) || isSellerOfOrderDoc(doc, req.user);
 
 /**
+ * Normalize a raw tracking number into a canonical uppercase string with no spaces or dashes.
+ *
+ * @param raw - Input value (if not a string it's treated as empty)
+ * @returns The tracking number trimmed, with all whitespace and dash-like characters removed, and converted to uppercase
+ */
+
+function normalizeTrackingServer(raw: unknown): string {
+  const value = typeof raw === 'string' ? raw : '';
+  return value
+    .trim()
+    .replace(/[\s\u2010-\u2015-]+/g, '')
+    .toUpperCase();
+}
+
+/**
+ * Normalize a carrier identifier into a canonical shipment carrier value.
+ *
+ * @param input - A value to interpret as a carrier name; non-string inputs are treated as invalid.
+ * @returns `'usps'`, `'ups'`, `'fedex'`, or `'other'` if the input matches a recognized carrier (case- and whitespace-insensitive); `undefined` otherwise.
+ */
+function normalizeCarrier(input: unknown): ShipmentGroup['carrier'] {
+  if (typeof input !== 'string') return undefined;
+  const value = input.trim().toLowerCase();
+  if (value.length === 0) return undefined;
+  if (
+    value === 'usps' ||
+    value === 'ups' ||
+    value === 'fedex' ||
+    value === 'other'
+  ) {
+    return value;
+  }
+}
+
+/** Carrier-specific heuristic regexes (server-side validation). */
+const serverPatterns: Record<
+  NonNullable<ShipmentGroup['carrier']>,
+  RegExp[]
+> = {
+  usps: [
+    /^(?:\d{20}|\d{22}|\d{26}|\d{30}|\d{34})$/, // IMpb common lengths
+    /^[A-Z]{2}\d{9}[A-Z]{2}$/ // UPU S10 (e.g., EC123456789US)
+  ],
+  ups: [/^1Z[0-9A-Z]{16}$/], // 1Z + 16 alphanumerics
+  fedex: [
+    /^(?:\d{12}|\d{15}|\d{20}|\d{22})$/, // common FedEx lengths
+    /^DT\d{12,14}$/ // Door tag
+  ],
+  other: [/^.{6,}$/] // minimal sanity check
+};
+
+/**
+ * Determine whether a normalized tracking number matches known server-side patterns for a carrier.
+ *
+ * @param carrier - The carrier identifier to validate against (e.g., 'usps', 'ups', 'fedex', 'other').
+ * @param normalizedTrackingNumber - Tracking number already normalized (trimmed, uppercase, no spaces or dashes).
+ * @returns `true` if the tracking number matches any known pattern for the given carrier, `false` otherwise.
+ */
+function isLikelyValidTrackingServer(
+  carrier: ShipmentGroup['carrier'],
+  normalizedTrackingNumber: string
+): boolean {
+  if (!carrier) return false;
+  const patterns = serverPatterns[carrier];
+  return patterns.some((regex) => regex.test(normalizedTrackingNumber));
+}
+
+/**
+ * Constructs a public tracking URL for supported carriers.
+ *
+ * @param carrier - The carrier identifier (e.g., 'usps', 'ups', 'fedex', or 'other').
+ * @param normalizedTrackingNumber - A canonicalized tracking number (trimmed, uppercased, no spaces/dashes).
+ * @returns A carrier-specific tracking URL for the given tracking number, or `undefined` if the carrier is not supported or the tracking number is empty.
+ */
+function buildTrackingUrl(
+  carrier: ShipmentGroup['carrier'],
+  normalizedTrackingNumber: string
+): string | undefined {
+  if (!carrier || normalizedTrackingNumber.length === 0) return undefined;
+
+  if (carrier === 'usps') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+      normalizedTrackingNumber
+    )}`;
+  }
+  if (carrier === 'ups') {
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+      normalizedTrackingNumber
+    )}`;
+  }
+  if (carrier === 'fedex') {
+    return `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(
+      normalizedTrackingNumber
+    )}`;
+  }
+  return undefined; // 'other' or unknown carriers
+}
+
+/**
  * `beforeChange` hook for the `shipment` group.
  * IMPORTANT: For a field hook, return the group value itself.
  */
@@ -159,46 +258,76 @@ export const beforeChangeOrderShipment: FieldHook = async ({
 
   const nextValue = { ...(value ?? {}) } as ShipmentGroup;
 
-  const hasTrackingNumber =
-    typeof nextValue.trackingNumber === 'string' &&
-    nextValue.trackingNumber.trim().length > 0;
+  // --- INPUT CLEANUP (write back) ------------------------------------------
 
-  if (hasTrackingNumber) {
-    const carrier = nextValue.carrier;
-    const trackingNumber = nextValue.trackingNumber ?? '';
+  const normalizedCarrier = normalizeCarrier(nextValue.carrier);
+  nextValue.carrier = normalizedCarrier;
 
-    let trackingUrl = '';
-    if (carrier === 'usps') {
-      trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(trackingNumber)}`;
-    } else if (carrier === 'ups') {
-      trackingUrl = `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(trackingNumber)}`;
-    } else if (carrier === 'fedex') {
-      trackingUrl = `https://www.fedex.com/fedextrack/?trknbr=${encodeURIComponent(trackingNumber)}`;
-    }
+  const normalizedTrackingNumber = normalizeTrackingServer(
+    nextValue.trackingNumber
+  );
+  nextValue.trackingNumber = normalizedTrackingNumber || undefined;
 
-    nextValue.trackingUrl = trackingUrl || undefined;
+  const hasCarrier =
+    typeof normalizedCarrier === 'string' && normalizedCarrier.length > 0;
+  const hasTrackingNumber = normalizedTrackingNumber.length > 0;
 
-    const currentStatus: OrderStatus =
-      (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
-      'unfulfilled';
-    if (currentStatus === 'unfulfilled') {
-      (siblingData as OrderMutationShape).fulfillmentStatus = 'shipped';
-    }
+  // --- BASIC PAIR VALIDATION (friendly errors) -----------------------------
+  if (hasCarrier && !hasTrackingNumber) {
+    throw new Error(
+      'A tracking number is required when a carrier is selected.'
+    );
+  }
+  if (!hasCarrier && hasTrackingNumber) {
+    throw new Error(
+      'A carrier is required when a tracking number is provided.'
+    );
+  }
 
-    if (!nextValue.shippedAt) {
-      nextValue.shippedAt = new Date().toISOString();
-    }
-  } else {
-    if (nextValue.trackingUrl) nextValue.trackingUrl = undefined;
-    // Also clear shippedAt:
+  // --- SHORT-CIRCUIT WHEN EMPTY (clear fields and possibly demote) ---------
+  if (!hasCarrier && !hasTrackingNumber) {
+    // clear derived fields if previously set
+    nextValue.trackingUrl = undefined;
     nextValue.shippedAt = undefined;
-    // Revert status if it was auto-promoted earlier
     const currentStatus: OrderStatus =
       (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
       'unfulfilled';
     if (currentStatus === 'shipped') {
+      // Demote only if your policy is that "no tracking" cannot remain "shipped".
+      // This matches your current behavior.
       (siblingData as OrderMutationShape).fulfillmentStatus = 'unfulfilled';
     }
+    return nextValue;
+  }
+  if (
+    !isLikelyValidTrackingServer(normalizedCarrier, normalizedTrackingNumber)
+  ) {
+    const message =
+      normalizedCarrier === 'usps'
+        ? 'USPS tracking should be 20/22/26/30/34 digits or an S10 code like EC123456789US.'
+        : normalizedCarrier === 'ups'
+          ? 'UPS tracking should match 1Z + 16 letters/digits (e.g., 1Z999AA10123456784).'
+          : normalizedCarrier === 'fedex'
+            ? 'FedEx tracking should be 12/15/20/22 digits or a door tag like DT123456789012.'
+            : 'Tracking looks too short—please enter at least 6 characters.';
+    throw new Error(message);
+  }
+
+  // --- DERIVED FIELDS + STATUS TRANSITIONS --------------------------------
+  nextValue.trackingUrl = buildTrackingUrl(
+    normalizedCarrier,
+    normalizedTrackingNumber
+  );
+
+  const currentStatus: OrderStatus =
+    (siblingData?.fulfillmentStatus as OrderStatus | undefined) ??
+    'unfulfilled';
+  if (currentStatus === 'unfulfilled') {
+    (siblingData as OrderMutationShape).fulfillmentStatus = 'shipped';
+  }
+
+  if (!nextValue.shippedAt) {
+    nextValue.shippedAt = new Date().toISOString();
   }
 
   return nextValue;

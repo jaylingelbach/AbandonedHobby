@@ -478,6 +478,10 @@ export interface Order {
     trackingNumber?: string | null;
     trackingUrl?: string | null;
     shippedAt?: string | null;
+    /**
+     * Tracks the last notification state/key sent for this shipment
+     */
+    lastNotifiedKey?: string | null;
   };
   /**
    * Issue a refund for this order
@@ -822,6 +826,7 @@ export interface OrdersSelect<T extends boolean = true> {
         trackingNumber?: T;
         trackingUrl?: T;
         shippedAt?: T;
+        lastNotifiedKey?: T;
       };
   refunds?: T | {};
   updatedAt?: T;

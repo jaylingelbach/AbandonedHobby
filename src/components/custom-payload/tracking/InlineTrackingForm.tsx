@@ -2,22 +2,15 @@
 
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 
-const carriers = ['usps', 'ups', 'fedex', 'other'] as const;
-type Carrier = (typeof carriers)[number];
-const carrierLabels: Record<Carrier, string> = {
-  usps: 'USPS',
-  ups: 'UPS',
-  fedex: 'FedEx',
-  other: 'Other'
-};
+import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 /**
- * Normalize a tracking string by trimming whitespace, removing spaces and dash-like characters, and converting to uppercase.
+ * Normalize a tracking number for consistent storage and comparison.
  *
- * @returns The normalized tracking string.
+ * @returns The tracking number with surrounding whitespace removed, internal spaces and dash-like characters stripped, and letters converted to uppercase.
  */
 function normalizeTracking(raw: string): string {
   return raw
@@ -26,13 +19,24 @@ function normalizeTracking(raw: string): string {
     .toUpperCase();
 }
 
+/**
+ * Type guard that asserts a value is a valid Carrier.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is one of the known carriers, `false` otherwise.
+ */
+function isCarrier(value: unknown): value is Carrier {
+  return (
+    typeof value === 'string' && (carriers as readonly string[]).includes(value)
+  );
+}
+
 /** Heuristic regexes for common formats. */
 const patterns: Record<Carrier, RegExp[]> = {
   usps: [
     // IMpb / domestic numeric labels — common lengths:
     // 20, 22, 26, 30, 34 digits
     /^(?:\d{20}|\d{22}|\d{26}|\d{30}|\d{34})$/,
-
     // UPU S10: 2 letters + 9 digits + 2 letters (country code),
     // e.g., EC123456789US, RX123456789DE, etc.
     /^[A-Z]{2}\d{9}[A-Z]{2}$/
@@ -61,8 +65,8 @@ const patterns: Record<Carrier, RegExp[]> = {
  * @returns `true` if the normalized tracking number matches any pattern for `carrier`, `false` otherwise.
  */
 function isLikelyValidTracking(carrier: Carrier, raw: string): boolean {
-  const tn = normalizeTracking(raw);
-  return patterns[carrier].some((re) => re.test(tn));
+  const normalized = normalizeTracking(raw);
+  return patterns[carrier].some((regex) => regex.test(normalized));
 }
 
 /** Zod schema with carrier-aware refinement. */
@@ -71,16 +75,16 @@ const FormSchema = z
     carrier: z.enum(carriers),
     trackingNumber: z.string().trim().min(1, 'Tracking number is required')
   })
-  .superRefine((data, ctx) => {
+  .superRefine((data, context) => {
     if (!isLikelyValidTracking(data.carrier, data.trackingNumber)) {
-      ctx.addIssue({
+      context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['trackingNumber'],
         message:
           data.carrier === 'usps'
             ? 'Expected 20/22/26/30/34 digits (IMpb) or an S10 code like EC123456789US.'
             : data.carrier === 'ups'
-              ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z… ).'
+              ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z999AA10123456784).'
               : data.carrier === 'fedex'
                 ? 'Expected 12/15/20/22 digits or a door tag like DT123456789012.'
                 : 'Tracking looks too short — enter at least 6 characters.'
@@ -98,21 +102,13 @@ type InlineTrackingFormProps = {
 };
 
 /**
- * Inline form for selecting a carrier and saving a shipment tracking number for an order.
+ * Render an inline form to view, edit, and save a shipment carrier and tracking number for an order.
  *
- * Normalizes and validates the tracking number against carrier-specific heuristics, submits a PATCH
- * to `${apiBase}/orders/:orderId` with `{ shipment: { carrier, trackingNumber } }`, and displays
- * inline success or error feedback. On successful save it updates the displayed tracking value to
- * the normalized form and optionally triggers a router refresh.
- *
- * @param props - Component props
- * @param props.orderId - Order identifier used in the API request and element IDs
- * @param props.initialCarrier - Initial carrier selection; defaults to `'usps'`
- * @param props.initialTracking - Initial tracking input value; defaults to `''`
- * @param props.apiBase - Base URL for the API request; defaults to `'/api'`
- * @param props.layout - Layout mode, either `'inline'` or `'stacked'`; defaults to `'inline'`
- * @param props.refreshOnSuccess - When true, calls router.refresh() after a successful save; defaults to `true`
- * @returns The rendered React element for the inline tracking form
+ * The component normalizes the tracking input and validates it against carrier-specific heuristics,
+ * provides a compact view with a carrier-specific tracking link when available, and allows saving
+ * or removing the tracking value. On save/remove the component updates the order via a PATCH to
+ * `${apiBase}/orders/:orderId`, displays inline success or error feedback, and optionally triggers
+ * a router refresh when the operation succeeds.
  */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
@@ -125,116 +121,350 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   } = props;
 
   const router = useRouter();
+
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
   const [trackingNumber, setTrackingNumber] = useState<string>(initialTracking);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function submit() {
-    setError(null);
-    setSuccess(null);
+  // Show a compact summary when we already have tracking; otherwise show inputs
+  const [viewMode, setViewMode] = useState<'view' | 'edit'>(
+    initialTracking ? 'view' : 'edit'
+  );
 
-    // Normalize before validation & submit
-    const normalized = normalizeTracking(trackingNumber);
+  // Abort in-flight requests on unmount and between submits/removals
+  const currentRequestAbortRef = React.useRef<AbortController | null>(null);
+  React.useEffect(() => {
+    return () => currentRequestAbortRef.current?.abort();
+  }, []);
+
+  /**
+   * Builds a carrier-specific public tracking URL for a normalized tracking number.
+   *
+   * @param selectedCarrier - The carrier identifier.
+   * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
+   * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
+   */
+  function buildTrackingUrl(
+    selectedCarrier: Carrier,
+    normalizedTracking: string
+  ): string | undefined {
+    if (!normalizedTracking) return undefined;
+    if (selectedCarrier === 'usps') {
+      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+        normalizedTracking
+      )}`;
+    }
+    if (selectedCarrier === 'ups') {
+      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+        normalizedTracking
+      )}`;
+    }
+    if (selectedCarrier === 'fedex') {
+      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
+        normalizedTracking
+      )}`;
+    }
+    return undefined;
+  }
+
+  /**
+   * Validate and submit a tracking number for the current order, updating component state and optionally refreshing the page.
+   *
+   * Normalizes the provided tracking value, validates it against the form schema for the selected carrier, aborts any in-flight request, and sends a PATCH to update the order's shipment (carrier and normalized tracking number). On success, updates local state (carrier, trackingNumber, viewMode) and either calls the router refresh or sets a success message. On error, sets an error message; abort errors are ignored.
+   *
+   * @param nextValues - Object containing the selected `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
+   */
+  async function submit(nextValues: { carrier: Carrier; tracking: string }) {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    // cancel any in-flight request
+    currentRequestAbortRef.current?.abort();
+    currentRequestAbortRef.current = new AbortController();
+    const { signal } = currentRequestAbortRef.current;
+
+    const normalizedTracking = normalizeTracking(nextValues.tracking);
 
     const parsed = FormSchema.safeParse({
-      carrier,
-      trackingNumber: normalized
+      carrier: nextValues.carrier,
+      trackingNumber: normalizedTracking
     });
     if (!parsed.success) {
-      setError(parsed.error.issues[0]?.message ?? 'Invalid input');
+      const firstIssue = parsed.error.issues[0]?.message ?? 'Invalid input';
+      setErrorMessage(firstIssue);
       return;
     }
 
     try {
-      const res = await fetch(
+      const response = await fetch(
         `${apiBase}/orders/${encodeURIComponent(orderId)}`,
         {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { carrier, trackingNumber: normalized }
-          })
+            shipment: {
+              carrier: nextValues.carrier,
+              trackingNumber: normalizedTracking
+            }
+          }),
+          signal
         }
       );
 
-      if (!res.ok) {
-        const ct = res.headers.get('content-type') || '';
-        let msg = `Failed with ${res.status}`;
-        if (ct.includes('application/json')) {
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        let message = `Failed with ${response.status}`;
+
+        if (contentType.toLowerCase().includes('json')) {
           try {
-            const j = await res.json();
-            msg = j.message || j.error || msg;
-          } catch (error) {
-            console.warn('Failed to parse JSON error:', error);
+            const jsonBody: unknown = await response.json();
+            const asRecord = jsonBody as { message?: string; error?: string };
+            message = asRecord.message || asRecord.error || message;
+          } catch (_jsonParseError: unknown) {
+            // ignore parse failure; keep fallback message
           }
-        } else if (ct.includes('text/plain')) {
+        } else if (contentType.startsWith('text/')) {
           try {
-            msg = await res.text();
-          } catch (error) {
-            console.warn('Failed to read text error:', error);
+            const textBody = await response.text();
+            message = textBody || message;
+          } catch (_textReadError: unknown) {
+            // ignore read failure; keep fallback message
           }
         }
-        throw new Error(msg);
+
+        throw new Error(message);
       }
 
-      setTrackingNumber(normalized); // reflect normalization in UI
+      // reflect normalization in UI and go to view mode
+      setCarrier(nextValues.carrier);
+      setTrackingNumber(normalizedTracking);
+      setViewMode('view');
 
       if (refreshOnSuccess) {
         router.refresh();
       } else {
-        setSuccess('Tracking saved');
+        setSuccessMessage('Tracking saved');
       }
-    } catch (error) {
-      console.error('Failed to save tracking:', error);
-      setError(
-        error instanceof Error ? error.message : 'Failed to save tracking'
-      );
+    } catch (errorObject: unknown) {
+      if ((errorObject as { name?: string } | null)?.name === 'AbortError') {
+        // request was aborted; ignore
+        return;
+      }
+      const message =
+        errorObject instanceof Error
+          ? errorObject.message
+          : 'Failed to save tracking';
+      console.error('Failed to save tracking:', errorObject);
+      setErrorMessage(message);
     }
   }
 
-  const rootClass =
+  /**
+   * Clears the order's shipment tracking on the server and updates the component state accordingly.
+   *
+   * Sends a request to remove the tracking number for the current order, aborting any in-flight request first.
+   * On success, clears the local tracking number, switches the form to edit mode, and either refreshes the router
+   * (when `refreshOnSuccess` is true) or shows a "Tracking removed" success message. On failure, sets an
+   * error message derived from the server response. If the request is aborted, the function returns silently.
+   */
+  async function removeTracking() {
+    setErrorMessage(null);
+    setSuccessMessage(null);
+
+    // cancel any in-flight request
+    currentRequestAbortRef.current?.abort();
+    currentRequestAbortRef.current = new AbortController();
+    const { signal } = currentRequestAbortRef.current;
+
+    try {
+      const response = await fetch(
+        `${apiBase}/orders/${encodeURIComponent(orderId)}`,
+        {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({
+            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
+          }),
+          signal
+        }
+      );
+
+      if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
+        let message = `Failed with ${response.status}`;
+
+        if (contentType.toLowerCase().includes('json')) {
+          try {
+            const body: unknown = await response.json();
+            const record = body as { message?: string; error?: string };
+            message = record.message || record.error || message;
+          } catch (_jsonErr: unknown) {
+            // ignore
+          }
+        } else if (contentType.startsWith('text/')) {
+          try {
+            const textBody = await response.text();
+            if (textBody) message = textBody;
+          } catch (_readErr: unknown) {
+            // ignore
+          }
+        }
+
+        throw new Error(message);
+      }
+
+      setTrackingNumber('');
+      setViewMode('edit');
+
+      if (refreshOnSuccess) {
+        router.refresh();
+      } else {
+        setSuccessMessage('Tracking removed');
+      }
+    } catch (errorObject: unknown) {
+      if ((errorObject as { name?: string } | null)?.name === 'AbortError') {
+        // request was aborted; ignore
+        return;
+      }
+      const message =
+        errorObject instanceof Error
+          ? errorObject.message
+          : 'Failed to remove tracking';
+      console.error('Failed to remove tracking:', errorObject);
+      setErrorMessage(message);
+    }
+  }
+
+  const rootClassName =
     layout === 'stacked'
       ? 'ah-form ah-form--stacked'
       : 'ah-form ah-form--inline';
 
+  if (viewMode === 'view' && trackingNumber) {
+    const trackingUrl = buildTrackingUrl(carrier, trackingNumber);
+
+    return (
+      <div className={rootClassName} aria-live="polite">
+        <div className="ah-form-row">
+          <div className="ah-summary">
+            <span className="ah-summary-label">Carrier:</span>{' '}
+            <strong>{carrierLabels[carrier]}</strong>
+          </div>
+        </div>
+
+        <div className="ah-form-row">
+          <div className="ah-summary">
+            <span className="ah-summary-label">Tracking #:</span>{' '}
+            <code>{trackingNumber}</code>{' '}
+            {trackingUrl ? (
+              <a
+                href={trackingUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ah-link"
+              >
+                Track
+              </a>
+            ) : null}
+          </div>
+        </div>
+
+        <div className="ah-form-actions">
+          <button
+            type="button"
+            className="btn"
+            onClick={() => setViewMode('edit')}
+            disabled={isSubmitting}
+          >
+            Edit
+          </button>
+          <button
+            type="button"
+            className="btn btn--danger"
+            onClick={async () => {
+              const confirmed = window.confirm(
+                'Remove tracking number? This will revert the order to “Unfulfilled”.'
+              );
+              if (!confirmed || isSubmitting) return;
+              setIsSubmitting(true);
+              try {
+                await removeTracking();
+              } finally {
+                setIsSubmitting(false);
+              }
+            }}
+            disabled={isSubmitting}
+          >
+            Remove
+          </button>
+        </div>
+
+        {errorMessage && (
+          <p className="ah-error" role="alert" id={`tracking-error-${orderId}`}>
+            {errorMessage}
+          </p>
+        )}
+        {successMessage && (
+          <p className="ah-success" role="status">
+            {successMessage}
+          </p>
+        )}
+      </div>
+    );
+  }
+
   return (
-    <div className={rootClass}>
+    <div className={rootClassName}>
       <div className="ah-form-row">
+        <label className="sr-only" htmlFor={`carrier-${orderId}`}>
+          Carrier
+        </label>
         <select
           id={`carrier-${orderId}`}
           className="ah-input"
           value={carrier}
-          onChange={(e) => {
-            setCarrier(e.target.value as Carrier);
-            setError(null);
+          onChange={(event) => {
+            const selectedValue = event.currentTarget.value;
+            if (isCarrier(selectedValue)) {
+              setCarrier(selectedValue);
+              setErrorMessage(null);
+            } else {
+              setErrorMessage('Invalid carrier selection.');
+            }
           }}
-          disabled={isPending}
-          aria-label="Carrier"
+          disabled={isSubmitting}
         >
-          {carriers.map((carrier) => (
-            <option key={carrier} value={carrier}>
-              {carrierLabels[carrier]}
+          {carriers.map((carrierOption) => (
+            <option key={carrierOption} value={carrierOption}>
+              {carrierLabels[carrierOption]}
             </option>
           ))}
         </select>
       </div>
 
       <div className="ah-form-row">
+        <label className="sr-only" htmlFor={`tracking-${orderId}`}>
+          Tracking number
+        </label>
         <input
           id={`tracking-${orderId}`}
           className="ah-input"
           type="text"
           value={trackingNumber}
-          onChange={(e) => setTrackingNumber(e.target.value)}
-          onBlur={(e) => setTrackingNumber(normalizeTracking(e.target.value))}
+          onChange={(event) => setTrackingNumber(event.target.value)}
+          onBlur={(event) =>
+            setTrackingNumber(normalizeTracking(event.target.value))
+          }
           placeholder="9400… / 1Z… / DT…"
-          disabled={isPending}
-          aria-label="Tracking number"
-          aria-invalid={Boolean(error) || undefined}
-          aria-describedby={error ? `tracking-error-${orderId}` : undefined}
+          disabled={isSubmitting}
+          aria-invalid={Boolean(errorMessage) || undefined}
+          aria-describedby={
+            errorMessage ? `tracking-error-${orderId}` : undefined
+          }
         />
       </div>
 
@@ -242,21 +472,46 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         <button
           type="button"
           className="btn"
-          disabled={isPending}
-          onClick={() => startTransition(submit)}
+          disabled={isSubmitting}
+          onClick={async () => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
+            try {
+              await submit({ carrier, tracking: trackingNumber });
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
         >
-          {isPending ? 'Saving…' : 'Save'}
+          {isSubmitting ? 'Saving…' : 'Save'}
         </button>
+
+        {initialTracking && (
+          <button
+            type="button"
+            className="btn btn--ghost"
+            onClick={() => {
+              setCarrier(initialCarrier);
+              setTrackingNumber(initialTracking);
+              setErrorMessage(null);
+              setSuccessMessage(null);
+              setViewMode('view');
+            }}
+            disabled={isSubmitting}
+          >
+            Cancel
+          </button>
+        )}
       </div>
 
-      {error && (
+      {errorMessage && (
         <p className="ah-error" role="alert" id={`tracking-error-${orderId}`}>
-          {error}
+          {errorMessage}
         </p>
       )}
-      {success && (
+      {successMessage && (
         <p className="ah-success" role="status">
-          {success}
+          {successMessage}
         </p>
       )}
     </div>
