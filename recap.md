@@ -3914,4 +3914,61 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 ## File changes
 
-###
+### Tracking form refactor
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Add carrierLabels, normalizeTracking, and carrier-specific pattern heuristics with zod superRefine; normalize input on blur and before submit; send normalized trackingNumber in PATCH; remove onSuccess prop, add refreshOnSuccess?: boolean; call router.refresh() on success when requested; more resilient error parsing (JSON/text) and UI error state handling; minor markup/class updates.
+
+### Seller dashboard date formatting
+
+- src/payload/views/seller-dashboard.tsx
+  - Replace previous date rendering with toLocaleDateString(initPageResult.locale?.code?.replace('\_','-'), { dateStyle: 'medium' }); remove tenantIds derivation import/logic; minor doc/whitespace edits.
+
+### Documentation/recap
+
+- recap.md
+  - Add "Refresh tracking on success 10/20/25" subsection documenting normalization, carrier-aware validation, refresh-on-success behavior, improved error handling, and changed files.
+
+# Tracking updated 10/22/25
+
+## Walkthrough
+
+- This PR implements automated tracking email notifications for shipments. When a tracking number is added or updated on an order, an afterChangeOrders hook detects the change, sends a tracking email via Postmark with relevant shipment details, and records the notification state via lastNotifiedKey for idempotency. The shipment form UI was refactored to support view/edit mode toggling and improved error handling.
+
+## New Features
+
+- Automated tracking email notifications sent when shipments are created or updated.
+- Tracking form redesigned with view and edit mode toggles for streamlined management.
+
+## Improvements
+
+- Enhanced carrier validation with clearer error feedback.
+- Improved tracking URL generation and display.
+- Strengthened error handling and user feedback for all tracking operations.
+
+## File changes
+
+### Orders collection and type definitions
+
+- src/collections/Orders.ts, src/payload-types.ts
+  - Added lastNotifiedKey field (text, read-only) to the shipment group to track the last notification state. Wired a new afterChangeOrders hook at the collection level to execute after order changes.
+
+### Email sending utilities
+
+- src/lib/sendEmail.ts
+  - Introduced sendTrackingEmail function and TrackingEmailVariant type ('shipped' | 'tracking-updated') to render and send tracking emails via Postmark. Added helpers for formatting item amounts, concatenating text, and building shipping address blocks.
+
+### Server-side order hooks
+
+- src/lib/server/payload-utils/order-afterChange.ts
+  - New hook implementation that detects tracking number changes on create/update, resolves recipient email, computes idempotency keys, captures previous carrier/tracking data, and sends tracking emails while maintaining state via lastNotifiedKey to prevent duplicates.
+
+### Shipment validation and normalization
+
+- src/lib/server/payload-utils/orders.ts
+  - Enhanced beforeChangeOrderShipment hook to normalize carrier and tracking inputs, validate carrier/tracking pairs, construct tracking URLs, manage fulfillment status transitions, and guard against empty inputs.
+
+### Tracking form UI
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Refactored form component with carrier validation, view/edit mode toggle, tracking URL generation, improved error handling with errorMessage/successMessage states, remove tracking functionality via PATCH, router refresh on success, and enhanced ARIA attributes.
