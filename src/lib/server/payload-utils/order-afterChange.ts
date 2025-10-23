@@ -99,10 +99,13 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   const changeKind = classifyChange(previousTracking, nextTracking);
   if (changeKind === null) return;
 
-  // Usually we do not email on removal; just log.
   if (changeKind === 'removed') {
+    const redact = (v: string) =>
+      v && v.length > 8
+        ? `${v.slice(0, 3)}…${v.slice(-3)}`
+        : v.replace(/.(?=..)/g, '•');
     req.payload.logger.info(
-      { orderId: current.id, previousTracking },
+      { orderId: current.id, previousTracking: redact(previousTracking) },
       'Tracking removed'
     );
     return;

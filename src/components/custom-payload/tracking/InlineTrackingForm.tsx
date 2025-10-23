@@ -2,17 +2,10 @@
 
 import { useRouter } from 'next/navigation';
 import * as React from 'react';
-import { useState, useTransition } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 
-const carriers = ['usps', 'ups', 'fedex', 'other'] as const;
-type Carrier = (typeof carriers)[number];
-const carrierLabels: Record<Carrier, string> = {
-  usps: 'USPS',
-  ups: 'UPS',
-  fedex: 'FedEx',
-  other: 'Other'
-};
+import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 /**
  * Normalize a tracking string by trimming whitespace, removing spaces and dash-like characters, and converting to uppercase.
@@ -26,8 +19,8 @@ function normalizeTracking(raw: string): string {
     .toUpperCase();
 }
 
-// Prevent DOM manipulation from making it through to being accepted at compile time. (Still validates client side at submit by FormSchema: carrier: z.enum(carriers))
-function isCarrier(value: unknown) {
+/** Strong TS type guard for Carrier. */
+function isCarrier(value: unknown): value is Carrier {
   return (
     typeof value === 'string' && (carriers as readonly string[]).includes(value)
   );
@@ -39,7 +32,6 @@ const patterns: Record<Carrier, RegExp[]> = {
     // IMpb / domestic numeric labels — common lengths:
     // 20, 22, 26, 30, 34 digits
     /^(?:\d{20}|\d{22}|\d{26}|\d{30}|\d{34})$/,
-
     // UPU S10: 2 letters + 9 digits + 2 letters (country code),
     // e.g., EC123456789US, RX123456789DE, etc.
     /^[A-Z]{2}\d{9}[A-Z]{2}$/
@@ -68,8 +60,8 @@ const patterns: Record<Carrier, RegExp[]> = {
  * @returns `true` if the normalized tracking number matches any pattern for `carrier`, `false` otherwise.
  */
 function isLikelyValidTracking(carrier: Carrier, raw: string): boolean {
-  const tn = normalizeTracking(raw);
-  return patterns[carrier].some((re) => re.test(tn));
+  const normalized = normalizeTracking(raw);
+  return patterns[carrier].some((regex) => regex.test(normalized));
 }
 
 /** Zod schema with carrier-aware refinement. */
@@ -78,16 +70,16 @@ const FormSchema = z
     carrier: z.enum(carriers),
     trackingNumber: z.string().trim().min(1, 'Tracking number is required')
   })
-  .superRefine((data, ctx) => {
+  .superRefine((data, context) => {
     if (!isLikelyValidTracking(data.carrier, data.trackingNumber)) {
-      ctx.addIssue({
+      context.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['trackingNumber'],
         message:
           data.carrier === 'usps'
             ? 'Expected 20/22/26/30/34 digits (IMpb) or an S10 code like EC123456789US.'
             : data.carrier === 'ups'
-              ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z… ).'
+              ? 'Expected UPS format: 1Z + 16 letters/digits (e.g., 1Z999AA10123456784).'
               : data.carrier === 'fedex'
                 ? 'Expected 12/15/20/22 digits or a door tag like DT123456789012.'
                 : 'Tracking looks too short — enter at least 6 characters.'
@@ -111,15 +103,6 @@ type InlineTrackingFormProps = {
  * to `${apiBase}/orders/:orderId` with `{ shipment: { carrier, trackingNumber } }`, and displays
  * inline success or error feedback. On successful save it updates the displayed tracking value to
  * the normalized form and optionally triggers a router refresh.
- *
- * @param props - Component props
- * @param props.orderId - Order identifier used in the API request and element IDs
- * @param props.initialCarrier - Initial carrier selection; defaults to `'usps'`
- * @param props.initialTracking - Initial tracking input value; defaults to `''`
- * @param props.apiBase - Base URL for the API request; defaults to `'/api'`
- * @param props.layout - Layout mode, either `'inline'` or `'stacked'`; defaults to `'inline'`
- * @param props.refreshOnSuccess - When true, calls router.refresh() after a successful save; defaults to `true`
- * @returns The rendered React element for the inline tracking form
  */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
@@ -132,16 +115,23 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   } = props;
 
   const router = useRouter();
+
   const [carrier, setCarrier] = useState<Carrier>(initialCarrier);
   const [trackingNumber, setTrackingNumber] = useState<string>(initialTracking);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Show a compact summary when we already have tracking; otherwise show inputs
   const [viewMode, setViewMode] = useState<'view' | 'edit'>(
     initialTracking ? 'view' : 'edit'
   );
+
+  // Abort in-flight requests on unmount and between submits/removals
+  const currentRequestAbortRef = React.useRef<AbortController | null>(null);
+  React.useEffect(() => {
+    return () => currentRequestAbortRef.current?.abort();
+  }, []);
 
   function buildTrackingUrl(
     selectedCarrier: Carrier,
@@ -149,13 +139,19 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   ): string | undefined {
     if (!normalizedTracking) return undefined;
     if (selectedCarrier === 'usps') {
-      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(normalizedTracking)}`;
+      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+        normalizedTracking
+      )}`;
     }
     if (selectedCarrier === 'ups') {
-      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(normalizedTracking)}`;
+      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+        normalizedTracking
+      )}`;
     }
     if (selectedCarrier === 'fedex') {
-      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(normalizedTracking)}`;
+      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
+        normalizedTracking
+      )}`;
     }
     return undefined;
   }
@@ -163,6 +159,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   async function submit(nextValues: { carrier: Carrier; tracking: string }) {
     setErrorMessage(null);
     setSuccessMessage(null);
+
+    // cancel any in-flight request
+    currentRequestAbortRef.current?.abort();
+    currentRequestAbortRef.current = new AbortController();
+    const { signal } = currentRequestAbortRef.current;
 
     const normalizedTracking = normalizeTracking(nextValues.tracking);
 
@@ -188,7 +189,8 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
               carrier: nextValues.carrier,
               trackingNumber: normalizedTracking
             }
-          })
+          }),
+          signal
         }
       );
 
@@ -196,7 +198,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         const contentType = response.headers.get('content-type') || '';
         let message = `Failed with ${response.status}`;
 
-        if (contentType.includes('application/json')) {
+        if (contentType.toLowerCase().includes('json')) {
           try {
             const jsonBody: unknown = await response.json();
             const asRecord = jsonBody as { message?: string; error?: string };
@@ -204,7 +206,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           } catch (_jsonParseError: unknown) {
             // ignore parse failure; keep fallback message
           }
-        } else if (contentType.includes('text/plain')) {
+        } else if (contentType.startsWith('text/')) {
           try {
             const textBody = await response.text();
             message = textBody || message;
@@ -227,6 +229,10 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         setSuccessMessage('Tracking saved');
       }
     } catch (errorObject: unknown) {
+      if ((errorObject as { name?: string } | null)?.name === 'AbortError') {
+        // request was aborted; ignore
+        return;
+      }
       const message =
         errorObject instanceof Error
           ? errorObject.message
@@ -240,6 +246,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
     setErrorMessage(null);
     setSuccessMessage(null);
 
+    // cancel any in-flight request
+    currentRequestAbortRef.current?.abort();
+    currentRequestAbortRef.current = new AbortController();
+    const { signal } = currentRequestAbortRef.current;
+
     try {
       const response = await fetch(
         `${apiBase}/orders/${encodeURIComponent(orderId)}`,
@@ -249,18 +260,32 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           credentials: 'include',
           body: JSON.stringify({
             shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
-          })
+          }),
+          signal
         }
       );
 
       if (!response.ok) {
+        const contentType = response.headers.get('content-type') || '';
         let message = `Failed with ${response.status}`;
-        try {
-          const textBody = await response.text();
-          if (textBody) message = textBody;
-        } catch (_readError: unknown) {
-          // ignore
+
+        if (contentType.toLowerCase().includes('json')) {
+          try {
+            const body: unknown = await response.json();
+            const record = body as { message?: string; error?: string };
+            message = record.message || record.error || message;
+          } catch (_jsonErr: unknown) {
+            // ignore
+          }
+        } else if (contentType.startsWith('text/')) {
+          try {
+            const textBody = await response.text();
+            if (textBody) message = textBody;
+          } catch (_readErr: unknown) {
+            // ignore
+          }
         }
+
         throw new Error(message);
       }
 
@@ -273,6 +298,10 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         setSuccessMessage('Tracking removed');
       }
     } catch (errorObject: unknown) {
+      if ((errorObject as { name?: string } | null)?.name === 'AbortError') {
+        // request was aborted; ignore
+        return;
+      }
       const message =
         errorObject instanceof Error
           ? errorObject.message
@@ -321,20 +350,26 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             type="button"
             className="btn"
             onClick={() => setViewMode('edit')}
-            disabled={isPending}
+            disabled={isSubmitting}
           >
             Edit
           </button>
           <button
             type="button"
             className="btn btn--danger"
-            onClick={() => {
+            onClick={async () => {
               const confirmed = window.confirm(
                 'Remove tracking number? This will revert the order to “Unfulfilled”.'
               );
-              if (confirmed) startTransition(removeTracking);
+              if (!confirmed || isSubmitting) return;
+              setIsSubmitting(true);
+              try {
+                await removeTracking();
+              } finally {
+                setIsSubmitting(false);
+              }
             }}
-            disabled={isPending}
+            disabled={isSubmitting}
           >
             Remove
           </button>
@@ -357,16 +392,23 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   return (
     <div className={rootClassName}>
       <div className="ah-form-row">
+        <label className="sr-only" htmlFor={`carrier-${orderId}`}>
+          Carrier
+        </label>
         <select
           id={`carrier-${orderId}`}
           className="ah-input"
           value={carrier}
           onChange={(event) => {
-            setCarrier(event.target.value as Carrier);
-            setErrorMessage(null);
+            const selectedValue = event.currentTarget.value;
+            if (isCarrier(selectedValue)) {
+              setCarrier(selectedValue);
+              setErrorMessage(null);
+            } else {
+              setErrorMessage('Invalid carrier selection.');
+            }
           }}
-          disabled={isPending}
-          aria-label="Carrier"
+          disabled={isSubmitting}
         >
           {carriers.map((carrierOption) => (
             <option key={carrierOption} value={carrierOption}>
@@ -377,6 +419,9 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       </div>
 
       <div className="ah-form-row">
+        <label className="sr-only" htmlFor={`tracking-${orderId}`}>
+          Tracking number
+        </label>
         <input
           id={`tracking-${orderId}`}
           className="ah-input"
@@ -387,8 +432,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             setTrackingNumber(normalizeTracking(event.target.value))
           }
           placeholder="9400… / 1Z… / DT…"
-          disabled={isPending}
-          aria-label="Tracking number"
+          disabled={isSubmitting}
           aria-invalid={Boolean(errorMessage) || undefined}
           aria-describedby={
             errorMessage ? `tracking-error-${orderId}` : undefined
@@ -400,12 +444,18 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
         <button
           type="button"
           className="btn"
-          disabled={isPending}
-          onClick={() =>
-            startTransition(() => submit({ carrier, tracking: trackingNumber }))
-          }
+          disabled={isSubmitting}
+          onClick={async () => {
+            if (isSubmitting) return;
+            setIsSubmitting(true);
+            try {
+              await submit({ carrier, tracking: trackingNumber });
+            } finally {
+              setIsSubmitting(false);
+            }
+          }}
         >
-          {isPending ? 'Saving…' : 'Save'}
+          {isSubmitting ? 'Saving…' : 'Save'}
         </button>
 
         {initialTracking && (
@@ -419,7 +469,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
               setSuccessMessage(null);
               setViewMode('view');
             }}
-            disabled={isPending}
+            disabled={isSubmitting}
           >
             Cancel
           </button>

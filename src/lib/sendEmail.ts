@@ -1,5 +1,6 @@
 import { Client } from 'postmark';
 import { formatCents } from './utils';
+import { carrierLabels } from '@/constants';
 
 const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
@@ -216,14 +217,6 @@ export const sendSupportEmail = async ({
   }
 };
 
-/** Pretty labels for carriers */
-const carrierLabels: Record<'usps' | 'ups' | 'fedex' | 'other', string> = {
-  usps: 'USPS',
-  ups: 'UPS',
-  fedex: 'FedEx',
-  other: 'Other'
-};
-
 /** Build a clean monetary line for an item. */
 function buildLineAmount(
   item: {
@@ -401,10 +394,16 @@ export async function sendTrackingEmail(input: {
   const doDebug = Boolean(input.debug || process.env.EMAIL_DEBUG === '1');
 
   if (doDebug || doDryRun) {
+    const safeModel = {
+      ...templateModel,
+      tracking_number: templateModel.tracking_number
+        ? `•••${String(templateModel.tracking_number).slice(-4)}`
+        : templateModel.tracking_number
+    };
     console.log(
       `[email:${input.variant}] dryRun=${doDryRun} to=${input.to}`,
       JSON.stringify(
-        { templateId, messageStream, headers, templateModel },
+        { templateId, messageStream, headers, templateModel: safeModel },
         null,
         2
       )
