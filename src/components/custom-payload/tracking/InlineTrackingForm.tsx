@@ -319,6 +319,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       }
 
       setTrackingNumber('');
+      setCarrier(initialCarrier);
       setViewMode('edit');
 
       if (refreshOnSuccess) {

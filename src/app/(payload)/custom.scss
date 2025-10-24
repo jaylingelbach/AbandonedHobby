@@ -98,22 +98,6 @@
     padding: 0;
   }
 
-  /* Each row is a grid item; actions stay a flex row on the right */
-  .ah-col--tracking .ah-form-row {
-    display: block;
-    margin: 0;
-    padding: 0;
-    align-self: center;
-  }
-  .ah-col--tracking .ah-form-actions {
-    display: inline-flex;
-    gap: 10px;
-    justify-self: end; /* pin buttons to the right-most column */
-    align-self: center;
-    margin: 0;
-    padding: 0;
-  }
-
   /* Inputs/buttons sizing for visual rhythm */
   .ah-tracking-cell .ah-input,
   .ah-col--tracking select.ah-input,
@@ -392,17 +376,21 @@
   .ah-link {
     font-weight: 700;
     padding: 1rem 0;
-  }
-  .ah-link__inner {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    border-radius: 0.375rem;
-    outline: none;
-  }
-  .ah-link__icon {
-    width: 18px;
+    [data-theme='light'] .current-user-badge {
+      background: #f3f4f6;
+      color: #111827;
+    }
+    [data-theme='dark'] .current-user-badge {
+      background: #1f2937;
+      color: #e5e7eb;
+    }
+    .current-user-label {
+      font-size: 0.9rem;
+      opacity: 0.8;
+    }
+    .current-user-value {
+      font-size: 1rem;
+    }
     height: 18px;
     display: inline-block;
   }

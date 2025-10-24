@@ -126,7 +126,7 @@ export function getTenantIdsFromUser(user: unknown): string[] {
 
   const candidate = user as UserWithTenants | undefined;
   const tenantEntries = Array.isArray(candidate?.tenants)
-    ? candidate!.tenants!
+    ? candidate.tenants
     : [];
 
   const tenantIds = tenantEntries
@@ -389,9 +389,9 @@ export async function getData(props: AdminViewServerProps): Promise<{
       };
 
       return {
-        id: record.id,
+        orderId: record.id,
         orderNumber: String(record.orderNumber ?? record.id),
-        createdAtISO: String(record.createdAt ?? ''),
+        orderDateISO: String(record.createdAt ?? ''),
         shippedAtISO: String(record.shipment?.shippedAt ?? ''),
         totalCents: typeof record.total === 'number' ? record.total : 0,
         carrier: record.shipment?.carrier ?? undefined,

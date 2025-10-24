@@ -93,6 +93,12 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <p>All set—no orders awaiting tracking.</p>
           ) : (
             <table className="ah-table">
+              <colgroup>
+                <col className="ah-col--order" />
+                <col className="ah-col--date" />
+                <col className="ah-col--total" />
+                <col className="ah-col--tracking" />
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col" className="ah-col--order">

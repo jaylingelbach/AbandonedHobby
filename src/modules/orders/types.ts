@@ -9,9 +9,10 @@ export type ShippingAddress = {
 };
 
 export type ShippedOrderListItem = {
-  id: string;
+  orderId: string;
   orderNumber: string;
-  createdAtISO: string;
+  currency?: string;
+  orderDateISO: string;
   shippedAtISO: string;
   totalCents: number;
   carrier?: 'usps' | 'ups' | 'fedex' | 'other';
