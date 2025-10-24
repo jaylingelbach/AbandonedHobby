@@ -7,7 +7,6 @@ import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
-import { User } from '@/payload-types';
 import { formatCurrency } from '@/lib/utils';
 
 /**
@@ -20,8 +19,6 @@ import { formatCurrency } from '@/lib/utils';
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
-
-  const user = initPageResult.req.user as User | undefined;
 
   return (
     <DefaultTemplate
@@ -93,6 +90,12 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <p>All set—no orders awaiting tracking.</p>
           ) : (
             <table className="ah-table">
+              <colgroup>
+                <col className="ah-col--order" />
+                <col className="ah-col--date" />
+                <col className="ah-col--total" />
+                <col className="ah-col--tracking" />
+              </colgroup>
               <thead>
                 <tr>
                   <th scope="col" className="ah-col--order">
@@ -129,6 +132,75 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                           initialCarrier="usps"
                           initialTracking=""
                           layout="inline"
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
+        <section
+          className="ah-section"
+          aria-labelledby="ah-shipped-heading"
+          style={{ marginTop: 24 }}
+        >
+          <h2 id="ah-shipped-heading">Recently shipped (tracking editable)</h2>
+
+          {data.recentShipped.length === 0 ? (
+            <p>No shipped orders in the last 30 days.</p>
+          ) : (
+            <table className="ah-table">
+              <colgroup>
+                <col className="ah-col--order" />
+                <col className="ah-col--date" />
+                <col className="ah-col--total" />
+                <col className="ah-col--tracking" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col" className="ah-col--order">
+                    Order
+                  </th>
+                  <th scope="col" className="ah-col--date">
+                    Shipped
+                  </th>
+                  <th scope="col" className="ah-col--total">
+                    Total
+                  </th>
+                  <th scope="col" className="ah-col--tracking">
+                    Tracking
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentShipped.map((order) => (
+                  <tr key={order.orderId}>
+                    <td className="ah-col--order">#{order.orderNumber}</td>
+                    <td className="ah-col--date">
+                      {new Date(order.shippedAtISO).toLocaleDateString(
+                        initPageResult.locale?.code?.replace('_', '-'),
+                        { dateStyle: 'medium' }
+                      )}
+                    </td>
+                    <td className="ah-col--total">
+                      {formatCurrency(
+                        (order.totalCents / 100).toFixed(2),
+                        order.currency ?? 'USD'
+                      )}
+                    </td>
+                    <td className="ah-col--tracking">
+                      <div className="ah-tracking-cell">
+                        <InlineTrackingForm
+                          orderId={order.orderId}
+                          initialCarrier={order.carrier ?? 'other'}
+                          initialTracking={order.trackingNumber ?? ''}
+                          layout="inline"
+                          // Optional: do not refresh the whole page if you want to keep
+                          // the user’s scroll position – the row will still stay visible
+                          // because it lives in the "shipped" section.
+                          refreshOnSuccess={false}
                         />
                       </div>
                     </td>

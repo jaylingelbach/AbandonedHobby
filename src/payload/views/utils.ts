@@ -1,5 +1,10 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
+import type { ShippedOrderListItem } from '@/modules/orders/types';
+
+/* -----------------------------------------------------------------------------
+ * Helpers used by the data loader
+ * -------------------------------------------------------------------------- */
 
 /**
  * Normalize a Payload `count()` response into a numeric count.
@@ -121,7 +126,7 @@ export function getTenantIdsFromUser(user: unknown): string[] {
 
   const candidate = user as UserWithTenants | undefined;
   const tenantEntries = Array.isArray(candidate?.tenants)
-    ? candidate!.tenants!
+    ? candidate.tenants
     : [];
 
   const tenantIds = tenantEntries
@@ -154,16 +159,31 @@ function buildUnfulfilledWhere(): Where {
   };
 }
 
+/** Filter used to fetch recently shipped orders. */
+function buildShippedWhere(): Where {
+  return {
+    and: [
+      { fulfillmentStatus: { equals: 'shipped' } },
+      { 'shipment.shippedAt': { exists: true } }
+    ]
+  };
+}
+
+/* -----------------------------------------------------------------------------
+ * Data loader used by the page
+ * -------------------------------------------------------------------------- */
+
 /**
- * Fetches seller-scoped KPI counts and a list of unfulfilled orders visible to the current user.
+ * Fetches seller-scoped KPI counts, orders needing tracking, and recently shipped orders.
  *
- * If there is no authenticated user or no tenant IDs can be derived for the user, returns zeroed counts and an empty list.
- *
- * @returns An object with `summary` (contains `unfulfilledOrders`, `lowInventory`, and `needsOnboarding`) and `needsTracking` (an array of unfulfilled order items to act on)
+ * - “Needs tracking” = paid + unfulfilled.
+ * - “Recently shipped” = shipped within the last 30 days (shippedAt present).
  */
-export async function getData(
-  props: AdminViewServerProps
-): Promise<{ summary: CountSummary; needsTracking: OrderListItem[] }> {
+export async function getData(props: AdminViewServerProps): Promise<{
+  summary: CountSummary;
+  needsTracking: OrderListItem[];
+  recentShipped: ShippedOrderListItem[];
+}> {
   const request = props.initPageResult.req;
   const payloadInstance = request.payload;
 
@@ -182,7 +202,8 @@ export async function getData(
         lowInventory: 0,
         needsOnboarding: false
       },
-      needsTracking: []
+      needsTracking: [],
+      recentShipped: []
     };
   }
 
@@ -194,8 +215,8 @@ export async function getData(
     (currentUser as { tenants?: Array<{ id?: string }> })?.tenants
   )
     ? ((currentUser as { tenants?: Array<{ id?: string }> }).tenants || [])
-        .map((t) => t.id)
-        .filter((v): v is string => typeof v === 'string')
+        .map((tenantRow) => tenantRow.id)
+        .filter((value): value is string => typeof value === 'string')
     : [];
 
   console.log('[seller-dashboard]', {
@@ -207,7 +228,8 @@ export async function getData(
   if (tenantIds.length === 0) {
     return {
       summary: { unfulfilledOrders: 0, lowInventory: 0, needsOnboarding },
-      needsTracking: []
+      needsTracking: [],
+      recentShipped: []
     };
   }
 
@@ -331,12 +353,62 @@ export async function getData(
       };
     });
 
+  // Recently shipped (last 30 days)
+  const shippedSinceISO = new Date(
+    Date.now() - 30 * 24 * 60 * 60 * 1000
+  ).toISOString();
+
+  const shippedResponse = await payloadInstance.find({
+    collection: 'orders',
+    depth: 0,
+    pagination: true,
+    limit: 25,
+    sort: '-shipment.shippedAt',
+    where: {
+      and: [
+        { sellerTenant: { in: tenantIds } },
+        { status: { not_equals: 'canceled' } },
+        buildShippedWhere(),
+        { 'shipment.shippedAt': { greater_than_equal: shippedSinceISO } }
+      ]
+    }
+  });
+
+  const recentShipped: ShippedOrderListItem[] = shippedResponse.docs.map(
+    (orderDocument: unknown): ShippedOrderListItem => {
+      const record = orderDocument as {
+        id: string;
+        orderNumber?: string | null;
+        createdAt?: string | null;
+        total?: number | null;
+        currency?: string | null;
+        shipment?: {
+          carrier?: 'usps' | 'ups' | 'fedex' | 'other' | null;
+          trackingNumber?: string | null;
+          shippedAt?: string | null;
+        } | null;
+      };
+
+      return {
+        orderId: record.id,
+        orderNumber: String(record.orderNumber ?? record.id),
+        currency: record.currency ?? undefined,
+        orderDateISO: String(record.createdAt ?? ''),
+        shippedAtISO: String(record.shipment?.shippedAt ?? ''),
+        totalCents: typeof record.total === 'number' ? record.total : 0,
+        carrier: record.shipment?.carrier ?? undefined,
+        trackingNumber: record.shipment?.trackingNumber ?? undefined
+      };
+    }
+  );
+
   return {
     summary: {
       unfulfilledOrders: unfulfilledCount,
       lowInventory,
       needsOnboarding
     },
-    needsTracking
+    needsTracking,
+    recentShipped
   };
 }

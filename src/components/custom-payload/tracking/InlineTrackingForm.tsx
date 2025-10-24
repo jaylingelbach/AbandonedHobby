@@ -225,6 +225,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = asRecord.message || asRecord.error || message;
           } catch (_jsonParseError: unknown) {
             // ignore parse failure; keep fallback message
+            console.log(_jsonParseError);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -232,6 +233,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = textBody || message;
           } catch (_textReadError: unknown) {
             // ignore read failure; keep fallback message
+            console.log(_textReadError);
           }
         }
 
@@ -287,7 +289,8 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
+            // Clear BOTH fields so the server does not see a carrier-without-tracking
+            shipment: { carrier: null, trackingNumber: '' }
           }),
           signal
         }
@@ -304,6 +307,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = record.message || record.error || message;
           } catch (_jsonErr: unknown) {
             // ignore
+            console.log(_jsonErr);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -311,6 +315,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             if (textBody) message = textBody;
           } catch (_readErr: unknown) {
             // ignore
+            console.log(_readErr);
           }
         }
 
@@ -318,6 +323,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       }
 
       setTrackingNumber('');
+      setCarrier(initialCarrier);
       setViewMode('edit');
 
       if (refreshOnSuccess) {

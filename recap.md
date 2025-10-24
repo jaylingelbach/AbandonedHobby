@@ -3972,3 +3972,51 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/components/custom-payload/tracking/InlineTrackingForm.tsx
   - Refactored form component with carrier validation, view/edit mode toggle, tracking URL generation, improved error handling with errorMessage/successMessage states, remove tracking functionality via PATCH, router refresh on success, and enhanced ARIA attributes.
+
+# Recently shipped orders 10/24/25
+
+## Walkthrough
+
+- Added styling for a new "Recently shipped (tracking editable)" section to the seller dashboard with comprehensive table and form styling updates. Introduced a new ShippedOrderListItem type for recently shipped orders, modified the tracking removal behavior to clear both carrier and tracking fields, and extended dashboard utilities to fetch and display recently shipped orders with editable inline tracking forms.
+
+## New Features
+
+- Added a "Recently shipped" section with editable tracking information for orders.
+
+## Bug Fixes
+
+- Improved tracking removal to properly clear all associated fields.
+
+## Style
+
+- Enhanced accessibility with screen reader support.
+- Refined table and form layouts for better consistency.
+- Improved mobile responsiveness.
+- Enhanced theme-aware styling across components.
+
+## File changes
+
+### Styling overhaul
+
+- src/app/(payload)/custom.scss
+  - Added .sr-only accessibility utility; redesigned table layout (border-collapse, fixed layout, explicit column widths); standardized cell padding and added top borders; implemented grid-based tracking form layout with 120px/minmax(260px, 480px)/auto/auto columns; added theme-aware styling for light/dark modes; modernized skeleton shimmer blocks; introduced card primitives (.ah-card, .ah-card-header, .ah-card-body); added responsive media query at max-width: 900px for mobile stacking.
+
+### Data type addition
+
+- src/modules/orders/types.ts
+  - Added exported ShippedOrderListItem type with fields: orderId, orderNumber, currency, orderDateISO, shippedAtISO, totalCents, carrier, and trackingNumber.
+
+### Tracking removal logic
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Modified removeTracking to send shipment with carrier: null and empty trackingNumber; added local state reset of carrier to initialCarrier and retained viewMode: 'edit' after successful removal.
+
+### Dashboard shipped orders section
+
+- src/payload/views/seller-dashboard.tsx
+  - Added colgroup to Orders table; introduced new "Recently shipped (tracking editable)" section rendering shipped orders with InlineTrackingForm per row; included date/currency formatting and locale-aware rendering.
+
+### Data fetching and utilities
+
+- src/payload/views/utils.ts
+  - Added ShippedOrderListItem type usage; introduced buildShippedWhere helper and recentShipped data field; extended getData flow to fetch, map, and propagate recently shipped orders across all return paths; updated comments to reflect expanded data model.
