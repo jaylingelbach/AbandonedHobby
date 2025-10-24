@@ -156,6 +156,12 @@
     color: #a40000;
   }
 
+  [data-theme='dark'] .ah-tracking-cell .btn--danger {
+    background: #3b0d0d;
+    border-color: #7f1d1d;
+    color: #fecaca;
+  }
+
   /* View mode summary */
   .ah-summary {
     display: inline-flex;
@@ -376,22 +382,6 @@
   /* === “Abandoned Hobby” nav link ======================================= */
   .ah-link {
     font-weight: 700;
-    // padding: 1rem 0;
-    [data-theme='light'] .current-user-badge {
-      background: #f3f4f6;
-      color: #111827;
-    }
-    [data-theme='dark'] .current-user-badge {
-      background: #1f2937;
-      color: #e5e7eb;
-    }
-    .current-user-label {
-      font-size: 0.9rem;
-      opacity: 0.8;
-    }
-    .current-user-value {
-      font-size: 1rem;
-    }
     height: 18px;
     display: inline-block;
   }
@@ -683,6 +673,12 @@
     .ah-col--tracking .ah-form--inline {
       grid-template-columns: 1fr; /* stack controls */
     }
+
+    .ah-col--tracking .ah-form-actions {
+      grid-column: auto;
+      justify-self: stretch;
+    }
+
     .ah-col--tracking .btn {
       width: 100%;
     }
