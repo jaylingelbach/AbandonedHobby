@@ -21,8 +21,6 @@ export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getData(props);
 
-  const user = initPageResult.req.user as User | undefined;
-
   return (
     <DefaultTemplate
       i18n={initPageResult.req.i18n}
