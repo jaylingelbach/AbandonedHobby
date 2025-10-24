@@ -1,62 +1,121 @@
 /* ==========================================================================
    Abandoned Hobby — Admin overrides for Payload
    Notes:
-   - Everything lives in @layer payload to cascade after core admin CSS.
-   - Theme-aware rules target [data-theme='light'] / [data-theme='dark'].
-   - Avoid !important unless Payload base styles force it.
+   - All rules live in @layer payload to cascade after core admin CSS.
+   - We use PX for table column widths (predictable on desktop).
+   - Mobile stack handled in a single media block.
    ========================================================================== */
 
 @layer payload {
-  /* --- Orders table layout ------------------------------------------------ */
+  /* --- A11y helper: visually hide but keep for screen readers ----------- */
+  .sr-only {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+  }
+  /* === Tables ============================================================ */
   .ah-table {
-    table-layout: fixed;
     width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .ah-table thead th {
+    font-weight: 600;
+    color: #444;
+    border-top: none;
+    text-align: left;
   }
   .ah-table th,
   .ah-table td {
-    padding: 12px 14px;
+    padding: 8px 10px;
+    border-top: 1px solid #eee;
+    vertical-align: middle;
   }
-  .ah-table td {
-    vertical-align: top;
+  .ah-table tbody tr:first-child td {
+    border-top: 1px solid #e9e9e9;
   }
 
-  /* tidy columns */
-  .ah-table .ah-col--order,
-  .ah-table .ah-col--date {
-    white-space: nowrap;
-  }
+  /* Column widths — single source of truth (use PX consistently) */
+  .ah-table .ah-col--order {
+    width: 140px;
+  } /* order code column */
   .ah-table .ah-col--date {
     width: 140px;
-  }
+  } /* date column */
   .ah-table .ah-col--total {
     width: 120px;
     text-align: right;
-  }
+  } /* money */
   .ah-table .ah-col--tracking {
+    width: auto;
     min-width: 420px;
   }
 
-  /* --- Inline tracking form grid (Carrier | Tracking | Save) -------------- */
+  /* Numeric alignment + nowrap where helpful */
+  .ah-col--order,
+  .ah-col--date,
+  .ah-col--total {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* === Inline Tracking Form (when rendered in table cells) ============== */
+  .ah-tracking-cell .ah-form {
+    margin: 0;
+  }
+
+  /* Grid layout: Carrier | Tracking | Actions */
   .ah-col--tracking .ah-form,
   .ah-col--tracking .ah-inline-form,
   .ah-col--tracking .ah-form--inline {
     display: grid;
-    grid-template-columns: 120px 1fr auto;
-    gap: 10px 12px;
-    align-items: start; /* top-align items in the grid row */
+    /* Carrier | Tracking | Save | Cancel
+       Wider input, explicit gaps for breathing room */
+    grid-template-columns: 120px minmax(260px, 480px) auto auto;
+    column-gap: 16px;
+    row-gap: 8px;
+    align-items: center;
+  }
+  /* Make wrappers contribute no extra spacing */
+  .ah-col--tracking .ah-form-row {
+    display: contents;
   }
 
-  /* remove stray margins and make the action cell sit at top */
-  .ah-col--tracking .ah-form-row {
+  .ah-col--tracking .ah-form-actions {
+    display: inline-flex;
+    gap: 8px;
+    align-items: center;
+    justify-self: end; /* right side of the grid */
+    grid-column: 3; /* force into the third column */
+    white-space: nowrap;
     margin: 0;
+    padding: 0;
+  }
+
+  /* Each row is a grid item; actions stay a flex row on the right */
+  .ah-col--tracking .ah-form-row {
+    display: block;
+    margin: 0;
+    padding: 0;
+    align-self: center;
   }
   .ah-col--tracking .ah-form-actions {
-    margin: 0; /* kill generic top margin */
-    padding: 0; /* no extra space */
-    align-self: start;
+    display: inline-flex;
+    gap: 10px;
+    justify-self: end; /* pin buttons to the right-most column */
+    align-self: center;
+    margin: 0;
+    padding: 0;
   }
 
-  /* consistent control heights so baselines line up */
+  /* Inputs/buttons sizing for visual rhythm */
+  .ah-tracking-cell .ah-input,
   .ah-col--tracking select.ah-input,
   .ah-col--tracking input.ah-input,
   .ah-col--tracking .btn {
@@ -64,7 +123,6 @@
     line-height: 1;
   }
 
-  /* inputs should look like input */
   .ah-col--tracking select.ah-input,
   .ah-col--tracking input.ah-input {
     background: var(--theme-elevation-50);
@@ -74,113 +132,13 @@
     padding: 6px 8px;
   }
 
-  /* real button styling */
-  .ah-col--tracking .btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    cursor: pointer;
-    border: 1px solid #111827;
-    background: #111827;
-    color: #fff;
-  }
-  .ah-col--tracking .btn:hover {
-    background: #0f172a;
-    border-color: #0f172a;
-  }
-  .ah-col--tracking .btn:focus-visible {
-    outline: 2px solid #1d4ed8;
-    outline-offset: 2px;
-  }
-
-  /* compact success/error messages */
-  .ah-error,
-  .ah-success {
-    margin-top: 6px;
-    font-size: 12px;
-  }
-
-  /* mobile stacks */
-  @media (max-width: 900px) {
-    .ah-table .ah-col--tracking {
-      min-width: 0;
-    }
-    .ah-col--tracking .ah-form,
-    .ah-col--tracking .ah-inline-form,
-    .ah-col--tracking .ah-form--inline {
-      grid-template-columns: 1fr;
-    }
-    .ah-col--tracking .btn {
-      width: 100%;
-    }
-  }
-
-  /* Orders table layout */
-  .ah-table {
-    table-layout: fixed;
-    width: 100%;
-  }
-  .ah-table td {
-    vertical-align: baseline;
-    padding-top: 8px;
-  }
-  .ah-table .ah-col--order,
-  .ah-table .ah-col--date {
-    white-space: nowrap;
-  }
-  .ah-table .ah-col--date {
-    width: 140px;
-  }
-  .ah-table .ah-col--total {
-    width: 120px;
-    text-align: right;
-  }
-  .ah-table .ah-col--tracking {
-    min-width: 420px;
-  }
-
-  /* Tracking form (labels removed) */
-  .ah-col--tracking .ah-form,
-  .ah-col--tracking .ah-inline-form,
-  .ah-col--tracking .ah-form--inline {
-    display: grid;
-    grid-template-columns: 120px 1fr auto; /* Carrier | Tracking | Save */
-    gap: 10px 12px;
-    align-items: start; /* top-align everything in the row */
-  }
-
-  /* Promote children to grid items (kill wrapper offsets) */
-  .ah-col--tracking .ah-form-row,
-  .ah-col--tracking .ah-form-actions {
-    display: contents; /* wrapper contributes no box */
-  }
-
-  /* Every direct control aligns to the top and has no stray margins */
-  .ah-col--tracking .ah-form > * {
-    align-self: start;
-    margin: 0;
-    padding: 0;
-  }
-
-  /* Uniform control heights */
-  .ah-col--tracking select.ah-input,
-  .ah-col--tracking input.ah-input {
-    height: 36px;
-  }
-
-  /* Button (as a grid item) */
+  /* Buttons (primary, ghost, danger) — compact + consistent */
   .ah-col--tracking .btn,
   .ah-tracking-cell button[type='submit'] {
     appearance: none;
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    height: 36px;
     padding: 8px 14px;
     border-radius: 10px;
     font-weight: 800;
@@ -190,8 +148,8 @@
     background: #111827;
     color: #fff;
     line-height: 1;
-    margin: 0; /* ensure no top offset */
-    align-self: start; /* explicit top pin */
+    margin: 0;
+    align-self: start;
   }
   .ah-col--tracking .btn:hover,
   .ah-tracking-cell button[type='submit']:hover {
@@ -203,118 +161,139 @@
     outline: 2px solid #1d4ed8;
     outline-offset: 2px;
   }
-
-  /* Mobile: stack neatly */
-  @media (max-width: 900px) {
-    .ah-table .ah-col--tracking {
-      min-width: 0;
-    }
-    .ah-col--tracking .ah-form,
-    .ah-col--tracking .ah-inline-form,
-    .ah-col--tracking .ah-form--inline {
-      grid-template-columns: 1fr;
-    }
-    .ah-col--tracking .btn {
-      width: 100%;
-    }
+  .ah-tracking-cell .btn--ghost {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: inherit;
+  }
+  .ah-tracking-cell .btn--danger {
+    background: #fee;
+    border: 1px solid #f6caca;
+    color: #a40000;
   }
 
-  /* ===== Stripe: Verify banner (light theme) ============================ */
-  [data-theme='light'] .verify-banner {
-    padding: 1rem;
-    border: 1px solid #e5e7eb; /* gray-200 */
-    border-radius: 0.5rem;
-    background-color: #f9fafb; /* gray-50 */
-    color: #111827; /* slate-900 */
-  }
-  [data-theme='light'] .verify-banner .verify-btn.btn,
-  [data-theme='light'] .verify-banner .verify-btn.btn--style-primary,
-  [data-theme='light'] .verify-banner .verify-btn.btn--style-secondary {
-    background-color: #111827 !important; /* slate-900 */
-    color: #fff !important;
-    border-color: #111827 !important;
-  }
-  [data-theme='light'] .verify-banner .verify-btn:hover,
-  [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    background-color: #0f172a !important; /* slate-950-ish */
-  }
-  [data-theme='light'] .verify-banner .verify-btn .btn__label {
-    font-weight: 700;
-    letter-spacing: 0.01em;
-  }
-  [data-theme='light'] .verify-banner .verify-btn {
-    width: 100%;
-    margin-top: 0.5rem;
-    text-align: center;
-  }
-  [data-theme='light'] .verify-banner .verify-btn:focus:not(:focus-visible) {
-    outline: none;
-  }
-  [data-theme='light'] .verify-banner .verify-btn:focus-visible {
-    outline: 2px solid #1d4ed8; /* blue-600 */
-    outline-offset: 2px;
-  }
-
-  /* ===== Current user badge ============================================ */
-  .current-user-badge {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    margin: 0.5rem 0.5rem 1rem;
-    border-radius: 0.5rem;
-    font-weight: 800;
-  }
-  [data-theme='light'] .current-user-badge {
-    background: #f3f4f6; /* gray-100 */
-    color: #111827; /* slate-900 */
-  }
-  .current-user-label {
-    font-size: 0.9rem;
-    opacity: 0.8;
-  }
-  .current-user-value {
-    font-size: 1rem;
-  }
-
-  /* ===== Nav link (Abandoned Hobby link) ================================ */
-  .ah-link {
-    font-weight: 700;
-    padding: 1rem 0;
-  }
-  .ah-link__inner {
+  /* View mode summary */
+  .ah-summary {
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    text-decoration: none;
-    border-radius: 0.375rem;
-    outline: none;
+    gap: 6px;
+    color: #222;
   }
-  .ah-link__icon {
-    width: 18px;
-    height: 18px;
-    display: inline-block;
-  }
-  .ah-link__label {
-    opacity: 0.95;
-  }
-  [data-theme='light'] .ah-link__inner {
-    color: #111827;
-  } /* slate-900 */
-  [data-theme='light'] .ah-link__inner:hover {
-    color: #0f172a;
-  } /* slate-950 */
-  [data-theme='dark'] .ah-link__inner {
-    color: #e5e7eb;
-  } /* gray-200  */
-  [data-theme='dark'] .ah-link__inner:hover {
-    color: #fff;
-  }
-  .ah-link__inner:focus-visible {
-    outline: 2px solid #1d4ed8;
-    outline-offset: 2px;
+  .ah-summary .ah-summary-label {
+    color: #666;
   }
 
-  /* ===== Onboarding banner ============================================= */
+  /* Tracking code chip + link */
+  .ah-tracking-cell code {
+    font-size: 12.5px;
+    padding: 2px 6px;
+    background: #f7f7f7;
+    border: 1px solid #eee;
+    border-radius: 6px;
+  }
+  .ah-tracking-cell a.ah-link {
+    font-size: 12.5px;
+    text-decoration: underline;
+  }
+
+  /* Inline feedback messages */
+  .ah-tracking-cell .ah-error,
+  .ah-tracking-cell .ah-success,
+  .ah-error,
+  .ah-success {
+    margin: 6px 0 0;
+    font-size: 12px;
+  }
+  .ah-tracking-cell .ah-error,
+  .ah-error {
+    color: #b00020;
+  }
+  .ah-tracking-cell .ah-success,
+  .ah-success {
+    color: #1a7f37;
+  }
+
+  /* === Sections / Cards / Grid ========================================= */
+  .ah-section {
+    margin-top: 24px;
+  }
+  .ah-dashboard-title {
+    margin-bottom: 16px !important;
+  }
+
+  .ah-card {
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 8px;
+    background: var(--theme-elevation-50);
+  }
+  .ah-card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--theme-elevation-100);
+  }
+  .ah-card-title {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+  }
+  .ah-card-body {
+    padding: 16px;
+  }
+
+  .ah-grid {
+    display: grid;
+    gap: 16px;
+  }
+  .ah-grid-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .ah-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .ah-actions--stacked {
+    flex-direction: column;
+  }
+  .btn--block {
+    display: block;
+    width: 100%;
+    text-align: left;
+  }
+
+  /* === Forms (generic) =================================================== */
+  .ah-inline-form,
+  .ah-form {
+    display: grid;
+    gap: 10px;
+  }
+  .ah-form--inline .ah-form-row {
+    display: grid;
+    grid-template-columns: minmax(80px, 100px) 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .ah-form--stacked .ah-form-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+  .ah-label {
+    font-size: 12px;
+    opacity: 0.8;
+  }
+  .ah-input {
+    padding: 6px 8px;
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 6px;
+    width: max-content;
+  }
+  .ah-inline-actions,
+  .ah-form-actions {
+    margin-top: 4px;
+  }
+
+  /* === Onboarding banner (light/dark) =================================== */
   .ah-onboarding-banner {
     margin-bottom: 1rem;
     padding: 12px;
@@ -388,136 +367,66 @@
     color: #0b1220;
   }
 
-  /* Skeleton shimmer */
-  .ah-onboarding-skel .ah-skel {
-    border-radius: 0.375rem;
-    position: relative;
-    overflow: hidden;
-  }
-  .ah-skel-text {
-    height: 0.9rem;
-  }
-  .ah-skel-pill {
-    height: 1.25rem;
-    width: 104px;
-    border-radius: 9999px;
-  }
-  .ah-skel-btn {
-    height: 2rem;
-    width: 110px;
-    border-radius: 0.375rem;
-  }
-  [data-theme='light'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
-  }
-  [data-theme='dark'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
-  }
-
-  /* ===== Generic UI (cards, grid, tables) =============================== */
-  .ah-card {
-    border: 1px solid var(--theme-elevation-100);
-    border-radius: 8px;
-    background: var(--theme-elevation-50);
-  }
-  .ah-card-header {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--theme-elevation-100);
-  }
-  .ah-card-title {
-    margin: 0;
-    font-size: 14px;
-    font-weight: 600;
-  }
-  .ah-card-body {
-    padding: 16px;
-  }
-  .ah-grid {
-    display: grid;
-    gap: 16px;
-  }
-  .ah-grid-3 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  .ah-table th,
-  .ah-table td {
-    padding: 8px 10px;
-  }
-
-  /* ===== Seller dashboard spacing ======================================= */
-  .ah-dashboard-title {
-    margin-bottom: 16px !important;
-  }
-  .ah-section {
-    margin-top: 24px;
-  }
-  .ah-actions {
+  /* === Current user badge =============================================== */
+  .current-user-badge {
     display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-  }
-  .ah-actions--stacked {
-    flex-direction: column;
-  }
-  .btn--block {
-    display: block;
-    width: 100%;
-    text-align: left;
-  }
-
-  /* ===== Forms (inline + stacked) ======================================= */
-  .ah-inline-form,
-  .ah-form {
-    display: grid;
-    gap: 10px;
-  }
-  .ah-inline-row,
-  .ah-form--inline .ah-form-row {
-    display: grid;
-    grid-template-columns: minmax(80px, 100px) 1fr;
-    gap: 8px;
     align-items: center;
+    gap: 0.5rem;
+    margin: 0.5rem 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 800;
   }
-  .ah-form--stacked .ah-form-row {
-    display: grid;
-    grid-template-columns: 1fr;
-    gap: 6px;
+  [data-theme='light'] .current-user-badge {
+    background: #f3f4f6;
+    color: #111827;
   }
-  .ah-label {
-    font-size: 12px;
+  .current-user-label {
+    font-size: 0.9rem;
     opacity: 0.8;
   }
-  .ah-input {
-    padding: 6px 8px;
-    border: 1px solid var(--theme-elevation-100);
-    border-radius: 6px;
-    width: max-content;
-  }
-  .ah-inline-actions,
-  .ah-form-actions {
-    margin-top: 4px;
-  }
-  .ah-error {
-    color: var(--theme-error-500);
-    margin: 4px 0 0;
-    font-size: 12px;
-  }
-  .ah-success {
-    color: var(--theme-success-500);
-    margin: 4px 0 0;
-    font-size: 12px;
+  .current-user-value {
+    font-size: 1rem;
   }
 
-  /* ==========================================================================
-     REFUNDS UI — Full-width card at bottom of Order edit form
-     ========================================================================== */
+  /* === “Abandoned Hobby” nav link ======================================= */
+  .ah-link {
+    font-weight: 700;
+    padding: 1rem 0;
+  }
+  .ah-link__inner {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    text-decoration: none;
+    border-radius: 0.375rem;
+    outline: none;
+  }
+  .ah-link__icon {
+    width: 18px;
+    height: 18px;
+    display: inline-block;
+  }
+  .ah-link__label {
+    opacity: 0.95;
+  }
+  [data-theme='light'] .ah-link__inner {
+    color: #111827;
+  }
+  [data-theme='light'] .ah-link__inner:hover {
+    color: #0f172a;
+  }
+  [data-theme='dark'] .ah-link__inner {
+    color: #e5e7eb;
+  }
+  [data-theme='dark'] .ah-link__inner:hover {
+    color: #fff;
+  }
+  .ah-link__inner:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+  }
 
-  /* Flatten the containing group block */
+  /* === Refunds UI (flatten group container and style rows) ============== */
   .field-type.group[data-field-name='refunds'] {
     padding: 0;
     border: none;
@@ -532,8 +441,6 @@
   .ah-refund-card {
     margin-top: 8px;
   }
-
-  /* Header area */
   .ah-refund-header {
     display: flex;
     align-items: center;
@@ -555,14 +462,12 @@
     opacity: 0.75;
   }
 
-  /* Table container */
   .ah-refund-table {
     margin-top: 4px;
     margin-bottom: 20px;
-  } /* space before controls row */
+  }
 
-  /* Header row (labels) + data rows share the same 5-column grid
-     Columns: name | purchased | return qty | amount | unit */
+  /* Columns: name | purchased | return qty | amount | unit */
   .ah-refund-head,
   .ah-refund-row {
     display: grid;
@@ -576,8 +481,6 @@
       grid-template-columns: 1fr 90px 110px 140px 100px;
     }
   }
-
-  /* Header visuals */
   .ah-refund-head {
     padding: 6px 8px;
     margin-bottom: 8px;
@@ -587,24 +490,20 @@
   .ah-refund-head .ah-refund-head-cell {
     font-weight: 600;
   }
-
-  /* Body rows stack */
   .ah-refund-body {
     display: grid;
     gap: 10px;
   }
 
-  /* Column alignment helpers */
   .ah-refund-col {
     min-width: 0;
-  } /* prevent overflow pushing cols */
+  }
   .ah-refund-col--qty,
   .ah-refund-col--amount,
   .ah-refund-col--unit {
     justify-self: end;
-  } /* numeric-ish columns hug right */
+  }
 
-  /* Item text (col 1) */
   .ah-item-title {
     font-weight: 600;
     line-height: 1.2;
@@ -615,7 +514,6 @@
     margin-top: 2px;
   }
 
-  /* Quantity input (rounded pill) */
   .ah-chip-input {
     width: 100%;
     height: 36px;
@@ -638,7 +536,7 @@
     border-radius: 8px;
     font-size: 14px;
     padding: 0 12px;
-  } /* squarer variant */
+  }
   .ah-chip-input:focus-visible {
     outline: 2px solid #1d4ed8;
     outline-offset: 2px;
@@ -649,7 +547,6 @@
     margin: 0;
   }
 
-  /* Money input ($ prefix) */
   .ah-money {
     position: relative;
     display: grid;
@@ -672,7 +569,6 @@
     max-width: 160px;
   }
 
-  /* Summary + CTA row */
   .ah-refund-summary {
     margin-top: 24px;
     display: flex;
@@ -695,14 +591,12 @@
     margin-top: 4px;
   }
 
-  /* Chips (muted) */
   .ah-chip.ah-chip--muted {
     background: #e5e7eb;
     color: #374151;
-    border: 1px solid #e5e7eb; /* gray-200 / gray-700 */
+    border: 1px solid #e5e7eb;
   }
 
-  /* Refund action button (standalone variant) */
   .ah-refund {
     display: flex;
     gap: 8px;
@@ -744,14 +638,27 @@
     cursor: not-allowed;
     pointer-events: none;
   }
-  @media (max-width: 900px) {
-    .ah-refund-btn {
-      width: 100%;
-      text-align: center;
-    }
+
+  /* === Skeleton shimmer (reduced motion aware) ========================== */
+  .ah-onboarding-skel .ah-skel {
+    border-radius: 0.375rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .ah-skel-text {
+    height: 0.9rem;
+  }
+  .ah-skel-pill {
+    height: 1.25rem;
+    width: 104px;
+    border-radius: 9999px;
+  }
+  .ah-skel-btn {
+    height: 2rem;
+    width: 110px;
+    border-radius: 0.375rem;
   }
 
-  /* ===== Shared animations ============================================== */
   @keyframes ah-shimmer {
     0% {
       background-position: 200% 0;
@@ -760,9 +667,38 @@
       background-position: -200% 0;
     }
   }
+  [data-theme='light'] .ah-onboarding-skel .ah-skel {
+    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
+    background-size: 200% 100%;
+    animation: ah-shimmer 1.2s infinite;
+  }
+  [data-theme='dark'] .ah-onboarding-skel .ah-skel {
+    background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
+    background-size: 200% 100%;
+    animation: ah-shimmer 1.2s infinite;
+  }
   @media (prefers-reduced-motion: reduce) {
     .ah-onboarding-skel .ah-skel {
       animation: none !important;
+    }
+  }
+
+  /* === Mobile adjustments (single media block) ========================== */
+  @media (max-width: 900px) {
+    .ah-table .ah-col--tracking {
+      min-width: 0;
+    }
+    .ah-col--tracking .ah-form,
+    .ah-col--tracking .ah-inline-form,
+    .ah-col--tracking .ah-form--inline {
+      grid-template-columns: 1fr; /* stack controls */
+    }
+    .ah-col--tracking .btn {
+      width: 100%;
+    }
+    .ah-refund-btn {
+      width: 100%;
+      text-align: center;
     }
   }
 }
@@ -782,6 +718,7 @@
   .app-nav {
     background: var(--ah-paper);
   }
+
   .template-default__wrap {
     background: var(--ah-sheet);
   }

@@ -138,6 +138,72 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             </table>
           )}
         </section>
+        <section
+          className="ah-section"
+          aria-labelledby="ah-shipped-heading"
+          style={{ marginTop: 24 }}
+        >
+          <h2 id="ah-shipped-heading">Recently shipped (tracking editable)</h2>
+
+          {data.recentShipped.length === 0 ? (
+            <p>No shipped orders in the last 30 days.</p>
+          ) : (
+            <table className="ah-table">
+              <colgroup>
+                <col className="ah-col--order" />
+                <col className="ah-col--date" />
+                <col className="ah-col--total" />
+                <col className="ah-col--tracking" />
+              </colgroup>
+              <thead>
+                <tr>
+                  <th scope="col" className="ah-col--order">
+                    Order
+                  </th>
+                  <th scope="col" className="ah-col--date">
+                    Shipped
+                  </th>
+                  <th scope="col" className="ah-col--total">
+                    Total
+                  </th>
+                  <th scope="col" className="ah-col--tracking">
+                    Tracking
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.recentShipped.map((order) => (
+                  <tr key={order.id}>
+                    <td className="ah-col--order">#{order.orderNumber}</td>
+                    <td className="ah-col--date">
+                      {new Date(order.shippedAtISO).toLocaleDateString(
+                        initPageResult.locale?.code?.replace('_', '-'),
+                        { dateStyle: 'medium' }
+                      )}
+                    </td>
+                    <td className="ah-col--total">
+                      {formatCurrency((order.totalCents / 100).toFixed(2))}
+                    </td>
+                    <td className="ah-col--tracking">
+                      <div className="ah-tracking-cell">
+                        <InlineTrackingForm
+                          orderId={order.id}
+                          initialCarrier={order.carrier ?? 'other'}
+                          initialTracking={order.trackingNumber ?? ''}
+                          layout="inline"
+                          // Optional: do not refresh the whole page if you want to keep
+                          // the user’s scroll position – the row will still stay visible
+                          // because it lives in the "shipped" section.
+                          refreshOnSuccess={false}
+                        />
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </section>
       </Gutter>
     </DefaultTemplate>
   );

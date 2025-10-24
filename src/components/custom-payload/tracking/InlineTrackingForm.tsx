@@ -287,7 +287,8 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
+            // Clear BOTH fields so the server does not see a carrier-without-tracking
+            shipment: { carrier: null, trackingNumber: '' }
           }),
           signal
         }

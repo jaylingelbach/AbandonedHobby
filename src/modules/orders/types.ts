@@ -8,6 +8,16 @@ export type ShippingAddress = {
   country?: string | null; // ISO-2
 };
 
+export type ShippedOrderListItem = {
+  id: string;
+  orderNumber: string;
+  createdAtISO: string;
+  shippedAtISO: string;
+  totalCents: number;
+  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  trackingNumber?: string;
+};
+
 export type OrderListItem = {
   orderId: string;
   orderNumber: string;
