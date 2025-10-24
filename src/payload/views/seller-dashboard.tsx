@@ -185,7 +185,10 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                       )}
                     </td>
                     <td className="ah-col--total">
-                      {formatCurrency((order.totalCents / 100).toFixed(2))}
+                      {formatCurrency(
+                        (order.totalCents / 100).toFixed(2),
+                        order.currency ?? 'USD'
+                      )}
                     </td>
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">

@@ -381,6 +381,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
         orderNumber?: string | null;
         createdAt?: string | null;
         total?: number | null;
+        currency?: string | null;
         shipment?: {
           carrier?: 'usps' | 'ups' | 'fedex' | 'other' | null;
           trackingNumber?: string | null;
@@ -391,6 +392,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
       return {
         orderId: record.id,
         orderNumber: String(record.orderNumber ?? record.id),
+        currency: record.currency ?? undefined,
         orderDateISO: String(record.createdAt ?? ''),
         shippedAtISO: String(record.shipment?.shippedAt ?? ''),
         totalCents: typeof record.total === 'number' ? record.total : 0,
