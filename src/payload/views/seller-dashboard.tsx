@@ -7,7 +7,6 @@ import { UiCard } from '@/components/custom-payload/ui/UiCard';
 import { getData } from './utils';
 
 import type { AdminViewServerProps } from 'payload';
-import { User } from '@/payload-types';
 import { formatCurrency } from '@/lib/utils';
 
 /**
