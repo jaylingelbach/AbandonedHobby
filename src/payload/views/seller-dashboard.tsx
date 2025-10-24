@@ -179,7 +179,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
               </thead>
               <tbody>
                 {data.recentShipped.map((order) => (
-                  <tr key={order.id}>
+                  <tr key={order.orderId}>
                     <td className="ah-col--order">#{order.orderNumber}</td>
                     <td className="ah-col--date">
                       {new Date(order.shippedAtISO).toLocaleDateString(
@@ -193,7 +193,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">
                         <InlineTrackingForm
-                          orderId={order.id}
+                          orderId={order.orderId}
                           initialCarrier={order.carrier ?? 'other'}
                           initialTracking={order.trackingNumber ?? ''}
                           layout="inline"

@@ -253,7 +253,7 @@
   }
   .ah-form--inline .ah-form-row {
     display: grid;
-    grid-template-columns: minmax(80px, 100px) 1fr;
+    // grid-template-columns: minmax(80px, 100px) 1fr;
     gap: 8px;
     align-items: center;
   }
@@ -375,7 +375,7 @@
   /* === “Abandoned Hobby” nav link ======================================= */
   .ah-link {
     font-weight: 700;
-    padding: 1rem 0;
+    // padding: 1rem 0;
     [data-theme='light'] .current-user-badge {
       background: #f3f4f6;
       color: #111827;
