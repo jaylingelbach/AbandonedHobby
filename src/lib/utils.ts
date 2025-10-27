@@ -10,7 +10,6 @@ import type { ProductCardProps } from '@/modules/library/ui/components/product-c
 
 import type { ReactNode } from 'react';
 import { LexicalNode } from '@/modules/library/types';
-import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 // ─────────────────────────────────────────────────────────────
 // Tailwind / class utilities
@@ -572,9 +571,9 @@ export function buildTrackingUrl(
 ): string | undefined {
   if (!normalizedTracking) return undefined;
   if (selectedCarrier === 'usps') {
-    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
       normalizedTracking
-    )}&AgreeToTermsAndConditions=yes`;
+    )}`;
   }
   if (selectedCarrier === 'ups') {
     return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(

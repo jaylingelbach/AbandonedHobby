@@ -225,7 +225,7 @@ export const ordersRouter = createTRPCRouter({
         productId,
         productIds,
         shipping,
-        shipment
+        gi
       };
     }),
 
