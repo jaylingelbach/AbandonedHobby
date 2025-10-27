@@ -69,6 +69,13 @@ export type OrderSummaryDTO = {
   productIds?: string[]; // All product IDs in the order when multiple items exist
   shipping?: ShippingAddress;
   items?: OrderItemDTO[];
+  shipment?: ShipmentDTO;
+};
+
+export type ShipmentDTO = {
+  carrier?: 'usps' | 'ups' | 'fedex' | 'other' | null;
+  trackingNumber: string | null;
+  shippedAtISO: string | null;
 };
 
 type BaseOrderSummaryProps = {

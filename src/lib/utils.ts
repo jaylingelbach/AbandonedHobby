@@ -9,6 +9,8 @@ import { twMerge } from 'tailwind-merge';
 import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
 
 import type { ReactNode } from 'react';
+import { LexicalNode } from '@/modules/library/types';
+import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 // ─────────────────────────────────────────────────────────────
 // Tailwind / class utilities
@@ -503,4 +505,86 @@ export function getTenantImageURLSafe(
   if (!obj) return undefined;
   const imageObj = readRecordProp(obj, 'image'); // only returns object, not string IDs
   return getBestUrlFromMedia(imageObj, preferred);
+}
+
+export function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+function toArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+export function nodeHasMeaningfulContent(node: unknown): boolean {
+  if (node === null || typeof node !== 'object') return false;
+  const n = node as LexicalNode;
+
+  // Text with non-whitespace
+  if (isNonEmptyString(n.text)) return true;
+
+  // Media or structural nodes count as content even without text
+  const contentTypes = new Set([
+    'image',
+    'upload',
+    'link',
+    'list',
+    'listitem',
+    'quote',
+    'blockquote',
+    'code',
+    'heading',
+    'hr',
+    'autolink'
+  ]);
+  if (n.type && contentTypes.has(n.type)) return true;
+  if (isNonEmptyString(n.src)) return true;
+
+  // Recurse into children
+  const children = toArray((n as { children?: unknown }).children);
+  for (const child of children) {
+    if (nodeHasMeaningfulContent(child)) return true;
+  }
+  return false;
+}
+
+export function isLexicalRichTextEmpty(rich: unknown): boolean {
+  // Payload Lexical stores { root: { children: [...] } }
+  const root = (rich as { root?: unknown })?.root as
+    | { children?: unknown }
+    | undefined;
+  const children = toArray(root?.children);
+  for (const child of children) {
+    if (nodeHasMeaningfulContent(child)) return false;
+  }
+  return true;
+}
+
+/**
+ * Builds a carrier-specific public tracking URL for a normalized tracking number.
+ *
+ * @param selectedCarrier - The carrier identifier.
+ * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
+ * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
+ */
+export function buildTrackingUrl(
+  selectedCarrier: Carrier,
+  normalizedTracking: string
+): string | undefined {
+  if (!normalizedTracking) return undefined;
+  if (selectedCarrier === 'usps') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+      normalizedTracking
+    )}`;
+  }
+  if (selectedCarrier === 'ups') {
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+      normalizedTracking
+    )}`;
+  }
+  if (selectedCarrier === 'fedex') {
+    return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
+      normalizedTracking
+    )}`;
+  }
+  return undefined;
 }

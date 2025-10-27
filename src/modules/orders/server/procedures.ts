@@ -6,7 +6,12 @@ import { getPrimaryCardImageUrl } from '@/lib/utils';
 import type { Order, Product, Tenant } from '@/payload-types';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
-import { OrderSummaryDTO, OrderListItem, OrderConfirmationDTO } from '../types';
+import {
+  OrderSummaryDTO,
+  OrderListItem,
+  OrderConfirmationDTO,
+  ShipmentDTO
+} from '../types';
 import { mapOrderToSummary, mapOrderToConfirmation } from './utils';
 import { relId } from '@/lib/relationshipHelpers';
 import { mapOrderToBuyer } from './utils';
@@ -187,6 +192,21 @@ export const ordersRouter = createTRPCRouter({
             }
           : undefined;
 
+      const shipment =
+        order.shipment && typeof order.shipment === 'object'
+          ? {
+              carrier:
+                (order.shipment as { carrier?: ShipmentDTO['carrier'] })
+                  .carrier ?? null,
+              trackingNumber:
+                (order.shipment as { trackingNumber?: string | null })
+                  .trackingNumber ?? null,
+              shippedAtISO:
+                (order.shipment as { shippedAt?: string | null }).shippedAt ??
+                null
+            }
+          : undefined;
+
       return {
         orderId: String(order.id),
         orderNumber: order.orderNumber,
@@ -197,7 +217,8 @@ export const ordersRouter = createTRPCRouter({
         quantity: quantityForProduct,
         productId,
         productIds,
-        shipping // optional on DTO, so omit if not present
+        shipping,
+        shipment
       };
     }),
 

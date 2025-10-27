@@ -29,3 +29,11 @@ export type ProductCardDTO = {
   reviewRating: number;
   orderId: string;
 };
+
+/** -------- RichText emptiness guard for Payload Lexical JSON -------- */
+export type LexicalNode = {
+  type?: string;
+  text?: string;
+  children?: unknown;
+  src?: string;
+};

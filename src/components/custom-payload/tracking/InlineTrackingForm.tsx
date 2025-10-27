@@ -5,6 +5,8 @@ import * as React from 'react';
 import { useState } from 'react';
 import { z } from 'zod';
 
+import { buildTrackingUrl } from '@/lib/utils';
+
 import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 /**
@@ -140,36 +142,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   }, []);
 
   /**
-   * Builds a carrier-specific public tracking URL for a normalized tracking number.
-   *
-   * @param selectedCarrier - The carrier identifier.
-   * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
-   * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
-   */
-  function buildTrackingUrl(
-    selectedCarrier: Carrier,
-    normalizedTracking: string
-  ): string | undefined {
-    if (!normalizedTracking) return undefined;
-    if (selectedCarrier === 'usps') {
-      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    if (selectedCarrier === 'ups') {
-      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    if (selectedCarrier === 'fedex') {
-      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    return undefined;
-  }
-
-  /**
    * Validate and submit a tracking number for the current order, updating component state and optionally refreshing the page.
    *
    * Normalizes the provided tracking value, validates it against the form schema for the selected carrier, aborts any in-flight request, and sends a PATCH to update the order's shipment (carrier and normalized tracking number). On success, updates local state (carrier, trackingNumber, viewMode) and either calls the router refresh or sets a success message. On error, sets an error message; abort errors are ignored.
@@ -225,7 +197,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = asRecord.message || asRecord.error || message;
           } catch (_jsonParseError: unknown) {
             // ignore parse failure; keep fallback message
-            console.log(_jsonParseError);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -233,7 +204,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = textBody || message;
           } catch (_textReadError: unknown) {
             // ignore read failure; keep fallback message
-            console.log(_textReadError);
           }
         }
 
@@ -289,8 +259,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            // Clear BOTH fields so the server does not see a carrier-without-tracking
-            shipment: { carrier: null, trackingNumber: '' }
+            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
           }),
           signal
         }
@@ -307,7 +276,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = record.message || record.error || message;
           } catch (_jsonErr: unknown) {
             // ignore
-            console.log(_jsonErr);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -315,7 +283,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             if (textBody) message = textBody;
           } catch (_readErr: unknown) {
             // ignore
-            console.log(_readErr);
           }
         }
 
@@ -323,7 +290,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       }
 
       setTrackingNumber('');
-      setCarrier(initialCarrier);
       setViewMode('edit');
 
       if (refreshOnSuccess) {
