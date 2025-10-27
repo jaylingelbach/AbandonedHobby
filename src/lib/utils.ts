@@ -10,6 +10,7 @@ import type { ProductCardProps } from '@/modules/library/ui/components/product-c
 
 import type { ReactNode } from 'react';
 import { LexicalNode } from '@/modules/library/types';
+import { Carrier } from '@/constants';
 
 // ─────────────────────────────────────────────────────────────
 // Tailwind / class utilities
