@@ -572,9 +572,9 @@ export function buildTrackingUrl(
 ): string | undefined {
   if (!normalizedTracking) return undefined;
   if (selectedCarrier === 'usps') {
-    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
       normalizedTracking
-    )}`;
+    )}&AgreeToTermsAndConditions=yes`;
   }
   if (selectedCarrier === 'ups') {
     return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(

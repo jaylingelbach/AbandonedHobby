@@ -34,6 +34,6 @@ export type ProductCardDTO = {
 export type LexicalNode = {
   type?: string;
   text?: string;
-  children?: unknown;
   src?: string;
+  children?: LexicalNode[]; // recursive; matches typical Lexical trees
 };
