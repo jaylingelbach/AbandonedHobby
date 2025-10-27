@@ -259,7 +259,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            shipment: { trackingNumber: '' } // server hook will clear URL and shippedAt
+            shipment: { trackingNumber: null } // server hook will clear URL and shippedAt
           }),
           signal
         }
@@ -317,7 +317,10 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       : 'ah-form ah-form--inline';
 
   if (viewMode === 'view' && trackingNumber) {
-    const trackingUrl = buildTrackingUrl(carrier, trackingNumber);
+    const trackingUrl = buildTrackingUrl(
+      carrier,
+      normalizeTracking(trackingNumber)
+    );
 
     return (
       <div className={rootClassName} aria-live="polite">

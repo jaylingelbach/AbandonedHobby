@@ -1,3 +1,5 @@
+import { Carrier } from '@/constants';
+
 export type ShippingAddress = {
   name?: string | null;
   line1?: string | null;
@@ -15,7 +17,7 @@ export type ShippedOrderListItem = {
   orderDateISO: string;
   shippedAtISO: string;
   totalCents: number;
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  carrier?: Carrier;
   trackingNumber?: string;
 };
 
@@ -73,7 +75,7 @@ export type OrderSummaryDTO = {
 };
 
 export type ShipmentDTO = {
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other' | null;
+  carrier?: Carrier;
   trackingNumber: string | null;
   shippedAtISO: string | null;
 };

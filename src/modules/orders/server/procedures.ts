@@ -197,13 +197,20 @@ export const ordersRouter = createTRPCRouter({
           ? {
               carrier:
                 (order.shipment as { carrier?: ShipmentDTO['carrier'] })
-                  .carrier ?? null,
-              trackingNumber:
-                (order.shipment as { trackingNumber?: string | null })
-                  .trackingNumber ?? null,
-              shippedAtISO:
-                (order.shipment as { shippedAt?: string | null }).shippedAt ??
-                null
+                  .carrier ?? undefined,
+              trackingNumber: (() => {
+                const tn =
+                  (order.shipment as { trackingNumber?: string | null })
+                    .trackingNumber ?? null;
+                return tn && tn.trim() !== '' ? tn : null;
+              })(),
+              shippedAtISO: (() => {
+                const raw =
+                  (order.shipment as { shippedAt?: string | Date | null })
+                    .shippedAt ?? null;
+                if (!raw) return null;
+                return raw instanceof Date ? raw.toISOString() : raw;
+              })()
             }
           : undefined;
 
