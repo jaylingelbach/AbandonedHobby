@@ -284,7 +284,12 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
 
   const inTransit: BuyerOrderListItem[] = (inTransitResponse.docs as unknown[])
     .map(toBuyerOrderListItem)
-    .filter((item): item is BuyerOrderListItem => item !== null);
+    .filter((item): item is BuyerOrderListItem => item !== null)
+    .sort((a, b) => {
+      const bt = Date.parse(b.shippedAtISO ?? b.createdAtISO);
+      const at = Date.parse(a.shippedAtISO ?? a.createdAtISO);
+      return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
+    });
 
   return {
     summary: {
