@@ -515,6 +515,21 @@ function toArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
 
+// Hoisted once to avoid recreating per call
+const CONTENT_NODE_TYPES = new Set([
+  'image',
+  'upload',
+  'link',
+  'list',
+  'listitem',
+  'quote',
+  'blockquote',
+  'code',
+  'heading',
+  'hr',
+  'autolink'
+]);
+
 export function nodeHasMeaningfulContent(node: unknown): boolean {
   if (node === null || typeof node !== 'object') return false;
   const n = node as LexicalNode;
@@ -522,21 +537,7 @@ export function nodeHasMeaningfulContent(node: unknown): boolean {
   // Text with non-whitespace
   if (isNonEmptyString(n.text)) return true;
 
-  // Media or structural nodes count as content even without text
-  const contentTypes = new Set([
-    'image',
-    'upload',
-    'link',
-    'list',
-    'listitem',
-    'quote',
-    'blockquote',
-    'code',
-    'heading',
-    'hr',
-    'autolink'
-  ]);
-  if (n.type && contentTypes.has(n.type)) return true;
+  if (n.type && CONTENT_NODE_TYPES.has(n.type)) return true;
   if (isNonEmptyString(n.src)) return true;
 
   // Recurse into children
@@ -579,7 +580,7 @@ export function buildTrackingUrl(
   if (selectedCarrier === 'ups') {
     return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
       normalizedTracking
-    )}`;
+    )}&AgreeToTermsAndConditions=yes`;
   }
   if (selectedCarrier === 'fedex') {
     return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
