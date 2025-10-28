@@ -31,7 +31,11 @@ import { buildTrackingUrl, isLexicalRichTextEmpty } from '@/lib/utils';
 
 import type { SerializedEditorState, SerializedLexicalNode } from 'lexical';
 
-/** ------------------------------------------------------------------- */
+/**
+ * Determines whether a value is a Lexical `SerializedEditorState` whose `root` node exists.
+ *
+ * @returns `true` if `value` is a `SerializedEditorState` whose `root` has `type === 'root'` and a `children` array, `false` otherwise.
+ */
 
 function isLexicalEditorState(
   value: unknown
