@@ -170,7 +170,7 @@ function buildShippedWhere(): Where {
 }
 
 /* -----------------------------------------------------------------------------
- * Data loader used by the page
+ * Data loader used by the Seller Dashboard
  * -------------------------------------------------------------------------- */
 
 /**
@@ -219,11 +219,12 @@ export async function getData(props: AdminViewServerProps): Promise<{
         .filter((value): value is string => typeof value === 'string')
     : [];
 
-  console.log('[seller-dashboard]', {
-    userId: currentUser.id,
-    tenantIds, // ✅ use these in queries
-    tenantArrayRowIds // 🛠️ debug only
-  });
+  if (process.env.NODE_ENV !== 'production')
+    console.log('[seller-dashboard]', {
+      userId: currentUser.id,
+      tenantIds, // use these in queries
+      tenantArrayRowIds // debug only
+    });
 
   if (tenantIds.length === 0) {
     return {
@@ -369,7 +370,12 @@ export async function getData(props: AdminViewServerProps): Promise<{
         { sellerTenant: { in: tenantIds } },
         { status: { not_equals: 'canceled' } },
         buildShippedWhere(),
-        { 'shipment.shippedAt': { greater_than_equal: shippedSinceISO } }
+        {
+          or: [
+            { 'shipment.shippedAt': { greater_than_equal: shippedSinceISO } },
+            { 'shipments.shippedAt': { greater_than_equal: shippedSinceISO } }
+          ]
+        }
       ]
     }
   });

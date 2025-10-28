@@ -8,8 +8,12 @@ import {
 } from '@/lib/server/payload-utils/orders';
 
 import { afterChangeOrders } from '@/lib/server/payload-utils/order-afterChange';
+import { mirrorShipmentsArrayToSingle } from '@/lib/server/orders/mirror-shipments-to-single';
+import { lockAndCalculateAmounts } from '@/lib/server/orders/lock-and-calc-amounts';
 
 import type { CollectionConfig, FieldAccess } from 'payload';
+import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
+import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
   const roles: string[] | undefined = req?.user?.roles as string[] | undefined;
@@ -39,7 +43,13 @@ export const Orders: CollectionConfig = {
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   hooks: {
-    afterChange: [afterChangeOrders]
+    afterChange: [afterChangeOrders],
+    beforeChange: [
+      mirrorSingleShipmentToArray,
+      mirrorShipmentsArrayToSingle,
+      lockAndCalculateAmounts,
+      autoSetDeliveredAt
+    ]
   },
   fields: [
     // ----- Display / identifiers -----
@@ -57,7 +67,8 @@ export const Orders: CollectionConfig = {
       name: 'buyer',
       type: 'relationship',
       relationTo: 'users',
-      required: true
+      required: true,
+      index: true
     },
     { name: 'buyerEmail', type: 'email' },
 
@@ -303,6 +314,169 @@ export const Orders: CollectionConfig = {
           }
         }
       ]
+    },
+    // --- Money breakdown (order-level, cents) -----------------------------------------
+    {
+      type: 'group',
+      name: 'amounts',
+      admin: {
+        description: 'Order-level money breakdown (all cents)',
+        readOnly: true
+      },
+      access: { create: () => false, update: () => false },
+      fields: [
+        { name: 'subtotalCents', type: 'number', admin: { readOnly: true } },
+        { name: 'taxTotalCents', type: 'number', admin: { readOnly: true } },
+        {
+          name: 'shippingTotalCents',
+          type: 'number',
+          admin: { readOnly: true }
+        },
+        {
+          name: 'discountTotalCents',
+          type: 'number',
+          admin: { readOnly: true }
+        },
+        { name: 'platformFeeCents', type: 'number', admin: { readOnly: true } },
+        { name: 'stripeFeeCents', type: 'number', admin: { readOnly: true } },
+        { name: 'sellerNetCents', type: 'number', admin: { readOnly: true } }
+      ]
+    },
+
+    // --- Documents / Links -------------------------------------------------------------
+    {
+      type: 'group',
+      name: 'documents',
+      fields: [
+        { name: 'invoiceUrl', type: 'text' },
+        { name: 'receiptUrl', type: 'text' }
+      ]
+    },
+
+    // --- Shipment lifecycle (existing `shipment` stays). Add deliveredAt & cancel info -
+    {
+      name: 'deliveredAt',
+      type: 'date',
+      admin: { description: 'Set when delivery is confirmed' },
+      index: true
+    },
+    {
+      name: 'canceledAt',
+      type: 'date',
+      admin: { description: 'Set if order is canceled' },
+      index: true
+    },
+    {
+      name: 'cancellationReason',
+      type: 'text',
+      admin: { description: 'Optional short note for cancellation' }
+    },
+
+    // --- Split shipments (non-breaking; keep existing `shipment`) ----------------------
+    {
+      name: 'shipments',
+      type: 'array',
+      admin: {
+        description:
+          'Advanced: multi-shipment history. The most recent entry mirrors into the main `shipment`.',
+        condition: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      fields: [
+        {
+          name: 'carrier',
+          type: 'select',
+          options: [
+            { label: 'USPS', value: 'usps' },
+            { label: 'UPS', value: 'ups' },
+            { label: 'FedEx', value: 'fedex' },
+            { label: 'Other', value: 'other' }
+          ]
+        },
+        { name: 'trackingNumber', type: 'text' },
+        { name: 'trackingUrl', type: 'text' },
+        { name: 'shippedAt', type: 'date' },
+        // Optional: item subset if you want to model partial shipments
+        {
+          name: 'items',
+          type: 'array',
+          fields: [
+            {
+              name: 'orderItemId',
+              type: 'text',
+              admin: { description: 'ID of the line item in orders.items[]' }
+            },
+            { name: 'quantity', type: 'number', min: 1 }
+          ]
+        }
+      ]
+    },
+
+    // --- Returns / RMA scaffold --------------------------------------------------------
+    {
+      type: 'group',
+      name: 'returns',
+      admin: {
+        description:
+          'High-level return metadata (line-level lives in Refunds collection)'
+      },
+      fields: [
+        { name: 'rmaNumber', type: 'text' },
+        {
+          name: 'status',
+          type: 'select',
+          options: [
+            { label: 'None', value: 'none' },
+            { label: 'Requested', value: 'requested' },
+            { label: 'Approved', value: 'approved' },
+            { label: 'In Transit', value: 'in_transit' },
+            { label: 'Received', value: 'received' },
+            { label: 'Refunded', value: 'refunded' },
+            { label: 'Rejected', value: 'rejected' }
+          ],
+          defaultValue: 'none'
+        }
+      ]
+    },
+
+    // --- Reviews pivot (so you can prompt and deep-link) --------------------------------
+    {
+      type: 'group',
+      name: 'reviews',
+      fields: [
+        { name: 'hasReview', type: 'checkbox', defaultValue: false },
+        { name: 'reviewId', type: 'relationship', relationTo: 'reviews' }
+      ]
+    },
+
+    // --- Support / Conversation pivot ---------------------------------------------------
+    {
+      type: 'group',
+      name: 'support',
+      fields: [
+        {
+          name: 'conversation',
+          type: 'relationship',
+          relationTo: 'conversations',
+          admin: { description: 'Primary buyer-seller thread for this order' }
+        },
+        { name: 'lastBuyerViewedAt', type: 'date' }
+      ]
+    },
+
+    // --- Notes (visibility-aware) -------------------------------------------------------
+    {
+      name: 'buyerNotes',
+      type: 'textarea',
+      admin: { description: 'Visible to buyer and seller' }
+    },
+    {
+      name: 'sellerPrivateNotes',
+      type: 'textarea',
+      admin: { description: 'Internal notes visible only to seller/admin' },
+      access: {
+        read: canEditOrderShipment,
+        update: canEditOrderShipment
+      }
     }
   ]
 };

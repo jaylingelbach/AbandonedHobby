@@ -4068,3 +4068,40 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/orders/ui/OrderSummaryCard.tsx
   - Replaced max-w-md with w-full max-w-none (removed max-width constraint).
+
+# Invoice to order summary 10/27/25
+
+## Walkthrough
+
+- Integrates invoice-viewing functionality directly into the OrderSummaryCard component via new invoice action props, adds an inline receipt icon button in the card header for quick access, removes the redundant "View invoice" button from ProductView for cleaner UX, and applies minor styling refinements to the chat button.
+
+## New Features
+
+- OrderSummaryCard now displays an inline receipt button (top-right of card header) that opens the invoice dialog with loading state feedback.
+- Simplified ProductView layout by removing duplicate invoice access point.
+
+## Style
+
+- Chat button now uses a consistent pink background (bg-pink-400) for visual cohesion.
+- Minor text capitalization updates in ProductView for consistency.
+
+## File changes
+
+### OrderSummaryCard Component (invoice integration)
+
+- src/modules/orders/ui/OrderSummaryCard.tsx
+  - Extended props with InvoiceActionProps (onViewInvoice, canViewInvoice, isInvoiceLoading).
+  - Added inline receipt icon button in CardHeader for instant invoice access.
+  - Imported Receipt icon and Button components.
+
+### ProductView Component (invoice prop wiring & simplification)
+
+- src/modules/library/ui/views/product-view.tsx
+  - Wired new invoice props from order data to OrderSummaryCard.
+  - Removed redundant "View invoice" button from Shipment & Actions section.
+  - Updated text capitalization ("Shipment & actions" → "Shipment & Actions").
+
+### Chat Button Styling
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Added static bg-pink-400 className to Button for visual consistency.
