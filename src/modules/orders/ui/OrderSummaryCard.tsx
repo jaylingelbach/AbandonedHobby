@@ -1,37 +1,49 @@
 'use client';
 
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Receipt } from 'lucide-react';
 import { formatCurrency, cn } from '@/lib/utils';
 
-import { OrderSummaryCardProps } from '../types';
+import type { OrderSummaryCardProps } from '../types';
 import { hasTotalCents, hasTotalPaid } from './utils-client';
 
+type InvoiceActionProps = {
+  onViewInvoice?: () => void;
+  canViewInvoice?: boolean;
+  isInvoiceLoading?: boolean;
+};
+
 /**
- * Render an order details card showing order date, total paid, order number, returns deadline, and optional shipping address.
+ * Render an order summary card showing order date, total paid, order number, returns deadline, and shipping address, with an optional inline "View invoice" action.
  *
- * @returns A JSX element representing the order details card.
+ * The component formats currency (with a safe fallback if formatting fails) and dates (returns "—" for missing or invalid dates). If `onViewInvoice` and `canViewInvoice` are provided, a small invoice button is displayed and its disabled/busy state follows `isInvoiceLoading`.
+ *
+ * @returns A JSX element containing the order details card, including any conditional invoice action and shipping block.
  */
-export function OrderSummaryCard(props: OrderSummaryCardProps) {
+export function OrderSummaryCard(
+  props: OrderSummaryCardProps & InvoiceActionProps
+) {
   const {
     orderDate,
     orderNumber,
     returnsAcceptedThrough,
     className,
-    shipping
+    shipping,
+    onViewInvoice,
+    canViewInvoice = false,
+    isInvoiceLoading = false
   } = props;
 
-  // dollars to display
   const totalDollars = hasTotalCents(props)
     ? props.totalCents / 100
     : hasTotalPaid(props)
       ? props.totalPaid
       : 0;
 
-  // normalize currency: Stripe gives 'usd' – Intl wants 'USD'
   const rawCurrency = props.currency ?? 'USD';
   const currencyCode = (rawCurrency || 'USD').toUpperCase();
 
-  // precompute a safe formatted string
   let totalFormatted: string;
   try {
     totalFormatted = formatCurrency(totalDollars, currencyCode);
@@ -60,9 +72,27 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
       data-variant="neo-brut"
     >
       <CardHeader className="pb-2">
-        <CardTitle className="text-base font-semibold tracking-tight">
-          Order details
-        </CardTitle>
+        <div className="flex items-center justify-between gap-4">
+          <CardTitle className="text-base font-semibold tracking-tight">
+            Order details
+          </CardTitle>
+
+          {/* Inline action up top (optional). Remove if you prefer it below. */}
+          {onViewInvoice && canViewInvoice && (
+            <Button
+              size="sm"
+              variant="secondary"
+              className="border-2 border-black"
+              onClick={onViewInvoice}
+              disabled={isInvoiceLoading}
+              aria-label="View invoice"
+              aria-busy={isInvoiceLoading}
+            >
+              <Receipt className="mr-2 size-4" />
+              {isInvoiceLoading ? 'Loading…' : 'View invoice'}
+            </Button>
+          )}
+        </div>
       </CardHeader>
 
       <CardContent className="grid gap-3 text-sm">

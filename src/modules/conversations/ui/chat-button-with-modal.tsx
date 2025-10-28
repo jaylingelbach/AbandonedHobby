@@ -109,6 +109,7 @@ export function ChatButtonWithModal({
         disabled={isBtnDisabled}
         aria-disabled={isBtnDisabled}
         title={isBtnDisabled && tooltip ? tooltip : undefined}
+        className="bg-pink-400"
       >
         {isPending ? 'Starting…' : 'Message Seller'}
       </Button>
