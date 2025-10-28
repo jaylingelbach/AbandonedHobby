@@ -82,6 +82,14 @@ export const Orders: CollectionConfig = {
 
         if (alreadyHasArray) return data;
 
+        const isCreate = !originalDoc;
+        const hasNewShipmentInput =
+          Boolean(data?.shipment?.carrier) ||
+          Boolean(data?.shipment?.trackingNumber) ||
+          Boolean(data?.shipment?.trackingUrl) ||
+          Boolean(data?.shipment?.shippedAt);
+        if (!isCreate && !hasNewShipmentInput) return data;
+
         return {
           ...data,
           shipments: [
