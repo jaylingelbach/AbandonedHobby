@@ -122,10 +122,12 @@ function pickShipmentFromRecord(record: {
         ? shipment.trackingNumber
         : undefined;
 
-    if (!chosenShippedAt || shipment.shippedAt > chosenShippedAt) {
+    const nextTs = Date.parse(String(shipment.shippedAt));
+    const chosenTs = chosenShippedAt ? Date.parse(chosenShippedAt) : -1;
+    if (!Number.isNaN(nextTs) && nextTs > chosenTs) {
       chosenCarrier = carrierCandidate;
       chosenTrackingNumber = trackingCandidate;
-      chosenShippedAt = shipment.shippedAt;
+      chosenShippedAt = String(shipment.shippedAt);
     }
   }
 

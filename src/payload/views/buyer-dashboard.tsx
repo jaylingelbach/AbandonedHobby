@@ -6,13 +6,10 @@ import { getBuyerData } from './buyer-dashboard-utils';
 
 // If you already have a shared formatter, import it instead.
 function formatCurrencyDisplay(
-  amountInDollars: string | number,
+  amountInDollars: number,
   currency = 'USD'
 ): string {
-  const numeric =
-    typeof amountInDollars === 'number'
-      ? amountInDollars
-      : Number.parseFloat(String(amountInDollars));
+  const numeric = amountInDollars;
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency
@@ -127,7 +124,8 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     </td>
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
-                        (order.totalCents / 100).toFixed(2)
+                        order.totalCents / 100,
+                        (order as any).currency ?? 'USD'
                       )}
                     </td>
                     <td className="ah-col--actions">
@@ -196,7 +194,8 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     </td>
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
-                        (order.totalCents / 100).toFixed(2)
+                        order.totalCents / 100,
+                        (order as any).currency ?? 'USD'
                       )}
                     </td>
                     <td className="ah-col--tracking">
