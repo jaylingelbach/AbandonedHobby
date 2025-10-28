@@ -474,8 +474,8 @@ export const Orders: CollectionConfig = {
       type: 'textarea',
       admin: { description: 'Internal notes visible only to seller/admin' },
       access: {
-        read: ({ req }) => isSuperAdmin(req.user),
-        update: ({ req }) => isSuperAdmin(req.user)
+        read: canEditOrderShipment,
+        update: canEditOrderShipment
       }
     }
   ]

@@ -1,3 +1,4 @@
+// src/lib/server/orders/compute-amounts.ts
 import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
 
 type OrderItemShape = {
@@ -18,19 +19,30 @@ type Amounts = {
   sellerNetCents: number;
 };
 
+function toIntCents(value: unknown, fallback = 0): number {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? Math.max(0, Math.trunc(value))
+    : Math.max(0, Math.trunc(fallback));
+}
+
 /**
  * Compute amounts from items + known fields.
  * - Prefers per-line `amountSubtotal`/`amountTax`/`amountTotal` if present,
- *   otherwise falls back to unitAmount * quantity.
+ *   otherwise falls back to unitAmount * quantity (+ tax = amountTotal).
  * - `shippingTotalCents` and `discountTotalCents` default to 0 unless supplied.
  * - `stripeFeeCents`:
  *    - If provided (e.g., webhook), trust it.
  *    - Otherwise 0 (do not guess).
- * - `platformFeeCents` derived from PLATFORM_FEE_PERCENTAGE if not provided.
+ * - `platformFeeCents`:
+ *    - Prefer provided value when valid (e.g., webhook),
+ *    - Otherwise compute from PLATFORM_FEE_PERCENTAGE using **serverTotalCents**.
+ * - **serverTotalCents** (authoritative basis for fees) =
+ *    sum(line amountTotal) + shipping - discount  (clamped to integer ≥ 0).
+ *   If there are **no items**, fall back to input.totalCents.
  */
 export function computeOrderAmounts(input: {
   items: unknown;
-  totalCents: unknown; // order.total
+  totalCents: unknown; // order.total (Stripe amount_total). Only trusted if no items.
   shippingTotalCents?: unknown;
   discountTotalCents?: unknown;
   stripeFeeCents?: unknown;
@@ -45,77 +57,59 @@ export function computeOrderAmounts(input: {
   let lineTotalsCents = 0;
 
   for (const item of itemArray) {
-    const quantity =
-      typeof item.quantity === 'number' && Number.isFinite(item.quantity)
-        ? Math.max(0, Math.trunc(item.quantity))
-        : 0;
-
-    const unitAmount =
-      typeof item.unitAmount === 'number' && Number.isFinite(item.unitAmount)
-        ? Math.max(0, Math.trunc(item.unitAmount))
-        : 0;
+    const quantity = toIntCents(item.quantity, 0);
+    const unitAmount = toIntCents(item.unitAmount, 0);
 
     const fallbackSubtotal = unitAmount * quantity;
 
-    const amountSubtotal =
-      typeof item.amountSubtotal === 'number' &&
-      Number.isFinite(item.amountSubtotal)
-        ? Math.max(0, Math.trunc(item.amountSubtotal))
-        : fallbackSubtotal;
+    const amountSubtotal = (() => {
+      const candidate = toIntCents(item.amountSubtotal, NaN);
+      return Number.isNaN(candidate) ? fallbackSubtotal : candidate;
+    })();
 
-    const amountTax =
-      typeof item.amountTax === 'number' && Number.isFinite(item.amountTax)
-        ? Math.max(0, Math.trunc(item.amountTax))
-        : 0;
+    const amountTax = toIntCents(item.amountTax, 0);
 
-    const amountTotal =
-      typeof item.amountTotal === 'number' && Number.isFinite(item.amountTotal)
-        ? Math.max(0, Math.trunc(item.amountTotal))
-        : amountSubtotal + amountTax;
+    const amountTotal = (() => {
+      const candidate = toIntCents(item.amountTotal, NaN);
+      return Number.isNaN(candidate) ? amountSubtotal + amountTax : candidate;
+    })();
 
     subtotalCents += amountSubtotal;
     taxTotalCents += amountTax;
     lineTotalsCents += amountTotal;
   }
 
-  const totalCents =
-    typeof input.totalCents === 'number' && Number.isFinite(input.totalCents)
-      ? Math.max(0, Math.trunc(input.totalCents))
-      : 0;
+  const shippingTotalCents = toIntCents(input.shippingTotalCents, 0);
+  const discountTotalCents = toIntCents(input.discountTotalCents, 0);
 
-  const shippingTotalCents =
-    typeof input.shippingTotalCents === 'number' &&
-    Number.isFinite(input.shippingTotalCents)
-      ? Math.max(0, Math.trunc(input.shippingTotalCents))
-      : 0;
-
-  const discountTotalCents =
-    typeof input.discountTotalCents === 'number' &&
-    Number.isFinite(input.discountTotalCents)
-      ? Math.max(0, Math.trunc(input.discountTotalCents))
-      : 0;
+  // Authoritative server total:
+  // If we have items, derive from lines; else fall back to input.totalCents.
+  const providedTotalCents = toIntCents(input.totalCents, 0);
+  const serverTotalCents =
+    itemArray.length > 0
+      ? Math.max(
+          0,
+          Math.trunc(lineTotalsCents + shippingTotalCents - discountTotalCents)
+        )
+      : providedTotalCents;
 
   // Prefer provided webhook fee; otherwise 0 (don’t guess).
-  const stripeFeeCents =
-    typeof input.stripeFeeCents === 'number' &&
-    Number.isFinite(input.stripeFeeCents)
-      ? Math.max(0, Math.trunc(input.stripeFeeCents))
-      : 0;
+  const stripeFeeCents = toIntCents(input.stripeFeeCents, 0);
 
-  // Prefer provided platform fee; else compute from constant percentage.
-  const computedPlatformFee = Math.round(
-    totalCents * (PLATFORM_FEE_PERCENTAGE / 100)
+  // Compute platform fee from server total; allow provided (webhook) value if valid.
+  const computedPlatformFee = Math.max(
+    0,
+    Math.trunc((serverTotalCents * PLATFORM_FEE_PERCENTAGE) / 100)
   );
-  const platformFeeCents =
-    typeof input.platformFeeCents === 'number' &&
-    Number.isFinite(input.platformFeeCents)
-      ? Math.max(0, Math.trunc(input.platformFeeCents))
-      : Math.max(0, computedPlatformFee);
+  const platformFeeCandidate = toIntCents(input.platformFeeCents, NaN);
+  const platformFeeCents = Number.isNaN(platformFeeCandidate)
+    ? computedPlatformFee
+    : platformFeeCandidate;
 
-  // Seller net = total - platform fee - Stripe fee
+  // Seller net = serverTotal - platform fee - Stripe fee
   const sellerNetCents = Math.max(
     0,
-    totalCents - platformFeeCents - stripeFeeCents
+    serverTotalCents - platformFeeCents - stripeFeeCents
   );
 
   return {

@@ -219,13 +219,15 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
   const buyerScope = buildBuyerScopeWhere(userId);
   const unfulfilledWhere = buildUnfulfilledWhere();
 
+  // NOTE: We intentionally do NOT use overrideAccess here so that collection-level
+  // access control (scoping to the buyer) is enforced.
+  // If Orders access is not yet implemented, either add it or keep buyerScope in `where`.
   // KPI: awaiting shipment (paid + unfulfilled)
   const awaitingShipmentCountResponse = await payloadInstance.count({
     collection: 'orders',
     where: {
       and: [{ status: { equals: 'paid' } }, unfulfilledWhere, buyerScope]
-    },
-    overrideAccess: true
+    }
   });
   const awaitingShipmentCount = readCount(awaitingShipmentCountResponse);
 
@@ -239,8 +241,7 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
         },
         buyerScope
       ]
-    },
-    overrideAccess: true
+    }
   });
   const inTransitCount = readCount(inTransitCountResponse);
 
@@ -253,8 +254,7 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     sort: '-createdAt',
     where: {
       and: [{ status: { equals: 'paid' } }, unfulfilledWhere, buyerScope]
-    },
-    overrideAccess: true
+    }
   });
 
   const awaitingShipment: BuyerOrderListItem[] = (
@@ -277,8 +277,7 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
         },
         buyerScope
       ]
-    },
-    overrideAccess: true
+    }
   });
 
   const inTransit: BuyerOrderListItem[] = (inTransitResponse.docs as unknown[])
