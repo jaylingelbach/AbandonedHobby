@@ -36,6 +36,9 @@ const readIfSuperAdmin: FieldAccess = ({ req }) => {
 
 export const Orders: CollectionConfig = {
   slug: 'orders',
+  admin: {
+    hidden: ({ user }) => !isSuperAdmin(user)
+  },
   access: {
     read: readOrdersAccess,
     create: ({ req: { user } }) => isSuperAdmin(user),
@@ -379,7 +382,7 @@ export const Orders: CollectionConfig = {
       admin: {
         description:
           'Advanced: multi-shipment history. The most recent entry mirrors into the main `shipment`.',
-        condition: ({ req: { user } }) => isSuperAdmin(user)
+        condition: ({ user }) => isSuperAdmin(user)
       },
       fields: [
         {
