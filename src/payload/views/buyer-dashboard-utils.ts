@@ -168,9 +168,8 @@ function toBuyerOrderListItem(value: unknown): BuyerOrderListItem | null {
   const totalCents = typeof record.total === 'number' ? record.total : 0;
 
   const createdAtISO =
-    typeof record.createdAt === 'string'
-      ? record.createdAt
-      : new Date().toISOString();
+    typeof record.createdAt === 'string' ? record.createdAt : '';
+  if (!createdAtISO) return null;
 
   const fulfillmentStatusRaw = record.fulfillmentStatus;
   const fulfillmentStatus =
