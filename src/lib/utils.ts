@@ -482,13 +482,10 @@ export function getTenantNameSafe(tenant: unknown): string | undefined {
 }
 
 /**
- * Safely read a tenant's image URL (thumbnail by default) when tenant may be a string ID or a populated object.
- * Return a best-available image URL for a tenant, or undefined if none is available.
+ * Return the best-available image URL for a tenant, preferring a specified size.
  *
- * Safely handles a tenant value that may be a string ID, null/undefined, or a populated object.
- * If `tenant` is an object and contains an `image` record, this returns the URL selected by the
- * `preferred` size (prefers `thumbnail` by default). Returns `undefined` for string IDs,
- * missing/invalid tenant objects, or when no suitable image URL can be resolved.
+ * Handles `tenant` values that may be a string ID, null/undefined, or a populated object.
+ * If a populated tenant contains an `image` record, resolves the URL for the requested size; otherwise returns `undefined`.
  *
  * @param preferred - Which image size to prefer when resolving a URL: `"thumbnail"`, `"medium"`, or `"original"`.
  * @returns The resolved image URL, or `undefined` if no image is available.
@@ -507,10 +504,20 @@ export function getTenantImageURLSafe(
   return getBestUrlFromMedia(imageObj, preferred);
 }
 
+/**
+ * Checks whether a value is a string containing at least one non-whitespace character.
+ *
+ * @returns `true` if `value` is a string with length > 0 after trimming whitespace, `false` otherwise.
+ */
 export function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
 
+/**
+ * Normalize a value to an array, returning the original array or an empty array otherwise.
+ *
+ * @returns The input value if it is an array, otherwise an empty array.
+ */
 function toArray(value: unknown): unknown[] {
   return Array.isArray(value) ? value : [];
 }
@@ -530,6 +537,14 @@ const CONTENT_NODE_TYPES = new Set([
   'autolink'
 ]);
 
+/**
+ * Determine whether a Lexical-like node contains meaningful (non-empty) content.
+ *
+ * Accepts raw payloads from a Lexical editor tree and inspects text, node type, src, and children.
+ *
+ * @param node - The node payload to inspect; may be a plain object, nested children array, or any unknown value.
+ * @returns `true` if the node or any descendant contains non-whitespace text, a content-bearing node type, or a non-empty `src`; `false` otherwise.
+ */
 export function nodeHasMeaningfulContent(node: unknown): boolean {
   if (node === null || typeof node !== 'object') return false;
   const n = node as LexicalNode;
@@ -548,6 +563,12 @@ export function nodeHasMeaningfulContent(node: unknown): boolean {
   return false;
 }
 
+/**
+ * Determines whether a Lexical rich text payload contains no meaningful content.
+ *
+ * @param rich - A Lexical rich text payload (typically an object with a `root` property that has `children`)
+ * @returns `true` if the payload contains no meaningful content, `false` otherwise
+ */
 export function isLexicalRichTextEmpty(rich: unknown): boolean {
   // Payload Lexical stores { root: { children: [...] } }
   const root = (rich as { root?: unknown })?.root as

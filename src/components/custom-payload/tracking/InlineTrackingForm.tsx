@@ -142,11 +142,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   }, []);
 
   /**
-   * Validate and submit a tracking number for the current order, updating component state and optionally refreshing the page.
+   * Validate and persist a tracking number for the current order, then update component state.
    *
-   * Normalizes the provided tracking value, validates it against the form schema for the selected carrier, aborts any in-flight request, and sends a PATCH to update the order's shipment (carrier and normalized tracking number). On success, updates local state (carrier, trackingNumber, viewMode) and either calls the router refresh or sets a success message. On error, sets an error message; abort errors are ignored.
+   * Normalizes the provided tracking value and validates it for the selected carrier; on success updates the local carrier, trackingNumber, and viewMode, and either triggers a router refresh or sets a success message. On failure sets an error message; in-flight requests are aborted before sending and abort-related errors are ignored.
    *
-   * @param nextValues - Object containing the selected `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
+   * @param nextValues - Object with `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
    */
   async function submit(nextValues: { carrier: Carrier; tracking: string }) {
     setErrorMessage(null);
@@ -235,12 +235,13 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   }
 
   /**
-   * Clears the order's shipment tracking on the server and updates the component state accordingly.
+   * Remove the order's shipment tracking on the server and update component state.
    *
-   * Sends a request to remove the tracking number for the current order, aborting any in-flight request first.
-   * On success, clears the local tracking number, switches the form to edit mode, and either refreshes the router
-   * (when `refreshOnSuccess` is true) or shows a "Tracking removed" success message. On failure, sets an
-   * error message derived from the server response. If the request is aborted, the function returns silently.
+   * Aborts any in-flight request, sends a PATCH to clear the shipment's tracking number,
+   * and on success clears the local tracking number and switches the form to edit mode.
+   * If `refreshOnSuccess` is true the router is refreshed; otherwise a "Tracking removed"
+   * success message is shown. If the request is aborted the function returns silently;
+   * on other failures an error message derived from the server response is set.
    */
   async function removeTracking() {
     setErrorMessage(null);
