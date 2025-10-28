@@ -6,7 +6,7 @@ import {
   useSuspenseQuery,
   useQuery
 } from '@tanstack/react-query';
-import { ArrowLeftIcon, Truck, RefreshCw, Receipt } from 'lucide-react';
+import { ArrowLeftIcon, Truck, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';

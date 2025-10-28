@@ -16,6 +16,22 @@ function formatCurrencyDisplay(
   }).format(numeric);
 }
 
+/** Safely read an optional `currency` field from an unknown value. */
+function readCurrencyFromOrder(
+  value: unknown,
+  fallback: string = 'USD'
+): string {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    'currency' in value &&
+    typeof (value as { currency?: unknown }).currency === 'string'
+  ) {
+    return (value as { currency: string }).currency;
+  }
+  return fallback;
+}
+
 export async function BuyerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getBuyerData(props);
@@ -125,7 +141,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        (order as any).currency ?? 'USD'
+                        readCurrencyFromOrder(order, 'USD')
                       )}
                     </td>
                     <td className="ah-col--actions">
@@ -195,7 +211,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        (order as any).currency ?? 'USD'
+                        readCurrencyFromOrder(order, 'USD')
                       )}
                     </td>
                     <td className="ah-col--tracking">

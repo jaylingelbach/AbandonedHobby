@@ -1,5 +1,4 @@
 import type { Carrier } from '@/constants';
-import { isNonEmptyString } from '@/lib/utils';
 
 export type ShipmentEntry = {
   carrier?: Carrier;
