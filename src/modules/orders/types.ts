@@ -1,3 +1,5 @@
+import { Carrier } from '@/constants';
+
 export type ShippingAddress = {
   name?: string | null;
   line1?: string | null;
@@ -15,7 +17,7 @@ export type ShippedOrderListItem = {
   orderDateISO: string;
   shippedAtISO: string;
   totalCents: number;
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  carrier?: Carrier;
   trackingNumber?: string;
 };
 
@@ -69,6 +71,13 @@ export type OrderSummaryDTO = {
   productIds?: string[]; // All product IDs in the order when multiple items exist
   shipping?: ShippingAddress;
   items?: OrderItemDTO[];
+  shipment?: ShipmentDTO;
+};
+
+export type ShipmentDTO = {
+  carrier?: Carrier;
+  trackingNumber: string | null;
+  shippedAtISO: string | null;
 };
 
 type BaseOrderSummaryProps = {

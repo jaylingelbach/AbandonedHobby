@@ -5,6 +5,8 @@ import * as React from 'react';
 import { useState } from 'react';
 import { z } from 'zod';
 
+import { buildTrackingUrl } from '@/lib/utils';
+
 import { carrierLabels, carriers, type Carrier } from '@/constants';
 
 /**
@@ -140,41 +142,11 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   }, []);
 
   /**
-   * Builds a carrier-specific public tracking URL for a normalized tracking number.
+   * Validate and persist a tracking number for the current order, then update component state.
    *
-   * @param selectedCarrier - The carrier identifier.
-   * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
-   * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
-   */
-  function buildTrackingUrl(
-    selectedCarrier: Carrier,
-    normalizedTracking: string
-  ): string | undefined {
-    if (!normalizedTracking) return undefined;
-    if (selectedCarrier === 'usps') {
-      return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    if (selectedCarrier === 'ups') {
-      return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    if (selectedCarrier === 'fedex') {
-      return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
-        normalizedTracking
-      )}`;
-    }
-    return undefined;
-  }
-
-  /**
-   * Validate and submit a tracking number for the current order, updating component state and optionally refreshing the page.
+   * Normalizes the provided tracking value and validates it for the selected carrier; on success updates the local carrier, trackingNumber, and viewMode, and either triggers a router refresh or sets a success message. On failure sets an error message; in-flight requests are aborted before sending and abort-related errors are ignored.
    *
-   * Normalizes the provided tracking value, validates it against the form schema for the selected carrier, aborts any in-flight request, and sends a PATCH to update the order's shipment (carrier and normalized tracking number). On success, updates local state (carrier, trackingNumber, viewMode) and either calls the router refresh or sets a success message. On error, sets an error message; abort errors are ignored.
-   *
-   * @param nextValues - Object containing the selected `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
+   * @param nextValues - Object with `carrier` and the raw `tracking` string (the tracking string will be normalized before validation and submission)
    */
   async function submit(nextValues: { carrier: Carrier; tracking: string }) {
     setErrorMessage(null);
@@ -225,7 +197,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = asRecord.message || asRecord.error || message;
           } catch (_jsonParseError: unknown) {
             // ignore parse failure; keep fallback message
-            console.log(_jsonParseError);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -233,7 +204,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = textBody || message;
           } catch (_textReadError: unknown) {
             // ignore read failure; keep fallback message
-            console.log(_textReadError);
           }
         }
 
@@ -265,12 +235,13 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
   }
 
   /**
-   * Clears the order's shipment tracking on the server and updates the component state accordingly.
+   * Remove the order's shipment tracking on the server and update component state.
    *
-   * Sends a request to remove the tracking number for the current order, aborting any in-flight request first.
-   * On success, clears the local tracking number, switches the form to edit mode, and either refreshes the router
-   * (when `refreshOnSuccess` is true) or shows a "Tracking removed" success message. On failure, sets an
-   * error message derived from the server response. If the request is aborted, the function returns silently.
+   * Aborts any in-flight request, sends a PATCH to clear the shipment's tracking number,
+   * and on success clears the local tracking number and switches the form to edit mode.
+   * If `refreshOnSuccess` is true the router is refreshed; otherwise a "Tracking removed"
+   * success message is shown. If the request is aborted the function returns silently;
+   * on other failures an error message derived from the server response is set.
    */
   async function removeTracking() {
     setErrorMessage(null);
@@ -289,8 +260,7 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
           body: JSON.stringify({
-            // Clear BOTH fields so the server does not see a carrier-without-tracking
-            shipment: { carrier: null, trackingNumber: '' }
+            shipment: { trackingNumber: null } // server hook will clear URL and shippedAt
           }),
           signal
         }
@@ -307,7 +277,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             message = record.message || record.error || message;
           } catch (_jsonErr: unknown) {
             // ignore
-            console.log(_jsonErr);
           }
         } else if (contentType.startsWith('text/')) {
           try {
@@ -315,7 +284,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
             if (textBody) message = textBody;
           } catch (_readErr: unknown) {
             // ignore
-            console.log(_readErr);
           }
         }
 
@@ -323,7 +291,6 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       }
 
       setTrackingNumber('');
-      setCarrier(initialCarrier);
       setViewMode('edit');
 
       if (refreshOnSuccess) {
@@ -351,7 +318,10 @@ export function InlineTrackingForm(props: InlineTrackingFormProps) {
       : 'ah-form ah-form--inline';
 
   if (viewMode === 'view' && trackingNumber) {
-    const trackingUrl = buildTrackingUrl(carrier, trackingNumber);
+    const trackingUrl = buildTrackingUrl(
+      carrier,
+      normalizeTracking(trackingNumber)
+    );
 
     return (
       <div className={rootClassName} aria-live="polite">

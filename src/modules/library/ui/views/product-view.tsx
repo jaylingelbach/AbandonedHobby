@@ -27,6 +27,27 @@ import InvoiceDialog from '../components/invoice-dialog';
 import { ReviewFormSkeleton } from '../components/review-form';
 import ReviewSidebar from '../components/review-sidebar';
 
+import { buildTrackingUrl, isLexicalRichTextEmpty } from '@/lib/utils';
+
+import type { SerializedEditorState, SerializedLexicalNode } from 'lexical';
+
+/**
+ * Determines whether a value is a Lexical `SerializedEditorState` whose `root` node exists.
+ *
+ * @returns `true` if `value` is a `SerializedEditorState` whose `root` has `type === 'root'` and a `children` array, `false` otherwise.
+ */
+
+function isLexicalEditorState(
+  value: unknown
+): value is SerializedEditorState<SerializedLexicalNode> {
+  if (value === null || typeof value !== 'object') return false;
+  const root = (value as { root?: unknown }).root;
+  if (root === null || typeof root !== 'object') return false;
+  const type = (root as { type?: unknown }).type;
+  const children = (root as { children?: unknown }).children;
+  return type === 'root' && Array.isArray(children);
+}
+
 interface Props {
   productId: string;
   orderId: string;
@@ -37,7 +58,7 @@ const neoBrut =
 
 export const ProductView = ({ productId, orderId }: Props) => {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
-  const [mounted, setMounted] = useState(false); // hydration-safe guard
+  const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   const trpc = useTRPC();
@@ -56,15 +77,11 @@ export const ProductView = ({ productId, orderId }: Props) => {
   const sellerName = tenantDoc?.name ?? 'Seller';
   const sellerEmail = tenantDoc?.notificationEmail;
 
-  // Computed but only used after mount to avoid SSR/CSR divergence
   const isViewerSeller =
     mounted &&
     !!user?.tenants?.some(
       (tenant) => relId<Tenant>(tenant.tenant) === tenantId
     );
-
-  const trackingProvided = false;
-  const trackingNumber = '69420';
   const success = search.get('success') === 'true';
 
   // Summary for sidebar (fast)
@@ -85,11 +102,10 @@ export const ProductView = ({ productId, orderId }: Props) => {
     isFetching: isFetchingFullOrder
   } = useQuery({
     ...fullOrderQuery,
-    enabled: false, // only when opening the invoice
+    enabled: false,
     refetchOnWindowFocus: false
   });
 
-  // Summary → OrderForBuyer fallback shape for the dialog
   const orderForInvoiceFallback: OrderForBuyer | null = useMemo(() => {
     if (!order) return null;
     return {
@@ -99,20 +115,18 @@ export const ProductView = ({ productId, orderId }: Props) => {
       totalCents: order.totalCents,
       currency: order.currency,
       quantity: order.quantity,
-      items: undefined, // summary doesn’t include items; dialog will show a 1-row fallback
+      items: undefined,
       buyerEmail: null,
       shipping: order.shipping ?? null,
       returnsAcceptedThroughISO: order.returnsAcceptedThroughISO ?? null
     };
   }, [order]);
 
-  // Open invoice → show dialog immediately, then fetch full order
   const openInvoice = () => {
     setInvoiceOpen(true);
     void refetchFullOrder();
   };
 
-  // After success param, refresh the summary and clean URL
   useEffect(() => {
     if (!success) return;
     void queryClient.invalidateQueries({
@@ -122,6 +136,22 @@ export const ProductView = ({ productId, orderId }: Props) => {
     url.searchParams.delete('success');
     router.replace(url.pathname + url.search, { scroll: false });
   }, [success, orderSummaryQuery.queryKey, queryClient, router]);
+
+  const contentUnknown = product.content as unknown;
+
+  const content: SerializedEditorState<SerializedLexicalNode> | null =
+    isLexicalEditorState(contentUnknown) ? contentUnknown : null;
+
+  const hasSpecialContent =
+    content !== null ? !isLexicalRichTextEmpty(content) : false;
+
+  const trackingNumber = order?.shipment?.trackingNumber ?? null;
+  const trackingProvided = Boolean(trackingNumber);
+  const carrier = order?.shipment?.carrier;
+  const trackingUrl =
+    trackingProvided && carrier && trackingNumber
+      ? buildTrackingUrl(carrier, trackingNumber)
+      : null;
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
@@ -144,149 +174,143 @@ export const ProductView = ({ productId, orderId }: Props) => {
       </header>
 
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8">
-          <div className="lg:col-span-8">
+        <div className="flex flex-col gap-6">
+          {/* 1) Order summary (top priority) */}
+          {order ? (
+            <OrderSummaryCard
+              orderDate={order.orderDateISO}
+              totalCents={order.totalCents}
+              orderNumber={order.orderNumber}
+              returnsAcceptedThrough={order.returnsAcceptedThroughISO}
+              quantity={order.quantity}
+              shipping={order.shipping}
+            />
+          ) : (
+            <div className="text-sm italic text-muted-foreground">
+              No order found for this item.
+            </div>
+          )}
+
+          {/* 2) Shipment & actions */}
+          <Card className={neoBrut}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Shipment & actions</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Truck className="size-4" />
+                  <span className="font-medium">Status</span>
+                </div>
+                {trackingProvided ? (
+                  <Badge className="border-2 border-black" variant="secondary">
+                    {trackingUrl ? (
+                      <a
+                        href={trackingUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline"
+                      >
+                        Tracking #{trackingNumber}
+                      </a>
+                    ) : (
+                      <>Tracking #{trackingNumber}</>
+                    )}
+                  </Badge>
+                ) : (
+                  <Badge className="border-2 border-black">
+                    Awaiting shipment
+                  </Badge>
+                )}
+              </div>
+
+              <Separator />
+
+              <div className="grid gap-2">
+                {mounted && !isViewerSeller && tenantId && (
+                  <div className="w-full">
+                    <ChatButtonWithModal
+                      productId={productId}
+                      sellerId={tenantId}
+                      username={sellerName}
+                    />
+                  </div>
+                )}
+
+                <Button
+                  className="justify-start border-2 border-black mt-1"
+                  variant="secondary"
+                  disabled
+                >
+                  <RefreshCw className="mr-2 size-4" />
+                  Start a return (coming soon)
+                </Button>
+
+                <Button
+                  className="justify-start border-2 border-black"
+                  variant="secondary"
+                  onClick={openInvoice}
+                  disabled={!order || isFetchingFullOrder}
+                >
+                  <Receipt className="mr-2 size-4" />
+                  {isFetchingFullOrder ? 'Loading invoice…' : 'View invoice'}
+                </Button>
+
+                {order && (
+                  <InvoiceDialog
+                    open={invoiceOpen}
+                    onOpenChange={setInvoiceOpen}
+                    order={
+                      (fullOrder as OrderForBuyer | null) ??
+                      orderForInvoiceFallback
+                    }
+                    productNameFallback={product.name}
+                    sellerName={sellerName}
+                    sellerEmail={sellerEmail ?? 'Seller'}
+                  />
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 3) Item details (only if meaningful content) */}
+          {hasSpecialContent && (
             <Card className={neoBrut}>
               <CardHeader className="pb-2">
                 <CardTitle className="text-base">Item details</CardTitle>
               </CardHeader>
               <CardContent className="prose max-w-none">
-                {product.content ? (
-                  <RichText data={product.content} />
-                ) : (
-                  <p className="font-medium italic text-muted-foreground">
-                    No special content
-                  </p>
-                )}
+                {content && <RichText data={content} />}
               </CardContent>
             </Card>
-          </div>
+          )}
 
-          <div className="lg:col-span-4">
-            <div className="sticky top-4 space-y-6">
-              {order ? (
-                <OrderSummaryCard
-                  orderDate={order.orderDateISO}
-                  totalCents={order.totalCents}
-                  orderNumber={order.orderNumber}
-                  returnsAcceptedThrough={order.returnsAcceptedThroughISO}
-                  quantity={order.quantity}
-                  shipping={order.shipping}
-                />
-              ) : (
-                <div className="text-sm italic text-muted-foreground">
-                  No order found for this item.
-                </div>
-              )}
-
-              <Card className={neoBrut}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">
-                    Shipment & actions
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Truck className="size-4" />
-                      <span className="font-medium">Status</span>
-                    </div>
-                    {trackingProvided ? (
-                      <Badge
-                        className="border-2 border-black"
-                        variant="secondary"
-                      >
-                        Tracking #{trackingNumber}
-                      </Badge>
-                    ) : (
-                      <Badge className="border-2 border-black">
-                        Awaiting shipment
-                      </Badge>
-                    )}
-                  </div>
-
-                  <Separator />
-
-                  <div className="grid gap-2">
-                    {/* Render this only after mount to keep SSR/CSR markup identical */}
-                    {mounted && !isViewerSeller && tenantId && (
-                      <div className="w-full">
-                        <ChatButtonWithModal
-                          productId={productId}
-                          sellerId={tenantId}
-                          username={sellerName}
-                        />
-                      </div>
-                    )}
-
-                    <Button
-                      className="justify-start border-2 border-black mt-1"
-                      variant="secondary"
-                      disabled
-                    >
-                      <RefreshCw className="mr-2 size-4" />
-                      Start a return (coming soon)
-                    </Button>
-
-                    <Button
-                      className="justify-start border-2 border-black"
-                      variant="secondary"
-                      onClick={openInvoice}
-                      disabled={!order || isFetchingFullOrder}
-                    >
-                      <Receipt className="mr-2 size-4" />
-                      {isFetchingFullOrder
-                        ? 'Loading invoice…'
-                        : 'View invoice'}
-                    </Button>
-
-                    {order && (
-                      <InvoiceDialog
-                        open={invoiceOpen}
-                        onOpenChange={setInvoiceOpen}
-                        // Prefer the full order (has items[]). Fallback to summary.
-                        order={
-                          (fullOrder as OrderForBuyer | null) ??
-                          orderForInvoiceFallback
-                        }
-                        productNameFallback={product.name}
-                        sellerName={sellerName}
-                        sellerEmail={sellerEmail ?? 'Seller'}
-                      />
-                    )}
-                  </div>
-                </CardContent>
-              </Card>
-
-              <Card className={neoBrut}>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-base">Reviews</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Suspense fallback={<ReviewFormSkeleton />}>
-                    <ReviewSidebar productId={productId} />
-                  </Suspense>
-                </CardContent>
-              </Card>
-            </div>
-          </div>
+          {/* 4) Reviews */}
+          <Card className={neoBrut}>
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base">Reviews</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Suspense fallback={<ReviewFormSkeleton />}>
+                <ReviewSidebar productId={productId} />
+              </Suspense>
+            </CardContent>
+          </Card>
         </div>
       </section>
     </div>
   );
 };
 
-export const ProductViewSkeleton = () => {
-  return (
-    <div className="min-h-screen bg-[#F4F4F0]">
-      <nav className="p-4 w-full border-b bg-[#F4F4F0]">
-        <div className="flex items-center gap-2">
-          <ArrowLeftIcon className="size-4" />
-          <span className="text font-medium">Back to Orders</span>
-        </div>
-      </nav>
-      <header className="py-8 border-b bg-[#F4F4F0]" />
-      <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10" />
-    </div>
-  );
-};
+export const ProductViewSkeleton = () => (
+  <div className="min-h-screen bg-[#F4F4F0]">
+    <nav className="p-4 w-full border-b bg-[#F4F4F0]">
+      <div className="flex items-center gap-2">
+        <ArrowLeftIcon className="size-4" />
+        <span className="text font-medium">Back to Orders</span>
+      </div>
+    </nav>
+    <header className="py-8 border-b bg-[#F4F4F0]" />
+    <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10" />
+  </div>
+);

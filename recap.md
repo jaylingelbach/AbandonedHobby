@@ -4020,3 +4020,51 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/payload/views/utils.ts
   - Added ShippedOrderListItem type usage; introduced buildShippedWhere helper and recentShipped data field; extended getData flow to fetch, map, and propagate recently shipped orders across all return paths; updated comments to reflect expanded data model.
+
+# Order tracking in ProductView 10/27/25
+
+## Walkthrough
+
+- This PR centralizes tracking URL construction into a new util, adds Lexical rich-text runtime checks and a LexicalNode type, surfaces shipment data in orders APIs/types, refactors product view layout and shipment UI to use shipment information, and updates InlineTrackingForm to use the shared buildTrackingUrl and adjust PATCH/remove payloads.
+
+## New Features
+
+- Carrier-specific tracking links (USPS, UPS, FedEx) added to order details.
+- Shipment data now included in order summaries (carrier, tracking, shipped time).
+
+## Improvements
+
+- Product/order view layout refreshed and made full-width; rich-text shows only when meaningful.
+- Tracking flows streamlined: normalized tracking, unified URL generation, cleaner submit/cancel behavior.
+- Invoice retrieval and success-refresh behavior improved.
+
+## Bug Fixes
+
+- Reduced noisy error logging in tracking flows.
+
+## File changes
+
+### Tracking utils & form
+
+- src/lib/utils.ts, src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Added buildTrackingUrl, isNonEmptyString, isLexicalRichTextEmpty, and internal helpers; InlineTrackingForm now imports/uses buildTrackingUrl and normalizeTracking, removes its internal URL builder and several console.log calls, changes remove PATCH payload to clear only trackingNumber (server clears URL/shippedAt), and stops resetting carrier on success/cancel.
+
+### Lexical typing
+
+- src/modules/library/types.ts
+  - Added exported recursive LexicalNode type (type?, text?, src?, children?).
+
+### Product view & UI flow
+
+- src/modules/library/ui/views/product-view.tsx
+  - Added runtime Lexical editor-state guard and rich-text presence checks, derive real shipment tracking/trackingUrl via buildTrackingUrl, refactored layout to stacked sections, adjusted invoice flow and Chat button rendering, and updated success param handling.
+
+### Orders API/types & procedures
+
+- src/modules/orders/types.ts, src/modules/orders/server/procedures.ts
+  - Added ShipmentDTO (carrier?: Carrier, `trackingNumber: string
+
+### Styling tweak
+
+- src/modules/orders/ui/OrderSummaryCard.tsx
+  - Replaced max-w-md with w-full max-w-none (removed max-width constraint).

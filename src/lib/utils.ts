@@ -9,6 +9,8 @@ import { twMerge } from 'tailwind-merge';
 import type { ProductCardProps } from '@/modules/library/ui/components/product-card';
 
 import type { ReactNode } from 'react';
+import { LexicalNode } from '@/modules/library/types';
+import { Carrier } from '@/constants';
 
 // ─────────────────────────────────────────────────────────────
 // Tailwind / class utilities
@@ -480,13 +482,10 @@ export function getTenantNameSafe(tenant: unknown): string | undefined {
 }
 
 /**
- * Safely read a tenant's image URL (thumbnail by default) when tenant may be a string ID or a populated object.
- * Return a best-available image URL for a tenant, or undefined if none is available.
+ * Return the best-available image URL for a tenant, preferring a specified size.
  *
- * Safely handles a tenant value that may be a string ID, null/undefined, or a populated object.
- * If `tenant` is an object and contains an `image` record, this returns the URL selected by the
- * `preferred` size (prefers `thumbnail` by default). Returns `undefined` for string IDs,
- * missing/invalid tenant objects, or when no suitable image URL can be resolved.
+ * Handles `tenant` values that may be a string ID, null/undefined, or a populated object.
+ * If a populated tenant contains an `image` record, resolves the URL for the requested size; otherwise returns `undefined`.
  *
  * @param preferred - Which image size to prefer when resolving a URL: `"thumbnail"`, `"medium"`, or `"original"`.
  * @returns The resolved image URL, or `undefined` if no image is available.
@@ -503,4 +502,111 @@ export function getTenantImageURLSafe(
   if (!obj) return undefined;
   const imageObj = readRecordProp(obj, 'image'); // only returns object, not string IDs
   return getBestUrlFromMedia(imageObj, preferred);
+}
+
+/**
+ * Checks whether a value is a string containing at least one non-whitespace character.
+ *
+ * @returns `true` if `value` is a string with length > 0 after trimming whitespace, `false` otherwise.
+ */
+export function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+/**
+ * Normalize a value to an array, returning the original array or an empty array otherwise.
+ *
+ * @returns The input value if it is an array, otherwise an empty array.
+ */
+function toArray(value: unknown): unknown[] {
+  return Array.isArray(value) ? value : [];
+}
+
+// Hoisted once to avoid recreating per call
+const CONTENT_NODE_TYPES = new Set([
+  'image',
+  'upload',
+  'link',
+  'list',
+  'listitem',
+  'quote',
+  'blockquote',
+  'code',
+  'heading',
+  'hr',
+  'autolink'
+]);
+
+/**
+ * Determine whether a Lexical-like node contains meaningful (non-empty) content.
+ *
+ * Accepts raw payloads from a Lexical editor tree and inspects text, node type, src, and children.
+ *
+ * @param node - The node payload to inspect; may be a plain object, nested children array, or any unknown value.
+ * @returns `true` if the node or any descendant contains non-whitespace text, a content-bearing node type, or a non-empty `src`; `false` otherwise.
+ */
+export function nodeHasMeaningfulContent(node: unknown): boolean {
+  if (node === null || typeof node !== 'object') return false;
+  const n = node as LexicalNode;
+
+  // Text with non-whitespace
+  if (isNonEmptyString(n.text)) return true;
+
+  if (n.type && CONTENT_NODE_TYPES.has(n.type)) return true;
+  if (isNonEmptyString(n.src)) return true;
+
+  // Recurse into children
+  const children = toArray((n as { children?: unknown }).children);
+  for (const child of children) {
+    if (nodeHasMeaningfulContent(child)) return true;
+  }
+  return false;
+}
+
+/**
+ * Determines whether a Lexical rich text payload contains no meaningful content.
+ *
+ * @param rich - A Lexical rich text payload (typically an object with a `root` property that has `children`)
+ * @returns `true` if the payload contains no meaningful content, `false` otherwise
+ */
+export function isLexicalRichTextEmpty(rich: unknown): boolean {
+  // Payload Lexical stores { root: { children: [...] } }
+  const root = (rich as { root?: unknown })?.root as
+    | { children?: unknown }
+    | undefined;
+  const children = toArray(root?.children);
+  for (const child of children) {
+    if (nodeHasMeaningfulContent(child)) return false;
+  }
+  return true;
+}
+
+/**
+ * Builds a carrier-specific public tracking URL for a normalized tracking number.
+ *
+ * @param selectedCarrier - The carrier identifier.
+ * @param normalizedTracking - The tracking number already normalized (trimmed, uppercased, without spaces or dashes).
+ * @returns The carrier-specific tracking URL, or `undefined` if the tracking number is empty or no tracking URL is available for the carrier.
+ */
+export function buildTrackingUrl(
+  selectedCarrier: Carrier,
+  normalizedTracking: string
+): string | undefined {
+  if (!normalizedTracking) return undefined;
+  if (selectedCarrier === 'usps') {
+    return `https://tools.usps.com/go/TrackConfirmAction?tLabels=${encodeURIComponent(
+      normalizedTracking
+    )}`;
+  }
+  if (selectedCarrier === 'ups') {
+    return `https://www.ups.com/track?loc=en_US&tracknum=${encodeURIComponent(
+      normalizedTracking
+    )}&AgreeToTermsAndConditions=yes`;
+  }
+  if (selectedCarrier === 'fedex') {
+    return `https://www.fedex.com/fedextrack/?tracknumbers=${encodeURIComponent(
+      normalizedTracking
+    )}`;
+  }
+  return undefined;
 }

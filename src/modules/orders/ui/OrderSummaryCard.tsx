@@ -54,7 +54,7 @@ export function OrderSummaryCard(props: OrderSummaryCardProps) {
       className={cn(
         'ah-order-card rounded-xl border-2 border-black bg-white',
         'shadow-[6px_6px_0_0_rgba(0,0,0,1)]',
-        'max-w-md',
+        'w-full max-w-none',
         className
       )}
       data-variant="neo-brut"
