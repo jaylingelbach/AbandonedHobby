@@ -184,6 +184,9 @@ export const ProductView = ({ productId, orderId }: Props) => {
               returnsAcceptedThrough={order.returnsAcceptedThroughISO}
               quantity={order.quantity}
               shipping={order.shipping}
+              onViewInvoice={openInvoice}
+              canViewInvoice={true}
+              isInvoiceLoading={isFetchingFullOrder}
             />
           ) : (
             <div className="text-sm italic text-muted-foreground">
@@ -191,10 +194,10 @@ export const ProductView = ({ productId, orderId }: Props) => {
             </div>
           )}
 
-          {/* 2) Shipment & actions */}
+          {/* 2) Shipment & Actions */}
           <Card className={neoBrut}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Shipment & actions</CardTitle>
+              <CardTitle className="text-base">Shipment & Actions</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center justify-between">
@@ -244,16 +247,6 @@ export const ProductView = ({ productId, orderId }: Props) => {
                 >
                   <RefreshCw className="mr-2 size-4" />
                   Start a return (coming soon)
-                </Button>
-
-                <Button
-                  className="justify-start border-2 border-black"
-                  variant="secondary"
-                  onClick={openInvoice}
-                  disabled={!order || isFetchingFullOrder}
-                >
-                  <Receipt className="mr-2 size-4" />
-                  {isFetchingFullOrder ? 'Loading invoice…' : 'View invoice'}
                 </Button>
 
                 {order && (
