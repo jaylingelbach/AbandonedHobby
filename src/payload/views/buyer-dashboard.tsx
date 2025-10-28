@@ -15,11 +15,10 @@ function formatCurrencyDisplay(
   amountInDollars: number,
   currency = 'USD'
 ): string {
-  const numeric = amountInDollars;
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency
-  }).format(numeric);
+  }).format(amountInDollars);
 }
 
 /**

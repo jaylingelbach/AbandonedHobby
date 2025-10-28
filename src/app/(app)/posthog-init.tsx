@@ -38,12 +38,10 @@ export default function PostHogInit() {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (!key) return;
 
-    const isLocal =
-      typeof window !== 'undefined' &&
-      (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
+    const isDev = process.env.NODE_ENV === 'development';
 
     posthog.init(key, {
-      api_host: isLocal ? POSTHOG.apiHost : `/${POSTHOG.proxyPath}`,
+      api_host: isDev ? POSTHOG.apiHost : `/${POSTHOG.proxyPath}`,
       ui_host: POSTHOG.uiHost,
       capture_pageview: true,
       capture_pageleave: true,
