@@ -9,8 +9,11 @@ import {
 
 import { afterChangeOrders } from '@/lib/server/payload-utils/order-afterChange';
 import { mirrorShipmentsArrayToSingle } from '@/lib/server/orders/mirror-shipments-to-single';
+import { lockAndCalculateAmounts } from '@/lib/server/orders/lock-and-calc-amounts';
 
 import type { CollectionConfig, FieldAccess } from 'payload';
+import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
+import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
   const roles: string[] | undefined = req?.user?.roles as string[] | undefined;
@@ -42,66 +45,10 @@ export const Orders: CollectionConfig = {
   hooks: {
     afterChange: [afterChangeOrders],
     beforeChange: [
+      mirrorSingleShipmentToArray,
       mirrorShipmentsArrayToSingle,
-      // 1) Auto-set deliveredAt when status moves to "delivered"
-      async ({ data, originalDoc }) => {
-        // Only run for create/update with docs
-        if (!data) return data;
-
-        const next =
-          (data.fulfillmentStatus as string | undefined) ??
-          originalDoc?.fulfillmentStatus;
-        const prev = originalDoc?.fulfillmentStatus;
-
-        if (prev !== 'delivered' && next === 'delivered') {
-          // only set if not already set
-          if (!data.deliveredAt) {
-            return { ...data, deliveredAt: new Date().toISOString() };
-          }
-        }
-        return data;
-      },
-
-      // 2) Mirror single `shipment` → first entry in `shipments[]` during transition
-      async ({ data, originalDoc }) => {
-        const group = (data?.shipment ?? originalDoc?.shipment) as
-          | {
-              carrier?: string;
-              trackingNumber?: string;
-              trackingUrl?: string;
-              shippedAt?: string;
-            }
-          | undefined;
-
-        if (!group) return data;
-
-        const alreadyHasArray =
-          (Array.isArray(data?.shipments) && data!.shipments!.length > 0) ||
-          (Array.isArray(originalDoc?.shipments) &&
-            originalDoc!.shipments!.length > 0);
-
-        if (alreadyHasArray) return data;
-
-        const isCreate = !originalDoc;
-        const hasNewShipmentInput =
-          Boolean(data?.shipment?.carrier) ||
-          Boolean(data?.shipment?.trackingNumber) ||
-          Boolean(data?.shipment?.trackingUrl) ||
-          Boolean(data?.shipment?.shippedAt);
-        if (!isCreate && !hasNewShipmentInput) return data;
-
-        return {
-          ...data,
-          shipments: [
-            {
-              carrier: group.carrier,
-              trackingNumber: group.trackingNumber,
-              trackingUrl: group.trackingUrl,
-              shippedAt: group.shippedAt
-            }
-          ]
-        };
-      }
+      lockAndCalculateAmounts,
+      autoSetDeliveredAt
     ]
   },
   fields: [
@@ -372,31 +319,27 @@ export const Orders: CollectionConfig = {
     {
       type: 'group',
       name: 'amounts',
-      admin: { description: 'Order-level money breakdown (all cents)' },
+      admin: {
+        description: 'Order-level money breakdown (all cents)',
+        readOnly: true
+      },
+      access: { create: () => false, update: () => false },
       fields: [
+        { name: 'subtotalCents', type: 'number', admin: { readOnly: true } },
+        { name: 'taxTotalCents', type: 'number', admin: { readOnly: true } },
         {
-          name: 'subtotalCents',
+          name: 'shippingTotalCents',
           type: 'number',
-          admin: { description: 'Sum of line item amountSubtotal' }
-        },
-        { name: 'taxTotalCents', type: 'number' },
-        { name: 'shippingTotalCents', type: 'number' },
-        { name: 'discountTotalCents', type: 'number' },
-        {
-          name: 'platformFeeCents',
-          type: 'number',
-          admin: { description: 'Your fee' }
+          admin: { readOnly: true }
         },
         {
-          name: 'stripeFeeCents',
+          name: 'discountTotalCents',
           type: 'number',
-          admin: { description: 'Stripe processing fee' }
+          admin: { readOnly: true }
         },
-        {
-          name: 'sellerNetCents',
-          type: 'number',
-          admin: { description: 'Payout to seller after fees' }
-        }
+        { name: 'platformFeeCents', type: 'number', admin: { readOnly: true } },
+        { name: 'stripeFeeCents', type: 'number', admin: { readOnly: true } },
+        { name: 'sellerNetCents', type: 'number', admin: { readOnly: true } }
       ]
     },
 
