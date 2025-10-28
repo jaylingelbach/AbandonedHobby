@@ -4068,3 +4068,37 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/orders/ui/OrderSummaryCard.tsx
   - Replaced max-w-md with w-full max-w-none (removed max-width constraint).
+
+# Invoice to order summary 10/27/25
+
+## Walkthrough
+
+- This change adds invoice-viewing functionality to OrderSummaryCard by introducing new props (onViewInvoice, canViewInvoice, isInvoiceLoading), implements an inline receipt button in the card header, removes a redundant "View invoice" button from ProductView, and applies minor UI styling updates.
+
+## New Features
+
+- Integrated invoice viewing functionality into the order summary card with a quick-access receipt icon button.
+- Added loading state indicator for invoice viewing actions.
+
+## Style
+
+- Updated UI text capitalization for consistency across the product view.
+- Enhanced button styling with visual refinements.
+
+## File changes
+
+### Chat UI Styling Enhancement
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Added static bg-pink-400 className to Button element for
+
+### UI styling.
+
+- Invoice Prop Wiring
+- src/modules/library/ui/views/product-view.tsx
+  - Added invoice-related props to OrderSummaryCard (onViewInvoice, canViewInvoice, isInvoiceLoading); removed inline "View invoice" button from Shipment & Actions section; minor text capitalization updates ("Shipment & actions" → "Shipment & Actions").
+
+### OrderSummaryCard Invoice Actions
+
+- src/modules/orders/ui/OrderSummaryCard.tsx
+  - Extended component props to include InvoiceActionProps; added inline top-right receipt button in card header that triggers onViewInvoice with loading state support; introduced Button and Receipt icon imports; updated CardHeader structure.

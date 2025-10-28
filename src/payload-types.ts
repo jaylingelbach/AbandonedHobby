@@ -487,6 +487,107 @@ export interface Order {
    * Issue a refund for this order
    */
   refunds?: {};
+  /**
+   * Order-level money breakdown (all cents)
+   */
+  amounts?: {
+    /**
+     * Sum of line item amountSubtotal
+     */
+    subtotalCents?: number | null;
+    taxTotalCents?: number | null;
+    shippingTotalCents?: number | null;
+    discountTotalCents?: number | null;
+    /**
+     * Your fee
+     */
+    platformFeeCents?: number | null;
+    /**
+     * Stripe processing fee
+     */
+    stripeFeeCents?: number | null;
+    /**
+     * Payout to seller after fees
+     */
+    sellerNetCents?: number | null;
+  };
+  documents?: {
+    invoiceUrl?: string | null;
+    receiptUrl?: string | null;
+  };
+  /**
+   * Set when delivery is confirmed
+   */
+  deliveredAt?: string | null;
+  /**
+   * Set if order is canceled
+   */
+  canceledAt?: string | null;
+  /**
+   * Optional short note for cancellation
+   */
+  cancellationReason?: string | null;
+  /**
+   * Optional multi-shipment support. You can keep using `shipment` during transition.
+   */
+  shipments?:
+    | {
+        carrier?: ('usps' | 'ups' | 'fedex' | 'other') | null;
+        trackingNumber?: string | null;
+        trackingUrl?: string | null;
+        shippedAt?: string | null;
+        items?:
+          | {
+              /**
+               * ID of the line item in orders.items[]
+               */
+              orderItemId?: string | null;
+              quantity?: number | null;
+              id?: string | null;
+            }[]
+          | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * High-level return metadata (line-level lives in Refunds collection)
+   */
+  returns?: {
+    rmaNumber?: string | null;
+    status?: ('none' | 'requested' | 'approved' | 'in_transit' | 'received' | 'refunded' | 'rejected') | null;
+  };
+  reviews?: {
+    hasReview?: boolean | null;
+    reviewId?: (string | null) | Review;
+  };
+  support?: {
+    /**
+     * Primary buyer-seller thread for this order
+     */
+    conversation?: (string | null) | Conversation;
+    lastBuyerViewedAt?: string | null;
+  };
+  /**
+   * Visible to buyer and seller
+   */
+  buyerNotes?: string | null;
+  /**
+   * Internal notes visible only to seller/admin
+   */
+  sellerPrivateNotes?: string | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "reviews".
+ */
+export interface Review {
+  id: string;
+  description: string;
+  rating: number;
+  product: string | Product;
+  user: string | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -533,19 +634,6 @@ export interface Refund {
   };
   notes?: string | null;
   idempotencyKey?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "reviews".
- */
-export interface Review {
-  id: string;
-  description: string;
-  rating: number;
-  product: string | Product;
-  user: string | User;
   updatedAt: string;
   createdAt: string;
 }
@@ -829,6 +917,62 @@ export interface OrdersSelect<T extends boolean = true> {
         lastNotifiedKey?: T;
       };
   refunds?: T | {};
+  amounts?:
+    | T
+    | {
+        subtotalCents?: T;
+        taxTotalCents?: T;
+        shippingTotalCents?: T;
+        discountTotalCents?: T;
+        platformFeeCents?: T;
+        stripeFeeCents?: T;
+        sellerNetCents?: T;
+      };
+  documents?:
+    | T
+    | {
+        invoiceUrl?: T;
+        receiptUrl?: T;
+      };
+  deliveredAt?: T;
+  canceledAt?: T;
+  cancellationReason?: T;
+  shipments?:
+    | T
+    | {
+        carrier?: T;
+        trackingNumber?: T;
+        trackingUrl?: T;
+        shippedAt?: T;
+        items?:
+          | T
+          | {
+              orderItemId?: T;
+              quantity?: T;
+              id?: T;
+            };
+        id?: T;
+      };
+  returns?:
+    | T
+    | {
+        rmaNumber?: T;
+        status?: T;
+      };
+  reviews?:
+    | T
+    | {
+        hasReview?: T;
+        reviewId?: T;
+      };
+  support?:
+    | T
+    | {
+        conversation?: T;
+        lastBuyerViewedAt?: T;
+      };
+  buyerNotes?: T;
+  sellerPrivateNotes?: T;
   updatedAt?: T;
   createdAt?: T;
 }

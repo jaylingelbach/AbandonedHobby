@@ -12,4 +12,9 @@ export type OrderListItem = {
   fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
 };
 
+export type BuyerCountSummary = {
+  unfulfilledOrders: number;
+  needsOnboarding: boolean;
+};
+
 export type CountResult = number | { totalDocs: number };

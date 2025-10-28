@@ -43,6 +43,11 @@ export default buildConfig({
           Component: '@/payload/views/seller-dashboard.tsx#SellerDashboard',
           path: '/seller', // admin base + /seller
           exact: true
+        },
+        buyerDashboard: {
+          Component: '@/payload/views/buyer-dashboard.tsx#BuyerDashboard',
+          path: '/buyer',
+          exact: true
         }
       },
       providers: [
@@ -50,7 +55,8 @@ export default buildConfig({
         '@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider'
       ],
       afterNavLinks: [
-        '@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink'
+        '@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink',
+        '@/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx#BuyerDashboardLink'
       ],
       beforeNavLinks: [
         '@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink',

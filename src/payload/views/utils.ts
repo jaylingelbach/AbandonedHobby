@@ -1,5 +1,10 @@
 import type { AdminViewServerProps, Where } from 'payload';
-import type { CountResult, CountSummary, OrderListItem } from './types';
+import type {
+  BuyerCountSummary,
+  CountResult,
+  CountSummary,
+  OrderListItem
+} from './types';
 import type { ShippedOrderListItem } from '@/modules/orders/types';
 
 /* -----------------------------------------------------------------------------
@@ -170,7 +175,7 @@ function buildShippedWhere(): Where {
 }
 
 /* -----------------------------------------------------------------------------
- * Data loader used by the page
+ * Data loader used by the Seller Dashboard
  * -------------------------------------------------------------------------- */
 
 /**
@@ -221,8 +226,8 @@ export async function getData(props: AdminViewServerProps): Promise<{
 
   console.log('[seller-dashboard]', {
     userId: currentUser.id,
-    tenantIds, // ✅ use these in queries
-    tenantArrayRowIds // 🛠️ debug only
+    tenantIds, // use these in queries
+    tenantArrayRowIds // debug only
   });
 
   if (tenantIds.length === 0) {

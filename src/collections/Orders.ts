@@ -39,7 +39,60 @@ export const Orders: CollectionConfig = {
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   hooks: {
-    afterChange: [afterChangeOrders]
+    afterChange: [afterChangeOrders],
+    beforeChange: [
+      // 1) Auto-set deliveredAt when status moves to "delivered"
+      async ({ data, originalDoc }) => {
+        // Only run for create/update with docs
+        if (!data) return data;
+
+        const next =
+          (data.fulfillmentStatus as string | undefined) ??
+          originalDoc?.fulfillmentStatus;
+        const prev = originalDoc?.fulfillmentStatus;
+
+        if (prev !== 'delivered' && next === 'delivered') {
+          // only set if not already set
+          if (!data.deliveredAt) {
+            return { ...data, deliveredAt: new Date().toISOString() };
+          }
+        }
+        return data;
+      },
+
+      // 2) Mirror single `shipment` → first entry in `shipments[]` during transition
+      async ({ data, originalDoc }) => {
+        const group = (data?.shipment ?? originalDoc?.shipment) as
+          | {
+              carrier?: string;
+              trackingNumber?: string;
+              trackingUrl?: string;
+              shippedAt?: string;
+            }
+          | undefined;
+
+        if (!group) return data;
+
+        const alreadyHasArray =
+          (Array.isArray(data?.shipments) && data!.shipments!.length > 0) ||
+          (Array.isArray(originalDoc?.shipments) &&
+            originalDoc!.shipments!.length > 0);
+
+        if (alreadyHasArray) return data;
+
+        return {
+          ...data,
+          shipments: [
+            {
+              carrier: group.carrier,
+              trackingNumber: group.trackingNumber,
+              trackingUrl: group.trackingUrl,
+              shippedAt: group.shippedAt
+            }
+          ]
+        };
+      }
+    ]
   },
   fields: [
     // ----- Display / identifiers -----
@@ -57,7 +110,8 @@ export const Orders: CollectionConfig = {
       name: 'buyer',
       type: 'relationship',
       relationTo: 'users',
-      required: true
+      required: true,
+      index: true
     },
     { name: 'buyerEmail', type: 'email' },
 
@@ -303,6 +357,172 @@ export const Orders: CollectionConfig = {
           }
         }
       ]
+    },
+    // --- Money breakdown (order-level, cents) -----------------------------------------
+    {
+      type: 'group',
+      name: 'amounts',
+      admin: { description: 'Order-level money breakdown (all cents)' },
+      fields: [
+        {
+          name: 'subtotalCents',
+          type: 'number',
+          admin: { description: 'Sum of line item amountSubtotal' }
+        },
+        { name: 'taxTotalCents', type: 'number' },
+        { name: 'shippingTotalCents', type: 'number' },
+        { name: 'discountTotalCents', type: 'number' },
+        {
+          name: 'platformFeeCents',
+          type: 'number',
+          admin: { description: 'Your fee' }
+        },
+        {
+          name: 'stripeFeeCents',
+          type: 'number',
+          admin: { description: 'Stripe processing fee' }
+        },
+        {
+          name: 'sellerNetCents',
+          type: 'number',
+          admin: { description: 'Payout to seller after fees' }
+        }
+      ]
+    },
+
+    // --- Documents / Links -------------------------------------------------------------
+    {
+      type: 'group',
+      name: 'documents',
+      fields: [
+        { name: 'invoiceUrl', type: 'text' },
+        { name: 'receiptUrl', type: 'text' }
+      ]
+    },
+
+    // --- Shipment lifecycle (existing `shipment` stays). Add deliveredAt & cancel info -
+    {
+      name: 'deliveredAt',
+      type: 'date',
+      admin: { description: 'Set when delivery is confirmed' },
+      index: true
+    },
+    {
+      name: 'canceledAt',
+      type: 'date',
+      admin: { description: 'Set if order is canceled' },
+      index: true
+    },
+    {
+      name: 'cancellationReason',
+      type: 'text',
+      admin: { description: 'Optional short note for cancellation' }
+    },
+
+    // --- Split shipments (non-breaking; keep existing `shipment`) ----------------------
+    {
+      name: 'shipments',
+      type: 'array',
+      admin: {
+        description:
+          'Optional multi-shipment support. You can keep using `shipment` during transition.'
+      },
+      fields: [
+        {
+          name: 'carrier',
+          type: 'select',
+          options: [
+            { label: 'USPS', value: 'usps' },
+            { label: 'UPS', value: 'ups' },
+            { label: 'FedEx', value: 'fedex' },
+            { label: 'Other', value: 'other' }
+          ]
+        },
+        { name: 'trackingNumber', type: 'text' },
+        { name: 'trackingUrl', type: 'text' },
+        { name: 'shippedAt', type: 'date' },
+        // Optional: item subset if you want to model partial shipments
+        {
+          name: 'items',
+          type: 'array',
+          fields: [
+            {
+              name: 'orderItemId',
+              type: 'text',
+              admin: { description: 'ID of the line item in orders.items[]' }
+            },
+            { name: 'quantity', type: 'number', min: 1 }
+          ]
+        }
+      ]
+    },
+
+    // --- Returns / RMA scaffold --------------------------------------------------------
+    {
+      type: 'group',
+      name: 'returns',
+      admin: {
+        description:
+          'High-level return metadata (line-level lives in Refunds collection)'
+      },
+      fields: [
+        { name: 'rmaNumber', type: 'text' },
+        {
+          name: 'status',
+          type: 'select',
+          options: [
+            { label: 'None', value: 'none' },
+            { label: 'Requested', value: 'requested' },
+            { label: 'Approved', value: 'approved' },
+            { label: 'In Transit', value: 'in_transit' },
+            { label: 'Received', value: 'received' },
+            { label: 'Refunded', value: 'refunded' },
+            { label: 'Rejected', value: 'rejected' }
+          ],
+          defaultValue: 'none'
+        }
+      ]
+    },
+
+    // --- Reviews pivot (so you can prompt and deep-link) --------------------------------
+    {
+      type: 'group',
+      name: 'reviews',
+      fields: [
+        { name: 'hasReview', type: 'checkbox', defaultValue: false },
+        { name: 'reviewId', type: 'relationship', relationTo: 'reviews' }
+      ]
+    },
+
+    // --- Support / Conversation pivot ---------------------------------------------------
+    {
+      type: 'group',
+      name: 'support',
+      fields: [
+        {
+          name: 'conversation',
+          type: 'relationship',
+          relationTo: 'conversations',
+          admin: { description: 'Primary buyer-seller thread for this order' }
+        },
+        { name: 'lastBuyerViewedAt', type: 'date' }
+      ]
+    },
+
+    // --- Notes (visibility-aware) -------------------------------------------------------
+    {
+      name: 'buyerNotes',
+      type: 'textarea',
+      admin: { description: 'Visible to buyer and seller' }
+    },
+    {
+      name: 'sellerPrivateNotes',
+      type: 'textarea',
+      admin: { description: 'Internal notes visible only to seller/admin' },
+      access: {
+        read: ({ req }) => isSuperAdmin(req.user),
+        update: ({ req }) => isSuperAdmin(req.user)
+      }
     }
   ]
 };
