@@ -4,7 +4,13 @@ import Link from 'next/link';
 import type { AdminViewServerProps } from 'payload';
 import { getBuyerData } from './buyer-dashboard-utils';
 
-// If you already have a shared formatter, import it instead.
+/**
+ * Format a numeric dollar amount into a localized currency string.
+ *
+ * @param amountInDollars - The monetary amount in dollars to format.
+ * @param currency - ISO 4217 currency code to use for formatting (defaults to `USD`).
+ * @returns The formatted currency string (for example, `"$1,234.56"`).
+ */
 function formatCurrencyDisplay(
   amountInDollars: number,
   currency = 'USD'
@@ -16,7 +22,13 @@ function formatCurrencyDisplay(
   }).format(numeric);
 }
 
-/** Safely read an optional `currency` field from an unknown value. */
+/**
+ * Extracts a `currency` string from an arbitrary value if present.
+ *
+ * @param value - The value to inspect for a `currency` property.
+ * @param fallback - The currency to return when a valid `currency` string is not found (defaults to `USD`).
+ * @returns The `currency` string found on `value`, or the provided `fallback`.
+ */
 function readCurrencyFromOrder(
   value: unknown,
   fallback: string = 'USD'
@@ -32,6 +44,12 @@ function readCurrencyFromOrder(
   return fallback;
 }
 
+/**
+ * Renders the buyer dashboard view showing shipment summaries, awaiting and in-transit orders, and quick action links.
+ *
+ * @param props - Server rendering props required to build the admin buyer dashboard (locale, request, permissions, params, and search parameters)
+ * @returns A JSX element representing the buyer dashboard UI
+ */
 export async function BuyerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const data = await getBuyerData(props);

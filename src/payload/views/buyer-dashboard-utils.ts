@@ -6,12 +6,21 @@ import type { BuyerDashboardCountSummary, BuyerOrderListItem } from './types';
  * Shared helpers
  * -------------------------------------------------------------------------- */
 
-/** Normalize a Payload `count()` response into a number (v3.55+ always returns a number). */
+/**
+ * Convert a raw Payload `count()` result into a safe numeric count.
+ *
+ * @param result - The raw value returned by a Payload `count()` call
+ * @returns The numeric count from `result`, or `0` if `result` is not a number
+ */
 function readCount(result: unknown): number {
   return typeof result === 'number' ? result : 0;
 }
 
-/** Treat missing/empty fulfillmentStatus as “unfulfilled”. */
+/**
+ * Produce a Where clause that matches records whose fulfillmentStatus should be treated as unfulfilled.
+ *
+ * @returns A Where clause matching documents where `fulfillmentStatus` is `'unfulfilled'`, does not exist, is `null`, or is an empty string.
+ */
 function buildUnfulfilledWhere(): Where {
   return {
     or: [
@@ -23,7 +32,11 @@ function buildUnfulfilledWhere(): Where {
   };
 }
 
-/** Shipped = fulfillmentStatus: shipped AND a shippedAt timestamp present (legacy single shipment). */
+/**
+ * Creates a Where clause matching legacy single-shipment orders that are marked shipped and have a `shipment.shippedAt` timestamp.
+ *
+ * @returns A `Where` clause that matches documents with `fulfillmentStatus` equal to `'shipped'` and a present `shipment.shippedAt` field.
+ */
 function buildShippedWhereSingle(): Where {
   return {
     and: [
@@ -33,7 +46,11 @@ function buildShippedWhereSingle(): Where {
   };
 }
 
-/** Also consider orders with shipments[] entries that have shippedAt. */
+/**
+ * Builds a WHERE clause that matches orders whose fulfillmentStatus is "shipped" and that have at least one `shipments[].shippedAt`.
+ *
+ * @returns A `Where` clause targeting orders with `fulfillmentStatus: 'shipped'` and an existing `shipments.shippedAt` field
+ */
 function buildShippedWhereArray(): Where {
   return {
     and: [
@@ -138,7 +155,19 @@ function pickShipmentFromRecord(record: {
   };
 }
 
-/** Minimal guard to read list items from unknown order docs. */
+/**
+ * Normalize an unknown order document into a BuyerOrderListItem or return null if it cannot be normalized.
+ *
+ * Validates that `value` is an object with a string `id` and a non-empty `createdAt`. Produces a BuyerOrderListItem containing:
+ * - `id`
+ * - `orderNumber` (uses `orderNumber` if present and a string, otherwise falls back to `id`)
+ * - `totalCents` (uses numeric `total`, otherwise `0`)
+ * - `createdAtISO`
+ * - `fulfillmentStatus` (one of `'shipped'`, `'delivered'`, `'returned'`; defaults to `'unfulfilled'`)
+ * - shipment fields `carrier`, `trackingNumber`, and `shippedAtISO` when available
+ *
+ * @returns A BuyerOrderListItem populated from `value`, or `null` if required fields are missing or invalid.
+ */
 function toBuyerOrderListItem(value: unknown): BuyerOrderListItem | null {
   if (typeof value !== 'object' || value === null) return null;
 
@@ -193,9 +222,15 @@ function toBuyerOrderListItem(value: unknown): BuyerOrderListItem | null {
   };
 }
 
-/* -----------------------------------------------------------------------------
- * Loader used by the Buyer Dashboard
- * -------------------------------------------------------------------------- */
+/**
+ * Load buyer-specific dashboard summary and lists for the current user.
+ *
+ * @param props - Server-side view props containing the request and Payload instance
+ * @returns An object with:
+ *  - `summary`: counts for `awaitingShipment` and `inTransit`
+ *  - `awaitingShipment`: up to 25 normalized `BuyerOrderListItem` documents awaiting shipment (sorted newest first)
+ *  - `inTransit`: up to 25 normalized `BuyerOrderListItem` documents that are shipped, sorted by shipped date (most recent first) or `createdAt` when shipped date is unavailable
+ */
 
 export async function getBuyerData(props: AdminViewServerProps): Promise<{
   summary: BuyerDashboardCountSummary;

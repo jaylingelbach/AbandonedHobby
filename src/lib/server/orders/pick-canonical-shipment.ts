@@ -13,9 +13,10 @@ export type OrderLike = {
 };
 
 /**
- * Pick the best shipment to mirror into `shipment`.
- * Strategy: prefer the entry with the most recent `shippedAt` across both sources.
- * Falls back to the legacy `shipment` if it has a `shippedAt`.
+ * Selects the canonical shipment for an order by choosing the entry with the most recent `shippedAt`.
+ *
+ * @param doc - An order-like object that may contain a legacy `shipment` and/or a `shipments` array.
+ * @returns The shipment entry with the latest `shippedAt` when it includes at least one of `trackingNumber`, `carrier`, or `shippedAt`; `undefined` if no suitable shipment is found.
  */
 export function pickCanonicalShipment(
   doc: OrderLike | null | undefined
