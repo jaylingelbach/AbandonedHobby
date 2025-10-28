@@ -4073,32 +4073,35 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 ## Walkthrough
 
-- This change adds invoice-viewing functionality to OrderSummaryCard by introducing new props (onViewInvoice, canViewInvoice, isInvoiceLoading), implements an inline receipt button in the card header, removes a redundant "View invoice" button from ProductView, and applies minor UI styling updates.
+- Integrates invoice-viewing functionality directly into the OrderSummaryCard component via new invoice action props, adds an inline receipt icon button in the card header for quick access, removes the redundant "View invoice" button from ProductView for cleaner UX, and applies minor styling refinements to the chat button.
 
 ## New Features
 
-- Integrated invoice viewing functionality into the order summary card with a quick-access receipt icon button.
-- Added loading state indicator for invoice viewing actions.
+- OrderSummaryCard now displays an inline receipt button (top-right of card header) that opens the invoice dialog with loading state feedback.
+- Simplified ProductView layout by removing duplicate invoice access point.
 
 ## Style
 
-- Updated UI text capitalization for consistency across the product view.
-- Enhanced button styling with visual refinements.
+- Chat button now uses a consistent pink background (bg-pink-400) for visual cohesion.
+- Minor text capitalization updates in ProductView for consistency.
 
 ## File changes
 
-### Chat UI Styling Enhancement
-
-- src/modules/conversations/ui/chat-button-with-modal.tsx
-  - Added static bg-pink-400 className to Button element for
-
-### UI styling.
-
-- Invoice Prop Wiring
-- src/modules/library/ui/views/product-view.tsx
-  - Added invoice-related props to OrderSummaryCard (onViewInvoice, canViewInvoice, isInvoiceLoading); removed inline "View invoice" button from Shipment & Actions section; minor text capitalization updates ("Shipment & actions" → "Shipment & Actions").
-
-### OrderSummaryCard Invoice Actions
+### OrderSummaryCard Component (invoice integration)
 
 - src/modules/orders/ui/OrderSummaryCard.tsx
-  - Extended component props to include InvoiceActionProps; added inline top-right receipt button in card header that triggers onViewInvoice with loading state support; introduced Button and Receipt icon imports; updated CardHeader structure.
+  - Extended props with InvoiceActionProps (onViewInvoice, canViewInvoice, isInvoiceLoading).
+  - Added inline receipt icon button in CardHeader for instant invoice access.
+  - Imported Receipt icon and Button components.
+
+### ProductView Component (invoice prop wiring & simplification)
+
+- src/modules/library/ui/views/product-view.tsx
+  - Wired new invoice props from order data to OrderSummaryCard.
+  - Removed redundant "View invoice" button from Shipment & Actions section.
+  - Updated text capitalization ("Shipment & actions" → "Shipment & Actions").
+
+### Chat Button Styling
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Added static bg-pink-400 className to Button for visual consistency.

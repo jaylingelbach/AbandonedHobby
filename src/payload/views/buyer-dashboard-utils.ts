@@ -1,40 +1,14 @@
-// src/payload/views/buyer-dashboard-utils.ts
 import type { AdminViewServerProps, Where } from 'payload';
-
-export type BuyerCountSummary = {
-  awaitingShipment: number;
-  inTransit: number;
-};
-
-export type BuyerOrderListItem = {
-  id: string;
-  orderNumber: string;
-  totalCents: number;
-  createdAtISO: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
-  trackingNumber?: string;
-  shippedAtISO?: string;
-};
-
-type CountResult = number | { totalDocs?: number };
+import type { Carrier } from '@/constants';
+import type { BuyerDashboardCountSummary, BuyerOrderListItem } from './types';
 
 /* -----------------------------------------------------------------------------
  * Shared helpers
  * -------------------------------------------------------------------------- */
 
-/** Normalize a Payload `count()` response into a number. */
-function readCount(result: CountResult | unknown): number {
-  if (typeof result === 'number') return result;
-  if (
-    typeof result === 'object' &&
-    result !== null &&
-    'totalDocs' in result &&
-    typeof (result as { totalDocs?: unknown }).totalDocs === 'number'
-  ) {
-    return (result as { totalDocs: number }).totalDocs;
-  }
-  return 0;
+/** Normalize a Payload `count()` response into a number (v3.55+ always returns a number). */
+function readCount(result: unknown): number {
+  return typeof result === 'number' ? result : 0;
 }
 
 /** Treat missing/empty fulfillmentStatus as “unfulfilled”. */
@@ -61,8 +35,6 @@ function buildShippedWhereSingle(): Where {
 
 /** Also consider orders with shipments[] entries that have shippedAt. */
 function buildShippedWhereArray(): Where {
-  // Payload supports querying array fields with dot paths.
-  // We only need to verify at least one shipments[].shippedAt exists.
   return {
     and: [
       { fulfillmentStatus: { equals: 'shipped' } },
@@ -72,7 +44,7 @@ function buildShippedWhereArray(): Where {
 }
 
 /** Scope orders to a specific buyer ID. */
-function buildBuyerScopeWhere(userId: string): Where {
+export function buildBuyerScopeWhere(userId: string): Where {
   return { buyer: { equals: userId } };
 }
 
@@ -92,11 +64,11 @@ function pickShipmentFromRecord(record: {
     shippedAt?: unknown;
   }> | null;
 }): {
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  carrier?: Carrier;
   trackingNumber?: string;
   shippedAtISO?: string;
 } {
-  let chosenCarrier: 'usps' | 'ups' | 'fedex' | 'other' | undefined;
+  let chosenCarrier: Carrier | undefined;
   let chosenTrackingNumber: string | undefined;
   let chosenShippedAt: string | undefined;
 
@@ -112,7 +84,7 @@ function pickShipmentFromRecord(record: {
       single.carrier === 'ups' ||
       single.carrier === 'fedex' ||
       single.carrier === 'other'
-        ? single.carrier
+        ? (single.carrier as Carrier)
         : undefined;
 
     const trackingCandidate =
@@ -142,7 +114,7 @@ function pickShipmentFromRecord(record: {
       shipment.carrier === 'ups' ||
       shipment.carrier === 'fedex' ||
       shipment.carrier === 'other'
-        ? shipment.carrier
+        ? (shipment.carrier as Carrier)
         : undefined;
 
     const trackingCandidate =
@@ -150,7 +122,6 @@ function pickShipmentFromRecord(record: {
         ? shipment.trackingNumber
         : undefined;
 
-    // If we do not have a chosen date yet, or this one is more recent, take it
     if (!chosenShippedAt || shipment.shippedAt > chosenShippedAt) {
       chosenCarrier = carrierCandidate;
       chosenTrackingNumber = trackingCandidate;
@@ -226,7 +197,7 @@ function toBuyerOrderListItem(value: unknown): BuyerOrderListItem | null {
  * -------------------------------------------------------------------------- */
 
 export async function getBuyerData(props: AdminViewServerProps): Promise<{
-  summary: BuyerCountSummary;
+  summary: BuyerDashboardCountSummary;
   awaitingShipment: BuyerOrderListItem[];
   inTransit: BuyerOrderListItem[];
 }> {
@@ -253,11 +224,11 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     where: {
       and: [{ status: { equals: 'paid' } }, unfulfilledWhere, buyerScope]
     },
-    overrideAccess: true // optional: match your seller loader style if used
+    overrideAccess: true
   });
   const awaitingShipmentCount = readCount(awaitingShipmentCountResponse);
 
-  // KPI: in transit (shipped) - cover both legacy `shipment` and `shipments[]`
+  // KPI: in transit (shipped) — cover both legacy `shipment` and `shipments[]`
   const inTransitCountResponse = await payloadInstance.count({
     collection: 'orders',
     where: {
@@ -291,8 +262,7 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null);
 
-  // In transit list (recent first by shippedAt – use the legacy path for sorting;
-  // if only shipments[] exists, order will still be "recent-ish" due to payload default sort)
+  // In transit list
   const inTransitResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,

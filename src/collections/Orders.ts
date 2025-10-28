@@ -8,6 +8,7 @@ import {
 } from '@/lib/server/payload-utils/orders';
 
 import { afterChangeOrders } from '@/lib/server/payload-utils/order-afterChange';
+import { mirrorShipmentsArrayToSingle } from '@/lib/server/orders/mirror-shipments-to-single';
 
 import type { CollectionConfig, FieldAccess } from 'payload';
 
@@ -41,6 +42,7 @@ export const Orders: CollectionConfig = {
   hooks: {
     afterChange: [afterChangeOrders],
     beforeChange: [
+      mirrorShipmentsArrayToSingle,
       // 1) Auto-set deliveredAt when status moves to "delivered"
       async ({ data, originalDoc }) => {
         // Only run for create/update with docs
@@ -425,7 +427,8 @@ export const Orders: CollectionConfig = {
       type: 'array',
       admin: {
         description:
-          'Optional multi-shipment support. You can keep using `shipment` during transition.'
+          'Advanced: multi-shipment history. The most recent entry mirrors into the main `shipment`.',
+        condition: ({ req: { user } }) => isSuperAdmin(user)
       },
       fields: [
         {
