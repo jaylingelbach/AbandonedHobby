@@ -14,6 +14,13 @@ type InvoiceActionProps = {
   isInvoiceLoading?: boolean;
 };
 
+/**
+ * Render an order summary card showing order date, total paid, order number, returns deadline, and shipping address, with an optional inline "View invoice" action.
+ *
+ * The component formats currency (with a safe fallback if formatting fails) and dates (returns "—" for missing or invalid dates). If `onViewInvoice` and `canViewInvoice` are provided, a small invoice button is displayed and its disabled/busy state follows `isInvoiceLoading`.
+ *
+ * @returns A JSX element containing the order details card, including any conditional invoice action and shipping block.
+ */
 export function OrderSummaryCard(
   props: OrderSummaryCardProps & InvoiceActionProps
 ) {
