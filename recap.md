@@ -4105,3 +4105,70 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/conversations/ui/chat-button-with-modal.tsx
   - Added static bg-pink-400 className to Button for visual consistency.
+
+# Buyer Dashboard 10/28/25
+
+## Walkthrough
+
+- Adds invoice-viewing UI to OrderSummaryCard and wires ProductView to use it; extends Orders schema with amounts, documents, shipments, returns, support, and hooks; adds server-side order utilities for amounts and shipment mirroring; and introduces a Buyer Dashboard admin view with data loaders and nav entry.
+
+## New Features
+
+- Inline invoice viewing added to order summary; Buyer Dashboard added to admin (Awaiting Shipment, In Transit).
+
+## Enhancements
+
+- Orders now include amounts breakdown, invoice/receipt documents, multi-shipment support, delivered/canceled timestamps, returns, reviews, support links, and buyer/seller notes.
+- Server-side amount recalculation/locking and automatic delivered-at population on delivery.
+
+## UI
+
+- Minor styling and capitalization tweaks for consistency.
+
+## File changes
+
+### Order UI — Invoice Action
+
+- src/modules/orders/ui/OrderSummaryCard.tsx, src/modules/library/ui/views/product-view.tsx
+  - Adds InvoiceActionProps and props (onViewInvoice, canViewInvoice, isInvoiceLoading) to OrderSummaryCard; renders an inline receipt button in the card header and updates ProductView to pass new props (removes prior inline "View invoice" button).
+
+### Chat Button Styling
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Adds static bg-pink-400 className to the chat Button for consistent styling.
+
+### Orders Collection — Schema & Hooks
+
+- src/collections/Orders.ts
+  - Adds amounts group (subtotalCents, taxTotalCents, shippingTotalCents, discountTotalCents, platformFeeCents, stripeFeeCents, sellerNetCents), documents (invoiceUrl, receiptUrl), deliveredAt, canceledAt, cancellationReason, shipments (array), returns, reviews, support, buyerNotes, sellerPrivateNotes; sets buyer.index = true; introduces beforeChange hooks: mirrorSingleShipmentToArray, mirrorShipmentsArrayToSingle, lockAndCalculateAmounts, autoSetDeliveredAt (keeps existing afterChange hooks).
+
+### Server hooks & utilities (orders)
+
+- src/lib/server/orders/auto-delivered-at.ts, src/lib/server/orders/compute-amounts.ts, src/lib/server/orders/lock-and-calc-amounts.ts, src/lib/server/orders/mirror-shipments-to-single.ts, src/lib/server/orders/mirror-single-to-shipments.ts, src/lib/server/orders/pick-canonical-shipment.ts
+  - New exports: autoSetDeliveredAt (set deliveredAt on delivered transition), computeOrderAmounts (aggregate line/item amounts and fees), lockAndCalculateAmounts (recompute and lock amounts on beforeChange), mirrorShipmentsArrayToSingle and mirrorSingleShipmentToArray (sync legacy shipment ↔ shipments[]), and pickCanonicalShipment (select most relevant shipment entry).
+
+### Type definitions & selects
+
+src/payload-types.ts, src/payload/views/types.ts
+
+- Extends Order with amounts, documents, deliveredAt, canceledAt, cancellationReason, shipments, returns, reviews, support, buyerNotes, sellerPrivateNotes; adds Review interface and updates OrdersSelect<T> to include new fields; adds buyer-dashboard types (BuyerCountSummary, BuyerDashboardCountSummary, BuyerOrderListItem) and expands CountSummary with needsOnboarding.
+
+### Buyer Dashboard — View & utils
+
+- src/payload/views/buyer-dashboard.tsx, src/payload/views/buyer-dashboard-utils.ts
+  - Adds BuyerDashboard admin view and getBuyerData loader: computes awaitingShipment and inTransit counts/lists, normalizes legacy vs. array shipments, maps orders to BuyerOrderListItem, and renders KPI cards, tables, and quick actions.
+
+### Admin nav & import map
+
+- src/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx, src/payload.config.ts, src/app/(payload)/admin/importMap.js
+  - Adds BuyerDashboardLink NavGroup component, registers buyerDashboard view at /buyer, appends BuyerDashboardLink to admin afterNavLinks, and updates importMap entries for BuyerDashboard/BuyerDashboardLink.
+
+### Seller Dashboard shipped filter & logging
+
+- src/payload/views/utils.ts
+  - Adjusts logging (non-production gating) and broadens shipped-order query to consider both shipment.shippedAt and shipments.shippedAt via an OR clause.
+
+### Import cleanup
+
+- src/modules/library/ui/views/product-view.tsx
+  - Removes unused Receipt import from lucide-react.

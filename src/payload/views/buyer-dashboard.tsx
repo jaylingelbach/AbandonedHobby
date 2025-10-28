@@ -248,7 +248,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                       <Link
                         prefetch={false}
                         className="btn btn--sm"
-                        href={`/admin/collections/orders/${order.id}`}
+                        href={`/orders/${order.id}`}
                       >
                         View
                       </Link>
