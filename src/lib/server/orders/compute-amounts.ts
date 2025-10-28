@@ -19,6 +19,13 @@ type Amounts = {
   sellerNetCents: number;
 };
 
+/**
+ * Convert a value to an integer cents amount, using the fallback when the input is not a finite number.
+ *
+ * @param value - Input to convert; if a finite number it is truncated toward zero and clamped to be greater than or equal to zero.
+ * @param fallback - Value used when `value` is not a finite number; truncated toward zero and clamped to be greater than or equal to zero.
+ * @returns An integer number of cents greater than or equal to zero.
+ */
 function toIntCents(value: unknown, fallback = 0): number {
   return typeof value === 'number' && Number.isFinite(value)
     ? Math.max(0, Math.trunc(value))
@@ -26,19 +33,22 @@ function toIntCents(value: unknown, fallback = 0): number {
 }
 
 /**
- * Compute amounts from items + known fields.
- * - Prefers per-line `amountSubtotal`/`amountTax`/`amountTotal` if present,
- *   otherwise falls back to unitAmount * quantity (+ tax = amountTotal).
- * - `shippingTotalCents` and `discountTotalCents` default to 0 unless supplied.
- * - `stripeFeeCents`:
- *    - If provided (e.g., webhook), trust it.
- *    - Otherwise 0 (do not guess).
- * - `platformFeeCents`:
- *    - Prefer provided value when valid (e.g., webhook),
- *    - Otherwise compute from PLATFORM_FEE_PERCENTAGE using **serverTotalCents**.
- * - **serverTotalCents** (authoritative basis for fees) =
- *    sum(line amountTotal) + shipping - discount  (clamped to integer ≥ 0).
- *   If there are **no items**, fall back to input.totalCents.
+ * Calculate aggregated monetary amounts for an order from item lines and provided totals.
+ *
+ * The function derives an authoritative server total from line item totals plus shipping minus discounts when items exist;
+ * if there are no items, `input.totalCents` is used. `shippingTotalCents` and `discountTotalCents` default to 0 when not supplied.
+ * If `stripeFeeCents` is provided it is trusted, otherwise 0 is used. `platformFeeCents` prefers a provided value when valid,
+ * otherwise it is computed from `PLATFORM_FEE_PERCENTAGE` applied to the server total.
+ *
+ * @param input - Input object containing order details. `totalCents` is only trusted when no items are present. `shippingTotalCents` and `discountTotalCents` default to 0. `stripeFeeCents` is trusted when provided; `platformFeeCents` is used when valid otherwise computed from the server total.
+ * @returns An object with the following cent-denominated fields:
+ * - `subtotalCents`: sum of line subtotals
+ * - `taxTotalCents`: sum of line taxes
+ * - `shippingTotalCents`: shipping total (defaults to 0)
+ * - `discountTotalCents`: discount total (defaults to 0)
+ * - `platformFeeCents`: platform fee (provided or computed from server total)
+ * - `stripeFeeCents`: Stripe fee (provided or 0)
+ * - `sellerNetCents`: server total minus platform and Stripe fees, clamped to 0 or greater
  */
 export function computeOrderAmounts(input: {
   items: unknown;

@@ -3,6 +3,13 @@ import { pickCanonicalShipment } from './pick-canonical-shipment';
 
 type AnyRecord = Record<string, unknown>;
 
+/**
+ * Ensures the `shipment` field mirrors a canonical shipment selected from the incoming `shipment` or `shipments` data.
+ *
+ * @param data - The incoming update object; may be returned unchanged if falsy or no canonical shipment is found
+ * @param originalDoc - The existing document used to compute the merged shape before selecting the canonical shipment
+ * @returns The `data` object with its `shipment` field updated to include `carrier`, `trackingNumber`, `trackingUrl`, and `shippedAt` from the chosen canonical shipment, or the original `data` unchanged if no canonical shipment is available
+ */
 export async function mirrorShipmentsArrayToSingle({
   data,
   originalDoc

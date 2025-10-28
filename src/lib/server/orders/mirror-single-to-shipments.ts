@@ -7,6 +7,12 @@ type ShipmentGroup = {
   shippedAt?: string;
 };
 
+/**
+ * Determines whether a shipment group contains any meaningful shipment information.
+ *
+ * @param group - The shipment group to inspect (may be undefined)
+ * @returns `true` if `carrier`, `trackingNumber`, `trackingUrl`, or `shippedAt` is present, `false` otherwise
+ */
 function hasAnyShipmentValue(group: ShipmentGroup | undefined): boolean {
   if (!group) return false;
   return Boolean(
