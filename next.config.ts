@@ -1,9 +1,9 @@
-// next.config.ts
 import { withPayload } from '@payloadcms/next/withPayload';
 import type { NextConfig } from 'next';
+import { POSTHOG } from './src/lib/posthog/config';
 
 const DEFAULT_HOSTNAME = 'ah-gallery-bucket.s3.us-east-2.amazonaws.com';
-let imagesHostname: string = DEFAULT_HOSTNAME;
+let imagesHostname = DEFAULT_HOSTNAME as string;
 let imagesProtocol: 'http' | 'https' = 'https';
 
 const base = process.env.S3_PUBLIC_BASE_URL;
@@ -15,8 +15,14 @@ if (base) {
       imagesProtocol = u.protocol.replace(':', '') as 'http' | 'https';
     }
   } catch {
-    // ignore invalid URL; keep defaults
+    /* ignore */
   }
+}
+
+const tenantPrefix = '/tenants/:slug';
+
+function phx(path: string) {
+  return `${path}/${POSTHOG.proxyPath}`;
 }
 
 const nextConfig: NextConfig = {
@@ -27,52 +33,44 @@ const nextConfig: NextConfig = {
   },
   async rewrites() {
     return [
-      // ───────── Tenant-prefixed PostHog proxy ─────────
-      // Array config (script) → assets host
+      // ── Tenant-scoped proxy
       {
-        source: '/tenants/:slug/_phx_a1b2c3/array/:token/config.js',
-        destination: 'https://us-assets.i.posthog.com/array/:token/config.js'
+        source: `${phx(tenantPrefix)}/array/:token/config.js`,
+        destination: `${POSTHOG.assetsHost}/array/:token/config.js`
       },
-      // Array config (JSON) → API host
       {
-        source: '/tenants/:slug/_phx_a1b2c3/array/:token/config',
-        destination: 'https://us.i.posthog.com/array/:token/config'
+        source: `${phx(tenantPrefix)}/array/:token/config`,
+        destination: `${POSTHOG.apiHost}/array/:token/config`
       },
-      // Static assets (recorder, workers, etc.) → assets host
       {
-        source: '/tenants/:slug/_phx_a1b2c3/static/:path*',
-        destination: 'https://us-assets.i.posthog.com/static/:path*'
+        source: `${phx(tenantPrefix)}/static/:path*`,
+        destination: `${POSTHOG.assetsHost}/static/:path*`
       },
-      // Catch-all API → API host
       {
-        source: '/tenants/:slug/_phx_a1b2c3/:path*',
-        destination: 'https://us.i.posthog.com/:path*'
+        source: `${phx(tenantPrefix)}/:path*`,
+        destination: `${POSTHOG.apiHost}/:path*`
       },
 
-      // ───────── Root PostHog proxy ─────────
-      // Array config (script) → assets host
+      // ── Root proxy
       {
-        source: '/_phx_a1b2c3/array/:token/config.js',
-        destination: 'https://us-assets.i.posthog.com/array/:token/config.js'
+        source: `/${POSTHOG.proxyPath}/array/:token/config.js`,
+        destination: `${POSTHOG.assetsHost}/array/:token/config.js`
       },
-      // Array config (JSON) → API host
       {
-        source: '/_phx_a1b2c3/array/:token/config',
-        destination: 'https://us.i.posthog.com/array/:token/config'
+        source: `/${POSTHOG.proxyPath}/array/:token/config`,
+        destination: `${POSTHOG.apiHost}/array/:token/config`
       },
-      // Static assets → assets host
       {
-        source: '/_phx_a1b2c3/static/:path*',
-        destination: 'https://us-assets.i.posthog.com/static/:path*'
+        source: `/${POSTHOG.proxyPath}/static/:path*`,
+        destination: `${POSTHOG.assetsHost}/static/:path*`
       },
-      // Catch-all API → API host
       {
-        source: '/_phx_a1b2c3/:path*',
-        destination: 'https://us.i.posthog.com/:path*'
+        source: `/${POSTHOG.proxyPath}/:path*`,
+        destination: `${POSTHOG.apiHost}/:path*`
       }
     ];
   },
-  // Required so PostHog endpoints with/without trailing slashes don’t redirect
+  // Avoid 308s on PostHog paths
   skipTrailingSlashRedirect: true
 };
 

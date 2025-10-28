@@ -1,25 +1,29 @@
 'use client';
-
 import { useEffect } from 'react';
 import posthog from 'posthog-js';
+import { POSTHOG } from '@/lib/posthog/config';
 
 let initialized = false;
 
+function isPosthogAbort(reason: unknown): boolean {
+  if (!reason || typeof reason !== 'object') return false;
+  const name = (reason as { name?: unknown }).name;
+  if (name !== 'AbortError') return false;
+  const text =
+    `${(reason as { message?: unknown }).message ?? ''} ${(reason as { stack?: unknown }).stack ?? ''}`.toLowerCase();
+  return (
+    text.includes('posthog') || text.includes(new URL(POSTHOG.apiHost).hostname)
+  );
+}
+
 export default function PostHogInit() {
   useEffect(() => {
-    // Dev-only: swallow AbortError from PostHog network calls (HMR/route changes)
     if (
       process.env.NODE_ENV === 'development' &&
       typeof window !== 'undefined'
     ) {
       const onRejection = (event: PromiseRejectionEvent) => {
-        const reason = event.reason as unknown;
-        const name = (reason as { name?: string })?.name;
-        // AbortError messages vary by browser; checking name is the safest
-        if (name === 'AbortError') {
-          // Optional: further narrow to PostHog by inspecting stack/message/url if present
-          event.preventDefault();
-        }
+        if (isPosthogAbort(event?.reason)) event.preventDefault();
       };
       window.addEventListener('unhandledrejection', onRejection);
       return () =>
@@ -34,17 +38,17 @@ export default function PostHogInit() {
     const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
     if (!key) return;
 
-    const isDev =
+    const isLocal =
       typeof window !== 'undefined' &&
       (location.hostname === 'localhost' || location.hostname === '127.0.0.1');
 
     posthog.init(key, {
-      api_host: isDev ? 'https://us.i.posthog.com' : '/_phx_a1b2c3',
-      ui_host: 'https://us.posthog.com',
+      api_host: isLocal ? POSTHOG.apiHost : `/${POSTHOG.proxyPath}`,
+      ui_host: POSTHOG.uiHost,
       capture_pageview: true,
       capture_pageleave: true,
-      capture_exceptions: true,
-      session_recording: { maskAllInputs: false },
+      capture_exceptions: process.env.NODE_ENV !== 'development',
+      session_recording: { maskAllInputs: true },
       debug: process.env.NODE_ENV === 'development'
     });
   }, []);
