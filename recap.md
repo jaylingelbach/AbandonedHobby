@@ -4219,3 +4219,41 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/components/custom-payload/tracking/InlineTrackingForm.tsx
   - Replaces typed named catch parameters with generic catch in several places; behavior unchanged.
+
+# Update tracking email 10/29/25
+
+## Walkthrough
+
+- Adds server-side tracking normalization and expands classification to consider carriers; augments sendTrackingEmail Postmark payload with a boolean previous_present; centralizes isNonEmptyString import; skips processing for internal ahSystem events and conditions persistence of lastNotifiedKey on send success.
+
+## New Features
+
+- Email templates now include a flag indicating whether a previous tracking number was present.
+
+## Bug Fixes
+
+- Consistent tracking normalization for reliable comparisons and logs.
+- Improved detection of tracking/carrier changes to reduce false notifications.
+- Skip notifications for non-recipient or system-triggered changes; default email currency set to USD.
+- Adjusted notification persistence to prevent duplicate or re-triggered updates.
+
+## Refactor
+
+- Centralized string utility usage for tracking-related checks.
+
+## File changes
+
+### Email template augmentation
+
+- src/lib/sendEmail.ts
+  - Adds previous_present boolean to the Postmark template payload in sendTrackingEmail, set from whether a previous tracking number exists. No signature changes.
+
+### Server tracking normalization & classification
+
+- src/lib/server/payload-utils/order-afterChange.ts
+  - Adds normalizeTrackingServer(raw: unknown): string. Changes classifyChange(...) signature to accept previous/next raw tracking plus previous/next carrier and return ChangeKind.
+
+### Utility centralization
+
+- src/modules/orders/server/utils.ts
+  - Removes local isNonEmptyString implementation and imports isNonEmptyString from @/lib/utils. No behavioral changes beyond sourcing the utility.
