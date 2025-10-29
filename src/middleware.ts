@@ -13,12 +13,20 @@ function normalizeRootDomain(raw: string | undefined): string {
     .toLowerCase();
 }
 
+/**
+ * Return a shared, dot-prefixed cookie domain for both the apex rootDomain and any of its subdomains.
+ * - If hostname === rootDomain → returns ".<rootDomain>"
+ * - If hostname endsWith ".<rootDomain>" → returns ".<rootDomain>"
+ * - Otherwise (foreign host) → returns undefined
+ */
 function computeCookieDomain(
   hostname: string,
   rootDomain: string
 ): string | undefined {
   if (!rootDomain) return undefined;
-  return hostname.endsWith(`.${rootDomain}`) ? `.${rootDomain}` : undefined;
+  if (hostname === rootDomain) return `.${rootDomain}`;
+  if (hostname.endsWith(`.${rootDomain}`)) return `.${rootDomain}`;
+  return undefined;
 }
 
 /** Ensure a persistent anonymous device identifier cookie is present on the response. */
@@ -104,7 +112,7 @@ export default function middleware(req: NextRequest): NextResponse {
     // if (origin && !allowed.includes(origin)) return new NextResponse('Forbidden', { status: 403 });
 
     const res = NextResponse.next();
-    const cookieDomainPH = computeCookieDomain(hostname, rootDomain);
+    const cookieDomainPH = computeCookieDomain(hostname, rootDomain); // ✅ unified
     ensureDeviceIdCookie(req, res, cookieDomainPH);
     return res;
   }
@@ -119,12 +127,17 @@ export default function middleware(req: NextRequest): NextResponse {
     return res;
   }
 
-  const cookieDomain = `.${rootDomain}`;
+  /* 3) Don’t rewrite apex or foreign hosts; still set cookie (shared for apex/subdomains, none for foreign) */
+  const sharedCookieDomain = computeCookieDomain(hostname, rootDomain); // ✅ unified
+  const isForeignHost =
+    sharedCookieDomain === undefined &&
+    hostname !== rootDomain &&
+    !hostname.endsWith(`.${rootDomain}`);
+  const isApex = hostname === rootDomain;
 
-  /* 3) Don’t rewrite apex or foreign hosts; still set cookie */
-  if (hostname === rootDomain || !hostname.endsWith(`.${rootDomain}`)) {
+  if (isApex || isForeignHost) {
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ undefined for foreign, .root for apex
     return res;
   }
 
@@ -134,7 +147,7 @@ export default function middleware(req: NextRequest): NextResponse {
 
   if (WHITELIST.includes(tenantSlug) || !/^[a-z0-9-]+$/.test(tenantSlug)) {
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
     return res;
   }
 
@@ -145,12 +158,12 @@ export default function middleware(req: NextRequest): NextResponse {
       req.url
     );
     const res = NextResponse.rewrite(destination);
-    ensureDeviceIdCookie(req, res, cookieDomain);
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
     return res;
   } catch (err) {
     console.error('Failed to rewrite URL in middleware:', err);
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
     return res;
   }
 }
