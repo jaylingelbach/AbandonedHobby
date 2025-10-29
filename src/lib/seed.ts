@@ -18,6 +18,16 @@ interface Category {
   }>;
 }
 
+/**
+ * Produce a canonical, URL-safe username slug from an arbitrary string.
+ *
+ * Converts the input to lowercase, removes diacritical marks, trims surrounding whitespace,
+ * replaces runs of characters other than a–z, 0–9, `.`, `_`, or `-` with a single hyphen,
+ * and removes leading or trailing hyphens.
+ *
+ * @param input - The raw username to normalize
+ * @returns The normalized username containing only lowercase letters, digits, `.`, `_`, and `-` with no leading or trailing hyphens
+ */
 function normalizeUsername(input: string): string {
   return input
     .normalize('NFKD')
@@ -266,6 +276,11 @@ const categories: Category[] = [
   }
 ];
 
+/**
+ * Ensures initial application data exists: an admin user, an "admin" tenant (and a Stripe account if needed), and the configured categories with nested subcategories.
+ *
+ * The operation is idempotent — existing users, tenants, and categories are reused and missing items are created; the admin user is linked to the admin tenant when absent.
+ */
 async function seed() {
   const payload = await getPayload({ config });
 
