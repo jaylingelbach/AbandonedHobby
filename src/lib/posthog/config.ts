@@ -9,11 +9,24 @@ export type PosthogConfig = {
   proxySecret?: string;
 };
 
+/**
+ * Sanitizes a path segment by removing leading and trailing slashes.
+ *
+ * @param segment - The value to sanitize; non-string values are treated as an empty string.
+ * @returns The input string with leading and trailing slashes removed; returns an empty string for non-string inputs.
+ */
 function stripSlashes(segment: unknown): string {
   const s = typeof segment === 'string' ? segment : '';
   return s.replace(/^\/+|\/+$/g, ''); // remove leading/trailing slashes
 }
 
+/**
+ * Normalize a host value into a fully-qualified URL with no trailing slash.
+ *
+ * @param value - The input host; if not a non-empty string, `fallback` will be used
+ * @param fallback - The host to use when `value` is missing or empty
+ * @returns The host prefixed with a protocol (defaults to `https://` if missing) and without trailing slashes
+ */
 function normalizeHost(value: unknown, fallback: string): string {
   const raw = typeof value === 'string' && value.trim() ? value : fallback;
   const withProto = raw.startsWith('http') ? raw : `https://${raw}`;

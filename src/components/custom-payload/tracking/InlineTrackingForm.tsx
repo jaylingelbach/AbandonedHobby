@@ -104,13 +104,12 @@ type InlineTrackingFormProps = {
 };
 
 /**
- * Render an inline form to view, edit, and save a shipment carrier and tracking number for an order.
+ * Render a compact form for viewing, editing, saving, and removing a shipment carrier and tracking number for an order.
  *
- * The component normalizes the tracking input and validates it against carrier-specific heuristics,
- * provides a compact view with a carrier-specific tracking link when available, and allows saving
- * or removing the tracking value. On save/remove the component updates the order via a PATCH to
- * `${apiBase}/orders/:orderId`, displays inline success or error feedback, and optionally triggers
- * a router refresh when the operation succeeds.
+ * The component normalizes and validates tracking input against carrier-specific heuristics, persists changes via PATCH to the configured API, displays inline success or error feedback, and optionally triggers a router refresh on success.
+ *
+ * @param props - Configuration and initial values for the form (see `InlineTrackingFormProps`): includes `orderId`, `initialCarrier`, `initialTracking`, `apiBase`, `layout`, and `refreshOnSuccess`.
+ * @returns The rendered form UI for viewing or editing an order's shipment carrier and tracking number.
  */
 export function InlineTrackingForm(props: InlineTrackingFormProps) {
   const {
