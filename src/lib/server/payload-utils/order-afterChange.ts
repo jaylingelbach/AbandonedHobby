@@ -225,9 +225,11 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
     changeKind === 'updated' && previousCarrier
       ? carrierLabels[previousCarrier]
       : undefined;
+
+  const normalizedPrevTracking = normalizeTrackingServer(previousTracking);
   const previousTrackingNumber =
-    changeKind === 'updated' && isNonEmptyString(previousTracking)
-      ? normalizeTrackingServer(previousTracking)
+    changeKind === 'updated' && isNonEmptyString(normalizedPrevTracking)
+      ? normalizedPrevTracking
       : undefined;
 
   try {
