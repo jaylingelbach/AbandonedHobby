@@ -99,7 +99,8 @@ function classifyChange(
   if (isNonEmptyString(prevT) && !isNonEmptyString(nextT)) return 'removed';
 
   // If either the tracking number or the carrier changed, it’s an update
-  if (trackingChanged || carrierChanged) return 'updated';
+  if (isNonEmptyString(nextT) && (trackingChanged || carrierChanged))
+    return 'updated';
   return null;
 }
 
