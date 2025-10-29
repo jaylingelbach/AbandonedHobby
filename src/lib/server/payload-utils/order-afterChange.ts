@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload';
 import { createHash } from 'crypto';
 import { sendTrackingEmail } from '@/lib/sendEmail';
+import { isNonEmptyString } from '@/lib/utils';
 
 /** Carrier union used in emails and checks. */
 type Carrier = 'usps' | 'ups' | 'fedex' | 'other';
@@ -65,15 +66,6 @@ function normalizeTrackingServer(raw: unknown): string {
 type OrdersAfterChangeHook = NonNullable<
   NonNullable<CollectionConfig['hooks']>['afterChange']
 >[number];
-
-/**
- * Determine whether a value is a string containing at least one non-whitespace character.
- *
- * @returns `true` if `value` is a string containing at least one non-whitespace character, `false` otherwise.
- */
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
 
 /**
  * Determines whether a shipment tracking number was added, removed, updated, or unchanged.
