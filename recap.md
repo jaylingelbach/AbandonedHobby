@@ -1,19 +1,3 @@
-# Changes I may want to make:
-
-- Checkout-view.tsx on success where do I want to route? Currently routing to library.
-- prevent user from buying their own products.
-- referral codes for influencers to give out. they get a % and the user a reduced fee?
-- a good way to navigate home in the header in a store or product/checkout flow.
-- rethink all button. (possibly confusing with view all.) Currently all just redirects from whatever category is selected to abandonedhobby.com/ instead of /${category}/${slug}. I think the slug for all is all
-- View all should possibly open on hover instead of just on click? But if hover, it pops up to the left and might be annoying if you move mouse off of the button. so I think it uses state to change to open, maybe there is a non annoying way to do that... dunno. Jess was confused by it.
-- Message notifications. Email? Just an inbox symbol with the number of messages?
-
-# BUGS:
-
-- If an admin puts a product in a cart it is seen sitewide.
-- If session expires while product in cart and you go to checkout. with subdomain routing enabled, you redirect to tenant.abandonedhobby.com/sign-in (404), instead of abandonedhobby.com/sign-in.
-- no good error when I get a "Application error: a client-side exception has occurred while loading abandonedhobby.com (see the browser console for more information)." when a users session expires and they try to refresh a page (library). Just a blank page that says that instead of redirecting to sign in.
-
 # Categories finalization
 
 ## New Features
@@ -4172,3 +4156,66 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/modules/library/ui/views/product-view.tsx
   - Removes unused Receipt import from lucide-react.
+
+# Update order collection access 10/29/25
+
+## Walkthrough
+
+- This PR adds a PostHog config module, hardens client initialization, introduces tenant-scoped and root PostHog proxy rewrites, extends middleware for tenant rewriting and cookie-domain handling, adjusts Orders admin access checks, updates buyer-dashboard UI/types documentation, and simplifies some error catch clauses.
+
+## New Features
+
+- Buyer Dashboard: order tracking, shipment status, and inline invoice viewing.
+
+## Improvements
+
+- Hardened analytics initialization and environment-safe PostHog setup.
+- Tenant-scoped proxying for analytics and asset requests.
+- Improved remote image hostname handling.
+- Refined admin access controls for Orders.
+
+## Bug Fixes
+
+- Middleware cookie and routing adjusted to avoid unwanted redirects on proxied paths.
+
+## File changes
+
+### Next config & proxy rewrites
+
+- next.config.ts
+  - Adds tenant-scoped and root PostHog proxy rewrite rules, consolidates image remotePatterns, adds tenant proxy helpers, and wraps export with withPayload(nextConfig).
+
+### PostHog config
+
+- src/lib/posthog/config.ts
+  - New PosthogConfig module: POSTHOG constant, PosthogConfig type, stripSlashes and normalizeHost helpers, and env-driven host/proxyPath normalization.
+
+### PostHog client init
+
+- src/app/(app)/posthog-init.tsx
+  - Requires NEXT_PUBLIC_POSTHOG_KEY, imports POSTHOG, adds isPosthogAbort, dev-only unhandledrejection suppression, and environment-conditional api_host/ui_host and session/recording flags.
+
+### Middleware & tenant/proxy handling
+
+- src/middleware.ts
+  - Adds root-domain normalization, computeCookieDomain, proxyPath regex, proxy gating (GET/POST/ingest), tenant slug detection, domain-scoped cookie support, and rewrites to /tenants/:slug/....
+
+### Orders collection access
+
+- src/collections/Orders.ts
+  - Adds admin.hidden to hide Orders for non-super-admins and updates shipments field admin condition signature to ({ user }) => isSuperAdmin(user).
+
+### Payload types/docs
+
+- src/payload-types.ts
+  - Removes/updates inline JSDoc for Order.amounts and Order.shipments; no type signature changes.
+
+### Buyer Dashboard & UI tweaks
+
+- recap.md, src/payload/views/buyer-dashboard.tsx
+  - Documents Buyer Dashboard additions; inlines currency formatting and fixes order link HREFs in buyer dashboard view.
+
+### Inline tracking error handling
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Replaces typed named catch parameters with generic catch in several places; behavior unchanged.

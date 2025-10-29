@@ -128,11 +128,8 @@ export default function middleware(req: NextRequest): NextResponse {
   }
 
   /* 3) Don’t rewrite apex or foreign hosts; still set cookie (shared for apex/subdomains, none for foreign) */
-  const sharedCookieDomain = computeCookieDomain(hostname, rootDomain); // ✅ unified
-  const isForeignHost =
-    sharedCookieDomain === undefined &&
-    hostname !== rootDomain &&
-    !hostname.endsWith(`.${rootDomain}`);
+  const sharedCookieDomain = computeCookieDomain(hostname, rootDomain);
+  const isForeignHost = sharedCookieDomain === undefined;
   const isApex = hostname === rootDomain;
 
   if (isApex || isForeignHost) {
