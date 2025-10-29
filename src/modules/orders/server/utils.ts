@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 
 import { isObjectRecord } from '@/lib/server/utils';
+import { isNonEmptyString } from '@/lib/utils';
 
 import type {
   OrderConfirmationDTO,
@@ -70,10 +71,6 @@ function assertOptionalNonNegativeInt(
 
 export function asOptionalString(v: unknown): string | null {
   return typeof v === 'string' ? v : null;
-}
-
-function isNonEmptyString(v: unknown): v is string {
-  return typeof v === 'string' && v.trim().length > 0;
 }
 
 // ───────────────────────────────────────────

@@ -1,6 +1,7 @@
 import type { CollectionConfig } from 'payload';
 import { createHash } from 'crypto';
 import { sendTrackingEmail } from '@/lib/sendEmail';
+import { isNonEmptyString } from '@/lib/utils';
 
 /** Carrier union used in emails and checks. */
 type Carrier = 'usps' | 'ups' | 'fedex' | 'other';
@@ -52,19 +53,19 @@ type OrderDoc = {
 
 type ChangeKind = 'added' | 'updated' | 'removed';
 
+/** Server-side normalization so comparisons are apples-to-apples. */
+function normalizeTrackingServer(raw: unknown): string {
+  if (typeof raw !== 'string') return '';
+  return raw
+    .trim()
+    .replace(/[\s\u2010-\u2015\-]+/g, '')
+    .toUpperCase();
+}
+
 /** Derive the hook type from CollectionConfig to avoid version-specific imports. */
 type OrdersAfterChangeHook = NonNullable<
   NonNullable<CollectionConfig['hooks']>['afterChange']
 >[number];
-
-/**
- * Determine whether a value is a string containing at least one non-whitespace character.
- *
- * @returns `true` if `value` is a string containing at least one non-whitespace character, `false` otherwise.
- */
-function isNonEmptyString(value: unknown): value is string {
-  return typeof value === 'string' && value.trim().length > 0;
-}
 
 /**
  * Determines whether a shipment tracking number was added, removed, updated, or unchanged.
@@ -74,15 +75,25 @@ function isNonEmptyString(value: unknown): value is string {
  * @returns `'added'` if a tracking number was introduced, `'removed'` if it was cleared, `'updated'` if it changed, or `null` if there is no change
  */
 function classifyChange(
-  previousTracking: string,
-  nextTracking: string
+  previousTrackingRaw: string,
+  nextTrackingRaw: string,
+  previousCarrier: Carrier | null | undefined,
+  nextCarrier: Carrier | null | undefined
 ): ChangeKind | null {
-  const prev = previousTracking.trim();
-  const next = nextTracking.trim();
-  if (prev === next) return null;
-  if (!isNonEmptyString(prev) && isNonEmptyString(next)) return 'added';
-  if (isNonEmptyString(prev) && !isNonEmptyString(next)) return 'removed';
-  return 'updated';
+  // Normalize on server to match what the client does
+  const prevT = normalizeTrackingServer(previousTrackingRaw);
+  const nextT = normalizeTrackingServer(nextTrackingRaw);
+  const trackingChanged = prevT !== nextT;
+  const carrierChanged = (previousCarrier ?? null) !== (nextCarrier ?? null);
+
+  // Added/removed are strictly about tracking presence
+  if (!isNonEmptyString(prevT) && isNonEmptyString(nextT)) return 'added';
+  if (isNonEmptyString(prevT) && !isNonEmptyString(nextT)) return 'removed';
+
+  // If either the tracking number or the carrier changed, it’s an update
+  if (isNonEmptyString(nextT) && (trackingChanged || carrierChanged))
+    return 'updated';
+  return null;
 }
 
 /**
@@ -108,6 +119,12 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   req,
   operation
 }) => {
+  // Skip internal updates where we only persist idempotency, etc.
+  if (req?.context?.ahSystem) {
+    req.payload.logger.debug('afterChangeOrders: skipped (ahSystem context)');
+    return;
+  }
+
   const current = doc as unknown as OrderDoc;
   const previous = previousDoc as unknown as OrderDoc | undefined;
 
@@ -115,9 +132,31 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
 
   const previousTracking = previous?.shipment?.trackingNumber ?? '';
   const nextTracking = current?.shipment?.trackingNumber ?? '';
+  const prevCarrier: Carrier | null | undefined =
+    previous?.shipment?.carrier ?? null;
+  const nextCarrier: Carrier | null | undefined =
+    current?.shipment?.carrier ?? null;
 
-  const changeKind = classifyChange(previousTracking, nextTracking);
-  if (changeKind === null) return;
+  const changeKind = classifyChange(
+    previousTracking,
+    nextTracking,
+    prevCarrier,
+    nextCarrier
+  );
+  if (changeKind === null) {
+    req.payload.logger.info(
+      {
+        orderId: current.id,
+        reason: 'no-change',
+        prevCarrier,
+        nextCarrier,
+        previousTracking: normalizeTrackingServer(previousTracking),
+        nextTracking: normalizeTrackingServer(nextTracking)
+      },
+      'Tracking email skipped'
+    );
+    return;
+  }
 
   if (changeKind === 'removed') {
     const redact = (v: string) =>
@@ -131,14 +170,12 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
     return;
   }
 
-  const carrier: Carrier | null | undefined =
-    current?.shipment?.carrier ?? null;
-  const trackingNumber: string = nextTracking.trim();
+  const trackingNumber: string = normalizeTrackingServer(nextTracking);
   const trackingUrl = current?.shipment?.trackingUrl ?? undefined;
   const shippedAt = current?.shipment?.shippedAt ?? undefined;
 
   // Idempotency
-  const messageKey = buildMessageKey(current.id, carrier, trackingNumber);
+  const messageKey = buildMessageKey(current.id, nextCarrier, trackingNumber);
   const lastKey = current?.shipment?.lastNotifiedKey ?? null;
   if (lastKey && lastKey === messageKey) {
     req.payload.logger.info(
@@ -175,21 +212,24 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   }
   if (!toEmail) {
     req.payload.logger.warn(
-      { orderId: current.id },
-      'No buyer email; skipping tracking email'
+      { orderId: current.id, reason: 'no-recipient' },
+      'Tracking email skipped'
     );
     return;
   }
 
   // --- previous values (only for 'updated') -------------------------------
-  const previousCarrier: Carrier | null | undefined =
-    previous?.shipment?.carrier ?? null;
+
   const previousCarrierName =
-    changeKind === 'updated' && previousCarrier
-      ? carrierLabels[previousCarrier]
+    changeKind === 'updated' && prevCarrier
+      ? carrierLabels[prevCarrier]
       : undefined;
+
+  const normalizedPrevTracking = normalizeTrackingServer(previousTracking);
   const previousTrackingNumber =
-    changeKind === 'updated' ? previousTracking.trim() || undefined : undefined;
+    changeKind === 'updated' && isNonEmptyString(normalizedPrevTracking)
+      ? normalizedPrevTracking
+      : undefined;
 
   try {
     const result = await sendTrackingEmail({
@@ -201,7 +241,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
         name: current.name ?? ''
       },
       shipment: {
-        carrier: carrier ?? 'other',
+        carrier: nextCarrier ?? 'other',
         trackingNumber,
         trackingUrl,
         shippedAt,
@@ -219,7 +259,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
         })) ?? [],
       shippingAddress: current.shipping ?? undefined,
       messageKey,
-      currency: (current.currency ?? 'USD') || 'USD'
+      currency: current.currency ?? 'USD'
     });
 
     req.payload.logger.info(
@@ -227,6 +267,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
         orderId: current.id,
         changeKind,
         messageKey,
+        normalizedTracking: trackingNumber,
         provider: result.provider
       },
       'Tracking email sent'

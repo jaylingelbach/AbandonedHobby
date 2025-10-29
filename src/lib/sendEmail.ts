@@ -403,6 +403,7 @@ export async function sendTrackingEmail(input: {
     // previous values (optional)
     previous_carrier_name: input.shipment.previousCarrierName,
     previous_tracking_number: input.shipment.previousTrackingNumber,
+    previous_present: Boolean(input.shipment.previousTrackingNumber),
     // line items & shipping
     item_summary: itemSummary,
     receipt_details: receiptDetails,
