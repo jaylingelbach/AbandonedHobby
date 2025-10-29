@@ -1,22 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { POSTHOG } from '@/lib/posthog/config'; // uses sanitized proxyPath
 
 const DEVICE_ID_COOKIE = 'ah_device_id';
-
-/** ───────────────────────────── PostHog proxy config ───────────────────────────── */
-const PROXY_PATH = (
-  process.env.NEXT_PUBLIC_POSTHOG_PROXY_PATH ?? '_phx_a1b2c3'
-).replace(/^\/+|\/+$/g, ''); // strip leading/trailing slashes safely
-const PROXY_SECRET = process.env.POSTHOG_PROXY_SECRET; // optional (server-only)
-
-/** Build a regex that matches:
- *  - "/<PROXY_PATH>/…"
- *  - "/tenants/<slug>/<PROXY_PATH>/…"
- *  - and also exactly "/<PROXY_PATH>" or "/tenants/<slug>/<PROXY_PATH>"
- */
-const proxyPathRe = (() => {
-  const esc = PROXY_PATH.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  return new RegExp(`^/(?:tenants/[^/]+/)?${esc}(?:/|$)`);
-})();
 
 /** ───────────────────────────── Helpers ───────────────────────────── */
 
@@ -36,9 +21,7 @@ function computeCookieDomain(
   return hostname.endsWith(`.${rootDomain}`) ? `.${rootDomain}` : undefined;
 }
 
-/**
- * Ensure a persistent anonymous device identifier cookie is present on the response.
- */
+/** Ensure a persistent anonymous device identifier cookie is present on the response. */
 function ensureDeviceIdCookie(
   req: NextRequest,
   res: NextResponse,
@@ -62,18 +45,28 @@ function ensureDeviceIdCookie(
   });
 }
 
+/** Build a regex that matches:
+ *  - "/<proxyPath>/…"
+ *  - "/tenants/<slug>/<proxyPath>/…"
+ *  - and also exactly "/<proxyPath>" or "/tenants/<slug>/<proxyPath>"
+ *  (POSTHOG.proxyPath is already sanitized to a path segment with no slashes)
+ */
+const proxyPathRe = (() => {
+  const esc = POSTHOG.proxyPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^/(?:tenants/[^/]+/)?${esc}(?:/|$)`);
+})();
+
 /** ───────────────────────────── Middleware config ───────────────────────────── */
 
-// Keep your broad site middleware + also match explicit proxy paths if you ever change the main matcher.
 export const config = {
   matcher: [
-    // your existing “all pages except these” rule
+    // Broad site middleware
     '/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)',
-    // explicit proxy roots (safe even if already covered by the rule)
-    `/${PROXY_PATH}`,
-    `/${PROXY_PATH}/:path*`,
-    `/tenants/:slug/${PROXY_PATH}`,
-    `/tenants/:slug/${PROXY_PATH}/:path*`
+    // Explicit proxy roots
+    `/${POSTHOG.proxyPath}`,
+    `/${POSTHOG.proxyPath}/:path*`,
+    `/tenants/:slug/${POSTHOG.proxyPath}`,
+    `/tenants/:slug/${POSTHOG.proxyPath}/:path*`
   ]
 };
 
@@ -84,7 +77,7 @@ export default function middleware(req: NextRequest): NextResponse {
   const hostname = url.hostname.toLowerCase();
 
   // Gather root domain & whitelist
-  let rootDomain = normalizeRootDomain(process.env.NEXT_PUBLIC_ROOT_DOMAIN);
+  const rootDomain = normalizeRootDomain(process.env.NEXT_PUBLIC_ROOT_DOMAIN);
   const whitelistEnv = process.env.NEXT_PUBLIC_NON_TENANT_SUBDOMAINS ?? 'www';
   const WHITELIST: string[] = whitelistEnv
     .split(',')
@@ -112,15 +105,17 @@ export default function middleware(req: NextRequest): NextResponse {
       }
     }
 
-    // Optional shared-secret header gate (protects proxy infra; not a client secret)
-    if (PROBLEMATIC_TO_SEND_SECRET_TO_BROWSER() === false && PROXY_SECRET) {
-      const provided = req.headers.get('x-posthog-proxy-key');
-      if (provided !== PROXY_SECRET) {
-        return new NextResponse('Unauthorized', { status: 401 });
-      }
-    }
+    // Optional shared-secret header gate (protects proxy infra). Keep disabled for browser beacons.
+    // const provided = req.headers.get('x-posthog-proxy-key');
+    // if (POSTHOG.proxySecret && provided !== POSTHOG.proxySecret) {
+    //   return new NextResponse('Unauthorized', { status: 401 });
+    // }
 
-    // Pass through; set device cookie (scope to root if subdomain matches)
+    // Optional Origin allow-list (recommended for public proxy):
+    // const origin = req.headers.get('origin') ?? '';
+    // const allowed = [`https://${rootDomain}`, `https://app.${rootDomain}`].filter(Boolean);
+    // if (origin && !allowed.includes(origin)) return new NextResponse('Forbidden', { status: 403 });
+
     const res = NextResponse.next();
     const cookieDomainPH = computeCookieDomain(hostname, rootDomain);
     ensureDeviceIdCookie(req, res, cookieDomainPH);
@@ -130,7 +125,6 @@ export default function middleware(req: NextRequest): NextResponse {
   /** ── 2) Regular site flow: if no root domain, just set cookie and continue ── */
   if (!rootDomain) {
     if (process.env.NODE_ENV === 'production') {
-      // eslint-disable-next-line no-console
       console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
     }
     const res = NextResponse.next();
@@ -167,19 +161,9 @@ export default function middleware(req: NextRequest): NextResponse {
     ensureDeviceIdCookie(req, res, cookieDomain);
     return res;
   } catch (err) {
-    // eslint-disable-next-line no-console
     console.error('Failed to rewrite URL in middleware:', err);
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res, cookieDomain);
     return res;
   }
-}
-
-/** Guard against accidentally inlining a client secret into browser calls.
- *  If you keep the secret server-only (no client fetch with the header), this returns true.
- *  If you ever add a client-side fetch that sets x-posthog-proxy-key, flip this to `true`
- *  only for those server-only call sites and keep it false here.
- */
-function PROBLEMATIC_TO_SEND_SECRET_TO_BROWSER(): boolean {
-  return false;
 }

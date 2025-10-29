@@ -3,7 +3,7 @@ import type { NextConfig } from 'next';
 import { POSTHOG } from './src/lib/posthog/config';
 
 const DEFAULT_HOSTNAME = 'ah-gallery-bucket.s3.us-east-2.amazonaws.com';
-let imagesHostname = DEFAULT_HOSTNAME as string;
+let imagesHostname: string = DEFAULT_HOSTNAME;
 let imagesProtocol: 'http' | 'https' = 'https';
 
 const base = process.env.S3_PUBLIC_BASE_URL;
@@ -15,15 +15,13 @@ if (base) {
       imagesProtocol = u.protocol.replace(':', '') as 'http' | 'https';
     }
   } catch {
-    /* ignore */
+    /* ignore invalid URL; keep defaults */
   }
 }
 
 const tenantPrefix = '/tenants/:slug';
-
-function phx(path: string) {
-  return `${path}/${POSTHOG.proxyPath}`;
-}
+const phx = (prefix: string) => `${prefix}/${POSTHOG.proxyPath}`; // POSTHOG.proxyPath is already sanitized
+const rootPhx = () => `/${POSTHOG.proxyPath}`;
 
 const nextConfig: NextConfig = {
   images: {
@@ -53,24 +51,24 @@ const nextConfig: NextConfig = {
 
       // ── Root proxy
       {
-        source: `/${POSTHOG.proxyPath}/array/:token/config.js`,
+        source: `${rootPhx()}/array/:token/config.js`,
         destination: `${POSTHOG.assetsHost}/array/:token/config.js`
       },
       {
-        source: `/${POSTHOG.proxyPath}/array/:token/config`,
+        source: `${rootPhx()}/array/:token/config`,
         destination: `${POSTHOG.apiHost}/array/:token/config`
       },
       {
-        source: `/${POSTHOG.proxyPath}/static/:path*`,
+        source: `${rootPhx()}/static/:path*`,
         destination: `${POSTHOG.assetsHost}/static/:path*`
       },
       {
-        source: `/${POSTHOG.proxyPath}/:path*`,
+        source: `${rootPhx()}/:path*`,
         destination: `${POSTHOG.apiHost}/:path*`
       }
     ];
   },
-  // Avoid 308s on PostHog paths
+  // Avoid 308s on proxied paths
   skipTrailingSlashRedirect: true
 };
 
