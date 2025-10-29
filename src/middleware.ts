@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { POSTHOG } from '@/lib/posthog/config'; // uses sanitized proxyPath
+import { POSTHOG } from '@/lib/posthog/config'; // sanitized proxyPath/ui/api hosts
 
 const DEVICE_ID_COOKIE = 'ah_device_id';
 
-/** ───────────────────────────── Helpers ───────────────────────────── */
+/* ───────────────────────────── Helpers ───────────────────────────── */
 
 function normalizeRootDomain(raw: string | undefined): string {
   if (!raw) return '';
@@ -45,10 +45,9 @@ function ensureDeviceIdCookie(
   });
 }
 
-/** Build a regex that matches:
- *  - "/<proxyPath>/…"
- *  - "/tenants/<slug>/<proxyPath>/…"
- *  - and also exactly "/<proxyPath>" or "/tenants/<slug>/<proxyPath>"
+/** Match:
+ *  - "/<proxyPath>" or "/<proxyPath>/…"
+ *  - "/tenants/<slug>/<proxyPath>" or "/tenants/<slug>/<proxyPath>/…"
  *  (POSTHOG.proxyPath is already sanitized to a path segment with no slashes)
  */
 const proxyPathRe = (() => {
@@ -56,21 +55,15 @@ const proxyPathRe = (() => {
   return new RegExp(`^/(?:tenants/[^/]+/)?${esc}(?:/|$)`);
 })();
 
-/** ───────────────────────────── Middleware config ───────────────────────────── */
-
+/* ───────────────────────────── Middleware config (must be static) ───────────────────────────── */
 export const config = {
   matcher: [
-    // Broad site middleware
-    '/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)',
-    // Explicit proxy roots
-    `/${POSTHOG.proxyPath}`,
-    `/${POSTHOG.proxyPath}/:path*`,
-    `/tenants/:slug/${POSTHOG.proxyPath}`,
-    `/tenants/:slug/${POSTHOG.proxyPath}/:path*`
+    // Broad site middleware; covers proxy paths too.
+    '/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)'
   ]
 };
 
-/** ───────────────────────────── Main middleware ───────────────────────────── */
+/* ───────────────────────────── Main middleware ───────────────────────────── */
 
 export default function middleware(req: NextRequest): NextResponse {
   const url = req.nextUrl;
@@ -84,7 +77,7 @@ export default function middleware(req: NextRequest): NextResponse {
     .map((s) => s.trim().toLowerCase())
     .filter((s) => s.length > 0);
 
-  /** ── 1) Gate PostHog proxy paths first (no rewrites), still set device cookie ── */
+  /* 1) Gate PostHog proxy paths first (no rewrites), still set device cookie */
   if (proxyPathRe.test(url.pathname)) {
     const method = req.method.toUpperCase();
     const isGet = method === 'GET';
@@ -105,13 +98,7 @@ export default function middleware(req: NextRequest): NextResponse {
       }
     }
 
-    // Optional shared-secret header gate (protects proxy infra). Keep disabled for browser beacons.
-    // const provided = req.headers.get('x-posthog-proxy-key');
-    // if (POSTHOG.proxySecret && provided !== POSTHOG.proxySecret) {
-    //   return new NextResponse('Unauthorized', { status: 401 });
-    // }
-
-    // Optional Origin allow-list (recommended for public proxy):
+    // Optional: origin allow-list for the public proxy (uncomment if you want it)
     // const origin = req.headers.get('origin') ?? '';
     // const allowed = [`https://${rootDomain}`, `https://app.${rootDomain}`].filter(Boolean);
     // if (origin && !allowed.includes(origin)) return new NextResponse('Forbidden', { status: 403 });
@@ -122,7 +109,7 @@ export default function middleware(req: NextRequest): NextResponse {
     return res;
   }
 
-  /** ── 2) Regular site flow: if no root domain, just set cookie and continue ── */
+  /* 2) Regular site flow: if no root domain, just set cookie and continue */
   if (!rootDomain) {
     if (process.env.NODE_ENV === 'production') {
       console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
@@ -134,14 +121,14 @@ export default function middleware(req: NextRequest): NextResponse {
 
   const cookieDomain = `.${rootDomain}`;
 
-  /** ── 3) Don’t rewrite apex or foreign hosts; still set cookie ── */
+  /* 3) Don’t rewrite apex or foreign hosts; still set cookie */
   if (hostname === rootDomain || !hostname.endsWith(`.${rootDomain}`)) {
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res, cookieDomain);
     return res;
   }
 
-  /** ── 4) Extract tenant slug and enforce whitelist/format ── */
+  /* 4) Extract tenant slug and enforce whitelist/format */
   const rawSlug = hostname.slice(0, hostname.length - `.${rootDomain}`.length);
   const tenantSlug = rawSlug.toLowerCase();
 
@@ -151,7 +138,7 @@ export default function middleware(req: NextRequest): NextResponse {
     return res;
   }
 
-  /** ── 5) Rewrite to /tenants/<slug>/… and set cookie ── */
+  /* 5) Rewrite to /tenants/<slug>/… and set cookie */
   try {
     const destination = new URL(
       `/tenants/${tenantSlug}${url.pathname}${url.search}`,
