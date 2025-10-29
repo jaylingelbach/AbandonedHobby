@@ -1,21 +1,51 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { POSTHOG } from '@/lib/posthog/config'; // sanitized proxyPath/ui/api hosts
 
 const DEVICE_ID_COOKIE = 'ah_device_id';
 
 /**
- * Ensure an anon device id cookie exists.
- * - Shared across subdomains when cookieDomain is provided (e.g., .example.com)
- * - 1 year lifetime, SameSite Lax, HttpOnly=false (client readable), Secure in prod
- * Ensure a persistent anonymous device identifier cookie is present on the response.
+ * Normalize a raw root domain or URL into a canonical hostname string.
  *
- * Sets the `ah_device_id` cookie with a 1-year lifetime, `SameSite=Lax`, `HttpOnly=false`,
- * and `Secure` in production. If `cookieDomain` is provided the cookie will be scoped to that
- * domain (allowing sharing across subdomains). If the request already contains the cookie,
- * the function does nothing.
- *
- * @param cookieDomain - Optional domain to set on the cookie (e.g., `.example.com`) to share it across subdomains
+ * @param raw - The raw root domain or URL (may include protocol like `https://` or leading dots); may be undefined
+ * @returns The normalized hostname: protocol removed, leading dots trimmed, and lowercased; empty string if `raw` is missing
  */
 
+function normalizeRootDomain(raw: string | undefined): string {
+  if (!raw) return '';
+  return raw
+    .replace(/^https?:\/\//, '')
+    .replace(/^\.+/, '')
+    .trim()
+    .toLowerCase();
+}
+
+/**
+ * Determine the shared dot-prefixed cookie domain for a root domain and its subdomains.
+ *
+ * @param hostname - The request hostname to evaluate (lowercased).
+ * @param rootDomain - The normalized root domain to match against (e.g., example.com).
+ * @returns `.<rootDomain>` when `hostname` is the root domain or a subdomain of it, `undefined` otherwise.
+ */
+function computeCookieDomain(
+  hostname: string,
+  rootDomain: string
+): string | undefined {
+  if (!rootDomain) return undefined;
+  if (hostname === rootDomain) return `.${rootDomain}`;
+  if (hostname.endsWith(`.${rootDomain}`)) return `.${rootDomain}`;
+  return undefined;
+}
+
+/**
+ * Ensures an anonymous device identifier cookie exists on the response, creating one if absent.
+ *
+ * If a device cookie already exists on the request, this function does nothing. When creating a new
+ * cookie it sets a persistent identifier with a one-year max age and applies typical cookie
+ * attributes (Path '/', SameSite 'lax', HttpOnly false, Secure in production). If `cookieDomain`
+ * is provided, the cookie's Domain attribute will be set to that value.
+ *
+ * @param cookieDomain - Optional domain to apply to the cookie (e.g., ".example.com"); if omitted the cookie will not include a Domain attribute.
+ */
 function ensureDeviceIdCookie(
   req: NextRequest,
   res: NextResponse,
@@ -39,108 +69,131 @@ function ensureDeviceIdCookie(
   });
 }
 
+/** Match:
+ *  - "/<proxyPath>" or "/<proxyPath>/…"
+ *  - "/tenants/<slug>/<proxyPath>" or "/tenants/<slug>/<proxyPath>/…"
+ *  (POSTHOG.proxyPath is already sanitized to a path segment with no slashes)
+ */
+const proxyPathRe = (() => {
+  const esc = POSTHOG.proxyPath.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`^/(?:tenants/[^/]+/)?${esc}(?:/|$)`);
+})();
+
+/* ───────────────────────────── Middleware config (must be static) ───────────────────────────── */
 export const config = {
-  matcher: ['/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)']
+  matcher: [
+    // Broad site middleware; covers proxy paths too.
+    '/((?!api/|_next/|_static/|_vercel/|media/|[^/]+\\.[^/]+).*)'
+  ]
 };
 
 /**
- * Rewrites tenant subdomain requests to a canonical /tenants/<slug>/ path when appropriate and ensures a persistent anonymous device ID cookie is present on the response.
+ * Middleware that scopes requests to tenant subdomains, ensures an anonymous device ID cookie,
+ * and rewrites tenant subdomain requests to the corresponding `/tenants/<slug>/...` path when applicable.
  *
- * @param req - The incoming Next.js request
- * @returns A NextResponse for the request; for valid tenant subdomains the response is rewritten to `/tenants/<slug>/<originalPath><originalSearch>`, otherwise a regular next response. The returned response will have the anonymous device ID cookie ensured (shared across subdomains when a root domain is configured).
+ * This middleware:
+ * - Gates PostHog proxy paths (allowing only GET and specific POST ingest endpoints) while still setting the device cookie.
+ * - If no root domain is configured, sets the device cookie and continues.
+ * - Leaves apex and foreign hosts unrewritten but sets an appropriately scoped or absent cookie.
+ * - For valid tenant subdomains, rewrites the request to `/tenants/<slug><originalPath><query>` and sets a shared cookie.
+ * - Falls back to a pass-through response and still sets the cookie on rewrite errors.
+ *
+ * @param req - The incoming NextRequest
+ * @returns A NextResponse with the device ID cookie applied; the response may be a rewrite to a tenant path, a pass-through NextResponse, or an error response for disallowed proxy requests.
  */
 
 export default function middleware(req: NextRequest): NextResponse {
   const url = req.nextUrl;
   const hostname = url.hostname.toLowerCase();
 
-  // Collect config
-  let rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN ?? '';
-  // Comma-separated list of non-tenant subs to skip rewriting (e.g., "www,app")
+  // Gather root domain & whitelist
+  const rootDomain = normalizeRootDomain(process.env.NEXT_PUBLIC_ROOT_DOMAIN);
   const whitelistEnv = process.env.NEXT_PUBLIC_NON_TENANT_SUBDOMAINS ?? 'www';
   const WHITELIST: string[] = whitelistEnv
     .split(',')
     .map((s) => s.trim().toLowerCase())
     .filter((s) => s.length > 0);
 
-  // We’ll always prepare a response so we can mutate cookies deterministically.
-  let res: NextResponse;
+  /* 1) Gate PostHog proxy paths first (no rewrites), still set device cookie */
+  if (proxyPathRe.test(url.pathname)) {
+    const method = req.method.toUpperCase();
+    const isGet = method === 'GET';
+    const isPost = method === 'POST';
 
-  // Never rewrite PostHog beacon paths, but do set the cookie.
-  if (url.pathname.startsWith('/_phx_a1b2c3')) {
-    res = NextResponse.next();
-    // For PostHog calls we may not be on a tenant host; omit domain if not applicable.
-    const cookieDomainPH =
-      rootDomain &&
-      hostname.endsWith(
-        `.${rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '')}`
-      )
-        ? `.${rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '')}`
-        : undefined;
+    // Allow-list methods
+    if (!isGet && !isPost) {
+      return new NextResponse('Method Not Allowed', { status: 405 });
+    }
+
+    // If POST, only allow ingest endpoint (`/e` or `/e/…`)
+    if (isPost) {
+      // Pattern matches: /[proxyPath]/e or /tenants/[slug]/[proxyPath]/e (+ optional trailing segments)
+      const isIngest = /^\/(?:(?:tenants\/[^/]+\/))?[^/]*\/e(?:\/|$)/.test(
+        url.pathname
+      );
+      if (!isIngest) {
+        return new NextResponse('Not Allowed', { status: 405 });
+      }
+    }
+
+    // Optional: origin allow-list for the public proxy (uncomment if you want it)
+    // const origin = req.headers.get('origin') ?? '';
+    // const allowed = [`https://${rootDomain}`, `https://app.${rootDomain}`].filter(Boolean);
+    // if (origin && !allowed.includes(origin)) return new NextResponse('Forbidden', { status: 403 });
+
+    const res = NextResponse.next();
+    const cookieDomainPH = computeCookieDomain(hostname, rootDomain); // ✅ unified
     ensureDeviceIdCookie(req, res, cookieDomainPH);
     return res;
   }
 
-  // If no root domain (e.g., local dev without config), just pass through but set cookie (no domain attr).
+  /* 2) Regular site flow: if no root domain, just set cookie and continue */
   if (!rootDomain) {
     if (process.env.NODE_ENV === 'production') {
       console.error('NEXT_PUBLIC_ROOT_DOMAIN environment variable is required');
     }
-    res = NextResponse.next();
+    const res = NextResponse.next();
     ensureDeviceIdCookie(req, res);
     return res;
   }
 
-  // Normalize root domain (strip protocol/leading dot)
-  rootDomain = rootDomain.replace(/^https?:\/\//, '').replace(/^\./, '');
-  const cookieDomain = `.${rootDomain}`;
+  /* 3) Don’t rewrite apex or foreign hosts; still set cookie (shared for apex/subdomains, none for foreign) */
+  const sharedCookieDomain = computeCookieDomain(hostname, rootDomain);
+  const isForeignHost = sharedCookieDomain === undefined;
+  const isApex = hostname === rootDomain;
 
-  // If host is exactly the apex root domain, skip rewriting (not a tenant subdomain).
-  if (hostname === rootDomain) {
-    res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
+  if (isApex || isForeignHost) {
+    const res = NextResponse.next();
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ undefined for foreign, .root for apex
     return res;
   }
 
-  // If host isn’t a subdomain of the root domain, skip rewriting.
-  if (!hostname.endsWith(`.${rootDomain}`)) {
-    res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
-    return res;
-  }
-
-  // Extract the left-most label(s) as the tenant slug.
+  /* 4) Extract tenant slug and enforce whitelist/format */
   const rawSlug = hostname.slice(0, hostname.length - `.${rootDomain}`.length);
   const tenantSlug = rawSlug.toLowerCase();
 
-  // Whitelist non-tenant subs (e.g., "www", "app")
-  if (WHITELIST.includes(tenantSlug)) {
-    res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
+  if (WHITELIST.includes(tenantSlug) || !/^[a-z0-9-]+$/.test(tenantSlug)) {
+    const res = NextResponse.next();
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
     return res;
   }
 
-  // Validate tenant slug (lowercase letters, numbers, hyphens)
-  if (!/^[a-z0-9-]+$/.test(tenantSlug)) {
-    console.warn(`Invalid tenant slug detected: ${rawSlug}`);
-    res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, cookieDomain);
-    return res;
-  }
-
-  // Rewrite: /tenants/<slug>/<path>?<search>
+  /* 5) Rewrite to /tenants/<slug>/… and set cookie */
   try {
     const destination = new URL(
       `/tenants/${tenantSlug}${url.pathname}${url.search}`,
       req.url
     );
-    res = NextResponse.rewrite(destination);
+    const res = NextResponse.rewrite(destination);
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
+    return res;
   } catch (err) {
-    console.error('Failed to rewrite URL in middleware:', err);
-    res = NextResponse.next();
+    console.error(
+      '[Middleware] Failed to rewrite URL:',
+      err instanceof Error ? err.message : err
+    );
+    const res = NextResponse.next();
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
+    return res;
   }
-
-  // Always ensure anon device id cookie is set and shared across subdomains.
-  ensureDeviceIdCookie(req, res, cookieDomain);
-  return res;
 }

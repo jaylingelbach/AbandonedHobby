@@ -491,24 +491,12 @@ export interface Order {
    * Order-level money breakdown (all cents)
    */
   amounts?: {
-    /**
-     * Sum of line item amountSubtotal
-     */
     subtotalCents?: number | null;
     taxTotalCents?: number | null;
     shippingTotalCents?: number | null;
     discountTotalCents?: number | null;
-    /**
-     * Your fee
-     */
     platformFeeCents?: number | null;
-    /**
-     * Stripe processing fee
-     */
     stripeFeeCents?: number | null;
-    /**
-     * Payout to seller after fees
-     */
     sellerNetCents?: number | null;
   };
   documents?: {
@@ -528,7 +516,7 @@ export interface Order {
    */
   cancellationReason?: string | null;
   /**
-   * Optional multi-shipment support. You can keep using `shipment` during transition.
+   * Advanced: multi-shipment history. The most recent entry mirrors into the main `shipment`.
    */
   shipments?:
     | {

@@ -1,19 +1,3 @@
-# Changes I may want to make:
-
-- Checkout-view.tsx on success where do I want to route? Currently routing to library.
-- prevent user from buying their own products.
-- referral codes for influencers to give out. they get a % and the user a reduced fee?
-- a good way to navigate home in the header in a store or product/checkout flow.
-- rethink all button. (possibly confusing with view all.) Currently all just redirects from whatever category is selected to abandonedhobby.com/ instead of /${category}/${slug}. I think the slug for all is all
-- View all should possibly open on hover instead of just on click? But if hover, it pops up to the left and might be annoying if you move mouse off of the button. so I think it uses state to change to open, maybe there is a non annoying way to do that... dunno. Jess was confused by it.
-- Message notifications. Email? Just an inbox symbol with the number of messages?
-
-# BUGS:
-
-- If an admin puts a product in a cart it is seen sitewide.
-- If session expires while product in cart and you go to checkout. with subdomain routing enabled, you redirect to tenant.abandonedhobby.com/sign-in (404), instead of abandonedhobby.com/sign-in.
-- no good error when I get a "Application error: a client-side exception has occurred while loading abandonedhobby.com (see the browser console for more information)." when a users session expires and they try to refresh a page (library). Just a blank page that says that instead of redirecting to sign in.
-
 # Categories finalization
 
 ## New Features
@@ -4105,3 +4089,133 @@ src/app/(app)/(auth)/sign-in/page.tsx Converted to export default async function
 
 - src/modules/conversations/ui/chat-button-with-modal.tsx
   - Added static bg-pink-400 className to Button for visual consistency.
+
+# Buyer Dashboard 10/28/25
+
+## Walkthrough
+
+- Adds invoice-viewing UI to OrderSummaryCard and wires ProductView to use it; extends Orders schema with amounts, documents, shipments, returns, support, and hooks; adds server-side order utilities for amounts and shipment mirroring; and introduces a Buyer Dashboard admin view with data loaders and nav entry.
+
+## New Features
+
+- Inline invoice viewing added to order summary; Buyer Dashboard added to admin (Awaiting Shipment, In Transit).
+
+## Enhancements
+
+- Orders now include amounts breakdown, invoice/receipt documents, multi-shipment support, delivered/canceled timestamps, returns, reviews, support links, and buyer/seller notes.
+- Server-side amount recalculation/locking and automatic delivered-at population on delivery.
+
+## UI
+
+- Minor styling and capitalization tweaks for consistency.
+
+## File changes
+
+### Order UI — Invoice Action
+
+- src/modules/orders/ui/OrderSummaryCard.tsx, src/modules/library/ui/views/product-view.tsx
+  - Adds InvoiceActionProps and props (onViewInvoice, canViewInvoice, isInvoiceLoading) to OrderSummaryCard; renders an inline receipt button in the card header and updates ProductView to pass new props (removes prior inline "View invoice" button).
+
+### Chat Button Styling
+
+- src/modules/conversations/ui/chat-button-with-modal.tsx
+  - Adds static bg-pink-400 className to the chat Button for consistent styling.
+
+### Orders Collection — Schema & Hooks
+
+- src/collections/Orders.ts
+  - Adds amounts group (subtotalCents, taxTotalCents, shippingTotalCents, discountTotalCents, platformFeeCents, stripeFeeCents, sellerNetCents), documents (invoiceUrl, receiptUrl), deliveredAt, canceledAt, cancellationReason, shipments (array), returns, reviews, support, buyerNotes, sellerPrivateNotes; sets buyer.index = true; introduces beforeChange hooks: mirrorSingleShipmentToArray, mirrorShipmentsArrayToSingle, lockAndCalculateAmounts, autoSetDeliveredAt (keeps existing afterChange hooks).
+
+### Server hooks & utilities (orders)
+
+- src/lib/server/orders/auto-delivered-at.ts, src/lib/server/orders/compute-amounts.ts, src/lib/server/orders/lock-and-calc-amounts.ts, src/lib/server/orders/mirror-shipments-to-single.ts, src/lib/server/orders/mirror-single-to-shipments.ts, src/lib/server/orders/pick-canonical-shipment.ts
+  - New exports: autoSetDeliveredAt (set deliveredAt on delivered transition), computeOrderAmounts (aggregate line/item amounts and fees), lockAndCalculateAmounts (recompute and lock amounts on beforeChange), mirrorShipmentsArrayToSingle and mirrorSingleShipmentToArray (sync legacy shipment ↔ shipments[]), and pickCanonicalShipment (select most relevant shipment entry).
+
+### Type definitions & selects
+
+src/payload-types.ts, src/payload/views/types.ts
+
+- Extends Order with amounts, documents, deliveredAt, canceledAt, cancellationReason, shipments, returns, reviews, support, buyerNotes, sellerPrivateNotes; adds Review interface and updates OrdersSelect<T> to include new fields; adds buyer-dashboard types (BuyerCountSummary, BuyerDashboardCountSummary, BuyerOrderListItem) and expands CountSummary with needsOnboarding.
+
+### Buyer Dashboard — View & utils
+
+- src/payload/views/buyer-dashboard.tsx, src/payload/views/buyer-dashboard-utils.ts
+  - Adds BuyerDashboard admin view and getBuyerData loader: computes awaitingShipment and inTransit counts/lists, normalizes legacy vs. array shipments, maps orders to BuyerOrderListItem, and renders KPI cards, tables, and quick actions.
+
+### Admin nav & import map
+
+- src/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx, src/payload.config.ts, src/app/(payload)/admin/importMap.js
+  - Adds BuyerDashboardLink NavGroup component, registers buyerDashboard view at /buyer, appends BuyerDashboardLink to admin afterNavLinks, and updates importMap entries for BuyerDashboard/BuyerDashboardLink.
+
+### Seller Dashboard shipped filter & logging
+
+- src/payload/views/utils.ts
+  - Adjusts logging (non-production gating) and broadens shipped-order query to consider both shipment.shippedAt and shipments.shippedAt via an OR clause.
+
+### Import cleanup
+
+- src/modules/library/ui/views/product-view.tsx
+  - Removes unused Receipt import from lucide-react.
+
+# Update order collection access 10/29/25
+
+## Walkthrough
+
+- This PR adds a PostHog config module, hardens client initialization, introduces tenant-scoped and root PostHog proxy rewrites, extends middleware for tenant rewriting and cookie-domain handling, adjusts Orders admin access checks, updates buyer-dashboard UI/types documentation, and simplifies some error catch clauses.
+
+## New Features
+
+- Buyer Dashboard: order tracking, shipment status, and inline invoice viewing.
+
+## Improvements
+
+- Hardened analytics initialization and environment-safe PostHog setup.
+- Tenant-scoped proxying for analytics and asset requests.
+- Improved remote image hostname handling.
+- Refined admin access controls for Orders.
+
+## Bug Fixes
+
+- Middleware cookie and routing adjusted to avoid unwanted redirects on proxied paths.
+
+## File changes
+
+### Next config & proxy rewrites
+
+- next.config.ts
+  - Adds tenant-scoped and root PostHog proxy rewrite rules, consolidates image remotePatterns, adds tenant proxy helpers, and wraps export with withPayload(nextConfig).
+
+### PostHog config
+
+- src/lib/posthog/config.ts
+  - New PosthogConfig module: POSTHOG constant, PosthogConfig type, stripSlashes and normalizeHost helpers, and env-driven host/proxyPath normalization.
+
+### PostHog client init
+
+- src/app/(app)/posthog-init.tsx
+  - Requires NEXT_PUBLIC_POSTHOG_KEY, imports POSTHOG, adds isPosthogAbort, dev-only unhandledrejection suppression, and environment-conditional api_host/ui_host and session/recording flags.
+
+### Middleware & tenant/proxy handling
+
+- src/middleware.ts
+  - Adds root-domain normalization, computeCookieDomain, proxyPath regex, proxy gating (GET/POST/ingest), tenant slug detection, domain-scoped cookie support, and rewrites to /tenants/:slug/....
+
+### Orders collection access
+
+- src/collections/Orders.ts
+  - Adds admin.hidden to hide Orders for non-super-admins and updates shipments field admin condition signature to ({ user }) => isSuperAdmin(user).
+
+### Payload types/docs
+
+- src/payload-types.ts
+  - Removes/updates inline JSDoc for Order.amounts and Order.shipments; no type signature changes.
+
+### Buyer Dashboard & UI tweaks
+
+- recap.md, src/payload/views/buyer-dashboard.tsx
+  - Documents Buyer Dashboard additions; inlines currency formatting and fixes order link HREFs in buyer dashboard view.
+
+### Inline tracking error handling
+
+- src/components/custom-payload/tracking/InlineTrackingForm.tsx
+  - Replaces typed named catch parameters with generic catch in several places; behavior unchanged.

@@ -5,21 +5,20 @@ import type { AdminViewServerProps } from 'payload';
 import { getBuyerData } from './buyer-dashboard-utils';
 
 /**
- * Format a numeric dollar amount into a localized currency string.
+ * Formats a dollar amount into a localized currency string.
  *
  * @param amountInDollars - The monetary amount in dollars to format.
- * @param currency - ISO 4217 currency code to use for formatting (defaults to `USD`).
- * @returns The formatted currency string (for example, `"$1,234.56"`).
+ * @param currency - ISO 4217 currency code used for formatting. Defaults to `USD`.
+ * @returns The formatted currency string (e.g., "$1,234.56").
  */
 function formatCurrencyDisplay(
   amountInDollars: number,
   currency = 'USD'
 ): string {
-  const numeric = amountInDollars;
   return new Intl.NumberFormat(undefined, {
     style: 'currency',
     currency
-  }).format(numeric);
+  }).format(amountInDollars);
 }
 
 /**
@@ -248,7 +247,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                       <Link
                         prefetch={false}
                         className="btn btn--sm"
-                        href={`/admin/collections/orders/${order.id}`}
+                        href={`/orders/${order.id}`}
                       >
                         View
                       </Link>
