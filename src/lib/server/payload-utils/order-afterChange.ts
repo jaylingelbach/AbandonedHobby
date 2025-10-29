@@ -126,8 +126,6 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   req,
   operation
 }) => {
-  console.log('[orders.afterChange] fired');
-
   // Skip internal updates where we only persist idempotency, etc.
   if ((req as any)?.context?.ahSystem) {
     req.payload.logger.debug('afterChangeOrders: skipped (ahSystem context)');
@@ -236,11 +234,10 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
       : undefined;
   const previousTrackingNumber =
     changeKind === 'updated' && isNonEmptyString(previousTracking)
-      ? previousTracking.trim()
+      ? normalizeTrackingServer(previousTracking)
       : undefined;
 
   try {
-    console.log('trying to send tracking email');
     const result = await sendTrackingEmail({
       to: toEmail,
       variant: changeKind === 'added' ? 'shipped' : 'tracking-updated',
@@ -268,7 +265,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
         })) ?? [],
       shippingAddress: current.shipping ?? undefined,
       messageKey,
-      currency: (current.currency ?? 'USD') || 'USD'
+      currency: current.currency ?? 'USD'
     });
 
     req.payload.logger.info(
@@ -281,7 +278,6 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
       },
       'Tracking email sent'
     );
-    console.log('tracking email sent');
   } catch (sendError) {
     req.payload.logger.error(
       { orderId: current.id, changeKind, error: String(sendError) },

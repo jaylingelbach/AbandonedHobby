@@ -421,8 +421,7 @@ export async function sendTrackingEmail(input: {
   // Dry-run / debug logging
   const envDryRun = process.env.EMAIL_DRY_RUN === '1';
   const doDryRun = Boolean(input.dryRun || envDryRun);
-  // const doDebug = Boolean(input.debug || process.env.EMAIL_DEBUG === '1');
-  const doDebug = true;
+  const doDebug = Boolean(input.debug || process.env.EMAIL_DEBUG === '1');
 
   if (doDebug || doDryRun) {
     const safeModel = {
