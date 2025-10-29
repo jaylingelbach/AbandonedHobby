@@ -15,6 +15,7 @@ function normalizeRootDomain(raw: string | undefined): string {
   return raw
     .replace(/^https?:\/\//, '')
     .replace(/^\.+/, '')
+    .trim()
     .toLowerCase();
 }
 
@@ -126,6 +127,7 @@ export default function middleware(req: NextRequest): NextResponse {
 
     // If POST, only allow ingest endpoint (`/e` or `/e/…`)
     if (isPost) {
+      // Pattern matches: /[proxyPath]/e or /tenants/[slug]/[proxyPath]/e (+ optional trailing segments)
       const isIngest = /^\/(?:(?:tenants\/[^/]+\/))?[^/]*\/e(?:\/|$)/.test(
         url.pathname
       );
@@ -172,7 +174,7 @@ export default function middleware(req: NextRequest): NextResponse {
 
   if (WHITELIST.includes(tenantSlug) || !/^[a-z0-9-]+$/.test(tenantSlug)) {
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
     return res;
   }
 
@@ -183,12 +185,15 @@ export default function middleware(req: NextRequest): NextResponse {
       req.url
     );
     const res = NextResponse.rewrite(destination);
-    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
     return res;
   } catch (err) {
-    console.error('Failed to rewrite URL in middleware:', err);
+    console.error(
+      '[Middleware] Failed to rewrite URL:',
+      err instanceof Error ? err.message : err
+    );
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ unified
+    ensureDeviceIdCookie(req, res, sharedCookieDomain);
     return res;
   }
 }
