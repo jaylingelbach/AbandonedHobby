@@ -3,7 +3,12 @@ import { POSTHOG } from '@/lib/posthog/config'; // sanitized proxyPath/ui/api ho
 
 const DEVICE_ID_COOKIE = 'ah_device_id';
 
-/* ───────────────────────────── Helpers ───────────────────────────── */
+/**
+ * Normalize a raw root domain or URL into a canonical hostname string.
+ *
+ * @param raw - The raw root domain or URL (may include protocol like `https://` or leading dots); may be undefined
+ * @returns The normalized hostname: protocol removed, leading dots trimmed, and lowercased; empty string if `raw` is missing
+ */
 
 function normalizeRootDomain(raw: string | undefined): string {
   if (!raw) return '';
@@ -14,10 +19,11 @@ function normalizeRootDomain(raw: string | undefined): string {
 }
 
 /**
- * Return a shared, dot-prefixed cookie domain for both the apex rootDomain and any of its subdomains.
- * - If hostname === rootDomain → returns ".<rootDomain>"
- * - If hostname endsWith ".<rootDomain>" → returns ".<rootDomain>"
- * - Otherwise (foreign host) → returns undefined
+ * Determine the shared dot-prefixed cookie domain for a root domain and its subdomains.
+ *
+ * @param hostname - The request hostname to evaluate (lowercased).
+ * @param rootDomain - The normalized root domain to match against (e.g., example.com).
+ * @returns `.<rootDomain>` when `hostname` is the root domain or a subdomain of it, `undefined` otherwise.
  */
 function computeCookieDomain(
   hostname: string,
@@ -29,7 +35,16 @@ function computeCookieDomain(
   return undefined;
 }
 
-/** Ensure a persistent anonymous device identifier cookie is present on the response. */
+/**
+ * Ensures an anonymous device identifier cookie exists on the response, creating one if absent.
+ *
+ * If a device cookie already exists on the request, this function does nothing. When creating a new
+ * cookie it sets a persistent identifier with a one-year max age and applies typical cookie
+ * attributes (Path '/', SameSite 'lax', HttpOnly false, Secure in production). If `cookieDomain`
+ * is provided, the cookie's Domain attribute will be set to that value.
+ *
+ * @param cookieDomain - Optional domain to apply to the cookie (e.g., ".example.com"); if omitted the cookie will not include a Domain attribute.
+ */
 function ensureDeviceIdCookie(
   req: NextRequest,
   res: NextResponse,
@@ -71,7 +86,20 @@ export const config = {
   ]
 };
 
-/* ───────────────────────────── Main middleware ───────────────────────────── */
+/**
+ * Middleware that scopes requests to tenant subdomains, ensures an anonymous device ID cookie,
+ * and rewrites tenant subdomain requests to the corresponding `/tenants/<slug>/...` path when applicable.
+ *
+ * This middleware:
+ * - Gates PostHog proxy paths (allowing only GET and specific POST ingest endpoints) while still setting the device cookie.
+ * - If no root domain is configured, sets the device cookie and continues.
+ * - Leaves apex and foreign hosts unrewritten but sets an appropriately scoped or absent cookie.
+ * - For valid tenant subdomains, rewrites the request to `/tenants/<slug><originalPath><query>` and sets a shared cookie.
+ * - Falls back to a pass-through response and still sets the cookie on rewrite errors.
+ *
+ * @param req - The incoming NextRequest
+ * @returns A NextResponse with the device ID cookie applied; the response may be a rewrite to a tenant path, a pass-through NextResponse, or an error response for disallowed proxy requests.
+ */
 
 export default function middleware(req: NextRequest): NextResponse {
   const url = req.nextUrl;
