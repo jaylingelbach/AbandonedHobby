@@ -57,7 +57,7 @@ function normalizeTrackingServer(raw: unknown): string {
   if (typeof raw !== 'string') return '';
   return raw
     .trim()
-    .replace(/[\s\u2010-\u2015-]+/g, '')
+    .replace(/[\s\u2010-\u2015\-]+/g, '')
     .toUpperCase();
 }
 
@@ -127,7 +127,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   operation
 }) => {
   // Skip internal updates where we only persist idempotency, etc.
-  if ((req as any)?.context?.ahSystem) {
+  if (req?.context?.ahSystem) {
     req.payload.logger.debug('afterChangeOrders: skipped (ahSystem context)');
     return;
   }
