@@ -403,6 +403,7 @@ export async function sendTrackingEmail(input: {
     // previous values (optional)
     previous_carrier_name: input.shipment.previousCarrierName,
     previous_tracking_number: input.shipment.previousTrackingNumber,
+    previous_present: Boolean(input.shipment.previousTrackingNumber),
     // line items & shipping
     item_summary: itemSummary,
     receipt_details: receiptDetails,
@@ -420,7 +421,8 @@ export async function sendTrackingEmail(input: {
   // Dry-run / debug logging
   const envDryRun = process.env.EMAIL_DRY_RUN === '1';
   const doDryRun = Boolean(input.dryRun || envDryRun);
-  const doDebug = Boolean(input.debug || process.env.EMAIL_DEBUG === '1');
+  // const doDebug = Boolean(input.debug || process.env.EMAIL_DEBUG === '1');
+  const doDebug = true;
 
   if (doDebug || doDryRun) {
     const safeModel = {
