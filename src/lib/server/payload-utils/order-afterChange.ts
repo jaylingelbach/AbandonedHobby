@@ -170,13 +170,12 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
     return;
   }
 
-  const carrier: Carrier | null | undefined = nextCarrier;
   const trackingNumber: string = normalizeTrackingServer(nextTracking);
   const trackingUrl = current?.shipment?.trackingUrl ?? undefined;
   const shippedAt = current?.shipment?.shippedAt ?? undefined;
 
   // Idempotency
-  const messageKey = buildMessageKey(current.id, carrier, trackingNumber);
+  const messageKey = buildMessageKey(current.id, nextCarrier, trackingNumber);
   const lastKey = current?.shipment?.lastNotifiedKey ?? null;
   if (lastKey && lastKey === messageKey) {
     req.payload.logger.info(
@@ -220,10 +219,10 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
   }
 
   // --- previous values (only for 'updated') -------------------------------
-  const previousCarrier: Carrier | null | undefined = prevCarrier;
+
   const previousCarrierName =
-    changeKind === 'updated' && previousCarrier
-      ? carrierLabels[previousCarrier]
+    changeKind === 'updated' && prevCarrier
+      ? carrierLabels[prevCarrier]
       : undefined;
 
   const normalizedPrevTracking = normalizeTrackingServer(previousTracking);
@@ -242,7 +241,7 @@ export const afterChangeOrders: OrdersAfterChangeHook = async ({
         name: current.name ?? ''
       },
       shipment: {
-        carrier: carrier ?? 'other',
+        carrier: nextCarrier ?? 'other',
         trackingNumber,
         trackingUrl,
         shippedAt,
