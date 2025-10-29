@@ -4257,3 +4257,32 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/modules/orders/server/utils.ts
   - Removes local isNonEmptyString implementation and imports isNonEmptyString from @/lib/utils. No behavioral changes beyond sourcing the utility.
+
+# Improve seed idempotency 10/29/25
+
+## Walkthrough
+
+- This PR introduces server-side tracking data normalization via a new normalizeTrackingServer utility and adds a previous_present flag to email payloads. It also refactors admin seeding with username normalization, improved user lookup/creation logic, and explicit tenant-user linking to ensure idempotent seeding operations.
+
+## Bug Fixes
+
+- Improved server-side tracking data normalization to ensure consistency across the platform
+- Enhanced user account creation with improved duplicate detection mechanisms
+- Strengthened data integrity and robustness of category and subcategory operations
+- Refined type safety throughout user and tenant linkage processes
+
+## Refactor
+
+- Consolidated utility functions to improve code maintainability and reduce duplication
+
+## File changes
+
+### Tracking normalization & email flow
+
+- src/lib/server/payload-utils/order-afterChange.ts
+  - Adds normalizeTrackingServer(raw: unknown): string utility for server-side tracking standardization; updates email payload with previous_present flag; replaces local isNonEmptyString check with shared utility import.
+
+### Admin seeding refactor
+
+- src/lib/seed.ts
+  - Introduces normalizeUsername function to sanitize usernames; expands admin lookup to search by email or normalized username; improves admin creation/linking logic with explicit type casting, tenant-user association, and detailed operation logging; hardens category/subcategory seeding against existing data.
