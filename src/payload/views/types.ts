@@ -53,9 +53,7 @@ export type GetInput = {
   page: number;
   pageSize: number;
   query?: string;
-  status?:
-    | Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>
-    | undefined;
+  status?: Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>;
   hasTracking?: 'yes' | 'no';
   fromISO?: string;
   toISO?: string;
