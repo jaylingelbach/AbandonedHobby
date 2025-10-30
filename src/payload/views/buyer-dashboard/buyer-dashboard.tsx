@@ -223,7 +223,8 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        readCurrencyFromOrder(order, 'USD')
+                        readCurrencyFromOrder(order, 'USD'),
+                        initPageResult.locale?.code?.replace('_', '-')
                       )}
                     </td>
                     <td className="ah-col--tracking">
