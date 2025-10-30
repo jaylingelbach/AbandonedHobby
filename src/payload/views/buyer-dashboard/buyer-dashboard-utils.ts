@@ -271,9 +271,8 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     collection: 'orders',
     where: {
       and: [
-        {
-          or: [buildShippedWhereSingle(), buildShippedWhereArray()]
-        },
+        { fulfillmentStatus: { equals: 'shipped' } },
+        { latestShippedAt: { exists: true } },
         buyerScope
       ]
     }
