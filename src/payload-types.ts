@@ -504,6 +504,10 @@ export interface Order {
     receiptUrl?: string | null;
   };
   /**
+   * Most recent shippedAt across shipment + shipments[]. Used for sorting/pagination.
+   */
+  latestShippedAt?: string | null;
+  /**
    * Set when delivery is confirmed
    */
   deliveredAt?: string | null;
@@ -922,6 +926,7 @@ export interface OrdersSelect<T extends boolean = true> {
         invoiceUrl?: T;
         receiptUrl?: T;
       };
+  latestShippedAt?: T;
   deliveredAt?: T;
   canceledAt?: T;
   cancellationReason?: T;

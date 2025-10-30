@@ -299,17 +299,20 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .filter((item): item is BuyerOrderListItem => item !== null);
 
   // In transit list
+  // In transit list (fetch more than you need, then slice after sort)
+  const pageSize = 25;
+
+  // Over-fetch to avoid pagination drift after in-memory sort
   const inTransitResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
     pagination: true,
     limit: 25,
-    sort: '-shipment.shippedAt',
+    sort: '-latestShippedAt',
     where: {
       and: [
-        {
-          or: [buildShippedWhereSingle(), buildShippedWhereArray()]
-        },
+        { fulfillmentStatus: { equals: 'shipped' } },
+        { latestShippedAt: { exists: true } },
         buyerScope
       ]
     }
@@ -319,10 +322,46 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null)
     .sort((a, b) => {
+      // Prefer shippedAtISO; fall back to createdAtISO
       const bt = Date.parse(b.shippedAtISO ?? b.createdAtISO);
       const at = Date.parse(a.shippedAtISO ?? a.createdAtISO);
-      return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
-    });
+
+      // Invalid -> push to end
+      const bInvalid = Number.isNaN(bt);
+      const aInvalid = Number.isNaN(at);
+      if (bInvalid && aInvalid) {
+        // Stable tiebreakers: createdAtISO, then orderNumber, then id
+        const bCreated = Date.parse(b.createdAtISO);
+        const aCreated = Date.parse(a.createdAtISO);
+        if (!Number.isNaN(bCreated) && !Number.isNaN(aCreated)) {
+          if (bCreated !== aCreated) return bCreated - aCreated;
+        }
+        if (a.orderNumber !== b.orderNumber) {
+          return a.orderNumber < b.orderNumber ? 1 : -1;
+        }
+        return a.id < b.id ? 1 : -1;
+      }
+      if (bInvalid) return 1;
+      if (aInvalid) return -1;
+
+      if (bt !== at) return bt - at;
+
+      // Stable tiebreakers when shipped timestamps equal
+      const bCreated = Date.parse(b.createdAtISO);
+      const aCreated = Date.parse(a.createdAtISO);
+      if (
+        !Number.isNaN(bCreated) &&
+        !Number.isNaN(aCreated) &&
+        bCreated !== aCreated
+      ) {
+        return bCreated - aCreated;
+      }
+      if (a.orderNumber !== b.orderNumber) {
+        return a.orderNumber < b.orderNumber ? 1 : -1;
+      }
+      return a.id < b.id ? 1 : -1;
+    })
+    .slice(0, pageSize); // now take the first page deterministically
 
   return {
     summary: {

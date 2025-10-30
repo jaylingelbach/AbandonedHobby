@@ -14,6 +14,7 @@ import { lockAndCalculateAmounts } from '@/lib/server/orders/lock-and-calc-amoun
 import type { CollectionConfig, FieldAccess } from 'payload';
 import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
 import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
+import { computeLatestShippedAt } from '@/lib/server/orders/compute-latest-shipped-at';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
   const roles: string[] | undefined = req?.user?.roles as string[] | undefined;
@@ -51,6 +52,7 @@ export const Orders: CollectionConfig = {
       mirrorSingleShipmentToArray,
       mirrorShipmentsArrayToSingle,
       lockAndCalculateAmounts,
+      async (args) => computeLatestShippedAt(args),
       autoSetDeliveredAt
     ]
   },
@@ -357,6 +359,16 @@ export const Orders: CollectionConfig = {
     },
 
     // --- Shipment lifecycle (existing `shipment` stays). Add deliveredAt & cancel info -
+    {
+      name: 'latestShippedAt',
+      type: 'date',
+      admin: {
+        readOnly: true,
+        description:
+          'Most recent shippedAt across shipment + shipments[]. Used for sorting/pagination.'
+      },
+      index: true
+    },
     {
       name: 'deliveredAt',
       type: 'date',

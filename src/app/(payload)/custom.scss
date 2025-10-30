@@ -737,39 +737,62 @@
 
   /* Generic buttons used in toolbar and pager */
   .btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 9px 14px;
-    border-radius: 999px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    cursor: pointer;
-    border: 1px solid #111827;
-    background: var(--ah-accent);
-    color: #fff;
-    line-height: 1;
-    text-decoration: none;
-  }
-  .btn:hover {
-    filter: brightness(0.95);
-  }
-  .btn[aria-disabled='true'],
-  .btn:disabled {
-    opacity: 0.6;
-    pointer-events: none;
-  }
-  .btn.btn--ghost {
-    background: transparent;
-    color: var(--theme-text);
-    border-color: var(--theme-elevation-400, #111827);
-  }
-  .btn.btn--sm {
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-weight: 700;
+    .ah-toolbar .btn,
+    .ah-pager .btn,
+    .ah-tracking-cell .btn,
+    .ah-refund-btn.btn {
+      appearance: none;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 9px 14px;
+      border-radius: 999px;
+      font-weight: 800;
+      letter-spacing: 0.01em;
+      cursor: pointer;
+      border: 1px solid #111827;
+      background: var(--ah-accent);
+      color: #fff;
+      line-height: 1;
+      text-decoration: none;
+    }
+    .ah-toolbar .btn:hover,
+    .ah-pager .btn:hover,
+    .ah-tracking-cell .btn:hover,
+    .ah-refund-btn.btn:hover {
+      filter: brightness(0.95);
+    }
+    .ah-toolbar .btn[aria-disabled='true'],
+    .ah-pager .btn[aria-disabled='true'],
+    .ah-tracking-cell .btn[aria-disabled='true'],
+    .ah-refund-btn.btn[aria-disabled='true'],
+    .ah-toolbar .btn:disabled,
+    .ah-pager .btn:disabled,
+    .ah-tracking-cell .btn:disabled,
+    .ah-refund-btn.btn:disabled {
+      opacity: 0.6;
+      pointer-events: none;
+    }
+    .ah-toolbar .btn.btn--ghost,
+    .ah-pager .btn.btn--ghost,
+    .ah-tracking-cell .btn.btn--ghost {
+      background: transparent;
+      color: var(--theme-text);
+      border-color: var(--theme-elevation-400, #111827);
+    }
+    .ah-toolbar .btn.btn--sm,
+    .ah-pager .btn.btn--sm,
+    .ah-tracking-cell .btn.btn--sm {
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
+    .btn.btn--sm {
+      padding: 6px 10px;
+      border-radius: 8px;
+      font-weight: 700;
+    }
   }
 
   /* Status badges */
