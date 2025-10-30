@@ -1,11 +1,15 @@
 /* ==========================================================================
-   Abandoned Hobby — Admin overrides for Payload
+   Abandoned Hobby — Admin overrides for Payload (de-duplicated)
    Notes:
-   - All rules live in @layer payload to cascade after core admin CSS.
-   - We use PX for table column widths (predictable on desktop).
+   - Core component styles live in @layer payload (cascade after admin CSS).
+   - Seller Orders page uses ONLY targeted overrides in @layer payload-default.
+   - Column alignment & numeric formatting are defined once (global).
    - Mobile stack handled in a single media block.
    ========================================================================== */
 
+/* =========================
+   Core component styles
+   ========================= */
 @layer payload {
   /* --- A11y helper: visually hide but keep for screen readers ----------- */
   .sr-only {
@@ -20,12 +24,19 @@
     border: 0 !important;
   }
 
+  /* Accent token (used by generic buttons) */
+  :root {
+    --ah-accent: #111827; /* deep gray/near-black */
+  }
+  [data-theme='dark'] :root {
+    --ah-accent: #e5e7eb; /* light text in dark mode */
+  }
+
   /* === Tables ============================================================ */
   .ah-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
-    /* NEW: subtle panel look that works in light/dark without fighting Payload */
     background: var(--theme-elevation-50);
     border: 1px solid var(--theme-elevation-100);
     border-radius: 10px;
@@ -36,7 +47,6 @@
     color: #444;
     border-top: none;
     text-align: left;
-    /* NEW: header row separation */
     background: var(--theme-elevation-75, var(--theme-elevation-50));
     border-bottom: 1px solid var(--theme-elevation-100);
   }
@@ -59,19 +69,24 @@
   } /* date column */
   .ah-table .ah-col--total {
     width: 120px;
-    text-align: right;
   } /* money */
   .ah-table .ah-col--tracking {
     width: auto;
     min-width: 420px;
   }
 
-  /* Numeric alignment + nowrap where helpful */
+  /* Numeric alignment + nowrap where helpful (GLOBAL) */
   .ah-col--order,
   .ah-col--date,
-  .ah-col--total {
+  .ah-col--total,
+  .ah-col--items {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+  /* Right-align numeric money columns (GLOBAL, avoids duplication later) */
+  .ah-col--items,
+  .ah-col--total {
+    text-align: right;
   }
 
   /* Row hover (gentle, theme-aware) */
@@ -89,13 +104,11 @@
   .ah-col--tracking .ah-inline-form,
   .ah-col--tracking .ah-form--inline {
     display: grid;
-    /* Carrier | Tracking | Save | Cancel */
-    grid-template-columns: 120px minmax(260px, 480px) auto auto;
+    grid-template-columns: 120px minmax(260px, 480px) auto auto; /* Carrier | Tracking | Save | Cancel */
     column-gap: 16px;
     row-gap: 8px;
     align-items: center;
   }
-  /* Make wrappers contribute no extra spacing */
   .ah-col--tracking .ah-form-row {
     display: contents;
   }
@@ -104,8 +117,8 @@
     display: inline-flex;
     gap: 8px;
     align-items: center;
-    justify-self: end; /* right side of the grid */
-    grid-column: 3; /* force into the third column */
+    justify-self: end;
+    grid-column: 3;
     white-space: nowrap;
     margin: 0;
     padding: 0;
@@ -185,7 +198,7 @@
     color: #666;
   }
 
-  /* Tracking code chip + link */
+  /* Tracking chip + link */
   .ah-tracking-cell code {
     font-size: 12.5px;
     padding: 2px 6px;
@@ -263,7 +276,7 @@
     text-align: left;
   }
 
-  /* === Forms (generic) =================================================== */
+  /* === Generic forms ===================================================== */
   .ah-inline-form,
   .ah-form {
     display: grid;
@@ -417,7 +430,7 @@
     outline-offset: 2px;
   }
 
-  /* === Refunds UI (flatten group container and style rows) ============== */
+  /* === Refunds UI ======================================================== */
   .field-type.group[data-field-name='refunds'] {
     padding: 0;
     border: none;
@@ -630,85 +643,7 @@
     pointer-events: none;
   }
 
-  /* === Skeleton shimmer (reduced motion aware) ========================== */
-  .ah-onboarding-skel .ah-skel {
-    border-radius: 0.375rem;
-    position: relative;
-    overflow: hidden;
-  }
-  .ah-skel-text {
-    height: 0.9rem;
-  }
-  .ah-skel-pill {
-    height: 1.25rem;
-    width: 104px;
-    border-radius: 9999px;
-  }
-  .ah-skel-btn {
-    height: 2rem;
-    width: 110px;
-    border-radius: 0.375rem;
-  }
-
-  @keyframes ah-shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
-  }
-  [data-theme='light'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
-  }
-  [data-theme='dark'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
-  }
-  @media (prefers-reduced-motion: reduce) {
-    .ah-onboarding-skel .ah-skel {
-      animation: none !important;
-    }
-  }
-
-  /* === Mobile adjustments (single media block) ========================== */
-  @media (max-width: 900px) {
-    .ah-table .ah-col--tracking {
-      min-width: 0;
-    }
-    .ah-col--tracking .ah-form,
-    .ah-col--tracking .ah-inline-form,
-    .ah-col--tracking .ah-form--inline {
-      grid-template-columns: 1fr; /* stack controls */
-    }
-    .ah-col--tracking .ah-form-actions {
-      grid-column: auto;
-      justify-self: stretch;
-    }
-    .ah-col--tracking .btn {
-      width: 100%;
-    }
-    .ah-refund-btn {
-      width: 100%;
-      text-align: center;
-    }
-  }
-
-  /* ==========================================================================
-     NEW: Seller Orders polish (toolbar, generic .btn/.input, badges, pager)
-     ========================================================================== */
-
-  :root {
-    --ah-accent: #111827;
-  }
-  [data-theme='dark'] :root {
-    --ah-accent: #e5e7eb;
-  }
-
-  /* Toolbar */
+  /* === Generic toolbar & pager (GLOBAL, reused) ========================= */
   .ah-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -720,8 +655,6 @@
     padding: 10px;
     margin-bottom: 10px;
   }
-
-  /* Generic inputs used in toolbar (not to override .ah-input inside complex forms) */
   .ah-toolbar .input {
     appearance: none;
     background: var(--theme-elevation-50);
@@ -737,67 +670,62 @@
     outline-offset: 2px;
   }
 
-  /* Generic buttons used in toolbar and pager */
-  .btn {
-    .ah-toolbar .btn,
-    .ah-pager .btn,
-    .ah-tracking-cell .btn,
-    .ah-refund-btn.btn {
-      appearance: none;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 8px;
-      padding: 9px 14px;
-      border-radius: 999px;
-      font-weight: 800;
-      letter-spacing: 0.01em;
-      cursor: pointer;
-      border: 1px solid #111827;
-      background: var(--ah-accent);
-      color: #fff;
-      line-height: 1;
-      text-decoration: none;
-    }
-    .ah-toolbar .btn:hover,
-    .ah-pager .btn:hover,
-    .ah-tracking-cell .btn:hover,
-    .ah-refund-btn.btn:hover {
-      filter: brightness(0.95);
-    }
-    .ah-toolbar .btn[aria-disabled='true'],
-    .ah-pager .btn[aria-disabled='true'],
-    .ah-tracking-cell .btn[aria-disabled='true'],
-    .ah-refund-btn.btn[aria-disabled='true'],
-    .ah-toolbar .btn:disabled,
-    .ah-pager .btn:disabled,
-    .ah-tracking-cell .btn:disabled,
-    .ah-refund-btn.btn:disabled {
-      opacity: 0.6;
-      pointer-events: none;
-    }
-    .ah-toolbar .btn.btn--ghost,
-    .ah-pager .btn.btn--ghost,
-    .ah-tracking-cell .btn.btn--ghost {
-      background: transparent;
-      color: var(--theme-text);
-      border-color: var(--theme-elevation-400, #111827);
-    }
-    .ah-toolbar .btn.btn--sm,
-    .ah-pager .btn.btn--sm,
-    .ah-tracking-cell .btn.btn--sm {
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-weight: 700;
-    }
-    .btn.btn--sm {
-      padding: 6px 10px;
-      border-radius: 8px;
-      font-weight: 700;
-    }
+  /* Generic button skin (GLOBAL) */
+  .btn,
+  .ah-toolbar .btn,
+  .ah-pager .btn,
+  .ah-tracking-cell .btn,
+  .ah-refund-btn.btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid #111827;
+    background: var(--ah-accent);
+    color: #fff;
+    line-height: 1;
+    text-decoration: none;
+  }
+  .btn:hover,
+  .ah-toolbar .btn:hover,
+  .ah-pager .btn:hover,
+  .ah-tracking-cell .btn:hover,
+  .ah-refund-btn.btn:hover {
+    filter: brightness(0.95);
+  }
+  .btn[aria-disabled='true'],
+  .btn:disabled,
+  .ah-toolbar .btn[aria-disabled='true'],
+  .ah-pager .btn[aria-disabled='true'],
+  .ah-tracking-cell .btn[aria-disabled='true'],
+  .ah-refund-btn.btn[aria-disabled='true'] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .btn.btn--ghost,
+  .ah-toolbar .btn.btn--ghost,
+  .ah-pager .btn.btn--ghost,
+  .ah-tracking-cell .btn.btn--ghost {
+    background: transparent;
+    color: var(--theme-text);
+    border-color: var(--theme-elevation-400, #111827);
+  }
+  .btn.btn--sm,
+  .ah-toolbar .btn.btn--sm,
+  .ah-pager .btn.btn--sm,
+  .ah-tracking-cell .btn.btn--sm {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 700;
   }
 
-  /* Status badges */
+  /* Status badges (GLOBAL) */
   .ah-badge {
     display: inline-flex;
     align-items: center;
@@ -813,53 +741,55 @@
     font-size: 12.5px;
   }
   .ah-badge--unfulfilled {
-    background: #fff7ed; /* orange-50 */
-    border-color: #fdba74; /* orange-300 */
-    color: #9a3412; /* orange-800 */
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
   }
   .ah-badge--shipped {
-    background: #eff6ff; /* blue-50 */
-    border-color: #93c5fd; /* blue-300 */
-    color: #1e3a8a; /* blue-900 */
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a8a;
   }
   .ah-badge--delivered {
-    background: #ecfdf5; /* emerald-50 */
-    border-color: #86efac; /* emerald-300 */
-    color: #065f46; /* emerald-800 */
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #065f46;
   }
   .ah-badge--returned {
-    background: #fef2f2; /* red-50 */
-    border-color: #fecaca; /* red-300 */
-    color: #991b1b; /* red-800 */
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
   }
 
-  /* Pager */
-  .ah-pager {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-top: 12px;
-  }
-  .ah-pager__page {
-    font-weight: 700;
-    padding: 4px 10px;
-    border: 1px solid var(--theme-elevation-150);
-    border-radius: 999px;
-    background: var(--theme-elevation-50);
-    color: var(--theme-text);
-  }
-
-  /* Keep currency + item column right-aligned for readability */
-  .ah-col--items,
-  .ah-col--total {
-    text-align: right;
+  /* === Mobile adjustments (single media block) ========================== */
+  @media (max-width: 900px) {
+    .ah-table .ah-col--tracking {
+      min-width: 0;
+    }
+    .ah-col--tracking .ah-form,
+    .ah-col--tracking .ah-inline-form,
+    .ah-col--tracking .ah-form--inline {
+      grid-template-columns: 1fr;
+    } /* stack controls */
+    .ah-col--tracking .ah-form-actions {
+      grid-column: auto;
+      justify-self: stretch;
+    }
+    .ah-col--tracking .btn {
+      width: 100%;
+    }
+    .ah-refund-btn {
+      width: 100%;
+      text-align: center;
+    }
   }
 }
 
-/* ==========================================================================
-   Base surface tokens for the dashboard shell (outside payload layer)
-   ========================================================================== */
+/* =========================
+   Seller Orders overrides
+   ========================= */
 @layer payload-default {
+  /* Surface tokens for the dashboard shell */
   :root {
     --ah-paper: #f4f4f0; /* sidebar/body */
     --ah-sheet: #fafaf8; /* main content */
@@ -871,7 +801,6 @@
   .app-nav {
     background: var(--ah-paper);
   }
-
   .template-default__wrap {
     background: var(--ah-sheet);
   }
@@ -880,21 +809,12 @@
   .template-default .render-dashboard,
   .template-default .doc,
   .template-default .collection-list,
-  .template-default main {
-    background: transparent;
-  }
-
+  .template-default main,
   .template-default :where(.gutter, .payload__gutter) {
     background: transparent;
   }
 
-  .ah-seller-orders .ah-table {
-    width: 100%;
-    border-collapse: collapse;
-    table-layout: fixed;
-  }
-
-  /* Rebalanced column widths (tracking removed) */
+  /* Seller Orders specific table column widths (NO redefinition of base table) */
   .ah-seller-orders .ah-table .ah-col--order {
     width: 128px;
   } /* #12345 */
@@ -904,119 +824,27 @@
   .ah-seller-orders .ah-table .ah-col--buyer {
     width: auto;
     min-width: 280px;
-  } /* grows */
+  }
   .ah-seller-orders .ah-table .ah-col--items {
     width: 96px;
-    text-align: right;
-  }
+  } /* right-align inherited */
   .ah-seller-orders .ah-table .ah-col--total {
     width: 120px;
-    text-align: right;
   }
   .ah-seller-orders .ah-table .ah-col--status {
     width: 140px;
   } /* badge */
 
-  /* Header / cells */
-  .ah-seller-orders .ah-table thead th {
-    font-weight: 600;
-    color: #444;
-    text-align: left;
-    border-top: none;
-    background: var(--theme-elevation-75, var(--theme-elevation-50));
-    border-bottom: 1px solid
-      var(--theme-elevation-125, var(--theme-elevation-100));
-  }
-  .ah-seller-orders .ah-table th,
-  .ah-seller-orders .ah-table td {
-    padding: 8px 10px;
-    border-top: 1px solid #eee;
-    vertical-align: middle;
-  }
+  /* Optional: palette tweaks for Seller Orders (override only if desired)
+     Example below shows a slightly different scheme; remove if you prefer global */
+  /*
+  .ah-seller-orders .ah-badge--unfulfilled { background: #eef2ff; color: #3730a3; border-color: #e0e7ff; }
+  .ah-seller-orders .ah-badge--shipped    { background: #ecfeff; color: #0e7490; border-color: #cffafe; }
+  .ah-seller-orders .ah-badge--delivered  { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
+  .ah-seller-orders .ah-badge--returned   { background: #fef2f2; color: #b91c1c; border-color: #fee2e2; }
+  */
 
-  /* Numeric columns */
-  .ah-seller-orders .ah-col--items,
-  .ah-seller-orders .ah-col--total {
-    font-variant-numeric: tabular-nums;
-    white-space: nowrap;
-  }
-
-  /* Status badges (scoped so other pages can keep their own palette) */
-  .ah-seller-orders .ah-badge {
-    display: inline-block;
-    padding: 4px 10px;
-    border-radius: 9999px;
-    font-size: 12px;
-    font-weight: 700;
-    line-height: 1;
-    border: 1px solid transparent;
-    white-space: nowrap;
-  }
-  .ah-seller-orders .ah-badge--unfulfilled {
-    background: #eef2ff; /* indigo-50 */
-    color: #3730a3; /* indigo-700 */
-    border-color: #e0e7ff; /* indigo-100 */
-  }
-  .ah-seller-orders .ah-badge--shipped {
-    background: #ecfeff; /* cyan-50 */
-    color: #0e7490; /* cyan-700 */
-    border-color: #cffafe; /* cyan-100 */
-  }
-  .ah-seller-orders .ah-badge--delivered {
-    background: #ecfdf5; /* emerald-50 */
-    color: #047857; /* emerald-700 */
-    border-color: #d1fae5; /* emerald-100 */
-  }
-  .ah-seller-orders .ah-badge--returned {
-    background: #fef2f2; /* rose-50 */
-    color: #b91c1c; /* red-700 */
-    border-color: #fee2e2; /* rose-100 */
-  }
-
-  /* Toolbar */
-  .ah-seller-orders .ah-toolbar {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-    align-items: center;
-    margin-bottom: 8px;
-  }
-  .ah-seller-orders .ah-toolbar .input {
-    height: 36px;
-    padding: 6px 8px;
-    border: 1px solid var(--theme-elevation-100);
-    border-radius: 6px;
-    background: var(--theme-elevation-50);
-    color: var(--theme-text);
-  }
-  .ah-seller-orders .ah-toolbar .btn {
-    height: 36px;
-    padding: 8px 14px;
-    border-radius: 10px;
-    font-weight: 800;
-    border: 1px solid #111827;
-    background: #111827;
-    color: #fff;
-  }
-  .ah-seller-orders .btn.btn--ghost {
-    background: transparent;
-    border: 1px solid #ddd;
-    color: inherit;
-  }
-
-  /* Pager */
-  .ah-seller-orders .ah-pager {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    margin-top: 12px;
-  }
-  .ah-seller-orders .ah-pager .btn[aria-disabled='true'] {
-    opacity: 0.6;
-    pointer-events: none;
-  }
-
-  /* Mobile */
+  /* Mobile-only adjustments unique to Seller Orders */
   @media (max-width: 900px) {
     .ah-seller-orders .ah-table {
       table-layout: auto;
