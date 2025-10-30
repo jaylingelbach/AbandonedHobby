@@ -22,9 +22,14 @@ export async function SellerOrders(props: AdminViewServerProps) {
       'http://localhost' // base ignored by Next when rendering href
     );
     // Carry forward current params
-    const current = new URLSearchParams(
-      (searchParams as Record<string, string>) ?? {}
-    );
+    const current = new URLSearchParams();
+    if (searchParams) {
+      for (const [key, value] of Object.entries(searchParams)) {
+        if (typeof value === 'string') {
+          current.set(key, value);
+        }
+      }
+    }
     for (const [key, value] of Object.entries(updates)) {
       if (value === undefined || value === '') {
         current.delete(key);
