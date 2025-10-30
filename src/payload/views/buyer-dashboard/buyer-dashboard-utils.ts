@@ -141,7 +141,10 @@ function pickShipmentFromRecord(record: {
 
     const nextTs = Date.parse(String(shipment.shippedAt));
     const chosenTs = chosenShippedAt ? Date.parse(chosenShippedAt) : -1;
-    if (!Number.isNaN(nextTs) && nextTs > chosenTs) {
+    if (
+      !Number.isNaN(nextTs) &&
+      (chosenTs < 0 || nextTs > chosenTs || nextTs === chosenTs)
+    ) {
       chosenCarrier = carrierCandidate;
       chosenTrackingNumber = trackingCandidate;
       chosenShippedAt = String(shipment.shippedAt);
