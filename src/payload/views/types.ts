@@ -35,6 +35,8 @@ export type BuyerOrderListItem = {
   shippedAtISO?: string;
 };
 
+export type OrderStatus = 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+
 export type SellerOrderRow = {
   id: string;
   orderNumber: string | null;
@@ -43,7 +45,7 @@ export type SellerOrderRow = {
   itemCount: number;
   totalCents: number;
   currency: string;
-  status: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+  status: OrderStatus;
   carrier?: Carrier;
   trackingNumber?: string;
 };
@@ -53,7 +55,7 @@ export type GetInput = {
   page: number;
   pageSize: number;
   query?: string;
-  status?: Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>;
+  status?: Array<OrderStatus>;
   hasTracking?: 'yes' | 'no';
   fromISO?: string;
   toISO?: string;
