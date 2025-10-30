@@ -574,9 +574,27 @@ export function buildSellerOrdersWhere(input: {
   }
 
   if (input.fromISO) {
+    if (
+      typeof input.fromISO !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}/.test(input.fromISO)
+    ) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'fromISO must be a valid ISO date string'
+      });
+    }
     and.push({ createdAt: { greater_than_equal: input.fromISO } });
   }
   if (input.toISO) {
+    if (
+      typeof input.toISO !== 'string' ||
+      !/^\d{4}-\d{2}-\d{2}/.test(input.toISO)
+    ) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'toISO must be a valid ISO date string'
+      });
+    }
     and.push({ createdAt: { less_than_equal: input.toISO } });
   }
 
