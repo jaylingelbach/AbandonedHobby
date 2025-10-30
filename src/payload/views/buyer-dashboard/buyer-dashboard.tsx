@@ -5,12 +5,12 @@ import type { AdminViewServerProps } from 'payload';
 import { getBuyerData } from './buyer-dashboard-utils';
 
 /**
- * Formats a dollar amount into a localized currency string.
+ * Formats a numeric amount into a localized currency string.
  *
  * @param amount - The monetary amount to format.
- * @param currency - ISO 4217 currency code used for formatting. Defaults to `USD`.
- * @param locale - BCP 47 locale code for formatting. Defaults to system locale.
- * @returns The formatted currency string (e.g., "$1,234.56").
+ * @param currency - ISO 4217 currency code to use; defaults to `USD`.
+ * @param locale - BCP 47 locale code for formatting (e.g., `en-US`); if omitted, the runtime's default locale is used.
+ * @returns The formatted currency string (for example, "$1,234.56").
  */
 function formatCurrencyDisplay(
   amount: number,

@@ -2,6 +2,12 @@ import type { AdminViewServerProps, Where } from 'payload';
 import { buildSellerOrdersWhere } from '@/modules/orders/server/utils'; // ← your util
 import type { GetInput, SellerOrderRow } from '../types';
 
+/**
+ * Determines whether a string represents a valid ISO date in `YYYY-MM-DD` form (optionally with time) and matches the parsed Date.
+ *
+ * @param dateString - The input date string to validate (expected `YYYY-MM-DD` or `YYYY-MM-DDTHH:MM:SS...`).
+ * @returns `true` if `dateString` contains a valid `YYYY-MM-DD` date part that parses to a real date and matches the parsed Date's ISO date, `false` otherwise.
+ */
 function isValidISODate(dateString: string): boolean {
   const date = new Date(dateString);
   const datePart = dateString.split('T')[0];
@@ -13,6 +19,15 @@ function isValidISODate(dateString: string): boolean {
   );
 }
 
+/**
+ * Fetches and normalizes paginated seller order rows using request search parameters and the current user's tenant.
+ *
+ * Parses paging and filter values from `props.initPageResult.req` searchParams, validates and normalizes them, queries the `orders` collection, and maps results to `SellerOrderRow` objects.
+ *
+ * @param props - Server view props containing the initial page result and request search parameters
+ * @returns An object containing `items` (the transformed seller order rows), `page` (current page), `totalPages`, and `pageSize`
+ * @throws Error if a tenant ID cannot be resolved from the current user
+ */
 export async function getSellerOrdersData(
   props: AdminViewServerProps
 ): Promise<{

@@ -425,15 +425,10 @@ export function safePositiveInt(n: unknown, fallback = 1): number {
 }
 
 /**
- * Builds a buyer-focused OrderForBuyer object from a raw Order document.
+ * Create a buyer-facing OrderForBuyer from a raw Order document.
  *
- * @param doc - The source Order document to map
- * @returns An OrderForBuyer containing normalized buyer-facing fields:
- * - `id` (stringified), `orderNumber`, `orderDateISO` (if present),
- * - `totalCents`, `currency` (uppercased), `quantity` (at least 1),
- * - `items` (mapped array or `undefined`), `buyerEmail` (string or `null`),
- * - `shipping` (normalized shipping snapshot or `null`), and
- * - `returnsAcceptedThroughISO` (string or `null`)
+ * @param doc - Source Order document to map
+ * @returns An OrderForBuyer with normalized buyer-facing fields: `id` (string), `orderNumber`, optional `orderDateISO`, `totalCents`, `currency` (uppercased), `quantity` (at least 1), optional `items` array, `buyerEmail` (string or `null`), `shipping` (normalized snapshot or `null`), and `returnsAcceptedThroughISO` (string or `null`)
  */
 export function mapOrderToBuyer(doc: Order): OrderForBuyer {
   const totalCents = safeNumber(doc.total, 0);
@@ -541,8 +536,10 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
 }
 
 /**
- * Escape characters that could change the meaning of a LIKE/regex comparison.
- * Works whether Payload backs "like" with regex or a DB LIKE operator.
+ * Escape characters that would be interpreted as metacharacters in SQL LIKE or regex-like comparisons.
+ *
+ * @param raw - The source string to escape
+ * @returns The input string with regex/LIKE metacharacters escaped for safe comparison
  */
 function escapeForLike(raw: string): string {
   // Escape regex metacharacters: . * + ? ^ $ { } ( ) | [ ] \
@@ -550,11 +547,13 @@ function escapeForLike(raw: string): string {
 }
 
 /**
- * Sanitize a free-text query for safe use with Payload's `like` operator.
- * - trims and collapses whitespace
- * - escapes meta characters
- * - clamps length to 100 chars
- * - returns null when empty after cleaning
+ * Normalize and escape a free-text search term for safe use in a LIKE query.
+ *
+ * Trims and collapses internal whitespace, clamps length to `maxLength`, escapes LIKE/regex metacharacters, and removes control characters.
+ *
+ * @param input - The raw user-provided value to sanitize.
+ * @param maxLength - Maximum allowed length of the returned string (default: 100).
+ * @returns The sanitized string suitable for a LIKE query, or `null` if the input is not a string or is empty after cleaning.
  */
 function sanitizeLikeInput(input: unknown, maxLength = 100): string | null {
   if (typeof input !== 'string') return null;
@@ -572,13 +571,25 @@ function sanitizeLikeInput(input: unknown, maxLength = 100): string | null {
   return cleaned.length > 0 ? cleaned : null;
 }
 
-/** If the user typed something that looks like an order code, return a normalized code. */
+/**
+ * Normalize a user-entered order code by removing a leading '#' and validating it against the allowed pattern.
+ *
+ * @param raw - User-entered order code or free-text
+ * @returns The normalized order code (without leading '#') if it matches the allowed pattern, `null` otherwise.
+ */
 function normalizeOrderCode(raw: string): string | null {
   const withoutHash = raw.replace(/^#/, '');
   // Adjust pattern to your format; this is permissive but safe
   return /^[A-Za-z0-9\-_.]{4,40}$/.test(withoutHash) ? withoutHash : null;
 }
 
+/**
+ * Build a Payload `Where` filter for querying seller orders using tenant and optional criteria.
+ *
+ * @param input - Filter options: `tenantId` (required) identifies the seller tenant; `status` restricts fulfillment statuses; `query` is a sanitized free-text search applied to order number and buyer email (exact normalized order codes are matched exactly); `hasTracking` requires presence or absence of shipment.trackingNumber; `fromISO` and `toISO` are inclusive YYYY-MM-DD date bounds applied to `createdAt`.
+ * @returns A `Where` object with an `and` array combining the tenant constraint and any additional filters derived from the input.
+ * @throws TRPCError with code `BAD_REQUEST` when `tenantId` is missing/invalid, when `fromISO`/`toISO` are malformed or unparsable, when `fromISO` > `toISO`, or when date bounds fall outside the allowed ranges (older than 5 years or more than 1 year in the future).
+ */
 export function buildSellerOrdersWhere(input: {
   tenantId: string;
   status?: Array<OrderStatus>;
