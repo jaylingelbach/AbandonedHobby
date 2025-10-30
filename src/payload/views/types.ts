@@ -44,7 +44,7 @@ export type SellerOrderRow = {
   totalCents: number;
   currency: string;
   status: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  carrier?: Carrier;
   trackingNumber?: string;
 };
 
