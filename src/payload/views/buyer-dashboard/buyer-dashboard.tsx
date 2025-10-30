@@ -7,18 +7,20 @@ import { getBuyerData } from './buyer-dashboard-utils';
 /**
  * Formats a dollar amount into a localized currency string.
  *
- * @param amountInDollars - The monetary amount in dollars to format.
+ * @param amount - The monetary amount to format.
  * @param currency - ISO 4217 currency code used for formatting. Defaults to `USD`.
+ * @param locale - BCP 47 locale code for formatting. Defaults to system locale.
  * @returns The formatted currency string (e.g., "$1,234.56").
  */
 function formatCurrencyDisplay(
-  amountInDollars: number,
-  currency = 'USD'
+  amount: number,
+  currency = 'USD',
+  locale?: string
 ): string {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency
-  }).format(amountInDollars);
+  }).format(amount);
 }
 
 /**
@@ -158,14 +160,15 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        readCurrencyFromOrder(order, 'USD')
+                        readCurrencyFromOrder(order, 'USD'),
+                        initPageResult.locale?.code?.replace('_', '-')
                       )}
                     </td>
                     <td className="ah-col--actions">
                       <Link
                         prefetch={false}
                         className="btn btn--sm"
-                        href={`/admin/collections/orders/${order.id}`}
+                        href={`/orders/${order.id}`}
                       >
                         View
                       </Link>
