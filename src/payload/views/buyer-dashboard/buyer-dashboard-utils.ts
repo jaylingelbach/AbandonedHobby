@@ -109,8 +109,8 @@ function pickShipmentFromRecord(record: {
         ? single.trackingNumber
         : undefined;
 
-    chosenCarrier = carrierCandidate ?? chosenCarrier;
-    chosenTrackingNumber = trackingCandidate ?? chosenTrackingNumber;
+    chosenCarrier = carrierCandidate;
+    chosenTrackingNumber = trackingCandidate;
     chosenShippedAt = single.shippedAt;
   }
 
