@@ -63,7 +63,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
 
           {/* Simple toolbar (server-rendered GET form) */}
           <form className="ah-toolbar" method="get">
-            <input type="hidden" name="page" value="1" />g
+            <input type="hidden" name="page" value="1" />
             <input
               className="input"
               name="q"
