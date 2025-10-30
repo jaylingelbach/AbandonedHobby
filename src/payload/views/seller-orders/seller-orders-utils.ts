@@ -8,7 +8,8 @@ function isValidISODate(dateString: string): boolean {
   return (
     !isNaN(date.getTime()) &&
     datePart !== undefined &&
-    date.toISOString().startsWith(datePart)
+    date.toISOString().startsWith(datePart) &&
+    /^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])/.test(datePart)
   );
 }
 
