@@ -9,7 +9,8 @@ import { getSellerOrdersData } from './seller-orders-utils';
 
 export async function SellerOrders(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
-  const localeCode = initPageResult.locale?.code?.replace('_', '-') ?? 'en-US';
+  const localeCode =
+    initPageResult.locale?.code?.replaceAll('_', '-') ?? 'en-US';
 
   const data = await getSellerOrdersData(props);
   const { items, page, totalPages } = data;
