@@ -2,6 +2,16 @@ import type { AdminViewServerProps, Where } from 'payload';
 import { buildSellerOrdersWhere } from '@/modules/orders/server/utils'; // ← your util
 import type { GetInput, SellerOrderRow } from '../types';
 
+function isValidISODate(dateString: string): boolean {
+  const date = new Date(dateString);
+  const datePart = dateString.split('T')[0];
+  return (
+    !isNaN(date.getTime()) &&
+    datePart !== undefined &&
+    date.toISOString().startsWith(datePart)
+  );
+}
+
 export async function getSellerOrdersData(
   props: AdminViewServerProps
 ): Promise<{
@@ -60,11 +70,15 @@ export async function getSellerOrdersData(
         : undefined,
     fromISO:
       typeof searchParams?.from === 'string' && searchParams.from.length > 0
-        ? searchParams.from
+        ? isValidISODate(searchParams.from)
+          ? searchParams.from
+          : undefined
         : undefined,
     toISO:
       typeof searchParams?.to === 'string' && searchParams.to.length > 0
-        ? searchParams.to
+        ? isValidISODate(searchParams.to)
+          ? searchParams.to
+          : undefined
         : undefined,
     sort:
       searchParams?.sort === 'createdAtAsc' ? 'createdAtAsc' : 'createdAtDesc'

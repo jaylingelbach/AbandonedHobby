@@ -18,7 +18,30 @@ import { formatCurrency } from '@/lib/utils';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
-  const data = await getData(props);
+  let data;
+  try {
+    data = await getData(props);
+  } catch (error) {
+    return (
+      <DefaultTemplate
+        i18n={initPageResult.req.i18n}
+        locale={initPageResult.locale}
+        params={params}
+        payload={initPageResult.req.payload}
+        permissions={initPageResult.permissions}
+        searchParams={searchParams}
+        user={initPageResult.req.user || undefined}
+        visibleEntities={initPageResult.visibleEntities}
+      >
+        <Gutter>
+          <div className="ah-banner ah-banner-error" role="alert">
+            <strong>Error:</strong> Unable to load dashboard data. Please try
+            again later.
+          </div>
+        </Gutter>
+      </DefaultTemplate>
+    );
+  }
 
   return (
     <DefaultTemplate
