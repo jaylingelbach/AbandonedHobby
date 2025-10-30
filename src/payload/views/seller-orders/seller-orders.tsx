@@ -183,7 +183,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
                     <td>{row.itemCount ?? 0}</td>
                     <td>
                       {formatCurrency(
-                        ((row.totalCents ?? 0) / 100).toFixed(2),
+                        (row.totalCents ?? 0) / 100,
                         row.currency ?? 'USD'
                       )}
                     </td>
