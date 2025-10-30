@@ -42,7 +42,8 @@ export async function SellerOrders(props: AdminViewServerProps) {
       initPageResult.req.payload.config.routes?.admin ?? '/admin'
     }/seller/orders`;
     url.search = current.toString();
-    return `${url.pathname}?${url.search}`;
+    const search = url.search;
+    return search ? `${url.pathname}?${search}` : url.pathname;
   };
 
   return (
