@@ -539,6 +539,45 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
   };
 }
 
+/**
+ * Escape characters that could change the meaning of a LIKE/regex comparison.
+ * Works whether Payload backs "like" with regex or a DB LIKE operator.
+ */
+function escapeForLike(raw: string): string {
+  // Escape regex metacharacters: . * + ? ^ $ { } ( ) | [ ] \
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Sanitize a free-text query for safe use with Payload's `like` operator.
+ * - trims and collapses whitespace
+ * - escapes meta characters
+ * - clamps length to 100 chars
+ * - returns null when empty after cleaning
+ */
+function sanitizeLikeInput(input: unknown, maxLength = 100): string | null {
+  if (typeof input !== 'string') return null;
+
+  const normalized = input.trim().replace(/\s+/g, ' ');
+  if (!normalized) return null;
+
+  const clamped = normalized.slice(0, maxLength);
+
+  const escaped = escapeForLike(clamped);
+
+  // Strip control chars
+  const cleaned = escaped.replace(/[\u0000-\u001F\u007F]/g, '');
+
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/** If the user typed something that looks like an order code, return a normalized code. */
+function normalizeOrderCode(raw: string): string | null {
+  const withoutHash = raw.replace(/^#/, '');
+  // Adjust pattern to your format; this is permissive but safe
+  return /^[A-Za-z0-9\-_.]{4,40}$/.test(withoutHash) ? withoutHash : null;
+}
+
 export function buildSellerOrdersWhere(input: {
   tenantId: string;
   status?: Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>;
@@ -553,19 +592,34 @@ export function buildSellerOrdersWhere(input: {
       message: 'tenantId is required and must be a non-empty string'
     });
   }
+
   const and: Where[] = [{ sellerTenant: { equals: input.tenantId } }];
 
   if (input.status?.length) {
     and.push({ fulfillmentStatus: { in: input.status } });
   }
 
-  if (input.query) {
-    and.push({
-      or: [
-        { orderNumber: { like: input.query } },
-        { buyerEmail: { like: input.query } }
-      ]
-    });
+  // Free-text search: exact order number OR substring matches
+  const sanitizedQuery = sanitizeLikeInput(input.query);
+  if (sanitizedQuery) {
+    const exactOrderCode = normalizeOrderCode(sanitizedQuery);
+    if (exactOrderCode) {
+      // One OR block: exact orderNumber OR partials
+      and.push({
+        or: [
+          { orderNumber: { equals: exactOrderCode } },
+          { orderNumber: { like: sanitizedQuery } },
+          { buyerEmail: { like: sanitizedQuery } }
+        ]
+      });
+    } else {
+      and.push({
+        or: [
+          { orderNumber: { like: sanitizedQuery } },
+          { buyerEmail: { like: sanitizedQuery } }
+        ]
+      });
+    }
   }
 
   // dot-path is supported at runtime; TS doesn’t model nested keys
@@ -586,11 +640,12 @@ export function buildSellerOrdersWhere(input: {
     ) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'fromISO must be a valid ISO date string'
+        message: 'fromISO must be a valid ISO date string (YYYY-MM-DD…)'
       });
     }
     and.push({ createdAt: { greater_than_equal: input.fromISO } });
   }
+
   if (input.toISO) {
     if (
       typeof input.toISO !== 'string' ||
@@ -598,7 +653,7 @@ export function buildSellerOrdersWhere(input: {
     ) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
-        message: 'toISO must be a valid ISO date string'
+        message: 'toISO must be a valid ISO date string (YYYY-MM-DD…)'
       });
     }
     and.push({ createdAt: { less_than_equal: input.toISO } });
