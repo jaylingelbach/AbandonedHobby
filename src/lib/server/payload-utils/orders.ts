@@ -1,8 +1,8 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
+import type { OrderStatus } from '@/payload/views/types';
 
 /** Order status union used in our hooks. */
-type OrderStatus = 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
 
 /** Shipment sub-shape we mutate in the hook. */
 type ShipmentShape = {

@@ -11,6 +11,7 @@ import type {
 import { Order, Product, Tenant } from '@/payload-types';
 import { OrderForBuyer } from '@/modules/library/ui/components/types';
 import { Where } from 'payload';
+import { OrderStatus } from '@/payload/views/types';
 
 // ───────────────────────────────────────────
 // Basic assertions
@@ -580,7 +581,7 @@ function normalizeOrderCode(raw: string): string | null {
 
 export function buildSellerOrdersWhere(input: {
   tenantId: string;
-  status?: Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>;
+  status?: Array<OrderStatus>;
   query?: string;
   hasTracking?: 'yes' | 'no';
   fromISO?: string; // inclusive

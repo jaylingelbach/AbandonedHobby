@@ -11,7 +11,7 @@ export type OrderListItem = {
   orderNumber: string;
   totalCents: number;
   createdAt: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+  fulfillmentStatus: OrderStatus;
 };
 
 export type BuyerCountSummary = {
@@ -29,7 +29,7 @@ export type BuyerOrderListItem = {
   orderNumber: string;
   totalCents: number;
   createdAtISO: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+  fulfillmentStatus: OrderStatus;
   carrier?: Carrier;
   trackingNumber?: string;
   shippedAtISO?: string;
