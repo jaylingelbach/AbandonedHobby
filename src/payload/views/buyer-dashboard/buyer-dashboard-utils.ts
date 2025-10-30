@@ -37,7 +37,7 @@ function buildUnfulfilledWhere(): Where {
  *
  * @returns A `Where` clause that matches documents with `fulfillmentStatus` equal to `'shipped'` and a present `shipment.shippedAt` field.
  */
-function buildShippedWhereSingle(): Where {
+export function buildShippedWhereSingle(): Where {
   return {
     and: [
       { fulfillmentStatus: { equals: 'shipped' } },
@@ -51,7 +51,7 @@ function buildShippedWhereSingle(): Where {
  *
  * @returns A `Where` clause targeting orders with `fulfillmentStatus: 'shipped'` and an existing `shipments.shippedAt` field
  */
-function buildShippedWhereArray(): Where {
+export function buildShippedWhereArray(): Where {
   return {
     and: [
       { fulfillmentStatus: { equals: 'shipped' } },
@@ -66,12 +66,9 @@ export function buildBuyerScopeWhere(userId: string): Where {
 }
 
 /**
- * Selects the most relevant shipment information from a record, preferring the shipment with the latest `shippedAt`.
- *
- * Scans a legacy single `shipment` and a newer `shipments[]` array and returns the chosen carrier, tracking number, and ISO shipped-at timestamp when available.
- *
- * @param record - Object potentially containing a legacy `shipment` and/or an array of `shipments`.
- * @returns An object with the chosen `carrier` (`'usps' | 'ups' | 'fedex' | 'other'`) if valid, `trackingNumber` if present, and `shippedAtISO` containing the ISO timestamp string of the selected shipment when found.
+ * Pick the “best” shipment info from either the legacy single `shipment` group
+ * or the newer `shipments[]` array. We prefer the most recent shippedAt.
+ */
 function pickShipmentFromRecord(record: {
   shipment?: {
     carrier?: unknown;
@@ -300,16 +297,15 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null);
 
-  // In transit list
   // In transit list (fetch more than you need, then slice after sort)
   const pageSize = 25;
 
-  // Over-fetch to avoid pagination drift after in-memory sort
+  // Over-fetch to ensure we have enough valid records after sorting
   const inTransitResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
     pagination: true,
-    limit: 25,
+    limit: pageSize * 2,
     sort: '-latestShippedAt',
     where: {
       and: [

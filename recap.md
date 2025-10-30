@@ -4257,3 +4257,72 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/modules/orders/server/utils.ts
   - Removes local isNonEmptyString implementation and imports isNonEmptyString from @/lib/utils. No behavioral changes beyond sourcing the utility.
+
+# Seller orders history 10/30/25
+
+## New Features
+
+- Seller Orders view: paginated list with status, date-range, tracking filters and locale-aware display.
+- Seller navigation menu for quick access to dashboard and orders.
+- Orders now surface a latest shipment date for improved sorting and listing.
+
+## Improvements
+
+- Buyer Dashboard: updated navigation links and locale-aware currency formatting.
+- Global style consolidation: refined tables, toolbars, buttons, and status badges for consistent UI.
+
+## Walkthrough
+
+- Adds a seller-focused Orders admin view with filtering, pagination, and UI; computes and stores a canonical latestShippedAt on Orders via a beforeChange hook; introduces server utilities and TRPC procedure for seller order listing; updates admin import map, navigation components, styles, types, and package.json scripts/dependencies.
+
+## File changes
+
+### Package + Config
+
+- package.json, src/payload.config.ts
+  - Added script backfill:latestShippedAt; added deps sharp and tsconfig-paths (also as devDependency); updated view paths and registered new Seller Orders view and Seller Nav replacement.
+
+### Admin import map & nav components
+
+- src/app/(payload)/admin/importMap.js, src/components/custom-payload/seller-nav.tsx, src/components/custom-payload/seller-orders-link.tsx
+  - Replaced SellerDashboardLink with SellerNav in import map; added SellerDashboard, SellerOrders, BuyerDashboard entries; added SellerNav and SellerOrdersLink server components rendering seller navigation links.
+
+### Styling
+
+- src/app/(payload)/custom.scss
+  - Consolidated payload admin styles: table container, headers, numeric column alignment, toolbar/pager/button/badge baseline and variants, Seller Orders scoped overrides and mobile adjustments.
+
+### Orders collection & model
+
+- src/collections/Orders.ts, src/payload-types.ts
+  - Added latestShippedAt date field (top-level and in Shipment lifecycle group) and a beforeChange hook invoking computeLatestShippedAt; added latestShippedAt to Order type.
+
+### Compute utility
+
+- src/lib/server/orders/compute-latest-shipped-at.ts
+  - New computeLatestShippedAt that extracts shippedAt timestamps from legacy and array shipment shapes, computes max ISO timestamp or undefined, and returns updated data object.
+
+### Payload utils type cleanup
+
+- src/lib/server/payload-utils/orders.ts
+  - Replaced a local OrderStatus union with an imported OrderStatus type from shared view types.
+
+### TRPC procedure & server utils
+
+- src/modules/orders/server/procedures.ts, src/modules/orders/server/utils.ts
+  - Added listForSeller protectedProcedure for paginated seller-facing order listing; added buildSellerOrdersWhere helper to construct Payload Where clauses (status, free-text, tracking, date range, tenant).
+
+### Seller views & utilities
+
+- src/payload/views/seller-orders/seller-orders-utils.ts, src/payload/views/seller-orders/seller-orders.tsx, src/payload/views/seller-dashboard/seller-dashboard.tsx
+  - New getSellerOrdersData utility and SellerOrders admin view with toolbar, filters, table, locale-aware formatting, and pager; seller dashboard gains try/catch with an inline error UI and updated copy/links.
+
+### Buyer dashboard changes
+
+- src/payload/views/buyer-dashboard/buyer-dashboard-utils.ts, src/payload/views/buyer-dashboard/buyer-dashboard.tsx
+  - Switched in-transit/shipped queries and sorting to use latestShippedAt; improved sorting stability and NaN handling; threaded locale into currency formatting; updated several route links.
+
+### Shared view types
+
+- src/payload/views/types.ts
+  - Introduced OrderStatus, SellerOrderRow, and GetInput types; replaced literal fulfillment status unions with OrderStatus.
