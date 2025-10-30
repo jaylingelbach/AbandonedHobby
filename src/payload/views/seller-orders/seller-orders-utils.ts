@@ -26,6 +26,12 @@ export async function getSellerOrdersData(
       ? userTenants[0]?.tenant?.id
       : (userTenants[0]?.tenant as string | undefined)) ?? '';
 
+  if (!tenantId) {
+    throw new Error(
+      'Tenant ID is required but could not be resolved from the current user'
+    );
+  }
+
   // Basic query params (GET) for paging & filters
   const page = Number(searchParams?.page ?? 1);
   const pageSize = Number(searchParams?.pageSize ?? 25);
