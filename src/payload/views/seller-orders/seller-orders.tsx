@@ -64,6 +64,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
 
           {/* Simple toolbar (server-rendered GET form) */}
           <form className="ah-toolbar" method="get">
+            <input type="hidden" name="page" value="1" />g
             <input
               className="input"
               name="q"
@@ -73,7 +74,6 @@ export async function SellerOrders(props: AdminViewServerProps) {
               placeholder="Search by order # or buyer email"
               aria-label="Search orders"
             />
-
             <select
               className="input"
               name="hasTracking"
@@ -89,7 +89,6 @@ export async function SellerOrders(props: AdminViewServerProps) {
               <option value="yes">Has tracking</option>
               <option value="no">No tracking</option>
             </select>
-
             <select
               className="input"
               name="status"
@@ -106,7 +105,6 @@ export async function SellerOrders(props: AdminViewServerProps) {
               <option value="delivered">Delivered</option>
               <option value="returned">Returned</option>
             </select>
-
             <input
               className="input"
               type="date"
@@ -125,7 +123,6 @@ export async function SellerOrders(props: AdminViewServerProps) {
               }
               aria-label="To date"
             />
-
             <select
               className="input"
               name="sort"
@@ -139,7 +136,6 @@ export async function SellerOrders(props: AdminViewServerProps) {
               <option value="createdAtDesc">Newest first</option>
               <option value="createdAtAsc">Oldest first</option>
             </select>
-
             <button className="btn" type="submit">
               Apply
             </button>
