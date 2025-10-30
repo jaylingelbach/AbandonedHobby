@@ -547,6 +547,12 @@ export function buildSellerOrdersWhere(input: {
   fromISO?: string; // inclusive
   toISO?: string; // inclusive
 }): Where {
+  if (!input.tenantId || typeof input.tenantId !== 'string') {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'tenantId is required and must be a non-empty string'
+    });
+  }
   const and: Where[] = [{ sellerTenant: { equals: input.tenantId } }];
 
   if (input.status?.length) {
