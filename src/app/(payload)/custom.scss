@@ -702,7 +702,10 @@
      ========================================================================== */
 
   :root {
-    --ah-accent: #111827; /* deep gray/near-black */
+    --ah-accent: #111827;
+  }
+  [data-theme='dark'] :root {
+    --ah-accent: #e5e7eb;
   }
 
   /* Toolbar */

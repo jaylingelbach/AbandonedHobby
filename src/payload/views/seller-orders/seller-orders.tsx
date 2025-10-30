@@ -2,8 +2,6 @@ import { DefaultTemplate } from '@payloadcms/next/templates';
 import { Gutter } from '@payloadcms/ui';
 import type { AdminViewServerProps } from 'payload';
 import Link from 'next/link';
-
-import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { formatCurrency } from '@/lib/utils';
 import { getSellerOrdersData } from './seller-orders-utils';
 

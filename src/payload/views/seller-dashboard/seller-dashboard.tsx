@@ -22,6 +22,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
   try {
     data = await getData(props);
   } catch (error) {
+    console.log(error);
     return (
       <DefaultTemplate
         i18n={initPageResult.req.i18n}
