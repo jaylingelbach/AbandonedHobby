@@ -402,17 +402,17 @@ export const ordersRouter = createTRPCRouter({
         items?: unknown[];
       };
 
-      const items = (result.docs as Row[]).map((o) => ({
-        id: String(o.id),
-        orderNumber: o.orderNumber ?? null,
-        createdAt: o.createdAt,
-        buyerEmail: o.buyerEmail ?? null,
-        itemCount: Array.isArray(o.items) ? o.items.length : 0,
-        totalCents: typeof o.total === 'number' ? o.total : 0,
-        currency: o.currency ?? 'USD',
-        status: o.fulfillmentStatus ?? 'unfulfilled',
-        carrier: o.shipment?.carrier ?? undefined,
-        trackingNumber: o.shipment?.trackingNumber?.trim() || undefined
+      const items = (result.docs as Row[]).map((order) => ({
+        id: String(order.id),
+        orderNumber: order.orderNumber ?? null,
+        createdAt: order.createdAt,
+        buyerEmail: order.buyerEmail ?? null,
+        itemCount: Array.isArray(order.items) ? order.items.length : 0,
+        totalCents: typeof order.total === 'number' ? order.total : 0,
+        currency: order.currency ?? null,
+        status: order.fulfillmentStatus ?? 'unfulfilled',
+        carrier: order.shipment?.carrier ?? undefined,
+        trackingNumber: order.shipment?.trackingNumber?.trim() || undefined
       }));
 
       return {
