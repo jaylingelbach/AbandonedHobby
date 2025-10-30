@@ -213,13 +213,13 @@ export async function SellerOrders(props: AdminViewServerProps) {
             <span className="ah-pager__page">
               Page {page} of {totalPages}
             </span>
-            <Link
-              className="btn"
-              aria-disabled={page >= totalPages}
-              href={makeHref({ page: Math.min(totalPages, page + 1) })}
-            >
-              Next
-            </Link>
+            {page >= totalPages ? (
+              <span className="btn btn--disabled">Next</span>
+            ) : (
+              <Link className="btn" href={makeHref({ page: page + 1 })}>
+                Next
+              </Link>
+            )}
           </div>
         </div>
       </Gutter>

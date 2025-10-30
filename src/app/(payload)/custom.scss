@@ -83,7 +83,7 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  /* Right-align numeric money columns (GLOBAL, avoids duplication later) */
+  /* Right-align numeric money columns (GLOBAL) */
   .ah-col--items,
   .ah-col--total {
     text-align: right;
@@ -142,7 +142,7 @@
     padding: 6px 8px;
   }
 
-  /* Buttons (primary, ghost, danger) — compact + consistent */
+  /* Buttons inside tracking cell (SCOPED) */
   .ah-col--tracking .btn,
   .ah-tracking-cell button[type='submit'] {
     appearance: none;
@@ -589,6 +589,7 @@
     font-weight: 800;
     letter-spacing: 0.01em;
   }
+
   .ah-mini-hint {
     font-size: 12px;
     opacity: 0.8;
@@ -670,8 +671,7 @@
     outline-offset: 2px;
   }
 
-  /* Generic button skin (GLOBAL) */
-  .btn,
+  /* Generic button skin (SCOPED — do not target global .btn) */
   .ah-toolbar .btn,
   .ah-pager .btn,
   .ah-tracking-cell .btn,
@@ -692,23 +692,23 @@
     line-height: 1;
     text-decoration: none;
   }
-  .btn:hover,
   .ah-toolbar .btn:hover,
   .ah-pager .btn:hover,
   .ah-tracking-cell .btn:hover,
   .ah-refund-btn.btn:hover {
     filter: brightness(0.95);
   }
-  .btn[aria-disabled='true'],
-  .btn:disabled,
   .ah-toolbar .btn[aria-disabled='true'],
   .ah-pager .btn[aria-disabled='true'],
   .ah-tracking-cell .btn[aria-disabled='true'],
-  .ah-refund-btn.btn[aria-disabled='true'] {
+  .ah-refund-btn.btn[aria-disabled='true'],
+  .ah-toolbar .btn:disabled,
+  .ah-pager .btn:disabled,
+  .ah-tracking-cell .btn:disabled,
+  .ah-refund-btn.btn:disabled {
     opacity: 0.6;
     pointer-events: none;
   }
-  .btn.btn--ghost,
   .ah-toolbar .btn.btn--ghost,
   .ah-pager .btn.btn--ghost,
   .ah-tracking-cell .btn.btn--ghost {
@@ -716,7 +716,6 @@
     color: var(--theme-text);
     border-color: var(--theme-elevation-400, #111827);
   }
-  .btn.btn--sm,
   .ah-toolbar .btn.btn--sm,
   .ah-pager .btn.btn--sm,
   .ah-tracking-cell .btn.btn--sm {
@@ -729,6 +728,7 @@
     padding-left: 5px;
     padding-right: 5px;
   }
+
   /* Status badges (GLOBAL) */
   .ah-badge {
     display: inline-flex;
@@ -838,15 +838,6 @@
   .ah-seller-orders .ah-table .ah-col--status {
     width: 140px;
   } /* badge */
-
-  /* Optional: palette tweaks for Seller Orders (override only if desired)
-     Example below shows a slightly different scheme; remove if you prefer global */
-  /*
-  .ah-seller-orders .ah-badge--unfulfilled { background: #eef2ff; color: #3730a3; border-color: #e0e7ff; }
-  .ah-seller-orders .ah-badge--shipped    { background: #ecfeff; color: #0e7490; border-color: #cffafe; }
-  .ah-seller-orders .ah-badge--delivered  { background: #ecfdf5; color: #047857; border-color: #d1fae5; }
-  .ah-seller-orders .ah-badge--returned   { background: #fef2f2; color: #b91c1c; border-color: #fee2e2; }
-  */
 
   /* Mobile-only adjustments unique to Seller Orders */
   @media (max-width: 900px) {
