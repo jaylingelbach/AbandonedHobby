@@ -19,17 +19,26 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
+
   /* === Tables ============================================================ */
   .ah-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    /* NEW: subtle panel look that works in light/dark without fighting Payload */
+    background: var(--theme-elevation-50);
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 10px;
+    overflow: hidden;
   }
   .ah-table thead th {
     font-weight: 600;
     color: #444;
     border-top: none;
     text-align: left;
+    /* NEW: header row separation */
+    background: var(--theme-elevation-75, var(--theme-elevation-50));
+    border-bottom: 1px solid var(--theme-elevation-100);
   }
   .ah-table th,
   .ah-table td {
@@ -65,6 +74,11 @@
     white-space: nowrap;
   }
 
+  /* Row hover (gentle, theme-aware) */
+  .ah-table tbody tr:hover td {
+    background: var(--theme-elevation-75, #f7f7f7);
+  }
+
   /* === Inline Tracking Form (when rendered in table cells) ============== */
   .ah-tracking-cell .ah-form {
     margin: 0;
@@ -75,8 +89,7 @@
   .ah-col--tracking .ah-inline-form,
   .ah-col--tracking .ah-form--inline {
     display: grid;
-    /* Carrier | Tracking | Save | Cancel
-       Wider input, explicit gaps for breathing room */
+    /* Carrier | Tracking | Save | Cancel */
     grid-template-columns: 120px minmax(260px, 480px) auto auto;
     column-gap: 16px;
     row-gap: 8px;
@@ -155,7 +168,6 @@
     border: 1px solid #f6caca;
     color: #a40000;
   }
-
   [data-theme='dark'] .ah-tracking-cell .btn--danger {
     background: #3b0d0d;
     border-color: #7f1d1d;
@@ -259,7 +271,7 @@
   }
   .ah-form--inline .ah-form-row {
     display: grid;
-    // grid-template-columns: minmax(80px, 100px) 1fr;
+    /* grid-template-columns: minmax(80px, 100px) 1fr; */
     gap: 8px;
     align-items: center;
   }
@@ -673,12 +685,10 @@
     .ah-col--tracking .ah-form--inline {
       grid-template-columns: 1fr; /* stack controls */
     }
-
     .ah-col--tracking .ah-form-actions {
       grid-column: auto;
       justify-self: stretch;
     }
-
     .ah-col--tracking .btn {
       width: 100%;
     }
@@ -686,6 +696,138 @@
       width: 100%;
       text-align: center;
     }
+  }
+
+  /* ==========================================================================
+     NEW: Seller Orders polish (toolbar, generic .btn/.input, badges, pager)
+     ========================================================================== */
+
+  :root {
+    --ah-accent: #111827; /* deep gray/near-black */
+  }
+
+  /* Toolbar */
+  .ah-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: var(--theme-elevation-50);
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
+  }
+
+  /* Generic inputs used in toolbar (not to override .ah-input inside complex forms) */
+  .ah-toolbar .input {
+    appearance: none;
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-height: 36px;
+    line-height: 1.1;
+  }
+  .ah-toolbar .input:focus-visible {
+    outline: 2px solid var(--ah-accent);
+    outline-offset: 2px;
+  }
+
+  /* Generic buttons used in toolbar and pager */
+  .btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid #111827;
+    background: var(--ah-accent);
+    color: #fff;
+    line-height: 1;
+    text-decoration: none;
+  }
+  .btn:hover {
+    filter: brightness(0.95);
+  }
+  .btn[aria-disabled='true'],
+  .btn:disabled {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+  .btn.btn--ghost {
+    background: transparent;
+    color: var(--theme-text);
+    border-color: var(--theme-elevation-400, #111827);
+  }
+  .btn.btn--sm {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+
+  /* Status badges */
+  .ah-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--theme-elevation-200);
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+    font-weight: 800;
+    text-transform: capitalize;
+    line-height: 1;
+    font-size: 12.5px;
+  }
+  .ah-badge--unfulfilled {
+    background: #fff7ed; /* orange-50 */
+    border-color: #fdba74; /* orange-300 */
+    color: #9a3412; /* orange-800 */
+  }
+  .ah-badge--shipped {
+    background: #eff6ff; /* blue-50 */
+    border-color: #93c5fd; /* blue-300 */
+    color: #1e3a8a; /* blue-900 */
+  }
+  .ah-badge--delivered {
+    background: #ecfdf5; /* emerald-50 */
+    border-color: #86efac; /* emerald-300 */
+    color: #065f46; /* emerald-800 */
+  }
+  .ah-badge--returned {
+    background: #fef2f2; /* red-50 */
+    border-color: #fecaca; /* red-300 */
+    color: #991b1b; /* red-800 */
+  }
+
+  /* Pager */
+  .ah-pager {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: 12px;
+  }
+  .ah-pager__page {
+    font-weight: 700;
+    padding: 4px 10px;
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: 999px;
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+  }
+
+  /* Keep currency + item column right-aligned for readability */
+  .ah-col--items,
+  .ah-col--total {
+    text-align: right;
   }
 }
 
@@ -719,5 +861,143 @@
 
   .template-default :where(.gutter, .payload__gutter) {
     background: transparent;
+  }
+
+  .ah-seller-orders .ah-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+
+  /* Rebalanced column widths (tracking removed) */
+  .ah-seller-orders .ah-table .ah-col--order {
+    width: 128px;
+  } /* #12345 */
+  .ah-seller-orders .ah-table .ah-col--date {
+    width: 140px;
+  } /* Oct 30, 2025 */
+  .ah-seller-orders .ah-table .ah-col--buyer {
+    width: auto;
+    min-width: 280px;
+  } /* grows */
+  .ah-seller-orders .ah-table .ah-col--items {
+    width: 96px;
+    text-align: right;
+  }
+  .ah-seller-orders .ah-table .ah-col--total {
+    width: 120px;
+    text-align: right;
+  }
+  .ah-seller-orders .ah-table .ah-col--status {
+    width: 140px;
+  } /* badge */
+
+  /* Header / cells */
+  .ah-seller-orders .ah-table thead th {
+    font-weight: 600;
+    color: #444;
+    text-align: left;
+    border-top: none;
+    background: var(--theme-elevation-75, var(--theme-elevation-50));
+    border-bottom: 1px solid
+      var(--theme-elevation-125, var(--theme-elevation-100));
+  }
+  .ah-seller-orders .ah-table th,
+  .ah-seller-orders .ah-table td {
+    padding: 8px 10px;
+    border-top: 1px solid #eee;
+    vertical-align: middle;
+  }
+
+  /* Numeric columns */
+  .ah-seller-orders .ah-col--items,
+  .ah-seller-orders .ah-col--total {
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Status badges (scoped so other pages can keep their own palette) */
+  .ah-seller-orders .ah-badge {
+    display: inline-block;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .ah-seller-orders .ah-badge--unfulfilled {
+    background: #eef2ff; /* indigo-50 */
+    color: #3730a3; /* indigo-700 */
+    border-color: #e0e7ff; /* indigo-100 */
+  }
+  .ah-seller-orders .ah-badge--shipped {
+    background: #ecfeff; /* cyan-50 */
+    color: #0e7490; /* cyan-700 */
+    border-color: #cffafe; /* cyan-100 */
+  }
+  .ah-seller-orders .ah-badge--delivered {
+    background: #ecfdf5; /* emerald-50 */
+    color: #047857; /* emerald-700 */
+    border-color: #d1fae5; /* emerald-100 */
+  }
+  .ah-seller-orders .ah-badge--returned {
+    background: #fef2f2; /* rose-50 */
+    color: #b91c1c; /* red-700 */
+    border-color: #fee2e2; /* rose-100 */
+  }
+
+  /* Toolbar */
+  .ah-seller-orders .ah-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .ah-seller-orders .ah-toolbar .input {
+    height: 36px;
+    padding: 6px 8px;
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 6px;
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+  }
+  .ah-seller-orders .ah-toolbar .btn {
+    height: 36px;
+    padding: 8px 14px;
+    border-radius: 10px;
+    font-weight: 800;
+    border: 1px solid #111827;
+    background: #111827;
+    color: #fff;
+  }
+  .ah-seller-orders .btn.btn--ghost {
+    background: transparent;
+    border: 1px solid #ddd;
+    color: inherit;
+  }
+
+  /* Pager */
+  .ah-seller-orders .ah-pager {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+  }
+  .ah-seller-orders .ah-pager .btn[aria-disabled='true'] {
+    opacity: 0.6;
+    pointer-events: none;
+  }
+
+  /* Mobile */
+  @media (max-width: 900px) {
+    .ah-seller-orders .ah-table {
+      table-layout: auto;
+    }
+    .ah-seller-orders .ah-table .ah-col--buyer {
+      min-width: 0;
+    }
   }
 }

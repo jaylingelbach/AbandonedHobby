@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { getRelId } from '@/lib/server/utils';
 import { getPrimaryCardImageUrl } from '@/lib/utils';
 import type { Order, Product, Tenant } from '@/payload-types';
+
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 import {
@@ -14,7 +15,7 @@ import {
 } from '../types';
 import { mapOrderToSummary, mapOrderToConfirmation } from './utils';
 import { relId } from '@/lib/relationshipHelpers';
-import { mapOrderToBuyer } from './utils';
+import { buildSellerOrdersWhere, mapOrderToBuyer } from './utils';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
@@ -343,5 +344,82 @@ export const ordersRouter = createTRPCRouter({
       }
 
       return mapOrderToBuyer(doc);
+    }),
+
+  listForSeller: protectedProcedure
+    .input(
+      z.object({
+        tenantId: z.string().min(1),
+        page: z.number().int().min(1).default(1),
+        pageSize: z.number().int().min(1).max(100).default(25),
+        status: z
+          .array(z.enum(['unfulfilled', 'shipped', 'delivered', 'returned']))
+          .optional(),
+        query: z.string().trim().optional(), // order # or buyer email
+        hasTracking: z.enum(['yes', 'no']).optional(),
+        fromISO: z.string().datetime().optional(),
+        toISO: z.string().datetime().optional(),
+        sort: z.enum(['createdAtDesc', 'createdAtAsc']).default('createdAtDesc')
+      })
+    )
+    .query(async ({ ctx, input }) => {
+      const { db, session } = ctx;
+      if (!session?.user?.id)
+        return { items: [], total: 0, page: 1, pageSize: input.pageSize };
+
+      // Optional: assert user belongs to tenantId (if you store it in user.tenants[])
+      // (defense in depth; your access layer should already enforce read scope)
+
+      const where = buildSellerOrdersWhere(input);
+      const sort = input.sort === 'createdAtAsc' ? 'createdAt' : '-createdAt';
+
+      const result = await db.find({
+        collection: 'orders',
+        where,
+        sort: input.sort === 'createdAtAsc' ? 'createdAt' : '-createdAt',
+        page: input.page,
+        limit: input.pageSize,
+        depth: 0,
+        overrideAccess: false
+      });
+
+      type Row = {
+        id: string;
+        orderNumber?: string;
+        createdAt: string;
+        buyerEmail?: string | null;
+        total?: number;
+        currency?: string | null;
+        fulfillmentStatus?:
+          | 'unfulfilled'
+          | 'shipped'
+          | 'delivered'
+          | 'returned';
+        shipment?: {
+          carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+          trackingNumber?: string | null;
+        };
+        items?: unknown[];
+      };
+
+      const items = (result.docs as Row[]).map((o) => ({
+        id: String(o.id),
+        orderNumber: o.orderNumber ?? null,
+        createdAt: o.createdAt,
+        buyerEmail: o.buyerEmail ?? null,
+        itemCount: Array.isArray(o.items) ? o.items.length : 0,
+        totalCents: typeof o.total === 'number' ? o.total : 0,
+        currency: o.currency ?? 'USD',
+        status: o.fulfillmentStatus ?? 'unfulfilled',
+        carrier: o.shipment?.carrier ?? undefined,
+        trackingNumber: o.shipment?.trackingNumber?.trim() || undefined
+      }));
+
+      return {
+        items,
+        total: (result as { totalDocs?: number }).totalDocs ?? items.length,
+        page: (result as { page?: number }).page ?? input.page,
+        pageSize: input.pageSize
+      };
     })
 });

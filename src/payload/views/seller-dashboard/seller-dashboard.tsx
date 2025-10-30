@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
-import { getData } from './utils';
+import { getData } from '../utils';
 
 import type { AdminViewServerProps } from 'payload';
 import { formatCurrency } from '@/lib/utils';
@@ -48,7 +48,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <h2 className="ah-kpi-value">{data.summary.unfulfilledOrders}</h2>
           </UiCard>
 
-          <UiCard title="Low Inventory">
+          <UiCard title="Low Inventory (2 or fewer available)">
             <h2 className="ah-kpi-value">{data.summary.lowInventory}</h2>
           </UiCard>
 
@@ -71,9 +71,9 @@ export async function SellerDashboard(props: AdminViewServerProps) {
               <Link
                 prefetch={false}
                 className="btn btn--block"
-                href="/admin/collections/orders"
+                href="/admin/seller/orders?status=unfulfilled"
               >
-                View Orders
+                View All Orders
               </Link>
             </div>
           </UiCard>

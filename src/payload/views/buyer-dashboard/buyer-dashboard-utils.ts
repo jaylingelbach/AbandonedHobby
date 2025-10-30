@@ -1,6 +1,6 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { Carrier } from '@/constants';
-import type { BuyerDashboardCountSummary, BuyerOrderListItem } from './types';
+import type { BuyerDashboardCountSummary, BuyerOrderListItem } from '../types';
 
 /* -----------------------------------------------------------------------------
  * Shared helpers

@@ -40,12 +40,20 @@ export default buildConfig({
     components: {
       views: {
         sellerDashboard: {
-          Component: '@/payload/views/seller-dashboard.tsx#SellerDashboard',
+          Component:
+            '@/payload/views/seller-dashboard/seller-dashboard.tsx#SellerDashboard',
           path: '/seller', // admin base + /seller
           exact: true
         },
+        sellerOrders: {
+          Component:
+            '@/payload/views/seller-orders/seller-orders.tsx#SellerOrders',
+          path: '/seller/orders',
+          exact: true
+        },
         buyerDashboard: {
-          Component: '@/payload/views/buyer-dashboard.tsx#BuyerDashboard',
+          Component:
+            '@/payload/views/buyer-dashboard/buyer-dashboard.tsx#BuyerDashboard',
           path: '/buyer',
           exact: true
         }
@@ -55,7 +63,7 @@ export default buildConfig({
         '@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider'
       ],
       afterNavLinks: [
-        '@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink',
+        '@/components/custom-payload/seller-nav.tsx#SellerNav',
         '@/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx#BuyerDashboardLink'
       ],
       beforeNavLinks: [

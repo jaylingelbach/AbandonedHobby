@@ -97,14 +97,14 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                 <Link
                   prefetch={false}
                   className="btn btn--block"
-                  href="/admin/collections/orders"
+                  href="/orders"
                 >
                   View All Orders
                 </Link>
                 <Link
                   prefetch={false}
                   className="btn btn--block"
-                  href="/admin/collections/products"
+                  href="/?sort=hot_and_new"
                 >
                   Browse Products
                 </Link>

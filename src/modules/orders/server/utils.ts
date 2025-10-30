@@ -10,6 +10,7 @@ import type {
 } from '../types';
 import { Order, Product, Tenant } from '@/payload-types';
 import { OrderForBuyer } from '@/modules/library/ui/components/types';
+import { Where } from 'payload';
 
 // ───────────────────────────────────────────
 // Basic assertions
@@ -536,4 +537,48 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
     shipping,
     returnsAcceptedThroughISO
   };
+}
+
+export function buildSellerOrdersWhere(input: {
+  tenantId: string;
+  status?: Array<'unfulfilled' | 'shipped' | 'delivered' | 'returned'>;
+  query?: string;
+  hasTracking?: 'yes' | 'no';
+  fromISO?: string; // inclusive
+  toISO?: string; // inclusive
+}): Where {
+  const and: Where[] = [{ sellerTenant: { equals: input.tenantId } }];
+
+  if (input.status?.length) {
+    and.push({ fulfillmentStatus: { in: input.status } });
+  }
+
+  if (input.query) {
+    and.push({
+      or: [
+        { orderNumber: { like: input.query } },
+        { buyerEmail: { like: input.query } }
+      ]
+    });
+  }
+
+  // dot-path is supported at runtime; TS doesn’t model nested keys
+  if (input.hasTracking === 'yes') {
+    and.push({
+      'shipment.trackingNumber': { exists: true }
+    } as unknown as Where);
+  } else if (input.hasTracking === 'no') {
+    and.push({
+      'shipment.trackingNumber': { exists: false }
+    } as unknown as Where);
+  }
+
+  if (input.fromISO) {
+    and.push({ createdAt: { greater_than_equal: input.fromISO } });
+  }
+  if (input.toISO) {
+    and.push({ createdAt: { less_than_equal: input.toISO } });
+  }
+
+  return { and };
 }
