@@ -634,30 +634,79 @@ export function buildSellerOrdersWhere(input: {
     } as unknown as Where);
   }
 
-  if (input.fromISO) {
-    if (
-      typeof input.fromISO !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}/.test(input.fromISO)
-    ) {
+  // --- Date range filters -------------------------------------------------
+  const { fromISO, toISO } = input;
+
+  // Validate format first (YYYY-MM-DD…)
+  if (fromISO) {
+    if (typeof fromISO !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(fromISO)) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'fromISO must be a valid ISO date string (YYYY-MM-DD…)'
       });
     }
-    and.push({ createdAt: { greater_than_equal: input.fromISO } });
   }
-
-  if (input.toISO) {
-    if (
-      typeof input.toISO !== 'string' ||
-      !/^\d{4}-\d{2}-\d{2}/.test(input.toISO)
-    ) {
+  if (toISO) {
+    if (typeof toISO !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(toISO)) {
       throw new TRPCError({
         code: 'BAD_REQUEST',
         message: 'toISO must be a valid ISO date string (YYYY-MM-DD…)'
       });
     }
-    and.push({ createdAt: { less_than_equal: input.toISO } });
+  }
+
+  // Parse as date-only in UTC to avoid TZ drift
+  const parseISODateOnly = (s: string): Date => new Date(`${s}T00:00:00.000Z`);
+
+  const fromDate = fromISO ? parseISODateOnly(fromISO) : undefined;
+  const toDate = toISO ? parseISODateOnly(toISO) : undefined;
+
+  if (fromDate && Number.isNaN(fromDate.getTime())) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO could not be parsed as a date'
+    });
+  }
+  if (toDate && Number.isNaN(toDate.getTime())) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'toISO could not be parsed as a date'
+    });
+  }
+
+  // Enforce relationship: from ≤ to (inclusive)
+  if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO must be less than or equal to toISO'
+    });
+  }
+
+  const now = new Date();
+  const minFrom = new Date(now);
+  minFrom.setFullYear(minFrom.getFullYear() - 5); // not older than 5 years
+  const maxTo = new Date(now);
+  maxTo.setFullYear(maxTo.getFullYear() + 1); // not more than 1 year in future
+
+  if (fromDate && fromDate < minFrom) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO is too far in the past (max 5 years)'
+    });
+  }
+  if (toDate && toDate > maxTo) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'toISO is too far in the future (max 1 year ahead)'
+    });
+  }
+
+  // Push createdAt clauses (inclusive)
+  if (fromISO) {
+    and.push({ createdAt: { greater_than_equal: fromISO } });
+  }
+  if (toISO) {
+    and.push({ createdAt: { less_than_equal: toISO } });
   }
 
   return { and };
