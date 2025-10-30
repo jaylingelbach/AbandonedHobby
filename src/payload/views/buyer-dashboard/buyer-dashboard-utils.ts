@@ -337,7 +337,10 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
         if (a.orderNumber !== b.orderNumber) {
           return a.orderNumber < b.orderNumber ? 1 : -1;
         }
-        return a.id < b.id ? 1 : -1;
+        if (a.id !== b.id) {
+          return a.id < b.id ? 1 : -1;
+        }
+        return 0;
       }
       if (bInvalid) return 1;
       if (aInvalid) return -1;
@@ -357,7 +360,10 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
       if (a.orderNumber !== b.orderNumber) {
         return a.orderNumber < b.orderNumber ? 1 : -1;
       }
-      return a.id < b.id ? 1 : -1;
+      if (a.id !== b.id) {
+        return a.id < b.id ? 1 : -1;
+      }
+      return 0;
     })
     .slice(0, pageSize); // now take the first page deterministically
 
