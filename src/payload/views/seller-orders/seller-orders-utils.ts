@@ -111,10 +111,7 @@ export async function getSellerOrdersData(
     orderNumber:
       typeof doc.orderNumber === 'string' ? doc.orderNumber : String(doc.id),
     createdAtISO: doc.createdAt,
-    buyerEmail:
-      typeof doc.buyerEmail === 'string'
-        ? doc.buyerEmail
-        : (doc.buyerEmail ?? null),
+    buyerEmail: doc.buyerEmail ?? null,
     itemCount: Array.isArray(doc.items) ? doc.items.length : 0,
     totalCents: typeof doc.total === 'number' ? doc.total : 0,
     currency: doc.currency ?? 'USD',
