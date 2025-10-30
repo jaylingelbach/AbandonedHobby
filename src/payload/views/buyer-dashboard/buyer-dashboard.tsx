@@ -115,11 +115,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
           </div>
         </div>
 
-        <section
-          className="ah-section"
-          aria-labelledby="ah-awaiting-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-awaiting-heading">
           <h2 id="ah-awaiting-heading">Awaiting shipment</h2>
           {data.awaitingShipment.length === 0 ? (
             <p>No orders are awaiting shipment.</p>
@@ -180,11 +176,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
           )}
         </section>
 
-        <section
-          className="ah-section"
-          aria-labelledby="ah-transit-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-transit-heading">
           <h2 id="ah-transit-heading">In transit</h2>
           {data.inTransit.length === 0 ? (
             <p>No shipments are currently in transit.</p>

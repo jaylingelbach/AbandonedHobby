@@ -371,7 +371,6 @@ export const ordersRouter = createTRPCRouter({
       // (defense in depth; your access layer should already enforce read scope)
 
       const where = buildSellerOrdersWhere(input);
-      const sort = input.sort === 'createdAtAsc' ? 'createdAt' : '-createdAt';
 
       const result = await db.find({
         collection: 'orders',
