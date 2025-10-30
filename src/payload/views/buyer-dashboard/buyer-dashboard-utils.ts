@@ -297,16 +297,15 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null);
 
-  // In transit list
   // In transit list (fetch more than you need, then slice after sort)
   const pageSize = 25;
 
-  // Over-fetch to avoid pagination drift after in-memory sort
+  // Over-fetch to ensure we have enough valid records after sorting
   const inTransitResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
     pagination: true,
-    limit: 25,
+    limit: pageSize * 2,
     sort: '-latestShippedAt',
     where: {
       and: [
