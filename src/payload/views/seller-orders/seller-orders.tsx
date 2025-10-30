@@ -5,6 +5,11 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { getSellerOrdersData } from './seller-orders-utils';
 
+/**
+ * Renders the admin "Seller Orders" view including filtering controls, results table, and pager.
+ *
+ * @returns A React element containing the seller orders admin interface (toolbar, orders table or empty state, and pagination controls).
+ */
 export async function SellerOrders(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   const localeCode =
@@ -15,9 +20,10 @@ export async function SellerOrders(props: AdminViewServerProps) {
 
   // Helpers to build links with updated search params
   const makeHref = (updates: Record<string, string | number | undefined>) => {
-    const adminBase =
-      initPageResult.req.payload.config.routes?.admin ?? '/admin';
-    const url = new URL(`${adminBase}/seller/orders`, 'http://localhost');
+    const url = new URL(
+      `${initPageResult.req.payload.config.routes?.admin ?? '/admin'}/seller`,
+      'http://localhost' // base ignored by Next when rendering href
+    );
     // Carry forward current params
     const current = new URLSearchParams();
     if (searchParams) {
@@ -34,6 +40,10 @@ export async function SellerOrders(props: AdminViewServerProps) {
         current.set(key, String(value));
       }
     }
+    // Always target this view path; if you mount at a different path, adjust above
+    url.pathname = `${
+      initPageResult.req.payload.config.routes?.admin ?? '/admin'
+    }/seller/orders`;
     url.search = current.toString();
     const search = url.search;
     return search ? `${url.pathname}?${search}` : url.pathname;
@@ -203,13 +213,13 @@ export async function SellerOrders(props: AdminViewServerProps) {
             <span className="ah-pager__page">
               Page {page} of {totalPages}
             </span>
-            {page >= totalPages ? (
-              <span className="btn btn--disabled">Next</span>
-            ) : (
-              <Link className="btn" href={makeHref({ page: page + 1 })}>
-                Next
-              </Link>
-            )}
+            <Link
+              className="btn"
+              aria-disabled={page >= totalPages}
+              href={makeHref({ page: Math.min(totalPages, page + 1) })}
+            >
+              Next
+            </Link>
           </div>
         </div>
       </Gutter>

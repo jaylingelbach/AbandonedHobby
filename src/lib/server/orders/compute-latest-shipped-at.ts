@@ -11,8 +11,12 @@ type DataShape = {
 };
 
 /**
- * Compute max(shipment.shippedAt, ...shipments[].shippedAt) as ISO string or undefined.
- * Runs after the mirror hooks so both shapes are in sync.
+ * Compute the most recent `shippedAt` timestamp from either a legacy `shipment` or `shipments[]`
+ * and set it on the provided data as an ISO string in `latestShippedAt`.
+ *
+ * @param args - Function arguments
+ * @param args.data - Input data object containing either `shipment` (with `shippedAt`) or `shipments` array; this object is updated and returned
+ * @returns The updated data object with `latestShippedAt` set to the ISO string of the latest valid `shippedAt`, or `undefined` if no valid timestamps were found
  */
 export async function computeLatestShippedAt(args: {
   data?: unknown;
