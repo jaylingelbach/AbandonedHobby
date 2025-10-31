@@ -1,5 +1,5 @@
 import { CollectionAfterChangeHook } from 'payload';
-import { extractErrorDetails } from '../utils';
+import { extractErrorDetails } from '@/lib/server/utils';
 import { User } from '@/payload-types';
 import { getRelId } from '@/lib/server/utils';
 
