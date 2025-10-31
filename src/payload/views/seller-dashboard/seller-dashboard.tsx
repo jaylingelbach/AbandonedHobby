@@ -8,6 +8,7 @@ import { getData } from '../utils';
 
 import type { AdminViewServerProps } from 'payload';
 import { formatCurrency } from '@/lib/utils';
+import { redirect } from 'next/navigation';
 
 /**
  * Render the Seller Dashboard page that shows seller KPIs, quick actions, and orders requiring tracking.
@@ -18,6 +19,11 @@ import { formatCurrency } from '@/lib/utils';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
+  if (!initPageResult.req.user) {
+    redirect(
+      `/admin/login?redirect=${encodeURIComponent('/admin/seller/dashboard')}`
+    );
+  }
   let data;
   try {
     data = await getData(props);

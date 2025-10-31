@@ -4326,3 +4326,54 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/payload/views/types.ts
   - Introduced OrderStatus, SellerOrderRow, and GetInput types; replaced literal fulfillment status unions with OrderStatus.
+
+# Seller dashboard unsold products 10/31/25
+
+## Walkthrough
+
+- Navigation components are updated to use framework Link components instead of anchors. The seller dashboard UI is revised with a new KPI card ("Unsold" replacing "Low Inventory"), updated button label ("List a Product"), and refined data formatting. Type definitions and utilities are refactored to rename lowInventory to unsold with inventory query logic adjusted from stockQuantity <= 2 to stockQuantity > 0. Authentication guard added to seller orders view. CSS styling extended for .ah-actions .btn element group.
+
+## New Features
+
+- Added authentication requirement for the Seller Orders view.
+
+## Bug Fixes
+
+- Fixed currency display formatting in order totals.
+
+## Style
+
+- Updated dashboard KPI metric from "Low Inventory" to "Unsold" with adjusted thresholds.
+- Changed Quick Actions button label from "Add Product" to "List a Product".
+
+## File changes
+
+### Navigation Link Components
+
+- src/components/custom-payload/buyer-dashboard-link.tsx, seller-dashboard-link.tsx, seller-nav.tsx, seller-orders-link.tsx
+  - Replaced plain anchor elements with framework Link components from @payloadcms/ui across four navigation files, maintaining href routing logic and labels.
+
+### Seller Dashboard View
+
+- src/payload/views/seller-dashboard/seller-dashboard.tsx
+  - Updated KPI card from "Low Inventory (2 or fewer available)" to "Unsold", changed button label from "Add Product" to "List a Product", consolidated section margins to className attributes, and removed .toFixed(2) formatting from currency calculations in two tables.
+
+### Type and Utility Refactoring
+
+- src/payload/views/types.ts, utils.ts
+  - Renamed lowInventory field to unsold in CountSummary type; updated inventory query logic from stockQuantity <= 2 to stockQuantity > 0; renamed related variables and response objects throughout utilities.
+
+### Authentication Guard
+
+- src/payload/views/seller-orders/seller-orders.tsx
+  - Added authentication redirect guard to SellerOrders server component using next/navigation redirect when user is not authenticated.
+
+### Button Styling Extension
+
+- src/app/(payload)/custom.scss
+  - Extended button base rules, state selectors (hover, aria-disabled, disabled, ghost), and size modifiers to include .ah-actions .btn element group for consistent visual behavior.
+
+### Cleanup
+
+- src/payload/views/seller-orders/seller-orders-utils.ts
+  - Removed inline comment from import statement and added end-of-file newline.
