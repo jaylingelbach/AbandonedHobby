@@ -4,7 +4,7 @@ import Link from 'next/link';
 
 import { InlineTrackingForm } from '@/components/custom-payload/tracking/InlineTrackingForm';
 import { UiCard } from '@/components/custom-payload/ui/UiCard';
-import { getData } from './utils';
+import { getData } from '../utils';
 
 import type { AdminViewServerProps } from 'payload';
 import { formatCurrency } from '@/lib/utils';
@@ -18,7 +18,31 @@ import { formatCurrency } from '@/lib/utils';
 
 export async function SellerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
-  const data = await getData(props);
+  let data;
+  try {
+    data = await getData(props);
+  } catch (error) {
+    console.log(error);
+    return (
+      <DefaultTemplate
+        i18n={initPageResult.req.i18n}
+        locale={initPageResult.locale}
+        params={params}
+        payload={initPageResult.req.payload}
+        permissions={initPageResult.permissions}
+        searchParams={searchParams}
+        user={initPageResult.req.user || undefined}
+        visibleEntities={initPageResult.visibleEntities}
+      >
+        <Gutter>
+          <div className="ah-banner ah-banner-error" role="alert">
+            <strong>Error:</strong> Unable to load dashboard data. Please try
+            again later.
+          </div>
+        </Gutter>
+      </DefaultTemplate>
+    );
+  }
 
   return (
     <DefaultTemplate
@@ -48,7 +72,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <h2 className="ah-kpi-value">{data.summary.unfulfilledOrders}</h2>
           </UiCard>
 
-          <UiCard title="Low Inventory">
+          <UiCard title="Low Inventory (2 or fewer available)">
             <h2 className="ah-kpi-value">{data.summary.lowInventory}</h2>
           </UiCard>
 
@@ -71,9 +95,9 @@ export async function SellerDashboard(props: AdminViewServerProps) {
               <Link
                 prefetch={false}
                 className="btn btn--block"
-                href="/admin/collections/orders"
+                href="/admin/seller/orders?status=unfulfilled"
               >
-                View Orders
+                View All Orders
               </Link>
             </div>
           </UiCard>

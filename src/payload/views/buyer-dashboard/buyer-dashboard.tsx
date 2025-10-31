@@ -5,20 +5,22 @@ import type { AdminViewServerProps } from 'payload';
 import { getBuyerData } from './buyer-dashboard-utils';
 
 /**
- * Formats a dollar amount into a localized currency string.
+ * Formats a numeric amount into a localized currency string.
  *
- * @param amountInDollars - The monetary amount in dollars to format.
- * @param currency - ISO 4217 currency code used for formatting. Defaults to `USD`.
- * @returns The formatted currency string (e.g., "$1,234.56").
+ * @param amount - The monetary amount to format.
+ * @param currency - ISO 4217 currency code to use; defaults to `USD`.
+ * @param locale - BCP 47 locale code for formatting (e.g., `en-US`); if omitted, the runtime's default locale is used.
+ * @returns The formatted currency string (for example, "$1,234.56").
  */
 function formatCurrencyDisplay(
-  amountInDollars: number,
-  currency = 'USD'
+  amount: number,
+  currency = 'USD',
+  locale?: string
 ): string {
-  return new Intl.NumberFormat(undefined, {
+  return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency
-  }).format(amountInDollars);
+  }).format(amount);
 }
 
 /**
@@ -97,14 +99,14 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                 <Link
                   prefetch={false}
                   className="btn btn--block"
-                  href="/admin/collections/orders"
+                  href="/orders"
                 >
                   View All Orders
                 </Link>
                 <Link
                   prefetch={false}
                   className="btn btn--block"
-                  href="/admin/collections/products"
+                  href="/?sort=hot_and_new"
                 >
                   Browse Products
                 </Link>
@@ -113,11 +115,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
           </div>
         </div>
 
-        <section
-          className="ah-section"
-          aria-labelledby="ah-awaiting-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-awaiting-heading">
           <h2 id="ah-awaiting-heading">Awaiting shipment</h2>
           {data.awaitingShipment.length === 0 ? (
             <p>No orders are awaiting shipment.</p>
@@ -158,14 +156,15 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        readCurrencyFromOrder(order, 'USD')
+                        readCurrencyFromOrder(order, 'USD'),
+                        initPageResult.locale?.code?.replace('_', '-')
                       )}
                     </td>
                     <td className="ah-col--actions">
                       <Link
                         prefetch={false}
                         className="btn btn--sm"
-                        href={`/admin/collections/orders/${order.id}`}
+                        href={`/orders/${order.id}`}
                       >
                         View
                       </Link>
@@ -177,11 +176,7 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
           )}
         </section>
 
-        <section
-          className="ah-section"
-          aria-labelledby="ah-transit-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-transit-heading">
           <h2 id="ah-transit-heading">In transit</h2>
           {data.inTransit.length === 0 ? (
             <p>No shipments are currently in transit.</p>
@@ -228,7 +223,8 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                     <td className="ah-col--total">
                       {formatCurrencyDisplay(
                         order.totalCents / 100,
-                        readCurrencyFromOrder(order, 'USD')
+                        readCurrencyFromOrder(order, 'USD'),
+                        initPageResult.locale?.code?.replace('_', '-')
                       )}
                     </td>
                     <td className="ah-col--tracking">

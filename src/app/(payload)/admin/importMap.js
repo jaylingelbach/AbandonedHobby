@@ -24,7 +24,7 @@ import { UnderlineFeatureClient as UnderlineFeatureClient_e70f5e05f09f93e00b997e
 import { BoldFeatureClient as BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { ItalicFeatureClient as ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864 } from '@payloadcms/richtext-lexical/client'
 import { WatchTenantCollection as WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a } from '@payloadcms/plugin-multi-tenant/client'
-import { SellerDashboardLink as SellerDashboardLink_457f8c74dfe54461b15660bb7d133932 } from '@/components/custom-payload/seller-dashboard-link.tsx'
+import { SellerNav as SellerNav_6ab77263b604a469e9808d3353f649e9 } from '@/components/custom-payload/seller-nav.tsx'
 import { BuyerDashboardLink as BuyerDashboardLink_a68ac93a2e487f3dea9ecd310823b839 } from '@/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx'
 import { OnboardingBannerAdmin as OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a } from '@/components/custom-payload/onboarding-banner.tsx'
 import { AbandonedHobbyLink as AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7 } from '@/components/custom-payload/abandoned-hobby-link.tsx'
@@ -34,8 +34,9 @@ import { default as default_8aad7263a86e1627bb30c519669b2b93 } from '@/payload/p
 import { TRPCAdminProvider as TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b } from '@/payload/providers/trpc-admin-provider.tsx'
 import { S3ClientUploadHandler as S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24 } from '@payloadcms/storage-s3/client'
 import { TenantSelectionProvider as TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62 } from '@payloadcms/plugin-multi-tenant/rsc'
-import { SellerDashboard as SellerDashboard_b0b31e3aee2c31a4370f81d78a6e7b3e } from '@/payload/views/seller-dashboard.tsx'
-import { BuyerDashboard as BuyerDashboard_e927e3a050fca844ac0eac30ae3b01c7 } from '@/payload/views/buyer-dashboard.tsx'
+import { SellerDashboard as SellerDashboard_3bfc6950d407f3d7f5dae39fce41ef9f } from '@/payload/views/seller-dashboard/seller-dashboard.tsx'
+import { SellerOrders as SellerOrders_ac9a1a84ede64d3b2fe71ee283dd6de7 } from '@/payload/views/seller-orders/seller-orders.tsx'
+import { BuyerDashboard as BuyerDashboard_76c8a75b02d0b6f9d8c5ac2e724cf2a4 } from '@/payload/views/buyer-dashboard/buyer-dashboard.tsx'
 
 export const importMap = {
   "@/components/custom-payload/refunds/refund-manager.tsx#RefundManager": RefundManager_afa548313656ae5a7ddf6e03666f1f9c,
@@ -64,7 +65,7 @@ export const importMap = {
   "@payloadcms/richtext-lexical/client#BoldFeatureClient": BoldFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/richtext-lexical/client#ItalicFeatureClient": ItalicFeatureClient_e70f5e05f09f93e00b997edb1ef0c864,
   "@payloadcms/plugin-multi-tenant/client#WatchTenantCollection": WatchTenantCollection_1d0591e3cf4f332c83a86da13a0de59a,
-  "@/components/custom-payload/seller-dashboard-link.tsx#SellerDashboardLink": SellerDashboardLink_457f8c74dfe54461b15660bb7d133932,
+  "@/components/custom-payload/seller-nav.tsx#SellerNav": SellerNav_6ab77263b604a469e9808d3353f649e9,
   "@/components/custom-payload/buyer-dashboard/buyer-dashboard-link.tsx#BuyerDashboardLink": BuyerDashboardLink_a68ac93a2e487f3dea9ecd310823b839,
   "@/components/custom-payload/onboarding-banner.tsx#OnboardingBannerAdmin": OnboardingBannerAdmin_0c4f0f788ed25a683584d599fe24f01a,
   "@/components/custom-payload/abandoned-hobby-link.tsx#AbandonedHobbyLink": AbandonedHobbyLink_9149256d1aebd3ac60728f326fb977d7,
@@ -74,6 +75,7 @@ export const importMap = {
   "@/payload/providers/trpc-admin-provider.tsx#TRPCAdminProvider": TRPCAdminProvider_1f5a51db5d9c094020c9fe7965ea083b,
   "@payloadcms/storage-s3/client#S3ClientUploadHandler": S3ClientUploadHandler_f97aa6c64367fa259c5bc0567239ef24,
   "@payloadcms/plugin-multi-tenant/rsc#TenantSelectionProvider": TenantSelectionProvider_d6d5f193a167989e2ee7d14202901e62,
-  "@/payload/views/seller-dashboard.tsx#SellerDashboard": SellerDashboard_b0b31e3aee2c31a4370f81d78a6e7b3e,
-  "@/payload/views/buyer-dashboard.tsx#BuyerDashboard": BuyerDashboard_e927e3a050fca844ac0eac30ae3b01c7
+  "@/payload/views/seller-dashboard/seller-dashboard.tsx#SellerDashboard": SellerDashboard_3bfc6950d407f3d7f5dae39fce41ef9f,
+  "@/payload/views/seller-orders/seller-orders.tsx#SellerOrders": SellerOrders_ac9a1a84ede64d3b2fe71ee283dd6de7,
+  "@/payload/views/buyer-dashboard/buyer-dashboard.tsx#BuyerDashboard": BuyerDashboard_76c8a75b02d0b6f9d8c5ac2e724cf2a4
 }

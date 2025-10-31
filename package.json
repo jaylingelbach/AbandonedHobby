@@ -14,7 +14,8 @@
     "db:importmap": "payload generate:importmap",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "send:test": "ts-node --loader ts-node/esm scripts/test-email.ts",
-    "migrate:media": "tsx -r dotenv/config src/scripts/migrate-media-to-s3-urls.ts"
+    "migrate:media": "tsx -r dotenv/config src/scripts/migrate-media-to-s3-urls.ts",
+    "backfill:latestShippedAt": "node --import tsx -r tsconfig-paths/register -r dotenv/config scripts/backfill-latest-shipped-at.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.890.0",
@@ -92,6 +93,7 @@
     "react-resizable-panels": "^2.1.7",
     "recharts": "^2.15.2",
     "server-only": "^0.0.1",
+    "sharp": "^0.34.4",
     "sonner": "^2.0.3",
     "stripe": "^18.1.1",
     "superjson": "^2.2.2",
@@ -119,6 +121,7 @@
     "lightningcss-wasm": "^1.29.3",
     "tailwindcss": "^4",
     "ts-node": "^10.9.2",
+    "tsconfig-paths": "^4.2.0",
     "tsx": "^4.20.5",
     "typescript": "5.8.3"
   }

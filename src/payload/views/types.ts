@@ -11,7 +11,7 @@ export type OrderListItem = {
   orderNumber: string;
   totalCents: number;
   createdAt: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+  fulfillmentStatus: OrderStatus;
 };
 
 export type BuyerCountSummary = {
@@ -29,10 +29,37 @@ export type BuyerOrderListItem = {
   orderNumber: string;
   totalCents: number;
   createdAtISO: string;
-  fulfillmentStatus: 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+  fulfillmentStatus: OrderStatus;
   carrier?: Carrier;
   trackingNumber?: string;
   shippedAtISO?: string;
+};
+
+export type OrderStatus = 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+
+export type SellerOrderRow = {
+  id: string;
+  orderNumber: string | null;
+  createdAtISO: string;
+  buyerEmail: string | null;
+  itemCount: number;
+  totalCents: number;
+  currency: string;
+  status: OrderStatus;
+  carrier?: Carrier;
+  trackingNumber?: string;
+};
+
+export type GetInput = {
+  tenantId: string;
+  page: number;
+  pageSize: number;
+  query?: string;
+  status?: Array<OrderStatus>;
+  hasTracking?: 'yes' | 'no';
+  fromISO?: string;
+  toISO?: string;
+  sort: 'createdAtDesc' | 'createdAtAsc';
 };
 
 export type CountResult = number | { totalDocs: number };

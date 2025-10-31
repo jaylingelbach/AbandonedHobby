@@ -10,6 +10,8 @@ import type {
 } from '../types';
 import { Order, Product, Tenant } from '@/payload-types';
 import { OrderForBuyer } from '@/modules/library/ui/components/types';
+import { Where } from 'payload';
+import { OrderStatus } from '@/payload/views/types';
 
 // ───────────────────────────────────────────
 // Basic assertions
@@ -423,15 +425,10 @@ export function safePositiveInt(n: unknown, fallback = 1): number {
 }
 
 /**
- * Builds a buyer-focused OrderForBuyer object from a raw Order document.
+ * Create a buyer-facing OrderForBuyer from a raw Order document.
  *
- * @param doc - The source Order document to map
- * @returns An OrderForBuyer containing normalized buyer-facing fields:
- * - `id` (stringified), `orderNumber`, `orderDateISO` (if present),
- * - `totalCents`, `currency` (uppercased), `quantity` (at least 1),
- * - `items` (mapped array or `undefined`), `buyerEmail` (string or `null`),
- * - `shipping` (normalized shipping snapshot or `null`), and
- * - `returnsAcceptedThroughISO` (string or `null`)
+ * @param doc - Source Order document to map
+ * @returns An OrderForBuyer with normalized buyer-facing fields: `id` (string), `orderNumber`, optional `orderDateISO`, `totalCents`, `currency` (uppercased), `quantity` (at least 1), optional `items` array, `buyerEmail` (string or `null`), `shipping` (normalized snapshot or `null`), and `returnsAcceptedThroughISO` (string or `null`)
  */
 export function mapOrderToBuyer(doc: Order): OrderForBuyer {
   const totalCents = safeNumber(doc.total, 0);
@@ -536,4 +533,192 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
     shipping,
     returnsAcceptedThroughISO
   };
+}
+
+/**
+ * Escape characters that would be interpreted as metacharacters in SQL LIKE or regex-like comparisons.
+ *
+ * @param raw - The source string to escape
+ * @returns The input string with regex/LIKE metacharacters escaped for safe comparison
+ */
+function escapeForLike(raw: string): string {
+  // Escape regex metacharacters: . * + ? ^ $ { } ( ) | [ ] \
+  return raw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
+ * Normalize and escape a free-text search term for safe use in a LIKE query.
+ *
+ * Trims and collapses internal whitespace, clamps length to `maxLength`, escapes LIKE/regex metacharacters, and removes control characters.
+ *
+ * @param input - The raw user-provided value to sanitize.
+ * @param maxLength - Maximum allowed length of the returned string (default: 100).
+ * @returns The sanitized string suitable for a LIKE query, or `null` if the input is not a string or is empty after cleaning.
+ */
+function sanitizeLikeInput(input: unknown, maxLength = 100): string | null {
+  if (typeof input !== 'string') return null;
+
+  const normalized = input.trim().replace(/\s+/g, ' ');
+  if (!normalized) return null;
+
+  const clamped = normalized.slice(0, maxLength);
+
+  const escaped = escapeForLike(clamped);
+
+  // Strip control chars
+  const cleaned = escaped.replace(/[\u0000-\u001F\u007F]/g, '');
+
+  return cleaned.length > 0 ? cleaned : null;
+}
+
+/**
+ * Normalize a user-entered order code by removing a leading '#' and validating it against the allowed pattern.
+ *
+ * @param raw - User-entered order code or free-text
+ * @returns The normalized order code (without leading '#') if it matches the allowed pattern, `null` otherwise.
+ */
+function normalizeOrderCode(raw: string): string | null {
+  const withoutHash = raw.replace(/^#/, '');
+  // Adjust pattern to your format; this is permissive but safe
+  return /^[A-Za-z0-9\-_.]{4,40}$/.test(withoutHash) ? withoutHash : null;
+}
+
+/**
+ * Build a Payload `Where` filter for querying seller orders using tenant and optional criteria.
+ *
+ * @param input - Filter options: `tenantId` (required) identifies the seller tenant; `status` restricts fulfillment statuses; `query` is a sanitized free-text search applied to order number and buyer email (exact normalized order codes are matched exactly); `hasTracking` requires presence or absence of shipment.trackingNumber; `fromISO` and `toISO` are inclusive YYYY-MM-DD date bounds applied to `createdAt`.
+ * @returns A `Where` object with an `and` array combining the tenant constraint and any additional filters derived from the input.
+ * @throws TRPCError with code `BAD_REQUEST` when `tenantId` is missing/invalid, when `fromISO`/`toISO` are malformed or unparsable, when `fromISO` > `toISO`, or when date bounds fall outside the allowed ranges (older than 5 years or more than 1 year in the future).
+ */
+export function buildSellerOrdersWhere(input: {
+  tenantId: string;
+  status?: Array<OrderStatus>;
+  query?: string;
+  hasTracking?: 'yes' | 'no';
+  fromISO?: string; // inclusive
+  toISO?: string; // inclusive
+}): Where {
+  if (!input.tenantId || typeof input.tenantId !== 'string') {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'tenantId is required and must be a non-empty string'
+    });
+  }
+
+  const and: Where[] = [{ sellerTenant: { equals: input.tenantId } }];
+
+  if (input.status?.length) {
+    and.push({ fulfillmentStatus: { in: input.status } });
+  }
+
+  // Free-text search: exact order number OR substring matches
+  const sanitizedQuery = sanitizeLikeInput(input.query);
+  if (sanitizedQuery) {
+    const exactOrderCode = normalizeOrderCode(sanitizedQuery);
+    if (exactOrderCode) {
+      // One OR block: exact orderNumber OR partials
+      and.push({
+        or: [
+          { orderNumber: { equals: exactOrderCode } },
+          { orderNumber: { like: sanitizedQuery } },
+          { buyerEmail: { like: sanitizedQuery } }
+        ]
+      });
+    } else {
+      and.push({
+        or: [
+          { orderNumber: { like: sanitizedQuery } },
+          { buyerEmail: { like: sanitizedQuery } }
+        ]
+      });
+    }
+  }
+
+  // dot-path is supported at runtime; TS doesn’t model nested keys
+  if (input.hasTracking === 'yes') {
+    and.push({
+      'shipment.trackingNumber': { exists: true }
+    } as unknown as Where);
+  } else if (input.hasTracking === 'no') {
+    and.push({
+      'shipment.trackingNumber': { exists: false }
+    } as unknown as Where);
+  }
+
+  // --- Date range filters -------------------------------------------------
+  const { fromISO, toISO } = input;
+
+  // Validate format first (YYYY-MM-DD…)
+  if (fromISO) {
+    if (typeof fromISO !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(fromISO)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'fromISO must be a valid ISO date string (YYYY-MM-DD…)'
+      });
+    }
+  }
+  if (toISO) {
+    if (typeof toISO !== 'string' || !/^\d{4}-\d{2}-\d{2}/.test(toISO)) {
+      throw new TRPCError({
+        code: 'BAD_REQUEST',
+        message: 'toISO must be a valid ISO date string (YYYY-MM-DD…)'
+      });
+    }
+  }
+
+  // Parse as date-only in UTC to avoid TZ drift
+  const parseISODateOnly = (s: string): Date => new Date(`${s}T00:00:00.000Z`);
+
+  const fromDate = fromISO ? parseISODateOnly(fromISO) : undefined;
+  const toDate = toISO ? parseISODateOnly(toISO) : undefined;
+
+  if (fromDate && Number.isNaN(fromDate.getTime())) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO could not be parsed as a date'
+    });
+  }
+  if (toDate && Number.isNaN(toDate.getTime())) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'toISO could not be parsed as a date'
+    });
+  }
+
+  // Enforce relationship: from ≤ to (inclusive)
+  if (fromDate && toDate && fromDate.getTime() > toDate.getTime()) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO must be less than or equal to toISO'
+    });
+  }
+
+  const now = new Date();
+  const minFrom = new Date(now);
+  minFrom.setFullYear(minFrom.getFullYear() - 5); // not older than 5 years
+  const maxTo = new Date(now);
+  maxTo.setFullYear(maxTo.getFullYear() + 1); // not more than 1 year in future
+
+  if (fromDate && fromDate < minFrom) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'fromISO is too far in the past (max 5 years)'
+    });
+  }
+  if (toDate && toDate > maxTo) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'toISO is too far in the future (max 1 year ahead)'
+    });
+  }
+
+  // Push createdAt clauses (inclusive)
+  if (fromISO) {
+    and.push({ createdAt: { greater_than_equal: fromISO } });
+  }
+  if (toISO) {
+    and.push({ createdAt: { less_than_equal: toISO } });
+  }
+
+  return { and };
 }

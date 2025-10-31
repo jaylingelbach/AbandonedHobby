@@ -1,6 +1,6 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { Carrier } from '@/constants';
-import type { BuyerDashboardCountSummary, BuyerOrderListItem } from './types';
+import type { BuyerDashboardCountSummary, BuyerOrderListItem } from '../types';
 
 /* -----------------------------------------------------------------------------
  * Shared helpers
@@ -37,7 +37,7 @@ function buildUnfulfilledWhere(): Where {
  *
  * @returns A `Where` clause that matches documents with `fulfillmentStatus` equal to `'shipped'` and a present `shipment.shippedAt` field.
  */
-function buildShippedWhereSingle(): Where {
+export function buildShippedWhereSingle(): Where {
   return {
     and: [
       { fulfillmentStatus: { equals: 'shipped' } },
@@ -51,7 +51,7 @@ function buildShippedWhereSingle(): Where {
  *
  * @returns A `Where` clause targeting orders with `fulfillmentStatus: 'shipped'` and an existing `shipments.shippedAt` field
  */
-function buildShippedWhereArray(): Where {
+export function buildShippedWhereArray(): Where {
   return {
     and: [
       { fulfillmentStatus: { equals: 'shipped' } },
@@ -109,8 +109,8 @@ function pickShipmentFromRecord(record: {
         ? single.trackingNumber
         : undefined;
 
-    chosenCarrier = carrierCandidate ?? chosenCarrier;
-    chosenTrackingNumber = trackingCandidate ?? chosenTrackingNumber;
+    chosenCarrier = carrierCandidate;
+    chosenTrackingNumber = trackingCandidate;
     chosenShippedAt = single.shippedAt;
   }
 
@@ -141,7 +141,10 @@ function pickShipmentFromRecord(record: {
 
     const nextTs = Date.parse(String(shipment.shippedAt));
     const chosenTs = chosenShippedAt ? Date.parse(chosenShippedAt) : -1;
-    if (!Number.isNaN(nextTs) && nextTs > chosenTs) {
+    if (
+      !Number.isNaN(nextTs) &&
+      (chosenTs < 0 || nextTs > chosenTs || nextTs === chosenTs)
+    ) {
       chosenCarrier = carrierCandidate;
       chosenTrackingNumber = trackingCandidate;
       chosenShippedAt = String(shipment.shippedAt);
@@ -271,21 +274,21 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     collection: 'orders',
     where: {
       and: [
-        {
-          or: [buildShippedWhereSingle(), buildShippedWhereArray()]
-        },
+        { fulfillmentStatus: { equals: 'shipped' } },
+        { latestShippedAt: { exists: true } },
         buyerScope
       ]
     }
   });
   const inTransitCount = readCount(inTransitCountResponse);
 
+  const pageSize = 25;
   // Awaiting shipment list
   const awaitingShipmentResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
     pagination: true,
-    limit: 25,
+    limit: pageSize,
     sort: '-createdAt',
     where: {
       and: [{ status: { equals: 'paid' } }, unfulfilledWhere, buyerScope]
@@ -298,18 +301,19 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null);
 
-  // In transit list
+  // In transit list (fetch more than you need, then slice after sort)
+
+  // Over-fetch to ensure we have enough valid records after sorting
   const inTransitResponse = await payloadInstance.find({
     collection: 'orders',
     depth: 0,
     pagination: true,
-    limit: 25,
-    sort: '-shipment.shippedAt',
+    limit: pageSize * 2,
+    sort: '-latestShippedAt',
     where: {
       and: [
-        {
-          or: [buildShippedWhereSingle(), buildShippedWhereArray()]
-        },
+        { fulfillmentStatus: { equals: 'shipped' } },
+        { latestShippedAt: { exists: true } },
         buyerScope
       ]
     }
@@ -319,10 +323,52 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     .map(toBuyerOrderListItem)
     .filter((item): item is BuyerOrderListItem => item !== null)
     .sort((a, b) => {
+      // Prefer shippedAtISO; fall back to createdAtISO
       const bt = Date.parse(b.shippedAtISO ?? b.createdAtISO);
       const at = Date.parse(a.shippedAtISO ?? a.createdAtISO);
-      return (Number.isNaN(bt) ? 0 : bt) - (Number.isNaN(at) ? 0 : at);
-    });
+
+      // Invalid -> push to end
+      const bInvalid = Number.isNaN(bt);
+      const aInvalid = Number.isNaN(at);
+      if (bInvalid && aInvalid) {
+        // Stable tiebreakers: createdAtISO, then orderNumber, then id
+        const bCreated = Date.parse(b.createdAtISO);
+        const aCreated = Date.parse(a.createdAtISO);
+        if (!Number.isNaN(bCreated) && !Number.isNaN(aCreated)) {
+          if (bCreated !== aCreated) return bCreated - aCreated;
+        }
+        if (a.orderNumber !== b.orderNumber) {
+          return a.orderNumber < b.orderNumber ? 1 : -1;
+        }
+        if (a.id !== b.id) {
+          return a.id < b.id ? 1 : -1;
+        }
+        return 0;
+      }
+      if (bInvalid) return 1;
+      if (aInvalid) return -1;
+
+      if (bt !== at) return bt - at;
+
+      // Stable tiebreakers when shipped timestamps equal
+      const bCreated = Date.parse(b.createdAtISO);
+      const aCreated = Date.parse(a.createdAtISO);
+      if (
+        !Number.isNaN(bCreated) &&
+        !Number.isNaN(aCreated) &&
+        bCreated !== aCreated
+      ) {
+        return bCreated - aCreated;
+      }
+      if (a.orderNumber !== b.orderNumber) {
+        return a.orderNumber < b.orderNumber ? 1 : -1;
+      }
+      if (a.id !== b.id) {
+        return a.id < b.id ? 1 : -1;
+      }
+      return 0;
+    })
+    .slice(0, pageSize); // now take the first page deterministically
 
   return {
     summary: {

@@ -1,11 +1,15 @@
 /* ==========================================================================
-   Abandoned Hobby — Admin overrides for Payload
+   Abandoned Hobby — Admin overrides for Payload (de-duplicated)
    Notes:
-   - All rules live in @layer payload to cascade after core admin CSS.
-   - We use PX for table column widths (predictable on desktop).
+   - Core component styles live in @layer payload (cascade after admin CSS).
+   - Seller Orders page uses ONLY targeted overrides in @layer payload-default.
+   - Column alignment & numeric formatting are defined once (global).
    - Mobile stack handled in a single media block.
    ========================================================================== */
 
+/* =========================
+   Core component styles
+   ========================= */
 @layer payload {
   /* --- A11y helper: visually hide but keep for screen readers ----------- */
   .sr-only {
@@ -19,17 +23,32 @@
     white-space: nowrap !important;
     border: 0 !important;
   }
+
+  /* Accent token (used by generic buttons) */
+  :root {
+    --ah-accent: #111827; /* deep gray/near-black */
+  }
+  [data-theme='dark'] :root {
+    --ah-accent: #e5e7eb; /* light text in dark mode */
+  }
+
   /* === Tables ============================================================ */
   .ah-table {
     width: 100%;
     border-collapse: collapse;
     table-layout: fixed;
+    background: var(--theme-elevation-50);
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 10px;
+    overflow: hidden;
   }
   .ah-table thead th {
     font-weight: 600;
     color: #444;
     border-top: none;
     text-align: left;
+    background: var(--theme-elevation-75, var(--theme-elevation-50));
+    border-bottom: 1px solid var(--theme-elevation-100);
   }
   .ah-table th,
   .ah-table td {
@@ -50,19 +69,29 @@
   } /* date column */
   .ah-table .ah-col--total {
     width: 120px;
-    text-align: right;
   } /* money */
   .ah-table .ah-col--tracking {
     width: auto;
     min-width: 420px;
   }
 
-  /* Numeric alignment + nowrap where helpful */
+  /* Numeric alignment + nowrap where helpful (GLOBAL) */
   .ah-col--order,
   .ah-col--date,
-  .ah-col--total {
+  .ah-col--total,
+  .ah-col--items {
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
+  }
+  /* Right-align numeric money columns (GLOBAL) */
+  .ah-col--items,
+  .ah-col--total {
+    text-align: right;
+  }
+
+  /* Row hover (gentle, theme-aware) */
+  .ah-table tbody tr:hover td {
+    background: var(--theme-elevation-75, #f7f7f7);
   }
 
   /* === Inline Tracking Form (when rendered in table cells) ============== */
@@ -75,14 +104,11 @@
   .ah-col--tracking .ah-inline-form,
   .ah-col--tracking .ah-form--inline {
     display: grid;
-    /* Carrier | Tracking | Save | Cancel
-       Wider input, explicit gaps for breathing room */
-    grid-template-columns: 120px minmax(260px, 480px) auto auto;
+    grid-template-columns: 120px minmax(260px, 480px) auto auto; /* Carrier | Tracking | Save | Cancel */
     column-gap: 16px;
     row-gap: 8px;
     align-items: center;
   }
-  /* Make wrappers contribute no extra spacing */
   .ah-col--tracking .ah-form-row {
     display: contents;
   }
@@ -91,8 +117,8 @@
     display: inline-flex;
     gap: 8px;
     align-items: center;
-    justify-self: end; /* right side of the grid */
-    grid-column: 3; /* force into the third column */
+    justify-self: end;
+    grid-column: 3;
     white-space: nowrap;
     margin: 0;
     padding: 0;
@@ -116,7 +142,7 @@
     padding: 6px 8px;
   }
 
-  /* Buttons (primary, ghost, danger) — compact + consistent */
+  /* Buttons inside tracking cell (SCOPED) */
   .ah-col--tracking .btn,
   .ah-tracking-cell button[type='submit'] {
     appearance: none;
@@ -155,7 +181,6 @@
     border: 1px solid #f6caca;
     color: #a40000;
   }
-
   [data-theme='dark'] .ah-tracking-cell .btn--danger {
     background: #3b0d0d;
     border-color: #7f1d1d;
@@ -173,7 +198,7 @@
     color: #666;
   }
 
-  /* Tracking code chip + link */
+  /* Tracking chip + link */
   .ah-tracking-cell code {
     font-size: 12.5px;
     padding: 2px 6px;
@@ -251,7 +276,7 @@
     text-align: left;
   }
 
-  /* === Forms (generic) =================================================== */
+  /* === Generic forms ===================================================== */
   .ah-inline-form,
   .ah-form {
     display: grid;
@@ -259,7 +284,6 @@
   }
   .ah-form--inline .ah-form-row {
     display: grid;
-    // grid-template-columns: minmax(80px, 100px) 1fr;
     gap: 8px;
     align-items: center;
   }
@@ -406,7 +430,7 @@
     outline-offset: 2px;
   }
 
-  /* === Refunds UI (flatten group container and style rows) ============== */
+  /* === Refunds UI ======================================================== */
   .field-type.group[data-field-name='refunds'] {
     padding: 0;
     border: none;
@@ -565,6 +589,7 @@
     font-weight: 800;
     letter-spacing: 0.01em;
   }
+
   .ah-mini-hint {
     font-size: 12px;
     opacity: 0.8;
@@ -619,48 +644,125 @@
     pointer-events: none;
   }
 
-  /* === Skeleton shimmer (reduced motion aware) ========================== */
-  .ah-onboarding-skel .ah-skel {
-    border-radius: 0.375rem;
-    position: relative;
-    overflow: hidden;
+  /* === Generic toolbar & pager (GLOBAL, reused) ========================= */
+  .ah-toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+    background: var(--theme-elevation-50);
+    border: 1px solid var(--theme-elevation-100);
+    border-radius: 10px;
+    padding: 10px;
+    margin-bottom: 10px;
   }
-  .ah-skel-text {
-    height: 0.9rem;
+  .ah-toolbar .input {
+    appearance: none;
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+    border: 1px solid var(--theme-elevation-150);
+    border-radius: 8px;
+    padding: 8px 10px;
+    min-height: 36px;
+    line-height: 1.1;
   }
-  .ah-skel-pill {
-    height: 1.25rem;
-    width: 104px;
-    border-radius: 9999px;
-  }
-  .ah-skel-btn {
-    height: 2rem;
-    width: 110px;
-    border-radius: 0.375rem;
+  .ah-toolbar .input:focus-visible {
+    outline: 2px solid var(--ah-accent);
+    outline-offset: 2px;
   }
 
-  @keyframes ah-shimmer {
-    0% {
-      background-position: 200% 0;
-    }
-    100% {
-      background-position: -200% 0;
-    }
+  /* Generic button skin (SCOPED — do not target global .btn) */
+  .ah-toolbar .btn,
+  .ah-pager .btn,
+  .ah-tracking-cell .btn,
+  .ah-refund-btn.btn {
+    appearance: none;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 9px 14px;
+    border-radius: 999px;
+    font-weight: 800;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border: 1px solid #111827;
+    background: var(--ah-accent);
+    color: #fff;
+    line-height: 1;
+    text-decoration: none;
   }
-  [data-theme='light'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #e5e7eb 0%, #f3f4f6 50%, #e5e7eb 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
+  .ah-toolbar .btn:hover,
+  .ah-pager .btn:hover,
+  .ah-tracking-cell .btn:hover,
+  .ah-refund-btn.btn:hover {
+    filter: brightness(0.95);
   }
-  [data-theme='dark'] .ah-onboarding-skel .ah-skel {
-    background: linear-gradient(90deg, #374151 0%, #4b5563 50%, #374151 100%);
-    background-size: 200% 100%;
-    animation: ah-shimmer 1.2s infinite;
+  .ah-toolbar .btn[aria-disabled='true'],
+  .ah-pager .btn[aria-disabled='true'],
+  .ah-tracking-cell .btn[aria-disabled='true'],
+  .ah-refund-btn.btn[aria-disabled='true'],
+  .ah-toolbar .btn:disabled,
+  .ah-pager .btn:disabled,
+  .ah-tracking-cell .btn:disabled,
+  .ah-refund-btn.btn:disabled {
+    opacity: 0.6;
+    pointer-events: none;
   }
-  @media (prefers-reduced-motion: reduce) {
-    .ah-onboarding-skel .ah-skel {
-      animation: none !important;
-    }
+  .ah-toolbar .btn.btn--ghost,
+  .ah-pager .btn.btn--ghost,
+  .ah-tracking-cell .btn.btn--ghost {
+    background: transparent;
+    color: var(--theme-text);
+    border-color: var(--theme-elevation-400, #111827);
+  }
+  .ah-toolbar .btn.btn--sm,
+  .ah-pager .btn.btn--sm,
+  .ah-tracking-cell .btn.btn--sm {
+    padding: 6px 10px;
+    border-radius: 8px;
+    font-weight: 700;
+  }
+
+  .ah-pager__page {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
+  /* Status badges (GLOBAL) */
+  .ah-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 4px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--theme-elevation-200);
+    background: var(--theme-elevation-50);
+    color: var(--theme-text);
+    font-weight: 800;
+    text-transform: capitalize;
+    line-height: 1;
+    font-size: 12.5px;
+  }
+  .ah-badge--unfulfilled {
+    background: #fff7ed;
+    border-color: #fdba74;
+    color: #9a3412;
+  }
+  .ah-badge--shipped {
+    background: #eff6ff;
+    border-color: #93c5fd;
+    color: #1e3a8a;
+  }
+  .ah-badge--delivered {
+    background: #ecfdf5;
+    border-color: #86efac;
+    color: #065f46;
+  }
+  .ah-badge--returned {
+    background: #fef2f2;
+    border-color: #fecaca;
+    color: #991b1b;
   }
 
   /* === Mobile adjustments (single media block) ========================== */
@@ -671,14 +773,12 @@
     .ah-col--tracking .ah-form,
     .ah-col--tracking .ah-inline-form,
     .ah-col--tracking .ah-form--inline {
-      grid-template-columns: 1fr; /* stack controls */
-    }
-
+      grid-template-columns: 1fr;
+    } /* stack controls */
     .ah-col--tracking .ah-form-actions {
       grid-column: auto;
       justify-self: stretch;
     }
-
     .ah-col--tracking .btn {
       width: 100%;
     }
@@ -689,10 +789,11 @@
   }
 }
 
-/* ==========================================================================
-   Base surface tokens for the dashboard shell (outside payload layer)
-   ========================================================================== */
+/* =========================
+   Seller Orders overrides
+   ========================= */
 @layer payload-default {
+  /* Surface tokens for the dashboard shell */
   :root {
     --ah-paper: #f4f4f0; /* sidebar/body */
     --ah-sheet: #fafaf8; /* main content */
@@ -704,7 +805,6 @@
   .app-nav {
     background: var(--ah-paper);
   }
-
   .template-default__wrap {
     background: var(--ah-sheet);
   }
@@ -713,11 +813,39 @@
   .template-default .render-dashboard,
   .template-default .doc,
   .template-default .collection-list,
-  .template-default main {
+  .template-default main,
+  .template-default :where(.gutter, .payload__gutter) {
     background: transparent;
   }
 
-  .template-default :where(.gutter, .payload__gutter) {
-    background: transparent;
+  /* Seller Orders specific table column widths (NO redefinition of base table) */
+  .ah-seller-orders .ah-table .ah-col--order {
+    width: 128px;
+  } /* #12345 */
+  .ah-seller-orders .ah-table .ah-col--date {
+    width: 140px;
+  } /* Oct 30, 2025 */
+  .ah-seller-orders .ah-table .ah-col--buyer {
+    width: auto;
+    min-width: 280px;
+  }
+  .ah-seller-orders .ah-table .ah-col--items {
+    width: 96px;
+  } /* right-align inherited */
+  .ah-seller-orders .ah-table .ah-col--total {
+    width: 120px;
+  }
+  .ah-seller-orders .ah-table .ah-col--status {
+    width: 140px;
+  } /* badge */
+
+  /* Mobile-only adjustments unique to Seller Orders */
+  @media (max-width: 900px) {
+    .ah-seller-orders .ah-table {
+      table-layout: auto;
+    }
+    .ah-seller-orders .ah-table .ah-col--buyer {
+      min-width: 0;
+    }
   }
 }
