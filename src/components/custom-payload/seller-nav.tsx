@@ -1,4 +1,4 @@
-import { NavGroup } from '@payloadcms/ui';
+import { NavGroup, Link } from '@payloadcms/ui';
 import type { ServerProps } from 'payload';
 
 /**
@@ -15,12 +15,12 @@ export function SellerNav({ payload }: ServerProps) {
 
   return (
     <NavGroup label="Seller">
-      <a className="nav__link" href={`${adminBase}/seller`}>
+      <Link className="nav__link" href={`${adminBase}/seller`}>
         <span className="nav__link-label">Seller Dashboard</span>
-      </a>
-      <a className="nav__link" href={`${adminBase}/seller/orders`}>
+      </Link>
+      <Link className="nav__link" href={`${adminBase}/seller/orders`}>
         <span className="nav__link-label">Orders</span>
-      </a>
+      </Link>
     </NavGroup>
   );
 }

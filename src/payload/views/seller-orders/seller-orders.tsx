@@ -4,6 +4,7 @@ import type { AdminViewServerProps } from 'payload';
 import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { getSellerOrdersData } from './seller-orders-utils';
+import { redirect } from 'next/navigation';
 
 /**
  * Renders the admin "Seller Orders" view including filtering controls, results table, and pager.
@@ -12,6 +13,12 @@ import { getSellerOrdersData } from './seller-orders-utils';
  */
 export async function SellerOrders(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
+
+  if (!initPageResult.req.user) {
+    redirect(
+      `/admin/login?redirect=${encodeURIComponent('/admin/seller/orders')}`
+    );
+  }
   const localeCode =
     initPageResult.locale?.code?.replaceAll('_', '-') ?? 'en-US';
 

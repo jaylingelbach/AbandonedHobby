@@ -2,7 +2,7 @@ import { Carrier } from '@/constants';
 
 export type CountSummary = {
   unfulfilledOrders: number;
-  lowInventory: number;
+  unsold: number;
   needsOnboarding: boolean;
 };
 
@@ -12,6 +12,7 @@ export type OrderListItem = {
   totalCents: number;
   createdAt: string;
   fulfillmentStatus: OrderStatus;
+  currency?: string;
 };
 
 export type BuyerCountSummary = {
