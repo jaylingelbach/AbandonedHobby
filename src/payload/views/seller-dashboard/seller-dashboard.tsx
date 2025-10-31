@@ -83,7 +83,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                 className="btn btn--block"
                 href="/admin/collections/products/create"
               >
-                Add Product
+                List a Product
               </Link>
               <Link
                 prefetch={false}
