@@ -171,6 +171,8 @@ export interface Conversation {
   createdAt: string;
 }
 /**
+ * List a product for sale
+ *
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "products".
  */
