@@ -4410,7 +4410,7 @@ src/payload-types.ts, src/payload/views/types.ts
 
 ### Analytics capture hook
 
-- src/lib/server/products/hooks/capture-product-analyrics.ts
+- src/lib/server/products/hooks/capture-product-analytics.ts
   - Added captureProductAnalytics: CollectionAfterChangeHook — on create, derives distinctId, groups tenant in analytics client, and calls captureProductListed with product details; logs non-fatal errors in non-prod.
 
 ### Tenant-count delete hook
