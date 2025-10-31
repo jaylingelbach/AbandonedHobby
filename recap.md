@@ -4462,6 +4462,10 @@ src/payload-types.ts, src/payload/views/types.ts
 
 # Seller dashboard onboarding gate 10/31/25
 
+## Walkthrough
+
+- The PR extracts Messages collection's inline afterChange hook into a new external module that creates notifications, updates Messages imports, adds two-step onboarding detection (expanded data + DB query), makes the seller dashboard Quick Actions button conditional on onboarding status (label and target), and adds button focus styling in SCSS.
+
 ## New Features
 
 - Added onboarding-aware navigation: Quick Actions button now intelligently redirects to Stripe verification when onboarding is incomplete, otherwise to product listing.
@@ -4474,3 +4478,20 @@ src/payload-types.ts, src/payload/views/types.ts
 ## Style
 
 - Updated Quick Actions button styling.
+
+## File changes
+
+### Message notification refactor
+
+- src/collections/Messages.ts, src/lib/server/messages/create-notification-on-new-message.ts
+  - Removed inline afterChange hook from Messages and replaced it with an imported createNotificationOnNewMessage CollectionAfterChangeHook that validates sender/receiver, inserts a notification (conversationId, sender, excerpt, messageId), and logs contextual errors. Removed unused imports from Messages.
+
+### Seller dashboard onboarding & utils
+
+- src/payload/views/seller-dashboard/seller-dashboard.tsx, src/payload/views/utils.ts
+  - Added two-step onboarding detection: needsOnboardingFromExpanded (uses expanded tenant data) and needsOnboardingByQuery (DB count fallback). Seller dashboard loader now derives onboarding state and computes listHref and button title/label to redirect to /stripe-verify when onboarding is incomplete, otherwise to product creation. Added related types (TenantRelId, UserWithTenantsShape).
+
+### Button focus styling
+
+- src/app/(payload)/custom.scss
+  - Added :focus-visible outline rule for several button selectors (including .ah-actions .btn) to show a 2px blue focus ring with 2px offset; no functional logic changes.
