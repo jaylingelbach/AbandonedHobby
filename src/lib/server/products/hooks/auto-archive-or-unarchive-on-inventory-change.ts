@@ -11,16 +11,16 @@ export const autoArchiveOrUnarchiveOnInventoryChange: CollectionAfterChangeHook 
     const status = getDraftStatus(doc);
     if (status && status !== 'published') return;
 
-    // if (operation === 'update') {
-    //   const prevTrack = Boolean(previousDoc?.trackInventory);
-    //   const prevQty =
-    //     typeof previousDoc?.stockQuantity === 'number'
-    //       ? previousDoc.stockQuantity
-    //       : 0;
-    //   const track = Boolean(doc.trackInventory);
-    //   const qty = typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
-    //   if (prevTrack === track && prevQty === qty) return;
-    // }
+    if (operation === 'update') {
+      const prevTrack = Boolean(previousDoc?.trackInventory);
+      const prevQty =
+        typeof previousDoc?.stockQuantity === 'number'
+          ? previousDoc.stockQuantity
+          : 0;
+      const track = Boolean(doc.trackInventory);
+      const qty = typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
+      if (prevTrack === track && prevQty === qty) return;
+    }
     const track = Boolean(doc.trackInventory);
     const qty = typeof doc.stockQuantity === 'number' ? doc.stockQuantity : 0;
     const archived = Boolean(doc.isArchived);
