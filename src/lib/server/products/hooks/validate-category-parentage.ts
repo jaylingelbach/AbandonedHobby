@@ -10,17 +10,31 @@ export const validateCategoryPercentage: CollectionBeforeValidateHook = async ({
 }) => {
   if (operation !== 'create' && operation !== 'update') return data;
 
-  const categoryRel = data?.category ?? originalDoc?.category;
-  const subcategoryRel = data?.subcategory ?? originalDoc?.subcategory;
+  const categoryRel =
+    data && Object.prototype.hasOwnProperty.call(data, 'category')
+      ? (data as { category?: unknown }).category
+      : originalDoc?.category;
+  const subcategoryRel =
+    data && Object.prototype.hasOwnProperty.call(data, 'subcategory')
+      ? (data as { subcategory?: unknown }).subcategory
+      : originalDoc?.subcategory;
 
-  if (!categoryRel || !subcategoryRel) {
-    throw new Error('Please choose both Category and Subcategory.');
+  if (!categoryRel) {
+    throw new Error('Please choose a Category.');
+  }
+
+  if (subcategoryRel == null) {
+    return data;
   }
 
   const categoryId =
-    typeof categoryRel === 'object' ? categoryRel.id : categoryRel;
+    typeof categoryRel === 'object' && categoryRel !== null
+      ? (categoryRel as { id?: string }).id
+      : categoryRel;
   const subcategoryId =
-    typeof subcategoryRel === 'object' ? subcategoryRel.id : subcategoryRel;
+    typeof subcategoryRel === 'object' && subcategoryRel !== null
+      ? (subcategoryRel as { id?: string }).id
+      : subcategoryRel;
 
   // Confirm the subcategory belongs to the selected category
   const subDoc = await req.payload.findByID({
