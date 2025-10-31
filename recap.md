@@ -4459,3 +4459,18 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/lib/server/messages/create-notification-on-new-message.ts
   - Added new CollectionAfterChangeHook that validates receiver and sender, creates a notification in the notifications collection with payload containing conversationId, sender, excerpt of message content, and messageId; includes error handling with contextual logging
+
+# Seller dashboard onboarding gate 10/31/25
+
+## New Features
+
+- Added onboarding-aware navigation: Quick Actions button now intelligently redirects to Stripe verification when onboarding is incomplete, otherwise to product listing.
+- Conditional button text guides sellers to complete required onboarding steps.
+
+## Bug Fixes
+
+- Enhanced onboarding detection by checking both cached tenant data and database queries for accurate Stripe account status.
+
+## Style
+
+- Updated Quick Actions button styling.

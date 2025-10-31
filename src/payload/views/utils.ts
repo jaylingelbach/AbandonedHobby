@@ -200,16 +200,23 @@ function needsOnboardingFromExpanded(
         }
       | undefined;
 
-    if (rel && typeof rel === 'object') {
-      sawExpanded = true;
-      const detailsSubmitted = rel.stripeDetailsSubmitted === true;
-      const hasAccount =
-        typeof rel.stripeAccountId === 'string' &&
-        rel.stripeAccountId.length > 0;
+    if (!rel || typeof rel !== 'object') {
+      continue;
+    }
 
-      if (!detailsSubmitted || !hasAccount) {
-        return true;
-      }
+    const hasStripeFields =
+      'stripeAccountId' in rel || 'stripeDetailsSubmitted' in rel;
+    if (!hasStripeFields) {
+      continue;
+    }
+
+    sawExpanded = true;
+    const detailsSubmitted = rel.stripeDetailsSubmitted === true;
+    const hasAccount =
+      typeof rel.stripeAccountId === 'string' && rel.stripeAccountId.length > 0;
+
+    if (!detailsSubmitted || !hasAccount) {
+      return true;
     }
   }
 

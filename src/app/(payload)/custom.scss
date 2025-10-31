@@ -673,10 +673,10 @@
 
   /* Generic button skin (SCOPED — do not target global .btn) */
   .ah-toolbar .btn,
-.ah-pager .btn,
-.ah-tracking-cell .btn,
-.ah-actions .btn,           /* <-- added */
-.ah-refund-btn.btn {
+  .ah-pager .btn,
+  .ah-tracking-cell .btn,
+  .ah-actions .btn,
+  .ah-refund-btn.btn {
     appearance: none;
     display: inline-flex;
     align-items: center;
@@ -693,6 +693,17 @@
     line-height: 1;
     text-decoration: none;
   }
+
+  /* Keyboard focus ring for generic buttons */
+  .ah-actions .btn:focus-visible,
+  .ah-toolbar .btn:focus-visible,
+  .ah-pager .btn:focus-visible,
+  .ah-tracking-cell .btn:focus-visible,
+  .ah-refund-btn.btn:focus-visible {
+    outline: 2px solid #1d4ed8;
+    outline-offset: 2px;
+  }
+
   .ah-toolbar .btn:hover,
   .ah-pager .btn:hover,
   .ah-tracking-cell .btn:hover,
