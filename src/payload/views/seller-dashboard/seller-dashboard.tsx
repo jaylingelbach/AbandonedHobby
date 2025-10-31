@@ -24,6 +24,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
       `/admin/login?redirect=${encodeURIComponent('/admin/seller/dashboard')}`
     );
   }
+
   let data;
   try {
     data = await getData(props);
@@ -49,6 +50,9 @@ export async function SellerDashboard(props: AdminViewServerProps) {
       </DefaultTemplate>
     );
   }
+  const listHref = data.summary.needsOnboarding
+    ? '/stripe-verify'
+    : '/admin/collections/products/create';
 
   return (
     <DefaultTemplate
@@ -84,12 +88,20 @@ export async function SellerDashboard(props: AdminViewServerProps) {
 
           <UiCard title="Quick Actions">
             <div className="ah-actions ah-actions--stacked">
+              {/* Redirect when onboarding is incomplete */}
               <Link
                 prefetch={false}
                 className="btn btn--block"
-                href="/admin/collections/products/create"
+                href={listHref}
+                title={
+                  data.summary.needsOnboarding
+                    ? 'Complete Stripe onboarding to list products'
+                    : undefined
+                }
               >
-                List a Product
+                {data.summary.needsOnboarding
+                  ? 'Finish Onboarding'
+                  : 'List a Product'}
               </Link>
               <Link
                 prefetch={false}

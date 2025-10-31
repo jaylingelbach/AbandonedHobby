@@ -169,6 +169,83 @@ function buildShippedWhere(): Where {
   };
 }
 
+// Add near your other helpers
+type TenantRelId = string | { id?: string | null };
+type UserWithTenantsShape = {
+  tenants?: Array<{
+    tenant?:
+      | TenantRelId
+      | {
+          id?: string;
+          stripeAccountId?: string | null;
+          stripeDetailsSubmitted?: boolean | null;
+        };
+  }>;
+};
+
+/** True if any tenant needs onboarding (no account id OR details not submitted). */
+function needsOnboardingFromExpanded(
+  user: UserWithTenantsShape
+): boolean | null {
+  const rows = Array.isArray(user.tenants) ? user.tenants : [];
+  let sawExpanded = false;
+
+  for (const row of rows) {
+    const rel = row?.tenant as
+      | string
+      | {
+          id?: string | null;
+          stripeAccountId?: string | null;
+          stripeDetailsSubmitted?: boolean | null;
+        }
+      | undefined;
+
+    if (!rel || typeof rel !== 'object') {
+      continue;
+    }
+
+    const hasStripeFields =
+      'stripeAccountId' in rel || 'stripeDetailsSubmitted' in rel;
+    if (!hasStripeFields) {
+      continue;
+    }
+
+    sawExpanded = true;
+    const detailsSubmitted = rel.stripeDetailsSubmitted === true;
+    const hasAccount =
+      typeof rel.stripeAccountId === 'string' && rel.stripeAccountId.length > 0;
+
+    if (!detailsSubmitted || !hasAccount) {
+      return true;
+    }
+  }
+
+  return sawExpanded ? false : null; // null means we didn't have expanded data
+}
+
+async function needsOnboardingByQuery(
+  payloadInstance: import('payload').Payload,
+  tenantIds: string[]
+): Promise<boolean> {
+  if (tenantIds.length === 0) return false;
+  const count = await payloadInstance.count({
+    collection: 'tenants',
+    where: {
+      and: [
+        { id: { in: tenantIds } },
+        {
+          or: [
+            { stripeDetailsSubmitted: { not_equals: true } },
+            { stripeAccountId: { exists: false } },
+            { stripeAccountId: { equals: '' } }
+          ]
+        }
+      ]
+    }
+  });
+  return readCount(count) > 0;
+}
+
 /* -----------------------------------------------------------------------------
  * Data loader used by the Seller Dashboard
  * -------------------------------------------------------------------------- */
@@ -208,7 +285,13 @@ export async function getData(props: AdminViewServerProps): Promise<{
   }
 
   const tenantIds = getTenantIdsFromUser(currentUser);
-  const needsOnboarding = currentUser.stripeDetailsSubmitted === false;
+  const expandedHint = needsOnboardingFromExpanded(
+    currentUser as UserWithTenantsShape
+  );
+  const needsOnboarding =
+    expandedHint !== null
+      ? expandedHint
+      : await needsOnboardingByQuery(payloadInstance, tenantIds);
 
   // optional: log plugin row ids to avoid confusing them with relation ids
   const tenantArrayRowIds = Array.isArray(
