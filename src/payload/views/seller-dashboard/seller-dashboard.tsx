@@ -88,7 +88,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
 
           <UiCard title="Quick Actions">
             <div className="ah-actions ah-actions--stacked">
-              {/* Disable when onboarding incomplete */}
+              {/* Redirect when onboarding is incomplete */}
               <Link
                 prefetch={false}
                 className="btn btn--block"

@@ -236,9 +236,7 @@ async function needsOnboardingByQuery(
       ]
     }
   });
-  return typeof count === 'number'
-    ? count > 0
-    : (count as { totalDocs?: number }).totalDocs! > 0;
+  return readCount(count) > 0;
 }
 
 /* -----------------------------------------------------------------------------
