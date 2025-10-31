@@ -1,5 +1,5 @@
 import type { AdminViewServerProps, Where } from 'payload';
-import { buildSellerOrdersWhere } from '@/modules/orders/server/utils'; // ← your util
+import { buildSellerOrdersWhere } from '@/modules/orders/server/utils';
 import type { GetInput, SellerOrderRow } from '../types';
 
 /**
