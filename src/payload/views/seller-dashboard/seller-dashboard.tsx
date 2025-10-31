@@ -72,8 +72,8 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             <h2 className="ah-kpi-value">{data.summary.unfulfilledOrders}</h2>
           </UiCard>
 
-          <UiCard title="Low Inventory (2 or fewer available)">
-            <h2 className="ah-kpi-value">{data.summary.lowInventory}</h2>
+          <UiCard title="Unsold">
+            <h2 className="ah-kpi-value">{data.summary.unsold}</h2>
           </UiCard>
 
           <UiCard title="Quick Actions">
@@ -103,11 +103,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
           </UiCard>
         </div>
 
-        <section
-          className="ah-section"
-          aria-labelledby="ah-tracking-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-tracking-heading">
           <h2 id="ah-tracking-heading">Orders needing tracking</h2>
 
           {data.needsTracking.length === 0 ? (
@@ -147,7 +143,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                       )}
                     </td>
                     <td className="ah-col--total">
-                      {formatCurrency((order.totalCents / 100).toFixed(2))}
+                      {formatCurrency(order.totalCents / 100)}
                     </td>
                     <td className="ah-col--tracking">
                       <div className="ah-tracking-cell">
@@ -165,11 +161,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
             </table>
           )}
         </section>
-        <section
-          className="ah-section"
-          aria-labelledby="ah-shipped-heading"
-          style={{ marginTop: 24 }}
-        >
+        <section className="ah-section" aria-labelledby="ah-shipped-heading">
           <h2 id="ah-shipped-heading">Recently shipped (tracking editable)</h2>
 
           {data.recentShipped.length === 0 ? (
@@ -210,7 +202,7 @@ export async function SellerDashboard(props: AdminViewServerProps) {
                     </td>
                     <td className="ah-col--total">
                       {formatCurrency(
-                        (order.totalCents / 100).toFixed(2),
+                        order.totalCents / 100,
                         order.currency ?? 'USD'
                       )}
                     </td>

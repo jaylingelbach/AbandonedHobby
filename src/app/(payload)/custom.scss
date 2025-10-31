@@ -675,6 +675,7 @@
   .ah-toolbar .btn,
   .ah-pager .btn,
   .ah-tracking-cell .btn,
+  .ah-actions .btn,
   .ah-refund-btn.btn {
     appearance: none;
     display: inline-flex;
@@ -695,30 +696,35 @@
   .ah-toolbar .btn:hover,
   .ah-pager .btn:hover,
   .ah-tracking-cell .btn:hover,
+  .ah-actions .btn:hover,
   .ah-refund-btn.btn:hover {
     filter: brightness(0.95);
   }
   .ah-toolbar .btn[aria-disabled='true'],
   .ah-pager .btn[aria-disabled='true'],
   .ah-tracking-cell .btn[aria-disabled='true'],
+  .ah-actions .btn[aria-disabled='true'],
   .ah-refund-btn.btn[aria-disabled='true'],
   .ah-toolbar .btn:disabled,
   .ah-pager .btn:disabled,
   .ah-tracking-cell .btn:disabled,
+  .ah-actions .btn:disabled,
   .ah-refund-btn.btn:disabled {
     opacity: 0.6;
     pointer-events: none;
   }
   .ah-toolbar .btn.btn--ghost,
   .ah-pager .btn.btn--ghost,
-  .ah-tracking-cell .btn.btn--ghost {
+  .ah-tracking-cell .btn.btn--ghost,
+  .ah-actions .btn.btn--ghost {
     background: transparent;
     color: var(--theme-text);
     border-color: var(--theme-elevation-400, #111827);
   }
   .ah-toolbar .btn.btn--sm,
   .ah-pager .btn.btn--sm,
-  .ah-tracking-cell .btn.btn--sm {
+  .ah-tracking-cell .btn.btn--sm,
+  .ah-actions .btn.btn--sm {
     padding: 6px 10px;
     border-radius: 8px;
     font-weight: 700;

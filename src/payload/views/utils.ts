@@ -199,7 +199,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
     return {
       summary: {
         unfulfilledOrders: 0,
-        lowInventory: 0,
+        unsold: 0,
         needsOnboarding: false
       },
       needsTracking: [],
@@ -228,7 +228,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
 
   if (tenantIds.length === 0) {
     return {
-      summary: { unfulfilledOrders: 0, lowInventory: 0, needsOnboarding },
+      summary: { unfulfilledOrders: 0, unsold: 0, needsOnboarding },
       needsTracking: [],
       recentShipped: []
     };
@@ -306,20 +306,20 @@ export async function getData(props: AdminViewServerProps): Promise<{
     }
   });
   const unfulfilledCount = readCount(scopedCountResponse);
-
-  // Low inventory
-  const lowInventoryResponse = await payloadInstance.count({
+  // Unsold
+  const unsoldInventoryResponse = await payloadInstance.count({
     collection: 'products',
     where: {
       and: [
         { tenant: { in: tenantIds } },
         { trackInventory: { equals: true } },
-        { stockQuantity: { less_than_equal: 2 } },
-        { isArchived: { not_equals: true } }
+        { isArchived: { not_equals: true } },
+        { stockQuantity: { greater_than: 0 } }
       ]
     }
   });
-  const lowInventory = readCount(lowInventoryResponse);
+
+  const unsoldInventory = readCount(unsoldInventoryResponse);
 
   // Unfulfilled list
   const ordersResponse = await payloadInstance.find({
@@ -411,7 +411,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
   return {
     summary: {
       unfulfilledOrders: unfulfilledCount,
-      lowInventory,
+      unsold: unsoldInventory,
       needsOnboarding
     },
     needsTracking,
