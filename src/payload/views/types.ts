@@ -12,6 +12,7 @@ export type OrderListItem = {
   totalCents: number;
   createdAt: string;
   fulfillmentStatus: OrderStatus;
+  currency?: string;
 };
 
 export type BuyerCountSummary = {
