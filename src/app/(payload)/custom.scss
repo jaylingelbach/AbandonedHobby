@@ -673,10 +673,10 @@
 
   /* Generic button skin (SCOPED — do not target global .btn) */
   .ah-toolbar .btn,
-  .ah-pager .btn,
-  .ah-tracking-cell .btn,
-  .ah-actions .btn,
-  .ah-refund-btn.btn {
+.ah-pager .btn,
+.ah-tracking-cell .btn,
+.ah-actions .btn,           /* <-- added */
+.ah-refund-btn.btn {
     appearance: none;
     display: inline-flex;
     align-items: center;
@@ -725,6 +725,7 @@
   .ah-pager .btn.btn--sm,
   .ah-tracking-cell .btn.btn--sm,
   .ah-actions .btn.btn--sm {
+    /* <-- added */
     padding: 6px 10px;
     border-radius: 8px;
     font-weight: 700;

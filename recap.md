@@ -4437,3 +4437,25 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/payload-types.ts
   - Added JSDoc description "List a product for sale" above the Product interface.
+
+# Message hook refactor 10/31/25
+
+## Walkthrough
+
+- This pull request refactors the Messages collection's afterChange hook by extracting its inline implementation into a dedicated external handler function, improving code modularity and separation of concerns.
+
+## Refactor
+
+- Reorganized message notification handling for improved code maintainability. The notification creation logic has been extracted into a dedicated, reusable module while maintaining existing functionality.
+
+## File changes
+
+### Messages collection hook refactoring
+
+- src/collections/Messages.ts
+  - Removed inline afterChange hook implementation; updated imports by removing getRelId, extractErrorDetails, and User type, and adding createNotificationOnNewMessage; delegated hook behavior to external function via afterChange: [createNotificationOnNewMessage]
+
+### New notification handler
+
+- src/lib/server/messages/create-notification-on-new-message.ts
+  - Added new CollectionAfterChangeHook that validates receiver and sender, creates a notification in the notifications collection with payload containing conversationId, sender, excerpt of message content, and messageId; includes error handling with contextual logging
