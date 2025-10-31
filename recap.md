@@ -4377,3 +4377,63 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/payload/views/seller-orders/seller-orders-utils.ts
   - Removed inline comment from import statement and added end-of-file newline.
+
+# Refactor product hooks
+
+## Walkthrough
+
+- Extracts inline lifecycle hook logic from the Products collection and wires six new modular server-side hooks for tenant resolution/Stripe readiness, category validation, tenant-count management, analytics capture, and inventory-driven auto-archival; adds a product admin description and minor JSDoc comment.
+
+## New Features
+
+- Products now auto-archive at zero inventory and auto-unarchive when restocked.
+- Product creation events are tracked in analytics.
+- Category/subcategory parentage is validated on product create/update.
+- Admin product listing description added for clarity.
+
+## Improvements
+
+- Stripe account verification required before listing a product.
+- Tenant product counts updated on tenant moves and decremented on delete.
+
+## File changes
+
+### Products collection
+
+- src/collections/Products.ts
+  - Replaced inline lifecycle handlers with references to modular hooks: beforeChange: [resolveTenantAndRequireStripeReady], beforeValidate: [validateCategoryPercentage], afterChange: [updateTenantCountsOnMove, captureProductAnalytics, autoArchiveOrUnarchiveOnInventoryChange], afterDelete: [decrementTenantCountOnDelete]. Updated imports and added admin description "List a product for sale".
+
+### Inventory auto-archive hook
+
+- src/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change.ts
+  - Added autoArchiveOrUnarchiveOnInventoryChange: CollectionAfterChangeHook — toggles isArchived based on trackingInventory and stockQuantity, skips drafts, avoids recursive updates via a request flag, treats non-numeric stock as 0, and issues Payload updates with overrideAccess.
+
+### Analytics capture hook
+
+- src/lib/server/products/hooks/capture-product-analytics.ts
+  - Added captureProductAnalytics: CollectionAfterChangeHook — on create, derives distinctId, groups tenant in analytics client, and calls captureProductListed with product details; logs non-fatal errors in non-prod.
+
+### Tenant-count delete hook
+
+- src/lib/server/products/hooks/decrement-tenant-count-on-delete.ts
+  - Added decrementTenantCountOnDelete: CollectionAfterDeleteHook — decrements tenant product count by -1 using incTenantProductCount, handles tenant as string or object, guards missing tenant.
+
+### Tenant-resolution & Stripe readiness
+
+- src/lib/server/products/hooks/resolve-tenant-and-require-stripe-ready.ts
+  - Added resolveTenantAndRequireStripeReady: CollectionBeforeChangeHook — resolves tenant from data/originalDoc/user, enforces membership, verifies tenant has Stripe fields and is Stripe-ready (account id + details submitted), bypasses system/webhook/server requests and super-admins; throws when unresolved or not ready.
+
+### Tenant-count move hook
+
+- src/lib/server/products/hooks/update-tenant-counts-on-move.ts
+  - Added updateTenantCountsOnMove: CollectionAfterChangeHook — computes previous/next tenant IDs (string or object), performs atomic swap via swapTenantCountsAtomic when both present, or single inc/decrement when attach/detach.
+
+### Category parent validation
+
+- src/lib/server/products/hooks/validate-category-parentage.ts
+  - Added validateCategoryPercentage: CollectionBeforeValidateHook — ensures a provided subcategory's parent matches the selected category (resolves IDs from objects or primitives), throws on mismatch, allows missing subcategory.
+
+### Type docstring
+
+- src/payload-types.ts
+  - Added JSDoc description "List a product for sale" above the Product interface.
