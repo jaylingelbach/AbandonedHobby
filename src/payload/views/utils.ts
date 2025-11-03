@@ -230,6 +230,7 @@ async function needsOnboardingByQuery(
   if (tenantIds.length === 0) return false;
   const count = await payloadInstance.count({
     collection: 'tenants',
+    overrideAccess: true,
     where: {
       and: [
         { id: { in: tenantIds } },

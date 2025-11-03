@@ -4464,7 +4464,7 @@ src/payload-types.ts, src/payload/views/types.ts
 
 ## Walkthrough
 
-- The PR extracts Messages collection's inline afterChange hook into a new external module that creates notifications, updates Messages imports, adds two-step onboarding detection (expanded data + DB query), makes the seller dashboard Quick Actions button conditional on onboarding status (label and target), and adds button focus styling in SCSS.
+- The PR extracts Messages collection's inline afterChange hook into a new external module that creates notifications, updates Messages imports, adds two-step onboarding detection (expanded data + DB query), makes the seller dashboard Quick Actions button conditional on onboarding status (label and target), and adds button focus styling in SCSS.rm -rf node_modules
 
 ## New Features
 
