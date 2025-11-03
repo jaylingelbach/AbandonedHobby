@@ -4541,14 +4541,69 @@ src/payload-types.ts, src/payload/views/types.ts
 - src/app/(app)/not-found.tsx
   - Replaces lucide-react icon imports with inline SVG implementations; removes ah-btn class prefix; changes container from ah-card to plain relative div; removes commented-out code blocks.
 
-# Order breakdown for seller
+# Order breakdown for seller 11/03/25
+
+## Walkthrough
+
+- This PR introduces a seller order detail view with a modal UI and supporting infrastructure. It adds a new GET endpoint for fetching server-authoritative order details including items, amounts with platform and Stripe fees, shipping, and Stripe metadata. A React quick-view modal component displays order breakdowns in the Payload admin. Stripe webhook enhancements backfill missing fees and receipts on duplicates, while checkout procedures now use deterministic idempotency keys. Supporting utilities handle tenant resolution, address formatting, and amounts calculation.
 
 ## New Features
 
-- Added seller order detail view with comprehensive breakdown including items, amounts, shipping, tracking, and platform/Stripe fees
-- Introduced order detail modal for quick viewing of order information with Stripe receipt links
-- Enhanced order details display with improved layout and responsive design
+- Added seller order detail view displaying itemized breakdown, shipping, tracking, fees, and payout information
+- Introduced quick-view modal for order details with Stripe receipt links
+- Enhanced seller orders table with View action for individual orders
+
+## Bug Fixes
+
+- Improved handling of missing Stripe fee and receipt data on duplicate orders
 
 ## Chores
 
-- Added utility functions and constants to support order detail calculations and formatting
+- Enhanced styling for seller order views with responsive layout improvements
+- Updated order calculation pipeline for accurate amount tracking
+
+## File changes
+
+### Seller Order Detail API & Types
+
+- src/app/(app)/api/seller/orders/[orderId]/detail/route.ts, src/app/(app)/api/seller/orders/[orderId]/detail/types.ts
+  - New GET endpoint that authenticates, resolves tenant, authorizes access (super-admin or seller), and returns server-authoritative order breakdown with items, amounts (itemsSubtotal, shipping, discount, tax, platformFee, stripeFee, grossTotal, sellerNet), shipping/tracking, and Stripe metadata.
+  - New SellerOrderDetail type defines the response shape with nested amounts and optional tracking/Stripe objects.
+
+### Order Details UI Components
+
+- src/payload/views/seller-orders/order-quick-view-controller.tsx, src/payload/views/seller-orders/seller-orders.tsx
+  - New React modal component (OrderQuickViewController) renders seller order details with header meta, shipping, items table, totals, and fees/payout.
+  - Enhanced Seller Orders list view adds Actions column with View link that opens the modal via URL query parameter; makeHref utility updated to clean stale view parameters.
+
+### Admin Panel Styling
+
+- src/app/(payload)/custom.scss
+  - Extensive new CSS/SCSS for quick-view modal, responsive grid layouts, table variants (compact with numeric alignment), status badges, button skins, and mobile adjustments.
+  - Introduces .ah-modal, .ah-section-grid, .ah-totals, .ah-badge styles and responsive breakpoints (900px, 1100px).
+
+### Stripe Webhook & Checkout Enhancements
+
+- src/app/(app)/api/stripe/webhooks/route.ts, src/modules/checkout/server/procedures.ts, src/modules/stripe/idempotency.ts
+  - Webhook adds helpers to detect/read stripe fees and receipt URLs; backfill logic fetches missing fees/receipts on duplicates and updates orders.
+  - Checkout procedures build deterministic idempotency keys via new buildIdempotencyKey utility.
+  - New idempotency module provides deterministic
+  - JSON serialization and SHA-256–based key generation supporting circular reference protection.
+
+### Amounts Calculation Refactor
+
+- src/lib/server/orders/lock-and-calc-amounts.ts
+  - Replaces minimal pipeline with full server-authoritative amounts computation.
+  - Adds operation parameter; prioritizes incoming items/amounts, derives itemsSubtotalCents, computes per-source (context fees, incoming create, persisted) values with precedence, calculates grossTotalCents, platformFeeCents, and new sellerNetCents.
+  - Extends AmountsShape with sellerNetCents; updates ReqContextFees to include taxTotalCents and stripeFeeCents.
+
+### Utilities & Constants
+
+- src/modules/users/server/getFirstTenantId.ts, src/payload/views/utils.ts, src/constants.ts
+  - New getFirstTenantId utility safely extracts first tenant ID from user object; supports strings/objects with tenant property.
+  - New compactAddress helper formats shipping address into multi-line string. New DECIMAL_PLATFORM_PERCENTAGE constant (PLATFORM_FEE_PERCENTAGE / 100).
+
+### Configuration
+
+- package.json, recap.md
+  - Removed backfill:latestShippedAt npm script.
