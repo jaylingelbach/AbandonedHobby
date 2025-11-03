@@ -213,7 +213,8 @@ function needsOnboardingFromExpanded(
     sawExpanded = true;
     const detailsSubmitted = rel.stripeDetailsSubmitted === true;
     const hasAccount =
-      typeof rel.stripeAccountId === 'string' && rel.stripeAccountId.length > 0;
+      typeof rel.stripeAccountId === 'string' &&
+      rel.stripeAccountId.trim().length > 0;
 
     if (!detailsSubmitted || !hasAccount) {
       return true;
@@ -230,6 +231,7 @@ async function needsOnboardingByQuery(
   if (tenantIds.length === 0) return false;
   const count = await payloadInstance.count({
     collection: 'tenants',
+    overrideAccess: true,
     where: {
       and: [
         { id: { in: tenantIds } },

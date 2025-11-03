@@ -1,6 +1,6 @@
 # Categories finalization
 
-## New Features
+- The PR extracts Messages collection's inline afterChange hook into a new external module that creates notifications, updates Messages imports, adds two-step onboarding detection (expanded data + DB query), makes the seller dashboard Quick Actions button conditional on onboarding status (label and target), and adds button focus styling in SCSS.
 
 - Introduced a responsive and interactive category navigation sidebar for improved browsing on all devices.
 - Added a new script to seed the database with a comprehensive set of categories and subcategories.
@@ -4495,3 +4495,48 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/app/(payload)/custom.scss
   - Added :focus-visible outline rule for several button selectors (including .ah-actions .btn) to show a 2px blue focus ring with 2px offset; no functional logic changes.
+
+# Maintenance Node upgrade
+
+## Walkthrough
+
+- The pull request extracts the Messages collection's inline afterChange hook into an external notifications module, implements two-step onboarding detection combining expanded data checks and database queries, conditions the seller dashboard Quick Actions button on onboarding status, updates the Stripe API version, refines onboarding utility functions, and replaces lucide-react icons with inline SVGs in the not-found page.
+
+## New Features
+
+- Seller dashboard Quick Actions button now conditionally displays based on account onboarding completion status.
+
+## Improvements
+
+- Enhanced onboarding detection with improved account validation logic.
+
+## Style
+
+- Improved button focus styling for better user interaction.
+- Updated icon rendering on 404 error pages.
+
+## Chores
+
+- Updated Stripe API integration to latest version.
+
+## File changes
+
+### Notifications & Onboarding Logic
+
+- recap.md
+  - Extracts Messages afterChange hook into external notification creation module; adds conditional Quick Actions button based on two-step onboarding detection; includes SCSS focus styling for button states.
+
+### Onboarding Utilities
+
+- src/payload/views/utils.ts
+  - Trims whitespace in account ID validation within needsOnboardingFromExpanded; adds overrideAccess: true to tenant count query in needsOnboardingByQuery.
+
+### Stripe Configuration
+
+- src/lib/stripe.ts
+  - Updates Stripe API version from 2025-07-30.basil to 2025-08-27.basil.
+
+### UI Components
+
+- src/app/(app)/not-found.tsx
+  - Replaces lucide-react icon imports with inline SVG implementations; removes ah-btn class prefix; changes container from ah-card to plain relative div; removes commented-out code blocks.
