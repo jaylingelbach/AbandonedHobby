@@ -16,12 +16,14 @@ export default function OrderQuickViewController() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SellerOrderDetail | null>(null);
+  const [reloadTick, setReloadTick] = useState(0);
 
   const currency = (detail?.currency ?? 'USD').toUpperCase();
 
   // Fetch when ?view= is set
   useEffect(() => {
     let isActive = true;
+    const controller = new AbortController();
     (async () => {
       if (!orderId) {
         setDetail(null);
@@ -32,7 +34,8 @@ export default function OrderQuickViewController() {
       setError(null); // clear stale error on new load
       try {
         const response = await fetch(`/api/seller/orders/${orderId}/detail`, {
-          cache: 'no-store'
+          cache: 'no-store',
+          signal: controller.signal
         });
         if (!response.ok) {
           const message =
@@ -57,14 +60,15 @@ export default function OrderQuickViewController() {
     })();
     return () => {
       isActive = false;
+      controller.abort();
     };
-  }, [orderId]);
+  }, [orderId, reloadTick]);
 
   const onRetry = useCallback(() => {
-    // re-run effect by soft-refreshing the same URL (no scroll)
     setError(null);
-    router.replace(`${pathname}?${searchParams.toString()}`, { scroll: false });
-  }, [pathname, router, searchParams]);
+    setLoading(true);
+    setReloadTick((t) => t + 1);
+  }, []);
 
   const onClose = useCallback(() => {
     setError(null); // clear error when closing
@@ -195,7 +199,7 @@ export default function OrderQuickViewController() {
                                   className="underline"
                                   href={detail.tracking.trackingUrl}
                                   target="_blank"
-                                  rel="noreferrer"
+                                  rel="noopener noreferrer"
                                 >
                                   Open tracking
                                 </a>

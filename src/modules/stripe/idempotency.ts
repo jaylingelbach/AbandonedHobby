@@ -1,7 +1,5 @@
 import crypto from 'node:crypto';
 
-type JsonPrimitive = string | number | boolean | null;
-
 /** Narrow check for plain objects ({} or Object.create(null)) */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
   if (value === null || typeof value !== 'object') return false;
@@ -129,14 +127,19 @@ export function buildIdempotencyKey(args: {
   salt?: string;
 }): string {
   const deterministicJson = toDeterministicJson(args.payload, new WeakSet());
+  const sanitize = (s: string) => s.replace(/:/g, '_');
+  const actor = sanitize(args.actorId);
+  const tenant = sanitize(args.tenantId);
+  const salt = args.salt ? sanitize(args.salt) : undefined;
+
   const digest = crypto
     .createHash('sha256')
     .update(deterministicJson)
     .digest('hex')
     .slice(0, 24);
 
-  const key = `${args.prefix}:${args.actorId}:${args.tenantId}:${digest}${
-    args.salt ? `:${args.salt}` : ''
+  const key = `${args.prefix}:${actor}:${tenant}:${digest}${
+    salt ? `:${salt}` : ''
   }`;
   return key.length > 255 ? key.slice(0, 255) : key;
 }
