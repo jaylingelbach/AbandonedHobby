@@ -671,269 +671,259 @@
     outline-offset: 2px;
   }
 
-  @layer payload {
-    /* ===== Quick View Modal ================================================= */
-    .ah-modal {
-      position: fixed;
-      inset: 0;
-      z-index: 9999;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 16px;
-      background: rgba(0, 0, 0, 0.5);
-    }
-    .ah-modal__panel {
-      width: 100%;
-      max-width: 1100px;
-      border: 4px solid #000;
-      border-radius: 16px;
-      background: #fff;
-      box-shadow: 8px 8px 0 0 rgba(0, 0, 0, 1);
-    }
-    .ah-modal__head {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 16px 20px;
-      border-bottom: 2px solid #000;
-    }
-    .ah-modal__body {
-      padding: 16px 20px 20px;
-    }
+  /* ===== Quick View Modal ================================================= */
+  .ah-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    background: rgba(0, 0, 0, 0.5);
+  }
+  .ah-modal__panel {
+    width: 100%;
+    max-width: 1100px;
+    border: 4px solid var(--theme-text, #000);
+    border-radius: 16px;
+    background: var(--theme-elevation-0, #fff);
+    box-shadow: 8px 8px 0 0 rgba(0, 0, 0, 1);
+  }
+  .ah-modal__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 16px 20px;
+    border-bottom: 2px solid var(--theme-text, #000);
+  }
+  .ah-modal__body {
+    padding: 16px 20px 20px;
+  }
 
-    /* Head meta: Order # | Placed | Buyer */
+  /* Head meta: Order # | Placed | Buyer */
+  .ah-head-grid {
+    display: grid;
+    gap: 12px;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  @media (max-width: 1100px) {
     .ah-head-grid {
-      display: grid;
-      gap: 12px;
-      grid-template-columns: repeat(3, minmax(0, 1fr));
-    }
-    @media (max-width: 900px) {
-      .ah-head-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-    .ah-meta-label {
-      font-size: 12px;
-      text-transform: uppercase;
-      color: #6b7280;
-    }
-    .ah-meta-value {
-      font-weight: 600;
-    }
-
-    /* Section cards */
-    .ah-section-grid {
-      display: grid;
-      gap: 16px;
-      grid-template-columns: 1fr 1fr;
-    }
-    @media (max-width: 1100px) {
-      .ah-section-grid {
-        grid-template-columns: 1fr;
-      }
-    }
-    .ah-card {
-      border: 1px solid var(--theme-elevation-100);
-      border-radius: 10px;
-      background: var(--theme-elevation-50);
-    }
-    .ah-card__head {
-      padding: 10px 12px;
-      border-bottom: 1px solid var(--theme-elevation-100);
-      font-size: 13px;
-      font-weight: 600;
-    }
-    .ah-card__body {
-      padding: 12px;
-    }
-
-    /* Address block */
-    .ah-address {
-      white-space: pre-wrap;
-      font-size: 13px;
-    }
-
-    /* Compact table (reuses your base .ah-table look) */
-    .ah-table.ah-table--compact thead th {
-      font-size: 12px;
-    }
-    .ah-table.ah-table--compact th,
-    .ah-table.ah-table--compact td {
-      padding: 6px 8px;
-      font-size: 13px;
-    }
-    .ah-col--qty,
-    .ah-col--unit,
-    .ah-col--line {
-      text-align: right;
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    /* Totals list (right column) */
-    .ah-totals {
-      display: grid;
-      gap: 8px;
-    }
-    .ah-totals__row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      gap: 12px;
-      font-size: 13px;
-    }
-    .ah-totals__row--em {
-      font-weight: 600;
-    }
-    .ah-totals__row--strong {
-      font-weight: 800;
-    }
-    .ah-money {
-      font-variant-numeric: tabular-nums;
-      white-space: nowrap;
-    }
-
-    /* Footer links in right column */
-    .ah-totals__footer {
-      margin-top: 8px;
-      font-size: 13px;
-    }
-  }
-
-  /* Generic button skin (SCOPED — do not target global .btn) */
-  .ah-toolbar .btn,
-  .ah-pager .btn,
-  .ah-tracking-cell .btn,
-  .ah-actions .btn,
-  .ah-refund-btn.btn {
-    appearance: none;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px;
-    padding: 9px 14px;
-    border-radius: 999px;
-    font-weight: 800;
-    letter-spacing: 0.01em;
-    cursor: pointer;
-    border: 1px solid #111827;
-    background: var(--ah-accent);
-    color: #fff;
-    line-height: 1;
-    text-decoration: none;
-  }
-
-  /* Keyboard focus ring for generic buttons */
-  .ah-actions .btn:focus-visible,
-  .ah-toolbar .btn:focus-visible,
-  .ah-pager .btn:focus-visible,
-  .ah-tracking-cell .btn:focus-visible,
-  .ah-refund-btn.btn:focus-visible {
-    outline: 2px solid #1d4ed8;
-    outline-offset: 2px;
-  }
-
-  .ah-toolbar .btn:hover,
-  .ah-pager .btn:hover,
-  .ah-tracking-cell .btn:hover,
-  .ah-actions .btn:hover,
-  .ah-refund-btn.btn:hover {
-    filter: brightness(0.95);
-  }
-  .ah-toolbar .btn[aria-disabled='true'],
-  .ah-pager .btn[aria-disabled='true'],
-  .ah-tracking-cell .btn[aria-disabled='true'],
-  .ah-actions .btn[aria-disabled='true'],
-  .ah-refund-btn.btn[aria-disabled='true'],
-  .ah-toolbar .btn:disabled,
-  .ah-pager .btn:disabled,
-  .ah-tracking-cell .btn:disabled,
-  .ah-actions .btn:disabled,
-  .ah-refund-btn.btn:disabled {
-    opacity: 0.6;
-    pointer-events: none;
-  }
-  .ah-toolbar .btn.btn--ghost,
-  .ah-pager .btn.btn--ghost,
-  .ah-tracking-cell .btn.btn--ghost,
-  .ah-actions .btn.btn--ghost {
-    background: transparent;
-    color: var(--theme-text);
-    border-color: var(--theme-elevation-400, #111827);
-  }
-  .ah-toolbar .btn.btn--sm,
-  .ah-pager .btn.btn--sm,
-  .ah-tracking-cell .btn.btn--sm,
-  .ah-actions .btn.btn--sm {
-    padding: 6px 10px;
-    border-radius: 8px;
-    font-weight: 700;
-  }
-
-  .ah-pager__page {
-    padding-left: 5px;
-    padding-right: 5px;
-  }
-
-  /* Status badges (GLOBAL) */
-  .ah-badge {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    padding: 4px 10px;
-    border-radius: 999px;
-    border: 1px solid var(--theme-elevation-200);
-    background: var(--theme-elevation-50);
-    color: var(--theme-text);
-    font-weight: 800;
-    text-transform: capitalize;
-    line-height: 1;
-    font-size: 12.5px;
-  }
-  .ah-badge--unfulfilled {
-    background: #fff7ed;
-    border-color: #fdba74;
-    color: #9a3412;
-  }
-  .ah-badge--shipped {
-    background: #eff6ff;
-    border-color: #93c5fd;
-    color: #1e3a8a;
-  }
-  .ah-badge--delivered {
-    background: #ecfdf5;
-    border-color: #86efac;
-    color: #065f46;
-  }
-  .ah-badge--returned {
-    background: #fef2f2;
-    border-color: #fecaca;
-    color: #991b1b;
-  }
-
-  /* === Mobile adjustments (single media block) ========================== */
-  @media (max-width: 900px) {
-    .ah-table .ah-col--tracking {
-      min-width: 0;
-    }
-    .ah-col--tracking .ah-form,
-    .ah-col--tracking .ah-inline-form,
-    .ah-col--tracking .ah-form--inline {
       grid-template-columns: 1fr;
-    } /* stack controls */
-    .ah-col--tracking .ah-form-actions {
-      grid-column: auto;
-      justify-self: stretch;
     }
-    .ah-col--tracking .btn {
-      width: 100%;
+  }
+  .ah-meta-label {
+    font-size: 12px;
+    text-transform: uppercase;
+    color: #6b7280;
+  }
+  .ah-meta-value {
+    font-weight: 600;
+  }
+
+  /* Section cards */
+  .ah-section-grid {
+    display: grid;
+    gap: 16px;
+    grid-template-columns: 1fr 1fr;
+  }
+  @media (max-width: 1100px) {
+    .ah-section-grid {
+      grid-template-columns: 1fr;
     }
-    .ah-refund-btn {
-      width: 100%;
-      text-align: center;
-    }
+  }
+
+  .ah-card__head {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--theme-elevation-100);
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .ah-card__body {
+    padding: 12px;
+  }
+
+  /* Address block */
+  .ah-address {
+    white-space: pre-wrap;
+    font-size: 13px;
+  }
+
+  /* Compact table (reuses your base .ah-table look) */
+  .ah-table.ah-table--compact thead th {
+    font-size: 12px;
+  }
+  .ah-table.ah-table--compact th,
+  .ah-table.ah-table--compact td {
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  .ah-col--qty,
+  .ah-col--unit,
+  .ah-col--line {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Totals list (right column) */
+  .ah-totals {
+    display: grid;
+    gap: 8px;
+  }
+  .ah-totals__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    font-size: 13px;
+  }
+  .ah-totals__row--em {
+    font-weight: 600;
+  }
+  .ah-totals__row--strong {
+    font-weight: 800;
+  }
+
+  /* Footer links in right column */
+  .ah-totals__footer {
+    margin-top: 8px;
+    font-size: 13px;
+  }
+}
+
+/* Generic button skin (SCOPED — do not target global .btn) */
+.ah-toolbar .btn,
+.ah-pager .btn,
+.ah-tracking-cell .btn,
+.ah-actions .btn,
+.ah-refund-btn.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 9px 14px;
+  border-radius: 999px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  border: 1px solid #111827;
+  background: var(--ah-accent);
+  color: #fff;
+  line-height: 1;
+  text-decoration: none;
+}
+
+/* Keyboard focus ring for generic buttons */
+.ah-actions .btn:focus-visible,
+.ah-toolbar .btn:focus-visible,
+.ah-pager .btn:focus-visible,
+.ah-tracking-cell .btn:focus-visible,
+.ah-refund-btn.btn:focus-visible {
+  outline: 2px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.ah-toolbar .btn:hover,
+.ah-pager .btn:hover,
+.ah-tracking-cell .btn:hover,
+.ah-actions .btn:hover,
+.ah-refund-btn.btn:hover {
+  filter: brightness(0.95);
+}
+.ah-toolbar .btn[aria-disabled='true'],
+.ah-pager .btn[aria-disabled='true'],
+.ah-tracking-cell .btn[aria-disabled='true'],
+.ah-actions .btn[aria-disabled='true'],
+.ah-refund-btn.btn[aria-disabled='true'],
+.ah-toolbar .btn:disabled,
+.ah-pager .btn:disabled,
+.ah-tracking-cell .btn:disabled,
+.ah-actions .btn:disabled,
+.ah-refund-btn.btn:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+.ah-toolbar .btn.btn--ghost,
+.ah-pager .btn.btn--ghost,
+.ah-tracking-cell .btn.btn--ghost,
+.ah-actions .btn.btn--ghost {
+  background: transparent;
+  color: var(--theme-text);
+  border-color: var(--theme-elevation-400, #111827);
+}
+.ah-toolbar .btn.btn--sm,
+.ah-pager .btn.btn--sm,
+.ah-tracking-cell .btn.btn--sm,
+.ah-actions .btn.btn--sm {
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-weight: 700;
+}
+
+.ah-pager__page {
+  padding-left: 5px;
+  padding-right: 5px;
+}
+
+/* Status badges (GLOBAL) */
+.ah-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--theme-elevation-200);
+  background: var(--theme-elevation-50);
+  color: var(--theme-text);
+  font-weight: 800;
+  text-transform: capitalize;
+  line-height: 1;
+  font-size: 12.5px;
+}
+.ah-badge--unfulfilled {
+  background: #fff7ed;
+  border-color: #fdba74;
+  color: #9a3412;
+}
+.ah-badge--shipped {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1e3a8a;
+}
+.ah-badge--delivered {
+  background: #ecfdf5;
+  border-color: #86efac;
+  color: #065f46;
+}
+.ah-badge--returned {
+  background: #fef2f2;
+  border-color: #fecaca;
+  color: #991b1b;
+}
+
+/* === Mobile adjustments (single media block) ========================== */
+@media (max-width: 900px) {
+  .ah-table .ah-col--tracking {
+    min-width: 0;
+  }
+  .ah-col--tracking .ah-form,
+  .ah-col--tracking .ah-inline-form,
+  .ah-col--tracking .ah-form--inline {
+    grid-template-columns: 1fr;
+  } /* stack controls */
+  .ah-col--tracking .ah-form-actions {
+    grid-column: auto;
+    justify-self: stretch;
+  }
+  .ah-col--tracking .btn {
+    width: 100%;
+  }
+  .ah-refund-btn {
+    width: 100%;
+    text-align: center;
   }
 }
 

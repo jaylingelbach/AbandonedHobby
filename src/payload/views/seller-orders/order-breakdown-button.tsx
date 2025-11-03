@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents } from '@/lib/utils';
 
 import { compactAddress } from '../utils';
 import type { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
@@ -10,26 +10,32 @@ export function OrderBreakdownButton(props: {
   orderId: string;
   currency: string;
 }) {
-  const { orderId } = props;
+  const { orderId, currency: currencyProp } = props;
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SellerOrderDetail | null>(null);
-  const currency = (detail?.currency ?? 'USD').toUpperCase();
+  const currency = (detail?.currency ?? currencyProp ?? 'USD').toUpperCase();
 
   useEffect(() => {
     if (!open) return;
     let isActive = true;
     (async () => {
       setLoading(true);
+      setError(null);
       try {
         const response = await fetch(`/api/seller/orders/${orderId}/detail`, {
-          cache: 'no-store'
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          }
         });
         if (!response.ok) throw new Error('Failed to load order');
         const json = (await response.json()) as SellerOrderDetail;
         if (isActive) setDetail(json);
       } catch (error) {
         console.error(error);
+        if (isActive)
+          setError('Failed to load order details. Please try again.');
       } finally {
         if (isActive) setLoading(false);
       }
@@ -38,6 +44,15 @@ export function OrderBreakdownButton(props: {
       isActive = false;
     };
   }, [open, orderId]);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    window.addEventListener('keydown', handleEscape);
+    return () => window.removeEventListener('keydown', handleEscape);
+  }, [open]);
 
   return (
     <>
@@ -65,6 +80,7 @@ export function OrderBreakdownButton(props: {
 
             <div className="p-5 space-y-6">
               {loading && <div>Loading…</div>}
+              {error && <div className="text-red-600">{error}</div>}
               {!loading && detail && (
                 <>
                   {/* Meta */}
@@ -162,16 +178,10 @@ export function OrderBreakdownButton(props: {
                             {item.quantity}
                           </div>
                           <div className="col-span-2 text-right">
-                            {formatCurrency(
-                              item.unitAmountCents / 100,
-                              currency
-                            )}
+                            {formatCents(item.unitAmountCents, currency)}
                           </div>
                           <div className="col-span-2 text-right">
-                            {formatCurrency(
-                              item.amountTotalCents / 100,
-                              currency
-                            )}
+                            {formatCents(item.amountTotalCents, currency)}
                           </div>
                         </div>
                       ))}
@@ -185,8 +195,8 @@ export function OrderBreakdownButton(props: {
                       <div className="flex justify-between">
                         <span>Items Subtotal</span>
                         <span>
-                          {formatCurrency(
-                            detail.amounts.itemsSubtotalCents / 100,
+                          {formatCents(
+                            detail.amounts.itemsSubtotalCents,
                             currency
                           )}
                         </span>
@@ -194,36 +204,26 @@ export function OrderBreakdownButton(props: {
                       <div className="flex justify-between">
                         <span>Shipping</span>
                         <span>
-                          {formatCurrency(
-                            detail.amounts.shippingCents / 100,
-                            currency
-                          )}
+                          {formatCents(detail.amounts.shippingCents, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Discounts</span>
                         <span>
-                          −
-                          {formatCurrency(
-                            detail.amounts.discountCents / 100,
-                            currency
-                          )}
+                          −{formatCents(detail.amounts.discountCents, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span>Tax</span>
                         <span>
-                          {formatCurrency(
-                            detail.amounts.taxCents / 100,
-                            currency
-                          )}
+                          {formatCents(detail.amounts.taxCents, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between font-medium">
                         <span>Gross Total</span>
                         <span>
-                          {formatCurrency(
-                            detail.amounts.grossTotalCents / 100,
+                          {formatCents(
+                            detail.amounts.grossTotalCents,
                             currency
                           )}
                         </span>
@@ -238,8 +238,8 @@ export function OrderBreakdownButton(props: {
                         <span>Platform Fee</span>
                         <span>
                           −
-                          {formatCurrency(
-                            detail.amounts.platformFeeCents / 100,
+                          {formatCents(
+                            detail.amounts.platformFeeCents,
                             currency
                           )}
                         </span>
@@ -248,19 +248,13 @@ export function OrderBreakdownButton(props: {
                         <span>Stripe Fee</span>
                         <span>
                           −
-                          {formatCurrency(
-                            detail.amounts.stripeFeeCents / 100,
-                            currency
-                          )}
+                          {formatCents(detail.amounts.stripeFeeCents, currency)}
                         </span>
                       </div>
                       <div className="flex justify-between font-bold">
                         <span>Net Payout</span>
                         <span>
-                          {formatCurrency(
-                            detail.amounts.sellerNetCents / 100,
-                            currency
-                          )}
+                          {formatCents(detail.amounts.sellerNetCents, currency)}
                         </span>
                       </div>
                       {detail.stripe?.receiptUrl && (

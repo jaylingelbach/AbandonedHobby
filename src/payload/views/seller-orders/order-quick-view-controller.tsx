@@ -14,6 +14,7 @@ export default function OrderQuickViewController() {
 
   const orderId = searchParams.get('view');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SellerOrderDetail | null>(null);
 
   const currency = (detail?.currency ?? 'USD').toUpperCase();
@@ -36,7 +37,10 @@ export default function OrderQuickViewController() {
         if (isActive) setDetail(json);
       } catch (error) {
         console.error('[OrderQuickView] load error', error);
-        if (isActive) setDetail(null);
+        if (isActive) {
+          setDetail(null);
+          setError('Failed to load order details');
+        }
       } finally {
         if (isActive) setLoading(false);
       }
@@ -50,11 +54,7 @@ export default function OrderQuickViewController() {
     const params = new URLSearchParams(searchParams.toString());
     params.delete('view');
     const next = params.size ? `${pathname}?${params.toString()}` : pathname;
-    if (next === window.location.pathname + window.location.search) {
-      router.replace(pathname, { scroll: false });
-    } else {
-      router.replace(next, { scroll: false });
-    }
+    router.replace(next, { scroll: false });
   }, [pathname, router, searchParams]);
 
   // Close on ESC
@@ -71,14 +71,26 @@ export default function OrderQuickViewController() {
   if (!orderId) return null;
 
   const content = (
-    <div className="ah-modal" role="dialog" aria-modal="true" onClick={onClose}>
+    <div
+      className="ah-modal"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="modal-title"
+      onClick={onClose}
+    >
       <div
         className="ah-modal__panel"
         onClick={(event) => event.stopPropagation()}
       >
         <div className="ah-modal__head">
-          <h2 className="text-xl font-bold">Order Breakdown</h2>
-          <button className="btn btn--ghost" onClick={onClose}>
+          <h2 id="modal-title" className="text-xl font-bold">
+            Order Breakdown
+          </h2>
+          <button
+            className="btn btn--ghost"
+            onClick={onClose}
+            aria-label="Close modal"
+          >
             Close
           </button>
         </div>
@@ -187,7 +199,7 @@ export default function OrderQuickViewController() {
                         </thead>
                         <tbody>
                           {detail.items.map((item, index) => (
-                            <tr key={index}>
+                            <tr key={index ?? item.nameSnapshot}>
                               <td>{item.nameSnapshot}</td>
                               <td className="ah-col--qty">{item.quantity}</td>
                               <td className="ah-col--unit">

@@ -21,9 +21,9 @@ export async function GET(
 
   try {
     // 1) Auth & current user via your tRPC context
-    const ctx = await createTRPCContext();
-    const caller = appRouter.createCaller(ctx);
-    const session = await ctx.db.auth({ headers: ctx.headers });
+    const trpcCtx = await createTRPCContext();
+    const caller = appRouter.createCaller(trpcCtx);
+    const session = await trpcCtx.db.auth({ headers: trpcCtx.headers });
     const roles: string[] = Array.isArray(
       (session.user as { roles?: string[] } | undefined)?.roles
     )
@@ -65,15 +65,7 @@ export async function GET(
     ) {
       return NextResponse.json(
         {
-          error: 'Forbidden',
-          debug: {
-            userId: me.user.id,
-            roles,
-            isSuperAdmin,
-            tenantId,
-            orderSellerTenant,
-            orderId
-          }
+          error: 'Forbidden'
         },
         { status: 403 }
       );
@@ -93,7 +85,7 @@ export async function GET(
             'Item';
           const quantity = Math.max(
             1,
-            toIntCents((raw as { quantity?: unknown }).quantity ?? 1)
+            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
           );
           const unitAmountCents = toIntCents(
             (raw as { unitAmount?: unknown }).unitAmount ?? 0
@@ -183,6 +175,14 @@ export async function GET(
     });
   } catch (error) {
     console.error(error);
+    if (
+      error &&
+      typeof error === 'object' &&
+      'status' in error &&
+      error.status === 404
+    ) {
+      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+    }
     return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
   }
 }
