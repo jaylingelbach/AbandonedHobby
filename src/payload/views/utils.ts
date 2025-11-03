@@ -213,7 +213,8 @@ function needsOnboardingFromExpanded(
     sawExpanded = true;
     const detailsSubmitted = rel.stripeDetailsSubmitted === true;
     const hasAccount =
-      typeof rel.stripeAccountId === 'string' && rel.stripeAccountId.length > 0;
+      typeof rel.stripeAccountId === 'string' &&
+      rel.stripeAccountId.trim().length > 0;
 
     if (!detailsSubmitted || !hasAccount) {
       return true;
