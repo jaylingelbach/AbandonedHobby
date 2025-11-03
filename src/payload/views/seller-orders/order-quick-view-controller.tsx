@@ -360,7 +360,7 @@ export default function OrderQuickViewController() {
                               className="underline"
                               href={detail.stripe.receiptUrl}
                               target="_blank"
-                              rel="noreferrer"
+                              rel="noreferrer noopener"
                             >
                               View Stripe receipt
                             </a>

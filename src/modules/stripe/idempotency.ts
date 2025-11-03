@@ -127,10 +127,10 @@ export function buildIdempotencyKey(args: {
   salt?: string;
 }): string {
   const deterministicJson = toDeterministicJson(args.payload, new WeakSet());
-  const sanitize = (s: string) => s.replace(/:/g, '_');
-  const actor = sanitize(args.actorId);
-  const tenant = sanitize(args.tenantId);
-  const salt = args.salt ? sanitize(args.salt) : undefined;
+  const encode = (s: string) => encodeURIComponent(s);
+  const actor = encode(args.actorId);
+  const tenant = encode(args.tenantId);
+  const salt = args.salt ? encode(args.salt) : undefined;
 
   const digest = crypto
     .createHash('sha256')
@@ -141,5 +141,9 @@ export function buildIdempotencyKey(args: {
   const key = `${args.prefix}:${actor}:${tenant}:${digest}${
     salt ? `:${salt}` : ''
   }`;
-  return key.length > 255 ? key.slice(0, 255) : key;
+  if (key.length > 255) {
+    console.warn(`Idempotency key truncated: ${key.slice(0, 50)}...`);
+    return key.slice(0, 255);
+  }
+  return key;
 }
