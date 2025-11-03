@@ -1,4 +1,4 @@
-ghimport crypto from 'node:crypto';
+import crypto from 'node:crypto';
 
 type JsonPrimitive = string | number | boolean | null;
 type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
