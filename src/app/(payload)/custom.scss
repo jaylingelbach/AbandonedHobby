@@ -690,6 +690,7 @@
     border-radius: 16px;
     background: var(--theme-elevation-0, #fff);
     box-shadow: 8px 8px 0 0 rgba(0, 0, 0, 1);
+    box-sizing: border-box;
     max-height: calc(100vh - 32px);
     overflow-y: auto;
   }
