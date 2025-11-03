@@ -809,7 +809,7 @@
   font-weight: 800;
   letter-spacing: 0.01em;
   cursor: pointer;
-  border: 1px solid #111827;
+  border: 1px solid var(--ah-accent);
   background: var(--ah-accent);
   color: #fff;
   line-height: 1;
@@ -884,9 +884,9 @@
   font-size: 12.5px;
 }
 .ah-badge--unfulfilled {
-  background: #fff7ed;
-  border-color: #fdba74;
-  color: #9a3412;
+  background: var(--badge-unfulfilled-bg, #fff7ed);
+  border-color: var(--badge-unfulfilled-border, #fdba74);
+  color: var(--badge-unfulfilled-text, #9a3412);
 }
 .ah-badge--shipped {
   background: #eff6ff;

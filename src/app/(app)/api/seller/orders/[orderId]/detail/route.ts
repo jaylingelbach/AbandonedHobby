@@ -85,7 +85,7 @@ export async function GET(
             'Item';
           const quantity = Math.max(
             1,
-            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
+            toIntCents((raw as { quantity?: unknown }).quantity ?? 1)
           );
           const unitAmountCents = toIntCents(
             (raw as { unitAmount?: unknown }).unitAmount ?? 0
@@ -107,33 +107,38 @@ export async function GET(
       (sum, it) => sum + it.amountTotalCents,
       0
     );
-    const shippingCents = toIntCents(
-      (order as { shippingTotalCents?: unknown }).shippingTotalCents ?? 0
-    );
-    const discountCents = toIntCents(
-      (order as { discountTotalCents?: unknown }).discountTotalCents ?? 0
-    );
-    const taxCents = toIntCents(
-      (order as { taxTotalCents?: unknown }).taxTotalCents ?? 0
-    );
+    // Pull order-level amounts from the amounts group
+    const amountsGroup =
+      (
+        order as {
+          amounts?: {
+            shippingTotalCents?: unknown;
+            discountTotalCents?: unknown;
+            taxTotalCents?: unknown;
+            platformFeeCents?: unknown;
+            stripeFeeCents?: unknown;
+          };
+        }
+      ).amounts ?? {};
+
+    const shippingCents = toIntCents(amountsGroup.shippingTotalCents ?? 0);
+    const discountCents = toIntCents(amountsGroup.discountTotalCents ?? 0);
+    const taxCents = toIntCents(amountsGroup.taxTotalCents ?? 0);
 
     const grossTotalCents = Math.max(
       0,
       Math.trunc(itemsSubtotalCents + shippingCents - discountCents + taxCents)
     );
 
-    const storedStripeFeeCents = toIntCents(
-      (order as { stripeFeeCents?: unknown }).stripeFeeCents ?? 0
-    );
+    const storedStripeFeeCents = toIntCents(amountsGroup.stripeFeeCents ?? 0);
+
     const computedPlatformFeeCents = Math.max(
       0,
       Math.trunc(grossTotalCents * DECIMAL_PLATFORM_PERCENTAGE)
     );
     const platformFeeCents =
-      toIntCents(
-        (order as { platformFeeCents?: unknown }).platformFeeCents ??
-          computedPlatformFeeCents
-      ) || computedPlatformFeeCents;
+      toIntCents(amountsGroup.platformFeeCents ?? computedPlatformFeeCents) ||
+      computedPlatformFeeCents;
 
     const sellerNetCents = Math.max(
       0,
@@ -170,7 +175,8 @@ export async function GET(
         chargeId:
           (order as { stripeChargeId?: unknown }).stripeChargeId ?? null,
         receiptUrl:
-          (order as { stripeReceiptUrl?: unknown }).stripeReceiptUrl ?? null
+          ((order as { documents?: { receiptUrl?: unknown } }).documents
+            ?.receiptUrl as string | null) ?? null
       }
     });
   } catch (error) {

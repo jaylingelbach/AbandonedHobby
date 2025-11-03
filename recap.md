@@ -4496,7 +4496,7 @@ src/payload-types.ts, src/payload/views/types.ts
 - src/app/(payload)/custom.scss
   - Added :focus-visible outline rule for several button selectors (including .ah-actions .btn) to show a 2px blue focus ring with 2px offset; no functional logic changes.
 
-# Maintenance Node upgrade
+# Maintenance Node upgrade 11/3/25
 
 ## Walkthrough
 
@@ -4540,3 +4540,15 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/app/(app)/not-found.tsx
   - Replaces lucide-react icon imports with inline SVG implementations; removes ah-btn class prefix; changes container from ah-card to plain relative div; removes commented-out code blocks.
+
+# Order breakdown for seller
+
+## New Features
+
+- Added seller order detail view with comprehensive breakdown including items, amounts, shipping, tracking, and platform/Stripe fees
+- Introduced order detail modal for quick viewing of order information with Stripe receipt links
+- Enhanced order details display with improved layout and responsive design
+
+## Chores
+
+- Added utility functions and constants to support order detail calculations and formatting

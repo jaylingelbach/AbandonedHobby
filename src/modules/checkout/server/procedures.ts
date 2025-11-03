@@ -17,10 +17,9 @@ import {
   protectedProcedure
 } from '@/trpc/init';
 
-
-
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { getPrimaryCardImageUrl } from './utils';
+import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
 
 export const runtime = 'nodejs';
 
@@ -278,39 +277,47 @@ export const checkoutRouter = createTRPCRouter({
         const isTaxReady = settings.status === 'active' && regs.data.length > 0;
         const attemptId = randomUUID();
 
-        checkout = await stripe.checkout.sessions.create(
-          {
-            mode: 'payment',
-            line_items: lineItems,
-            client_reference_id: attemptId,
-            automatic_tax: { enabled: isTaxReady },
-            invoice_creation: { enabled: true },
-            customer_email: user.email ?? undefined,
-            success_url,
-            cancel_url,
+        // Build the *exact* payload first
+        const sessionPayloadBase: Stripe.Checkout.SessionCreateParams = {
+          mode: 'payment',
+          line_items: lineItems,
+          client_reference_id: attemptId,
 
-            metadata: {
-              userId: user.id,
-              attemptId,
-              tenantId: String(sellerTenantId),
-              tenantSlug: String(sellerTenant.slug),
-              sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-              productIds: input.productIds.join(',')
-            } as CheckoutMetadata,
+          automatic_tax: { enabled: isTaxReady },
+          invoice_creation: { enabled: true },
 
-            payment_intent_data: {
-              application_fee_amount: platformFeeAmount
-            },
+          customer_email: user.email ?? undefined,
+          success_url,
+          cancel_url,
 
-            shipping_address_collection: { allowed_countries: ['US'] },
-            billing_address_collection: 'required'
+          metadata: {
+            userId: user.id,
+            tenantId: String(sellerTenantId),
+            tenantSlug: String(sellerTenant.slug),
+            sellerStripeAccountId: String(sellerTenant.stripeAccountId),
+            productIds: input.productIds.join(',')
+          } satisfies CheckoutMetadata,
+
+          payment_intent_data: {
+            application_fee_amount: platformFeeAmount
           },
-          {
-            stripeAccount: sellerTenant.stripeAccountId,
-            // 10‑minute window bucket; prevents immediate duplicates but allows later re‑orders
-            idempotencyKey: `checkout:${user.id}:${[...input.productIds].sort().join(',')}:${sellerTenantId}:t${Math.floor(Date.now() / (10 * 60 * 1000))}`
-          }
-        );
+
+          shipping_address_collection: { allowed_countries: ['US'] },
+          billing_address_collection: 'required'
+        };
+
+        // Derive a deterministic key from the payload (prevents parameter-mismatch errors)
+        const idempotencyKey = buildIdempotencyKey({
+          prefix: 'checkout',
+          actorId: user.id,
+          tenantId: String(sellerTenantId),
+          payload: sessionPayloadBase
+        });
+
+        checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
+          stripeAccount: sellerTenant.stripeAccountId,
+          idempotencyKey
+        });
 
         // Analytics (non-blocking)
         try {
@@ -332,7 +339,6 @@ export const checkoutRouter = createTRPCRouter({
             groups: { tenant: String(sellerTenantId) },
             timestamp: new Date()
           });
-
           await flushIfNeeded();
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {

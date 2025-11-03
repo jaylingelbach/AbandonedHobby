@@ -703,6 +703,14 @@ export async function POST(req: Request) {
             chargeId: typeof charge.id === 'string' ? charge.id : null
           });
 
+        console.log('[webhook][fees]', {
+          sessionId: session.id,
+          paymentIntentId: paymentIntent.id,
+          chargeId: String(charge.id),
+          stripeFeeCents,
+          receiptUrl
+        });
+
         if (
           totalAmountInCents <= 0 &&
           typeof paymentIntent.amount_received === 'number'
@@ -855,6 +863,9 @@ export async function POST(req: Request) {
         });
 
         try {
+          console.log('[webhook][orders.create] amounts to persist', {
+            stripeFeeCents
+          });
           const created = await tryCall('orders.create', () =>
             payloadInstance.create({
               collection: 'orders',
@@ -878,13 +889,8 @@ export async function POST(req: Request) {
                 fulfillmentStatus: 'unfulfilled',
                 total: totalAmountInCents,
                 ...(shippingGroup ? { shipping: shippingGroup } : {}),
-                // NEW: Save the Stripe fee into amounts so the beforeChange hook can compute sellerNet
-                amounts: {
-                  stripeFeeCents: stripeFeeCents
-                },
-                documents: {
-                  receiptUrl
-                }
+                amounts: { stripeFeeCents: stripeFeeCents },
+                documents: { receiptUrl }
               },
               overrideAccess: true
             })
