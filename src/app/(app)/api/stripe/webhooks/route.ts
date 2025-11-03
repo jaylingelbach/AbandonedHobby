@@ -863,9 +863,6 @@ export async function POST(req: Request) {
         });
 
         try {
-          console.log('[webhook][orders.create] amounts to persist', {
-            stripeFeeCents
-          });
           const created = await tryCall('orders.create', () =>
             payloadInstance.create({
               collection: 'orders',
@@ -889,7 +886,7 @@ export async function POST(req: Request) {
                 fulfillmentStatus: 'unfulfilled',
                 total: totalAmountInCents,
                 ...(shippingGroup ? { shipping: shippingGroup } : {}),
-                amounts: { stripeFeeCents: stripeFeeCents },
+                amounts: { stripeFeeCents },
                 documents: { receiptUrl }
               },
               overrideAccess: true

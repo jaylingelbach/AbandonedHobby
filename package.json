@@ -14,8 +14,7 @@
     "db:importmap": "payload generate:importmap",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
     "send:test": "ts-node --loader ts-node/esm scripts/test-email.ts",
-    "migrate:media": "tsx -r dotenv/config src/scripts/migrate-media-to-s3-urls.ts",
-    "backfill:stripeFees": "tsx -r tsconfig-paths/register -r dotenv/config src/scripts/backfill-stripe-fees.ts"
+    "migrate:media": "tsx -r dotenv/config src/scripts/migrate-media-to-s3-urls.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.890.0",

@@ -306,12 +306,59 @@ export const checkoutRouter = createTRPCRouter({
           billing_address_collection: 'required'
         };
 
+        const stableForKey: {
+          mode: Stripe.Checkout.SessionCreateParams.Mode;
+          // keep only the fields that influence actual Stripe semantics
+          line_items: Stripe.Checkout.SessionCreateParams.LineItem[];
+          automatic_tax: Stripe.Checkout.SessionCreateParams.AutomaticTax;
+          invoice_creation: Stripe.Checkout.SessionCreateParams.InvoiceCreation;
+          customer_email?: string;
+          success_url: string;
+          cancel_url: string;
+          metadata: CheckoutMetadata;
+          payment_intent_data?: Stripe.Checkout.SessionCreateParams.PaymentIntentData;
+          shipping_address_collection?: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection;
+          billing_address_collection?: Stripe.Checkout.SessionCreateParams.BillingAddressCollection;
+        } = {
+          mode: sessionPayloadBase.mode!,
+          // sort deterministically by product id, then unit_amount, then quantity
+          line_items: [...(sessionPayloadBase.line_items ?? [])].sort(
+            (a, b) => {
+              const aMeta = (a.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const bMeta = (b.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const aId = String((aMeta as ProductMetadata).id ?? '');
+              const bId = String((bMeta as ProductMetadata).id ?? '');
+              if (aId !== bId) return aId < bId ? -1 : 1;
+              const aAmt = a.price_data?.unit_amount ?? 0;
+              const bAmt = b.price_data?.unit_amount ?? 0;
+              if (aAmt !== bAmt) return aAmt - bAmt;
+              const aQty = a.quantity ?? 0;
+              const bQty = b.quantity ?? 0;
+              return aQty - bQty;
+            }
+          ),
+          automatic_tax: sessionPayloadBase.automatic_tax!,
+          invoice_creation: sessionPayloadBase.invoice_creation!,
+          customer_email: sessionPayloadBase.customer_email,
+          success_url: sessionPayloadBase.success_url!,
+          cancel_url: sessionPayloadBase.cancel_url!,
+          metadata: sessionPayloadBase.metadata as CheckoutMetadata,
+          payment_intent_data: sessionPayloadBase.payment_intent_data,
+          shipping_address_collection:
+            sessionPayloadBase.shipping_address_collection,
+          billing_address_collection:
+            sessionPayloadBase.billing_address_collection
+        };
+
         // Derive a deterministic key from the payload (prevents parameter-mismatch errors)
         const idempotencyKey = buildIdempotencyKey({
           prefix: 'checkout',
           actorId: user.id,
           tenantId: String(sellerTenantId),
-          payload: sessionPayloadBase
+          payload: stableForKey, // deterministic
+          salt: attemptId // randomness lives here
         });
 
         checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {

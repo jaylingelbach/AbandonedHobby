@@ -77,10 +77,20 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const itemTotals: number[] = itemsArray.map((raw) => {
     const quantity = Math.max(1, Math.trunc(Number(raw.quantity ?? 1)));
     const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
-    const explicitLineTotal = toIntCents(raw.amountTotal ?? 0);
-    return explicitLineTotal > 0
-      ? explicitLineTotal
-      : unitAmountCents * quantity;
+    const explicitSubtotal = toIntCents(raw.amountSubtotal ?? 0);
+    const explicitTotal = toIntCents(raw.amountTotal ?? 0);
+    const explicitTax = toIntCents(raw.amountTax ?? 0);
+
+    if (explicitSubtotal > 0) {
+      return explicitSubtotal;
+    }
+    if (explicitTotal > 0 && explicitTax > 0) {
+      return Math.max(0, explicitTotal - explicitTax);
+    }
+    if (explicitTotal > 0) {
+      return explicitTotal;
+    }
+    return unitAmountCents * quantity;
   });
 
   const itemsSubtotalCents = itemTotals.reduce(
