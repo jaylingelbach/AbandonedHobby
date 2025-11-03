@@ -1,6 +1,51 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
 import type { ShippedOrderListItem } from '@/modules/orders/types';
+import { Carrier } from '@/constants';
+
+type SellerOrderDetail = {
+  id: string;
+  orderNumber: string;
+  createdAtISO: string;
+  currency: string;
+  buyerEmail?: string | null;
+  shipping?: {
+    name?: string | null;
+    address1?: string | null;
+    address2?: string | null;
+    city?: string | null;
+    state?: string | null;
+    postalCode?: string | null;
+    country?: string | null;
+  } | null;
+  tracking?: {
+    carrier?: Carrier | null;
+    trackingNumber?: string | null;
+    trackingUrl?: string | null;
+    shippedAtISO?: string | null;
+  } | null;
+  items: Array<{
+    nameSnapshot: string;
+    quantity: number;
+    unitAmountCents: number;
+    amountTotalCents: number;
+  }>;
+  amounts: {
+    itemsSubtotalCents: number;
+    shippingCents: number;
+    discountCents: number;
+    taxCents: number;
+    platformFeeCents: number;
+    stripeFeeCents: number;
+    grossTotalCents: number;
+    sellerNetCents: number;
+  };
+  stripe?: {
+    paymentIntentId?: string | null;
+    chargeId?: string | null;
+    receiptUrl?: string | null;
+  };
+};
 
 /* -----------------------------------------------------------------------------
  * Helpers used by the data loader
@@ -502,4 +547,18 @@ export async function getData(props: AdminViewServerProps): Promise<{
     needsTracking,
     recentShipped
   };
+}
+
+export function compactAddress(addr: SellerOrderDetail['shipping']): string {
+  if (!addr) return '';
+  const parts = [
+    addr.name,
+    addr.address1,
+    addr.address2,
+    [addr.city, addr.state, addr.postalCode].filter(Boolean).join(', '),
+    addr.country
+  ]
+    .filter(Boolean)
+    .map((v) => String(v));
+  return parts.join('\n');
 }

@@ -17,10 +17,9 @@ import {
   protectedProcedure
 } from '@/trpc/init';
 
-
-
 import { CheckoutMetadata, ProductMetadata } from '../types';
 import { getPrimaryCardImageUrl } from './utils';
+import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
 
 export const runtime = 'nodejs';
 
@@ -278,39 +277,94 @@ export const checkoutRouter = createTRPCRouter({
         const isTaxReady = settings.status === 'active' && regs.data.length > 0;
         const attemptId = randomUUID();
 
-        checkout = await stripe.checkout.sessions.create(
-          {
-            mode: 'payment',
-            line_items: lineItems,
-            client_reference_id: attemptId,
-            automatic_tax: { enabled: isTaxReady },
-            invoice_creation: { enabled: true },
-            customer_email: user.email ?? undefined,
-            success_url,
-            cancel_url,
+        // Build the *exact* payload first
+        const sessionPayloadBase: Stripe.Checkout.SessionCreateParams = {
+          mode: 'payment',
+          line_items: lineItems,
+          client_reference_id: attemptId,
 
-            metadata: {
-              userId: user.id,
-              attemptId,
-              tenantId: String(sellerTenantId),
-              tenantSlug: String(sellerTenant.slug),
-              sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-              productIds: input.productIds.join(',')
-            } as CheckoutMetadata,
+          automatic_tax: { enabled: isTaxReady },
+          invoice_creation: { enabled: true },
 
-            payment_intent_data: {
-              application_fee_amount: platformFeeAmount
-            },
+          customer_email: user.email ?? undefined,
+          success_url,
+          cancel_url,
 
-            shipping_address_collection: { allowed_countries: ['US'] },
-            billing_address_collection: 'required'
+          metadata: {
+            userId: user.id,
+            tenantId: String(sellerTenantId),
+            tenantSlug: String(sellerTenant.slug),
+            sellerStripeAccountId: String(sellerTenant.stripeAccountId),
+            productIds: input.productIds.join(',')
+          } satisfies CheckoutMetadata,
+
+          payment_intent_data: {
+            application_fee_amount: platformFeeAmount
           },
-          {
-            stripeAccount: sellerTenant.stripeAccountId,
-            // 10‑minute window bucket; prevents immediate duplicates but allows later re‑orders
-            idempotencyKey: `checkout:${user.id}:${[...input.productIds].sort().join(',')}:${sellerTenantId}:t${Math.floor(Date.now() / (10 * 60 * 1000))}`
-          }
-        );
+
+          shipping_address_collection: { allowed_countries: ['US'] },
+          billing_address_collection: 'required'
+        };
+
+        const stableForKey: {
+          mode: Stripe.Checkout.SessionCreateParams.Mode;
+          // keep only the fields that influence actual Stripe semantics
+          line_items: Stripe.Checkout.SessionCreateParams.LineItem[];
+          automatic_tax: Stripe.Checkout.SessionCreateParams.AutomaticTax;
+          invoice_creation: Stripe.Checkout.SessionCreateParams.InvoiceCreation;
+          customer_email?: string;
+          success_url: string;
+          cancel_url: string;
+          metadata: CheckoutMetadata;
+          payment_intent_data?: Stripe.Checkout.SessionCreateParams.PaymentIntentData;
+          shipping_address_collection?: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection;
+          billing_address_collection?: Stripe.Checkout.SessionCreateParams.BillingAddressCollection;
+        } = {
+          mode: sessionPayloadBase.mode!,
+          // sort deterministically by product id, then unit_amount, then quantity
+          line_items: [...(sessionPayloadBase.line_items ?? [])].sort(
+            (a, b) => {
+              const aMeta = (a.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const bMeta = (b.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const aId = String((aMeta as ProductMetadata).id ?? '');
+              const bId = String((bMeta as ProductMetadata).id ?? '');
+              if (aId !== bId) return aId < bId ? -1 : 1;
+              const aAmt = a.price_data?.unit_amount ?? 0;
+              const bAmt = b.price_data?.unit_amount ?? 0;
+              if (aAmt !== bAmt) return aAmt - bAmt;
+              const aQty = a.quantity ?? 0;
+              const bQty = b.quantity ?? 0;
+              return aQty - bQty;
+            }
+          ),
+          automatic_tax: sessionPayloadBase.automatic_tax!,
+          invoice_creation: sessionPayloadBase.invoice_creation!,
+          customer_email: sessionPayloadBase.customer_email,
+          success_url: sessionPayloadBase.success_url!,
+          cancel_url: sessionPayloadBase.cancel_url!,
+          metadata: sessionPayloadBase.metadata as CheckoutMetadata,
+          payment_intent_data: sessionPayloadBase.payment_intent_data,
+          shipping_address_collection:
+            sessionPayloadBase.shipping_address_collection,
+          billing_address_collection:
+            sessionPayloadBase.billing_address_collection
+        };
+
+        // Derive a deterministic key from the payload (prevents parameter-mismatch errors)
+        const idempotencyKey = buildIdempotencyKey({
+          prefix: 'checkout',
+          actorId: user.id,
+          tenantId: String(sellerTenantId),
+          payload: stableForKey, // deterministic
+          salt: attemptId // randomness lives here
+        });
+
+        checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
+          stripeAccount: sellerTenant.stripeAccountId,
+          idempotencyKey
+        });
 
         // Analytics (non-blocking)
         try {
@@ -332,7 +386,6 @@ export const checkoutRouter = createTRPCRouter({
             groups: { tenant: String(sellerTenantId) },
             timestamp: new Date()
           });
-
           await flushIfNeeded();
         } catch (err) {
           if (process.env.NODE_ENV !== 'production') {
