@@ -136,7 +136,8 @@ export function buildIdempotencyKey(args: {
     .digest('hex')
     .slice(0, 24);
 
-  return `${args.prefix}:${args.actorId}:${args.tenantId}:${digest}${
+  const key = `${args.prefix}:${args.actorId}:${args.tenantId}:${digest}${
     args.salt ? `:${args.salt}` : ''
   }`;
+  return key.length > 255 ? key.slice(0, 255) : key;
 }
