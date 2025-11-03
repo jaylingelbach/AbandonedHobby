@@ -1,7 +1,6 @@
 import crypto from 'node:crypto';
 
 type JsonPrimitive = string | number | boolean | null;
-type JsonValue = JsonPrimitive | JsonValue[] | { [key: string]: JsonValue };
 
 /** Narrow check for plain objects ({} or Object.create(null)) */
 function isPlainObject(value: unknown): value is Record<string, unknown> {
