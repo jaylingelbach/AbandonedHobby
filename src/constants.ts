@@ -1,5 +1,6 @@
 export const DEFAULT_LIMIT = 8;
 export const PLATFORM_FEE_PERCENTAGE = 10;
+export const DECIMAL_PLATFORM_PERCENTAGE = 0.1;
 
 export const carriers = ['usps', 'ups', 'fedex', 'other'] as const;
 export type Carrier = (typeof carriers)[number];

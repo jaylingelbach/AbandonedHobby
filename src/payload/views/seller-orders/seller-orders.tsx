@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { formatCurrency } from '@/lib/utils';
 import { getSellerOrdersData } from './seller-orders-utils';
 import { redirect } from 'next/navigation';
+import OrderQuickViewController from './order-quick-view-controller';
 
 /**
  * Renders the admin "Seller Orders" view including filtering controls, results table, and pager.
@@ -29,31 +30,30 @@ export async function SellerOrders(props: AdminViewServerProps) {
   const makeHref = (updates: Record<string, string | number | undefined>) => {
     const url = new URL(
       `${initPageResult.req.payload.config.routes?.admin ?? '/admin'}/seller`,
-      'http://localhost' // base ignored by Next when rendering href
+      'http://localhost'
     );
-    // Carry forward current params
     const current = new URLSearchParams();
     if (searchParams) {
       for (const [key, value] of Object.entries(searchParams)) {
-        if (typeof value === 'string') {
-          current.set(key, value);
-        }
+        if (typeof value === 'string') current.set(key, value);
       }
     }
+
+    // remove any stale ?view by default
+    const passedView = Object.prototype.hasOwnProperty.call(updates, 'view');
+    if (!passedView) current.delete('view');
+
     for (const [key, value] of Object.entries(updates)) {
-      if (value === undefined || value === '') {
-        current.delete(key);
-      } else {
-        current.set(key, String(value));
-      }
+      if (value === undefined || value === '') current.delete(key);
+      else current.set(key, String(value));
     }
-    // Always target this view path; if you mount at a different path, adjust above
+
     url.pathname = `${
       initPageResult.req.payload.config.routes?.admin ?? '/admin'
     }/seller/orders`;
     url.search = current.toString();
     const search = url.search;
-    return search ? `${url.pathname}?${search}` : url.pathname;
+    return `${url.pathname}${search}`;
   };
 
   return (
@@ -166,6 +166,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
                 <col className="ah-col--items" />
                 <col className="ah-col--total" />
                 <col className="ah-col--status" />
+                <col className="ah-col--actions" />
               </colgroup>
               <thead>
                 <tr>
@@ -175,6 +176,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
                   <th>Items</th>
                   <th>Total</th>
                   <th>Status</th>
+                  <th>Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -202,6 +204,14 @@ export async function SellerOrders(props: AdminViewServerProps) {
                         {row.status}
                       </span>
                     </td>
+                    <td>
+                      <Link
+                        className="btn btn--ghost"
+                        href={makeHref({ view: row.id })}
+                      >
+                        View
+                      </Link>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -228,6 +238,7 @@ export async function SellerOrders(props: AdminViewServerProps) {
               </Link>
             )}
           </div>
+          <OrderQuickViewController />
         </div>
       </Gutter>
     </DefaultTemplate>

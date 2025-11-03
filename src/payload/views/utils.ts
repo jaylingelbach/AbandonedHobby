@@ -1,6 +1,7 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import type { CountResult, CountSummary, OrderListItem } from './types';
 import type { ShippedOrderListItem } from '@/modules/orders/types';
+import { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
 
 /* -----------------------------------------------------------------------------
  * Helpers used by the data loader
@@ -502,4 +503,18 @@ export async function getData(props: AdminViewServerProps): Promise<{
     needsTracking,
     recentShipped
   };
+}
+
+export function compactAddress(addr: SellerOrderDetail['shipping']): string {
+  if (!addr) return '';
+  const parts = [
+    addr.name,
+    addr.address1,
+    addr.address2,
+    [addr.city, addr.state, addr.postalCode].filter(Boolean).join(', '),
+    addr.country
+  ]
+    .filter(Boolean)
+    .map((v) => String(v));
+  return parts.join('\n');
 }
