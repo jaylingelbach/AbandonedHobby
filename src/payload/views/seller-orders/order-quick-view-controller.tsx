@@ -25,21 +25,31 @@ export default function OrderQuickViewController() {
     (async () => {
       if (!orderId) {
         setDetail(null);
+        setError(null); // clear when closing/removing ?view
         return;
       }
       setLoading(true);
+      setError(null); // clear stale error on new load
       try {
         const response = await fetch(`/api/seller/orders/${orderId}/detail`, {
           cache: 'no-store'
         });
-        if (!response.ok) throw new Error('Failed to load order');
+        if (!response.ok) {
+          const message =
+            response.status === 404
+              ? 'Order not found.'
+              : `Failed to load order (HTTP ${response.status}).`;
+          throw new Error(message);
+        }
         const json = (await response.json()) as SellerOrderDetail;
         if (isActive) setDetail(json);
-      } catch (error) {
-        console.error('[OrderQuickView] load error', error);
+      } catch (err: unknown) {
+        console.error('[OrderQuickView] load error', err);
         if (isActive) {
           setDetail(null);
-          setError('Failed to load order details');
+          const fallback =
+            err instanceof Error ? err.message : 'Failed to load order.';
+          setError(fallback);
         }
       } finally {
         if (isActive) setLoading(false);
@@ -50,7 +60,14 @@ export default function OrderQuickViewController() {
     };
   }, [orderId]);
 
+  const onRetry = useCallback(() => {
+    // re-run effect by soft-refreshing the same URL (no scroll)
+    setError(null);
+    router.replace(`${pathname}?${searchParams.toString()}`, { scroll: false });
+  }, [pathname, router, searchParams]);
+
   const onClose = useCallback(() => {
+    setError(null); // clear error when closing
     const params = new URLSearchParams(searchParams.toString());
     params.delete('view');
     const next = params.size ? `${pathname}?${params.toString()}` : pathname;
@@ -97,7 +114,28 @@ export default function OrderQuickViewController() {
 
         <div className="ah-modal__body">
           {loading && <div>Loading…</div>}
-          {!loading && detail && (
+
+          {!loading && error && (
+            <div
+              role="alert"
+              aria-live="assertive"
+              className="ah-card border-red-500 bg-red-50 text-red-900"
+            >
+              <div className="ah-card__body flex items-start justify-between gap-3">
+                <div>{error}</div>
+                <div className="flex gap-2">
+                  <button className="btn btn--ghost" onClick={onRetry}>
+                    Retry
+                  </button>
+                  <button className="btn btn--ghost" onClick={onClose}>
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {!loading && !error && detail && (
             <div className="space-y-4">
               {/* Header meta */}
               <div className="ah-card">
@@ -199,7 +237,7 @@ export default function OrderQuickViewController() {
                         </thead>
                         <tbody>
                           {detail.items.map((item, index) => (
-                            <tr key={index ?? item.nameSnapshot}>
+                            <tr key={`${item.nameSnapshot}-${index}`}>
                               <td>{item.nameSnapshot}</td>
                               <td className="ah-col--qty">{item.quantity}</td>
                               <td className="ah-col--unit">
