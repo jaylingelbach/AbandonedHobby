@@ -1,66 +1,91 @@
 'use client';
 
-// ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect } from 'react';
-
-// ─── Third-party Libraries ───────────────────────────────────────────────────
+import { useEffect, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
-// ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
-
-// ─── Project Components ──────────────────────────────────────────────────────
 import { Button } from '@/components/ui/button';
 
-// ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+import { ShippingMode } from '@/modules/orders/types';
 
 interface Props {
   tenantSlug: string;
   productId: string;
   isPurchased: boolean;
   orderId?: string;
+  shippingMode?: 'free' | 'flat' | 'calculated';
+  shippingFeeCentsPerUnit?: number;
 }
 
-export const CartButton = ({ tenantSlug, productId }: Props) => {
+export const CartButton = ({
+  tenantSlug,
+  productId,
+  isPurchased, // kept for parity with prior props; not used here
+  orderId, // kept for parity with prior props; not used here
+  shippingMode,
+  shippingFeeCentsPerUnit
+}: Props) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   const cart = useCart(tenantSlug, session?.user?.id);
 
+  const normalized = useMemo(() => {
+    const mode: ShippingMode =
+      shippingMode === 'flat' || shippingMode === 'calculated'
+        ? shippingMode
+        : 'free';
+
+    // Round to nearest cent and clamp to non-negative integer
+    const fee =
+      typeof shippingFeeCentsPerUnit === 'number' &&
+      Number.isFinite(shippingFeeCentsPerUnit)
+        ? Math.max(0, Math.round(shippingFeeCentsPerUnit))
+        : 0;
+
+    return { mode, fee };
+  }, [shippingMode, shippingFeeCentsPerUnit]);
+
   useEffect(() => {
     if (!session?.user?.id) return;
-
+    const userId = session.user.id;
     const run = () => {
       const state = useCartStore.getState();
       if (state.currentUserKey.startsWith('anon:')) {
-        if (session.user) {
-          state.migrateAnonToUser(tenantSlug, session.user.id);
-        }
+        state.migrateAnonToUser(tenantSlug, userId);
       } else {
-        if (session.user) {
-          state.setCurrentUserKey?.(session.user.id);
-        }
+        state.setCurrentUserKey?.(userId);
       }
     };
-    // hydrate-safe
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
-  }, [tenantSlug, session?.user?.id, session?.user]);
+    return () => unsubscribe?.();
+  }, [tenantSlug, session?.user?.id]);
+
+  const isInCart = cart.isProductInCart(productId);
 
   return (
     <Button
       variant="elevated"
-      className={cn(
-        'flex-1 bg-pink-400',
-        cart.isProductInCart(productId) && 'bg-white'
-      )}
-      onClick={() => cart.toggleProduct(productId)}
+      className={cn('flex-1 bg-pink-400', isInCart && 'bg-white')}
+      onClick={() => {
+        // Write shipping snapshot before toggling
+        useCartStore
+          .getState()
+          .setProductShippingSnapshot(
+            tenantSlug,
+            productId,
+            normalized.mode,
+            normalized.fee
+          );
+
+        cart.toggleProduct(productId);
+      }}
     >
-      {cart.isProductInCart(productId) ? 'Remove from cart' : 'Add to cart'}
+      {isInCart ? 'Remove from cart' : 'Add to cart'}
     </Button>
   );
 };

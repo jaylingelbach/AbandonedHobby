@@ -1,4 +1,3 @@
-// src/modules/shipping/quote.ts
 export type ShippingMode = 'free' | 'flat' | 'calculated';
 
 export interface OrderItemForQuote {

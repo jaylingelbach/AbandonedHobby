@@ -21,19 +21,13 @@ const readIfSuperAdmin: FieldAccess = ({ req }) => {
   return Array.isArray(roles) && roles.includes('super-admin');
 };
 
-/**
- * Orders
- *
- * Canonical buyer field: `buyer`
- *
- * Seller identity: `sellerTenant`
- * - This is the tenant that received payment; used for access scoping.
- *
- * Primary product reference (legacy): `product`
- * - Kept for compatibility / quick links. The authoritative list of purchased
- *   items is the `items[]` array (each with its own `product`).
- * - You can remove this later once all callers use `items[]`.
- */
+type ShippingMode = 'free' | 'flat' | 'calculated';
+
+function normalizeMode(value: unknown): ShippingMode {
+  return value === 'free' || value === 'flat' || value === 'calculated'
+    ? value
+    : 'free';
+}
 
 export const Orders: CollectionConfig = {
   slug: 'orders',
@@ -54,6 +48,51 @@ export const Orders: CollectionConfig = {
       lockAndCalculateAmounts,
       async (args) => computeLatestShippedAt(args),
       autoSetDeliveredAt
+    ],
+    beforeValidate: [
+      ({ data }) => {
+        // Normalize shipping snapshots on each item
+        if (data && Array.isArray((data as { items?: unknown }).items)) {
+          const originalItems = (data as { items: unknown[] }).items;
+          (data as { items: unknown[] }).items = originalItems.map((row) => {
+            if (!row || typeof row !== 'object') return row;
+
+            const item = row as Record<string, unknown>;
+
+            // mode → required, validated, default 'free'
+            const mode = normalizeMode(item.shippingMode);
+            item.shippingMode = mode;
+
+            // quantity default = 1
+            const quantity =
+              typeof item.quantity === 'number' &&
+              Number.isFinite(item.quantity)
+                ? Math.max(1, Math.trunc(item.quantity))
+                : 1;
+
+            // fee (integer cents) only when flat
+            if (mode === 'flat') {
+              const feeRaw = item.shippingFeeCentsPerUnit;
+              const fee =
+                typeof feeRaw === 'number' && Number.isFinite(feeRaw)
+                  ? Math.max(0, Math.trunc(feeRaw))
+                  : 0;
+
+              item.shippingFeeCentsPerUnit = fee;
+              item.shippingSubtotalCents = fee * quantity;
+            } else {
+              // clear stale values for non-flat modes
+              if ('shippingFeeCentsPerUnit' in item) {
+                delete item.shippingFeeCentsPerUnit;
+              }
+              item.shippingSubtotalCents = 0;
+            }
+
+            return item;
+          });
+        }
+        return data;
+      }
     ]
   },
   fields: [
@@ -84,7 +123,7 @@ export const Orders: CollectionConfig = {
       type: 'relationship',
       relationTo: 'tenants',
       required: true,
-      index: true // faster access filters
+      index: true
     },
 
     // ----- Legacy primary product pointer (keep for compatibility) -----
@@ -194,25 +233,52 @@ export const Orders: CollectionConfig = {
           name: 'shippingMode',
           type: 'select',
           hasMany: false,
+          required: true,
+          defaultValue: 'free',
           options: [
             { label: 'Free', value: 'free' },
             { label: 'Flat', value: 'flat' },
             { label: 'Calculated', value: 'calculated' }
-          ]
+          ],
+          admin: { readOnly: true }, // snapshot – set by server
+          access: { create: () => false, update: () => false }
         },
         {
           name: 'shippingFeeCentsPerUnit',
           type: 'number',
           min: 0,
-          admin: { description: 'Only when mode = flat' }
+          admin: { description: 'Only when mode = flat', readOnly: true },
+          access: { create: () => false, update: () => false },
+          validate: (
+            value: unknown,
+            { siblingData }: { siblingData?: { shippingMode?: string } }
+          ): true | string => {
+            if (value === null || value === undefined) return true;
+            if (!Number.isInteger(value))
+              return 'Shipping fee must be a whole number (cents)';
+            if (
+              siblingData?.shippingMode &&
+              siblingData.shippingMode !== 'flat'
+            ) {
+              return 'Shipping fee per unit should only be set when mode is "flat"';
+            }
+            return true;
+          }
         },
         {
           name: 'shippingSubtotalCents',
           type: 'number',
           min: 0,
-          admin: { description: 'quantity-applied shipping for this line' }
+          admin: {
+            description: 'quantity-applied shipping for this line',
+            readOnly: true
+          },
+          access: { create: () => false, update: () => false },
+          validate: (value: unknown): true | string =>
+            value == null || Number.isInteger(value)
+              ? true
+              : 'Must be an integer number of cents'
         },
-
         {
           name: 'refundPolicy',
           type: 'select',
@@ -286,6 +352,7 @@ export const Orders: CollectionConfig = {
         update: () => false
       }
     },
+
     // ----- Shipment / Tracking (seller can edit) -----
     {
       type: 'group',
@@ -319,6 +386,7 @@ export const Orders: CollectionConfig = {
         }
       ]
     },
+
     // renders refund manager component
     {
       type: 'group',
@@ -345,6 +413,7 @@ export const Orders: CollectionConfig = {
         }
       ]
     },
+
     // --- Money breakdown (order-level, cents) -----------------------------------------
     {
       type: 'group',
@@ -383,7 +452,7 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // --- Shipment lifecycle (existing `shipment` stays). Add deliveredAt & cancel info -
+    // --- Shipment lifecycle ------------------------------------------------------------
     {
       name: 'latestShippedAt',
       type: 'date',
@@ -412,7 +481,7 @@ export const Orders: CollectionConfig = {
       admin: { description: 'Optional short note for cancellation' }
     },
 
-    // --- Split shipments (non-breaking; keep existing `shipment`) ----------------------
+    // --- Split shipments ---------------------------------------------------------------
     {
       name: 'shipments',
       type: 'array',
@@ -435,7 +504,6 @@ export const Orders: CollectionConfig = {
         { name: 'trackingNumber', type: 'text' },
         { name: 'trackingUrl', type: 'text' },
         { name: 'shippedAt', type: 'date' },
-        // Optional: item subset if you want to model partial shipments
         {
           name: 'items',
           type: 'array',
@@ -478,7 +546,7 @@ export const Orders: CollectionConfig = {
       ]
     },
 
-    // --- Reviews pivot (so you can prompt and deep-link) --------------------------------
+    // --- Reviews pivot -----------------------------------------------------------------
     {
       type: 'group',
       name: 'reviews',

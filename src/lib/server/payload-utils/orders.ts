@@ -177,6 +177,7 @@ function normalizeCarrier(input: unknown): ShipmentGroup['carrier'] {
   ) {
     return value;
   }
+  return undefined;
 }
 
 /** Carrier-specific heuristic regexes (server-side validation). */

@@ -242,8 +242,12 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
           incoming.shipping
         );
         shippingFromComputed += toIntCents(quote?.totalCents ?? 0);
-      } catch {
+      } catch (error) {
         // Fail-safe: if quoting fails, treat as 0 to avoid blocking persistence
+        console.error(
+          'Shipping quote failed, treating as free shipping:',
+          error
+        );
         shippingFromComputed += 0;
       }
     }

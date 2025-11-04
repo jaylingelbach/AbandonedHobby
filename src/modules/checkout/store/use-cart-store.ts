@@ -1,16 +1,8 @@
+import { ShippingMode } from '@/modules/orders/types';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
 const DEFAULT_TENANT = '__global__';
-
-/**
- * Normalize a tenant slug into a stable base tenant identifier.
- *
- * Trims whitespace, defaults to DEFAULT_TENANT when the input is empty or missing, and strips any `"::..."` suffix returning only the portion before the first `"::"`.
- *
- * @param raw - The raw tenant slug which may be empty, null, or contain a composite `"tenant::sub"` form
- * @returns The normalized tenant slug (base portion without any `"::"` suffix, or DEFAULT_TENANT when input is empty)
- */
 
 function normalizeTenantSlug(raw?: string | null): string {
   const s = (raw ?? '').trim();
@@ -21,14 +13,6 @@ function normalizeTenantSlug(raw?: string | null): string {
 
 const ANON_KEY_PREFIX = 'anon:';
 const DEVICE_ID_KEY = 'ah_device_id';
-
-/**
- * Returns a stable device identifier, creating and persisting one in localStorage when needed.
- *
- * Generates and stores a new identifier if none exists in localStorage; on server-side execution returns the string `'server'`.
- *
- * @returns The device identifier string (persisted to localStorage when newly created).
- */
 
 function getOrCreateDeviceId(): string {
   if (typeof window === 'undefined') return 'server';
@@ -47,15 +31,6 @@ function getOrCreateDeviceId(): string {
   }
 }
 
-/**
- * Produce a stable user key for scoping cart data.
- *
- * Uses the provided `userId` trimmed when it contains characters; otherwise returns an anonymous key prefixed with `anon:` and a persistent device identifier.
- *
- * @param userId - Optional user identifier; whitespace-only or empty values are treated as absent
- * @returns The derived user key: the trimmed `userId` if present, otherwise `anon:<deviceId>`
- */
-
 function deriveUserKey(userId?: string | null): string {
   const id = (userId ?? '').trim();
   return id.length > 0 ? id : `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
@@ -63,9 +38,17 @@ function deriveUserKey(userId?: string | null): string {
 
 const isAnonKey = (k: string) => k.startsWith(ANON_KEY_PREFIX);
 
-// ---------- types ----------
+/** ── Types ─────────────────────────────────────────────────────────────── */
+type ShippingSnapshot = {
+  mode: ShippingMode; // 'free' | 'flat' | 'calculated'
+  /** Only used when mode === 'flat'. Stored as integer cents per unit. */
+  feeCentsPerUnit?: number;
+};
+
 interface TenantCart {
   productIds: string[];
+  /** Per-product shipping snapshot captured at add-to-cart time. */
+  shippingByProductId?: Record<string, ShippingSnapshot>;
 }
 type TenantMap = Record<string, TenantCart>; // tenantSlug -> TenantCart
 type UserMap = Record<string, TenantMap>; // userKey -> TenantMap
@@ -73,6 +56,14 @@ type UserMap = Record<string, TenantMap>; // userKey -> TenantMap
 export interface CartState {
   byUser: UserMap;
   currentUserKey: string;
+
+  /** Capture or update a product's shipping snapshot for a tenant. */
+  setProductShippingSnapshot: (
+    tenantSlug: string | null | undefined,
+    productId: string,
+    mode: ShippingMode,
+    feeCentsPerUnit?: number
+  ) => void;
 
   setCurrentUserKey: (userId?: string | null) => void;
 
@@ -85,7 +76,7 @@ export interface CartState {
     productId: string
   ) => void;
   clearCart: (tenantSlug: string | null | undefined) => void;
-  /** NEW: clear by `${tenant}::${userKey}` without switching current user */
+  /** clear by `${tenant}::${userKey}` without switching current user */
   clearCartForScope: (scopeKey: string) => void;
   clearAllCartsForCurrentUser: () => void;
   clearAllCartsEverywhere: () => void;
@@ -94,7 +85,7 @@ export interface CartState {
   __cleanupTenantKeys?: () => void;
 }
 
-// ---------- optional cross-tab sync ----------
+/** ── Cross-tab sync ───────────────────────────────────────────────────── */
 const CHANNEL_NAME = 'cart';
 const bc: BroadcastChannel | null =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
@@ -106,15 +97,16 @@ type CartMessage =
   | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
   | { type: 'CLEAR_ALL_GLOBAL' };
 
-/**
- * Merge composite tenant keys of the form "tenant::sub" into their base tenant per user,
- * combining product IDs and removing duplicates.
- *
- * @param byUser - Mapping from user key to that user's tenant map to normalize
- * @returns A new UserMap where tenant keys containing `::` are collapsed to their base tenant,
- * with each tenant's `productIds` array deduplicated; tenants with empty names are omitted
- */
+/** ── Helpers ───────────────────────────────────────────────────────────── */
+function toIntCents(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
+}
 
+/**
+ * Merge composite tenant keys "tenant::sub" into base tenant per user.
+ * Also merges `shippingByProductId` maps; later entries win on key conflicts.
+ */
 function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   const out: UserMap = {};
   for (const [userKey, tenantMap] of Object.entries(byUser || {})) {
@@ -124,17 +116,39 @@ function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
         ? rawTenant.split('::')[0]
         : rawTenant;
       if (!cleanTenant) continue;
-      const prev = merged[cleanTenant]?.productIds ?? [];
-      const next = Array.from(
-        new Set([...(prev ?? []), ...(cart?.productIds ?? [])])
+
+      const prevIds = merged[cleanTenant]?.productIds ?? [];
+      const nextIds = Array.from(
+        new Set([...(prevIds ?? []), ...(cart?.productIds ?? [])])
       );
-      merged[cleanTenant] = { productIds: next };
+
+      const prevShip = merged[cleanTenant]?.shippingByProductId ?? {};
+      const nextShip = { ...prevShip, ...(cart?.shippingByProductId ?? {}) };
+
+      merged[cleanTenant] = {
+        productIds: nextIds,
+        ...(Object.keys(nextShip).length > 0
+          ? { shippingByProductId: nextShip }
+          : {})
+      };
     }
     out[userKey] = merged;
   }
   return out;
 }
 
+/** Normalize and clamp a snapshot. */
+function normalizeShippingSnapshot(
+  mode: ShippingMode,
+  feeCentsPerUnit?: number
+): ShippingSnapshot {
+  const m: ShippingMode =
+    mode === 'flat' || mode === 'calculated' || mode === 'free' ? mode : 'free';
+  const fee = m === 'flat' ? toIntCents(feeCentsPerUnit ?? 0) : undefined;
+  return { mode: m, ...(fee !== undefined ? { feeCentsPerUnit: fee } : {}) };
+}
+
+/** ── Store ─────────────────────────────────────────────────────────────── */
 export const useCartStore = create<CartState>()(
   persist(
     (set, get) => {
@@ -163,14 +177,16 @@ export const useCartStore = create<CartState>()(
           if (msg.type === 'CLEAR_CART') {
             const tenant = normalizeTenantSlug(msg.tenantSlug);
             const userBucket = byUser[msg.userKey];
-            if (!userBucket?.[tenant]?.productIds?.length) return;
+            const existing = userBucket?.[tenant];
+            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+              return;
 
             set({
               byUser: {
                 ...byUser,
                 [msg.userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [] }
+                  [tenant]: { productIds: [], shippingByProductId: {} }
                 }
               }
             });
@@ -182,6 +198,35 @@ export const useCartStore = create<CartState>()(
       return {
         byUser: {},
         currentUserKey: initialUserKey,
+
+        setProductShippingSnapshot: (tenantSlug, productId, mode, fee) => {
+          const tenant = normalizeTenantSlug(tenantSlug);
+          const userKey = get().currentUserKey;
+          const snap = normalizeShippingSnapshot(mode, fee);
+
+          set((state) => {
+            const userBucket = state.byUser[userKey] ?? {};
+            const tenantCart: TenantCart = userBucket[tenant] ?? {
+              productIds: []
+            };
+            const shipMap = { ...(tenantCart.shippingByProductId ?? {}) };
+
+            shipMap[productId] = snap;
+
+            return {
+              byUser: {
+                ...state.byUser,
+                [userKey]: {
+                  ...userBucket,
+                  [tenant]: {
+                    ...tenantCart,
+                    shippingByProductId: shipMap
+                  }
+                }
+              }
+            };
+          });
+        },
 
         setCurrentUserKey: (userId) => {
           const nextKey = deriveUserKey(userId);
@@ -198,12 +243,19 @@ export const useCartStore = create<CartState>()(
             const current = userBucket[tenant]?.productIds ?? [];
             if (current.includes(productId)) return state;
 
+            const tenantCart: TenantCart = userBucket[tenant] ?? {
+              productIds: []
+            };
+
             return {
               byUser: {
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [...current, productId] }
+                  [tenant]: {
+                    ...tenantCart,
+                    productIds: [...current, productId]
+                  }
                 }
               }
             };
@@ -216,8 +268,14 @@ export const useCartStore = create<CartState>()(
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[tenant]?.productIds ?? [];
+            const tenantCart: TenantCart = userBucket[tenant] ?? {
+              productIds: []
+            };
+            const current = tenantCart.productIds ?? [];
             if (!current.includes(productId)) return state;
+
+            const nextShip = { ...(tenantCart.shippingByProductId ?? {}) };
+            if (productId in nextShip) delete nextShip[productId];
 
             return {
               byUser: {
@@ -225,7 +283,10 @@ export const useCartStore = create<CartState>()(
                 [userKey]: {
                   ...userBucket,
                   [tenant]: {
-                    productIds: current.filter((id) => id !== productId)
+                    productIds: current.filter((id) => id !== productId),
+                    ...(Object.keys(nextShip).length > 0
+                      ? { shippingByProductId: nextShip }
+                      : {})
                   }
                 }
               }
@@ -239,15 +300,16 @@ export const useCartStore = create<CartState>()(
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[tenant]?.productIds ?? [];
-            if (current.length === 0) return state;
+            const existing = userBucket[tenant];
+            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+              return state;
 
             return {
               byUser: {
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [] }
+                  [tenant]: { productIds: [], shippingByProductId: {} }
                 }
               }
             };
@@ -256,7 +318,6 @@ export const useCartStore = create<CartState>()(
           bc?.postMessage({ type: 'CLEAR_CART', userKey, tenantSlug: tenant });
         },
 
-        // NEW: clear a cart given `${tenant}::${userKey}`, without changing currentUserKey
         clearCartForScope: (scopeKey) => {
           const sep = scopeKey.indexOf('::');
           const tenantPart = sep > -1 ? scopeKey.slice(0, sep) : scopeKey;
@@ -267,15 +328,16 @@ export const useCartStore = create<CartState>()(
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[tenant]?.productIds ?? [];
-            if (current.length === 0) return state;
+            const existing = userBucket[tenant];
+            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+              return state;
 
             return {
               byUser: {
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [] }
+                  [tenant]: { productIds: [], shippingByProductId: {} }
                 }
               }
             };
@@ -309,8 +371,12 @@ export const useCartStore = create<CartState>()(
             set((prev) => {
               const byUser = { ...prev.byUser };
               const dst = { ...(byUser[newUserId] || {}) };
+              const prevCart = dst[tenant] ?? { productIds: [] };
               dst[tenant] = {
-                productIds: Array.from(new Set(dst[tenant]?.productIds ?? []))
+                productIds: Array.from(new Set(prevCart.productIds ?? [])),
+                ...(prevCart.shippingByProductId
+                  ? { shippingByProductId: { ...prevCart.shippingByProductId } }
+                  : {})
               };
               byUser[newUserId] = dst;
               return { byUser, currentUserKey: newUserId };
@@ -323,18 +389,37 @@ export const useCartStore = create<CartState>()(
           const dstUserKey = newUserId.trim();
           if (!dstUserKey) return;
 
-          const srcIds = srcBucket[tenant]?.productIds ?? [];
+          const srcCart: TenantCart = srcBucket[tenant] ?? { productIds: [] };
+          const srcIds = srcCart.productIds ?? [];
+          const srcShip = srcCart.shippingByProductId ?? {};
+
           set((prev) => {
             const byUser = collapseCompositeTenantKeys(prev.byUser);
             const src = { ...(byUser[anonKey] || {}) };
             const dst = { ...(byUser[dstUserKey] || {}) };
 
-            const merged = Array.from(
-              new Set([...(dst[tenant]?.productIds ?? []), ...srcIds])
+            const dstCart: TenantCart = dst[tenant] ?? { productIds: [] };
+            const mergedIds = Array.from(
+              new Set([...(dstCart.productIds ?? []), ...srcIds])
             );
+            const mergedShip = {
+              ...(dstCart.shippingByProductId ?? {}),
+              ...srcShip
+            };
 
-            byUser[anonKey] = { ...src, [tenant]: { productIds: [] } };
-            byUser[dstUserKey] = { ...dst, [tenant]: { productIds: merged } };
+            byUser[anonKey] = {
+              ...src,
+              [tenant]: { productIds: [], shippingByProductId: {} }
+            };
+            byUser[dstUserKey] = {
+              ...dst,
+              [tenant]: {
+                productIds: mergedIds,
+                ...(Object.keys(mergedShip).length > 0
+                  ? { shippingByProductId: mergedShip }
+                  : {})
+              }
+            };
 
             return { byUser, currentUserKey: dstUserKey };
           });
@@ -345,9 +430,11 @@ export const useCartStore = create<CartState>()(
     },
     {
       name: 'abandonedHobbies-cart',
-      version: 4,
+      /** bump: add shipping snapshots (v5) */
+      version: 5,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, fromVersion: number) => {
+        // v1 -> v2 : initial user-key migration
         if (fromVersion < 2 && persisted && typeof persisted === 'object') {
           const maybeState = persisted as Record<string, unknown>;
           const legacy = maybeState['state'] as
@@ -366,6 +453,7 @@ export const useCartStore = create<CartState>()(
           return { state: { byUser, currentUserKey } };
         }
 
+        // v2 -> v3 : collapse composite tenant keys
         if (fromVersion < 3 && persisted && typeof persisted === 'object') {
           const s = (persisted as { state?: { byUser?: UserMap } }).state;
           if (!s?.byUser) return persisted;
@@ -374,9 +462,22 @@ export const useCartStore = create<CartState>()(
           };
         }
 
+        // v3 -> v4 : re-collapse (safety)
         if (fromVersion < 4 && persisted && typeof persisted === 'object') {
           const s = (persisted as { state?: { byUser?: UserMap } }).state;
           if (!s?.byUser) return persisted;
+          return {
+            state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
+          };
+        }
+
+        // v4 -> v5 : add shipping map if missing (no destructive changes)
+        if (fromVersion < 5 && persisted && typeof persisted === 'object') {
+          const s = (persisted as { state?: { byUser?: UserMap } }).state;
+          if (!s?.byUser) return persisted;
+
+          // No explicit rewrite necessary; runtime code reads missing maps as {}.
+          // Still normalize tenant keys to be safe.
           return {
             state: { ...s, byUser: collapseCompositeTenantKeys(s.byUser) }
           };
@@ -415,11 +516,21 @@ if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
               ? rawTenant.split('::')[0]
               : rawTenant;
             if (!cleanTenant) continue;
-            const prev = merged[cleanTenant]?.productIds ?? [];
-            const next = Array.from(
-              new Set([...(prev ?? []), ...(cart?.productIds ?? [])])
+            const prevIds = merged[cleanTenant]?.productIds ?? [];
+            const nextIds = Array.from(
+              new Set([...(prevIds ?? []), ...(cart?.productIds ?? [])])
             );
-            merged[cleanTenant] = { productIds: next };
+            const prevShip = merged[cleanTenant]?.shippingByProductId ?? {};
+            const nextShip = {
+              ...prevShip,
+              ...(cart?.shippingByProductId ?? {})
+            };
+            merged[cleanTenant] = {
+              productIds: nextIds,
+              ...(Object.keys(nextShip).length > 0
+                ? { shippingByProductId: nextShip }
+                : {})
+            };
           }
           out[userKey] = merged;
         }

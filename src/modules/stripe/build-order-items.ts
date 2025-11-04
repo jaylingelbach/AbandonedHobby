@@ -11,7 +11,7 @@ import type Stripe from 'stripe';
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;
 
-type ShippingMode = 'free' | 'flat' | 'calculated';
+export type ShippingMode = 'free' | 'flat' | 'calculated';
 
 export type OrderItemOutput = {
   product: string;
@@ -24,9 +24,9 @@ export type OrderItemOutput = {
   refundPolicy?: RefundPolicy;
   returnsAcceptedThrough?: string; // ISO
   thumbnailUrl?: string | null;
-  shippingMode?: ShippingMode;
-  shippingFeeCentsPerUnit?: number; // only for flat
-  shippingSubtotalCents?: number; // quantity-applied (flat), else 0
+  shippingMode: ShippingMode;
+  shippingFeeCentsPerUnit?: number;
+  shippingSubtotalCents?: number;
 };
 
 const usdToCents = (usd: unknown, fallback = 0): number =>
@@ -78,8 +78,11 @@ export function toOrderItemFromLine(
   }
 
   // --- NEW: shipping snapshot from Product ---------------------------------
+  const rawMode = productDoc?.shippingMode;
   const shippingMode: ShippingMode =
-    (productDoc?.shippingMode as ShippingMode | undefined) ?? 'free';
+    rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
+      ? rawMode
+      : 'free';
 
   const shippingFeeCentsPerUnit =
     shippingMode === 'flat'

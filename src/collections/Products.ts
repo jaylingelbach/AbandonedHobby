@@ -9,6 +9,22 @@ import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-pro
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 
+type ShippingMode = 'free' | 'flat' | 'calculated';
+
+/**
+ * Clears shippingFlatFee when shippingMode is not 'flat'
+ * so stale values do not linger in the document.
+ */
+const clearFlatFeeWhenNotFlat = (args: { data?: Record<string, unknown> }) => {
+  const next = args.data ?? {};
+  const mode = next.shippingMode as ShippingMode | undefined;
+  if (mode && mode !== 'flat') {
+    // Remove the field to avoid stale values reappearing later
+    next.shippingFlatFee = undefined;
+  }
+  return next;
+};
+
 export const Products: CollectionConfig = {
   slug: 'products',
   access: {
@@ -25,7 +41,8 @@ export const Products: CollectionConfig = {
     ],
     afterDelete: [decrementTenantCountOnDelete],
     beforeValidate: [validateCategoryPercentage],
-    beforeChange: [resolveTenantAndRequireStripeReady]
+    // Keep your existing hook and add the cleaner afterward
+    beforeChange: [resolveTenantAndRequireStripeReady, clearFlatFeeWhenNotFlat]
   },
   fields: [
     { name: 'name', type: 'text', required: true },
@@ -62,17 +79,13 @@ export const Products: CollectionConfig = {
       label: 'Flat fee amount (USD)',
       type: 'number',
       admin: {
-        condition: (
-          _data,
-          siblingData?: { shippingMode?: 'free' | 'flat' | 'calculated' }
-        ) => siblingData?.shippingMode === 'flat',
+        condition: (_data, siblingData?: { shippingMode?: ShippingMode }) =>
+          siblingData?.shippingMode === 'flat',
         description: 'Only required when Shipping = Flat fee'
       },
       validate: (
         value: number | undefined | null,
-        {
-          siblingData
-        }: { siblingData?: { shippingMode?: 'free' | 'flat' | 'calculated' } }
+        { siblingData }: { siblingData?: { shippingMode?: ShippingMode } }
       ) => {
         if (siblingData?.shippingMode !== 'flat') return true; // not applicable
         if (value === undefined || value === null)
@@ -83,6 +96,7 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
+
     // Top-level Category (parents only)
     {
       name: 'category',
@@ -161,6 +175,7 @@ export const Products: CollectionConfig = {
           'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
       }
     },
+
     // Inventory
     {
       name: 'trackInventory',
@@ -188,7 +203,6 @@ export const Products: CollectionConfig = {
           originalDoc?: Partial<{ trackInventory?: boolean }>;
         }
       ) => {
-        // Prefer the value being saved; fall back to the current doc; default to true only if unknown.
         const tracking =
           typeof siblingData?.trackInventory === 'boolean'
             ? siblingData.trackInventory
@@ -196,7 +210,7 @@ export const Products: CollectionConfig = {
               ? originalDoc.trackInventory
               : true;
 
-        if (!tracking) return true; // When not tracking, allow undefined/null/omitted
+        if (!tracking) return true;
 
         if (typeof value !== 'number') return 'Quantity is required';
         if (!Number.isInteger(value) || value < 0)
@@ -205,6 +219,7 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
+
     {
       name: 'images',
       type: 'array',

@@ -16,17 +16,15 @@ export interface OrderItemCore {
 
 export interface OrderAmounts {
   itemsSubtotalCents: number;
-  shippingTotalCents: number; // NEW
+  shippingTotalCents: number;
   discountTotalCents: number;
   taxTotalCents: number;
-  totalCents: number;
+  totalCents: number; // itemsSubtotalCents + shippingTotalCents - discountTotalCents + taxTotalCents
 }
 
 export interface OrderForBuyer {
-  // ...
   items: OrderItemCore[];
   amounts: OrderAmounts;
-  // optionally: breakdown per item for UI
 }
 
 export type ShippingAddress = {

@@ -464,7 +464,7 @@ export interface Order {
     amountSubtotal?: number | null;
     amountTax?: number | null;
     amountTotal?: number | null;
-    shippingMode?: ('free' | 'flat' | 'calculated') | null;
+    shippingMode: 'free' | 'flat' | 'calculated';
     /**
      * Only when mode = flat
      */

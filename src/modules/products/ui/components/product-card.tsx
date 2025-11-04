@@ -53,7 +53,7 @@ export const ProductCard = ({
                 src={tenantImageURL}
                 width={16}
                 height={16}
-                className="rounded-full border shrink-0 size-[16px]"
+                className="rounded-full border shrink-0 size-4"
               />
             )}
             <p className="text-sm underline font-medium">{tenantSlug}</p>
