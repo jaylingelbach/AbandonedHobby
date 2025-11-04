@@ -289,6 +289,14 @@ export const checkoutRouter = createTRPCRouter({
       const { shippingCents, hasCalculated } =
         computeFlatShippingCentsForCart(productsForShipping);
 
+      if (hasCalculated && shippingCents > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message:
+            'Mixing flat-fee and calculated shipping is not supported yet. Please split the cart so we do not undercharge shipping.'
+        });
+      }
+
       // Success URL (same as your current behavior)
       const success_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
 
