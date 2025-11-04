@@ -19,7 +19,7 @@ interface Props {
   shippingMode?: 'free' | 'flat' | 'calculated';
   shippingFeeCentsPerUnit?: number;
 }
-const CartButton = ({
+export const CartButton = ({
   tenantSlug,
   productId,
   shippingMode,
@@ -86,5 +86,3 @@ const CartButton = ({
     </Button>
   );
 };
-
-export default CartButton;
