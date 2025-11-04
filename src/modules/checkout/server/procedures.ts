@@ -504,16 +504,11 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       // Subtotal (items only)
-      const subtotalCents = data.docs.reduce((accumulator, product) => {
-        const raw = product.price as unknown as number | string;
-        const numeric =
-          typeof raw === 'number' ? raw : Number.parseFloat(String(raw));
-        const cents =
-          Number.isFinite(numeric) && !Number.isNaN(numeric)
-            ? Math.max(0, Math.trunc(numeric * 100))
-            : 0;
-        return accumulator + cents;
-      }, 0);
+      const subtotalCents = data.docs.reduce(
+        (accumulator, product) =>
+          accumulator + usdToCents(product.price as unknown as string | number),
+        0
+      );
 
       // Flat shipping preview (sum all flat fees; ignore if any are `calculated`)
       const productsForShipping: ProductForShipping[] =
