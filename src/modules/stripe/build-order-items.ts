@@ -6,6 +6,8 @@ import {
   requireStripeProductIdFromLine
 } from './guards';
 
+import { usdToCents } from '@/lib/money';
+
 import type Stripe from 'stripe';
 
 /** RefundPolicy type from Product, excluding null. */
@@ -28,11 +30,6 @@ export type OrderItemOutput = {
   shippingFeeCentsPerUnit?: number;
   shippingSubtotalCents?: number;
 };
-
-const usdToCents = (usd: unknown, fallback = 0): number =>
-  typeof usd === 'number' && Number.isFinite(usd)
-    ? Math.max(0, Math.round(usd * 100))
-    : Math.max(0, Math.round(fallback));
 
 /**
  * Convert one expanded Stripe line item into our canonical OrderItem shape.
@@ -86,7 +83,7 @@ export function toOrderItemFromLine(
 
   const shippingFeeCentsPerUnit =
     shippingMode === 'flat'
-      ? usdToCents(productDoc?.shippingFlatFee, 0)
+      ? usdToCents(productDoc?.shippingFlatFee, { allowNegative: false })
       : undefined;
 
   const shippingSubtotalCents =

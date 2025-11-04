@@ -28,7 +28,7 @@ type OrderItemInput = {
   amountTax?: number | null; // cents
   amountTotal?: number | null; // cents
 
-  // NEW: shipping snapshot on each line
+  // Shipping snapshot on each line
   shippingMode?: ShippingMode | null;
   shippingSubtotalCents?: number | null; // cents (for flat, quantity-applied)
 };
@@ -108,9 +108,8 @@ function shouldComputeShippingTotal(
  * Computes a server-authoritative amounts block.
  * - Item lines derive subtotal from amountSubtotal || (unitAmount * quantity) or fallbacks.
  * - Shipping/discount/tax/platform/stripe values are chosen from:
- *   trusted req.context.fees -> incoming data.amounts (CREATE only) -> persisted amounts -> computed defaults.
- * - NEW: If shipping was not provided via context/incoming/persisted, we compute it from line-level
- *   snapshots (flat) and, if any line is "calculated", a quote via quoteCalculatedShipping().
+ *   trusted req.context.fees -> incoming data.amounts (CREATE only) -> computed defaults (+ persisted when no fresh items).
+ * - If fresh items were supplied, we prefer recomputing shipping from those items over reading persisted amounts.
  */
 export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   data,
@@ -122,19 +121,22 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
 
   const context = (req?.context ?? {}) as ReqContextFees;
   const isSystem = context.ahSystem === true;
+
   const persisted: OriginalDocShape =
     (originalDoc as OriginalDocShape | undefined) ?? {};
   const incoming = data as IncomingDataShape;
 
-  // 1) Items: prefer incoming for both create/update so admin edits take effect.
-  const itemsArray: OrderItemInput[] = Array.isArray(incoming.items)
+  const hasIncomingItems = Array.isArray(incoming.items);
+
+  // 1) Items: prefer incoming (create + update) so admin edits take effect.
+  const itemsArray: OrderItemInput[] = hasIncomingItems
     ? (incoming.items as OrderItemInput[])
     : Array.isArray(persisted.items)
       ? (persisted.items as OrderItemInput[])
       : [];
 
-  // Compute item lines: amountSubtotalCents prefers explicit amountSubtotal,
-  // else derive from amountTotal - amountTax, else unitAmount * quantity.
+  // Compute item line subtotals:
+  // amountSubtotal (preferred) -> amountTotal - amountTax -> amountTotal -> unitAmount * quantity.
   const itemTotals: number[] = itemsArray.map((raw) => {
     const quantity = Math.max(1, Math.trunc(Number(raw.quantity ?? 1)));
     const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
@@ -169,15 +171,18 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
       ? incomingTotalCents
       : persistedTotalCents;
 
-  // 3) Amounts precedence: context (trusted) -> incoming on create -> persisted
+  // 3) Amounts precedence shells (context → incoming-on-create → persisted)
   const incomingAmounts =
     ((incoming.amounts ?? {}) as Partial<AmountsShape>) || {};
   const persistedAmounts = (persisted.amounts ?? {}) as Partial<AmountsShape>;
 
+  // Shipping: if caller supplied items, do NOT let persisted short-circuit recomputation.
   const shippingFromCtx = toIntCents(context.fees?.shippingTotalCents);
   const shippingFromIncomingCreate =
     operation === 'create' ? toIntCents(incomingAmounts.shippingTotalCents) : 0;
-  const shippingFromPersisted = toIntCents(persistedAmounts.shippingTotalCents);
+  const shippingFromPersisted = hasIncomingItems
+    ? 0
+    : toIntCents(persistedAmounts.shippingTotalCents);
 
   const discountFromCtx = toIntCents(context.fees?.discountTotalCents);
   const discountFromIncomingCreate =
@@ -203,11 +208,11 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     shouldComputeShippingTotal(
       shippingFromCtx,
       shippingFromIncomingCreate,
-      shippingFromPersisted,
+      shippingFromPersisted, // will be 0 when hasIncomingItems is true
       itemsArray
     )
   ) {
-    // Flat
+    // Flat (sum quantity-applied per-line shipping)
     for (const item of itemsArray) {
       const mode: ShippingMode =
         (item.shippingMode as ShippingMode | undefined) ?? 'free';
@@ -216,7 +221,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
       }
     }
 
-    // Calculated (only if at least one line requests it)
+    // Calculated (if any line requests it)
     const needsCalculated = itemsArray.some(
       (item) =>
         ((item.shippingMode as ShippingMode | undefined) ?? 'free') ===
@@ -225,7 +230,6 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
 
     if (needsCalculated) {
       try {
-        // Adapt items: coerce null->undefined and normalize numbers
         const itemsForQuote: OrderItemForQuote[] = itemsArray.map((i) => ({
           shippingMode: (i.shippingMode ?? undefined) as
             | ShippingMode
@@ -253,14 +257,19 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     }
   }
 
+  // Final selection:
+  // - If items were supplied, prefer computed over persisted.
+  // - Otherwise keep original order (persisted over computed).
   const shippingTotalCents =
     shippingFromCtx > 0
       ? shippingFromCtx
       : shippingFromIncomingCreate > 0
         ? shippingFromIncomingCreate
-        : shippingFromPersisted > 0
-          ? shippingFromPersisted
-          : shippingFromComputed; // may be 0 (free) or >0
+        : hasIncomingItems
+          ? shippingFromComputed
+          : shippingFromPersisted > 0
+            ? shippingFromPersisted
+            : shippingFromComputed; // may be 0 (free) or > 0
 
   const discountTotalCents =
     discountFromCtx > 0

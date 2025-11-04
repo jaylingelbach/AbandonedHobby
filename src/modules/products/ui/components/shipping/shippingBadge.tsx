@@ -6,26 +6,40 @@ import type { ShippingMode } from '@/modules/orders/types';
 
 export type ShippingBadgeProps = {
   shippingMode?: ShippingMode | null;
-  shippingFlatFee?: number | null; // USD number (e.g., 10 for $10.00)
+  /** USD number (e.g., 10 for $10.00). Optional if cents provided. */
+  shippingFlatFee?: number | null;
+  /** Integer cents. Preferred if provided. */
+  shippingFeeCentsPerUnit?: number | null;
   className?: string;
 };
 
 export function ShippingBadge({
   shippingMode,
   shippingFlatFee,
+  shippingFeeCentsPerUnit,
   className
 }: ShippingBadgeProps) {
   const mode: ShippingMode = shippingMode ?? 'free';
 
-  // Normalize USD input for display (badge is UI-only; no cents math here)
-  const feeUsdRaw = typeof shippingFlatFee === 'number' ? shippingFlatFee : 0;
-  const feeUsd = Number.isFinite(feeUsdRaw) ? Math.max(0, feeUsdRaw) : 0;
+  // Prefer precise cents when provided; else fall back to USD number.
+  const cents =
+    typeof shippingFeeCentsPerUnit === 'number' &&
+    Number.isFinite(shippingFeeCentsPerUnit)
+      ? Math.max(0, Math.trunc(shippingFeeCentsPerUnit))
+      : null;
+
+  const usd =
+    cents != null
+      ? cents / 100
+      : typeof shippingFlatFee === 'number' && Number.isFinite(shippingFlatFee)
+        ? Math.max(0, shippingFlatFee)
+        : 0;
 
   let label: string;
-  if (mode === 'free' || (mode === 'flat' && feeUsd <= 0)) {
+  if (mode === 'free' || (mode === 'flat' && usd <= 0)) {
     label = 'Free shipping';
   } else if (mode === 'flat') {
-    label = `Shipping: ${formatCurrency(feeUsd)}`;
+    label = `Shipping: ${formatCurrency(usd)}`;
   } else {
     label = 'Shipping at checkout';
   }
@@ -37,6 +51,8 @@ export function ShippingBadge({
         'whitespace-nowrap',
         className ?? ''
       ].join(' ')}
+      aria-label={label}
+      title={label}
     >
       <Truck className="h-3.5 w-3.5" aria-hidden />
       <span>{label}</span>

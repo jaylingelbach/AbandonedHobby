@@ -18,10 +18,10 @@ import { useUser } from '@/hooks/use-user';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 import { useTRPC } from '@/trpc/client';
-
 import ProductGallery from '../components/product-gallery';
 import ViewInOrdersButton from '../components/view-in-order-button';
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
+import { ShippingBadge } from '../components/shipping/shippingBadge';
 
 const CartButton = dynamic(
   () =>
@@ -59,54 +59,6 @@ const ProductRatingsBreakdown = ({ ratings }: ProductRatingsBreakdownProps) => (
 interface ProductViewProps {
   productId: string;
   tenantSlug: string;
-}
-
-/** Helpers (local to this file) */
-function toCentsFromUsdNumber(valueUsd: number | null | undefined): number {
-  if (typeof valueUsd !== 'number' || !Number.isFinite(valueUsd)) return 0;
-  return Math.max(0, Math.round(valueUsd * 100));
-}
-
-/** Small inline badge to render shipping state next to price */
-function ShippingBadge({
-  shippingMode,
-  shippingFlatFee, // USD number (optional)
-  shippingFeeCentsPerUnit // integer cents (optional)
-}: {
-  shippingMode?: 'free' | 'flat' | 'calculated' | null;
-  shippingFlatFee?: number | null;
-  shippingFeeCentsPerUnit?: number | null;
-}) {
-  const mode = (shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
-
-  // Prefer cents if provided; otherwise derive from USD number
-  const feeCents =
-    typeof shippingFeeCentsPerUnit === 'number'
-      ? Math.max(0, shippingFeeCentsPerUnit)
-      : toCentsFromUsdNumber(shippingFlatFee ?? 0);
-
-  let label: string;
-  if (mode === 'free' || (mode === 'flat' && feeCents <= 0)) {
-    label = 'Free shipping';
-  } else if (mode === 'flat') {
-    label = `Shipping: ${formatCurrency(feeCents / 100)}`;
-  } else {
-    label = 'Shipping at checkout';
-  }
-
-  return (
-    <span
-      className={[
-        'inline-flex items-center gap-1 rounded-full border-2 border-black bg-[#F3F4F6] px-2.5 py-1 text-xs font-medium',
-        'shadow-[3px_3px_0_0_rgba(0,0,0,1)] whitespace-nowrap'
-      ].join(' ')}
-      aria-label={label}
-      title={label}
-    >
-      <Truck className="h-3.5 w-3.5" aria-hidden />
-      <span>{label}</span>
-    </span>
-  );
 }
 
 export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
