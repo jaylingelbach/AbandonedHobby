@@ -1,7 +1,5 @@
-
 import { daysForPolicy } from '@/lib/server/utils';
 import type { Product } from '@/payload-types';
-
 
 import {
   type ExpandedLineItem,
@@ -12,6 +10,8 @@ import type Stripe from 'stripe';
 
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;
+
+type ShippingMode = 'free' | 'flat' | 'calculated';
 
 export type OrderItemOutput = {
   product: string;
@@ -24,7 +24,15 @@ export type OrderItemOutput = {
   refundPolicy?: RefundPolicy;
   returnsAcceptedThrough?: string; // ISO
   thumbnailUrl?: string | null;
+  shippingMode?: ShippingMode;
+  shippingFeeCentsPerUnit?: number; // only for flat
+  shippingSubtotalCents?: number; // quantity-applied (flat), else 0
 };
+
+const usdToCents = (usd: unknown, fallback = 0): number =>
+  typeof usd === 'number' && Number.isFinite(usd)
+    ? Math.max(0, Math.round(usd * 100))
+    : Math.max(0, Math.round(fallback));
 
 /**
  * Convert one expanded Stripe line item into our canonical OrderItem shape.
@@ -69,6 +77,18 @@ export function toOrderItemFromLine(
     }
   }
 
+  // --- NEW: shipping snapshot from Product ---------------------------------
+  const shippingMode: ShippingMode =
+    (productDoc?.shippingMode as ShippingMode | undefined) ?? 'free';
+
+  const shippingFeeCentsPerUnit =
+    shippingMode === 'flat'
+      ? usdToCents(productDoc?.shippingFlatFee, 0)
+      : undefined;
+
+  const shippingSubtotalCents =
+    shippingMode === 'flat' ? (shippingFeeCentsPerUnit ?? 0) * quantity : 0; // free or calculated adds nothing yet; order-level calc later
+
   return {
     product: productId,
     nameSnapshot,
@@ -78,8 +98,10 @@ export function toOrderItemFromLine(
     amountTax,
     amountTotal,
     refundPolicy: policy,
-    returnsAcceptedThrough
-    // thumbnailUrl: you can set this later from productDoc if you want
+    returnsAcceptedThrough,
+    shippingMode,
+    shippingFeeCentsPerUnit,
+    shippingSubtotalCents
   };
 }
 

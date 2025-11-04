@@ -188,6 +188,31 @@ export const Orders: CollectionConfig = {
         { name: 'amountSubtotal', type: 'number' }, // cents
         { name: 'amountTax', type: 'number' }, // cents
         { name: 'amountTotal', type: 'number' }, // cents
+
+        // --- Per-line shipping snapshot and subtotal (all cents) ------------
+        {
+          name: 'shippingMode',
+          type: 'select',
+          hasMany: false,
+          options: [
+            { label: 'Free', value: 'free' },
+            { label: 'Flat', value: 'flat' },
+            { label: 'Calculated', value: 'calculated' }
+          ]
+        },
+        {
+          name: 'shippingFeeCentsPerUnit',
+          type: 'number',
+          min: 0,
+          admin: { description: 'Only when mode = flat' }
+        },
+        {
+          name: 'shippingSubtotalCents',
+          type: 'number',
+          min: 0,
+          admin: { description: 'quantity-applied shipping for this line' }
+        },
+
         {
           name: 'refundPolicy',
           type: 'select',

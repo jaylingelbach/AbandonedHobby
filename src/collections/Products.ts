@@ -41,7 +41,48 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
+    {
+      name: 'shippingMode',
+      label: 'Shipping',
+      type: 'select',
+      required: false,
+      defaultValue: 'free',
+      options: [
+        { label: 'Free', value: 'free' },
+        { label: 'Flat fee', value: 'flat' },
+        { label: 'Calculated at checkout', value: 'calculated' }
+      ],
+      admin: {
+        description:
+          'Choose how shipping is handled. If you pick “Flat fee,” enter the amount below.'
+      }
+    },
+    {
+      name: 'shippingFlatFee',
+      label: 'Flat fee amount (USD)',
+      type: 'number',
+      admin: {
+        condition: (
+          _data,
+          siblingData?: { shippingMode?: 'free' | 'flat' | 'calculated' }
+        ) => siblingData?.shippingMode === 'flat',
+        description: 'Only required when Shipping = Flat fee'
+      },
+      validate: (
+        value: number | undefined | null,
+        {
+          siblingData
+        }: { siblingData?: { shippingMode?: 'free' | 'flat' | 'calculated' } }
+      ) => {
+        if (siblingData?.shippingMode !== 'flat') return true; // not applicable
+        if (value === undefined || value === null)
+          return 'Enter a flat shipping fee';
+        if (typeof value !== 'number' || Number.isNaN(value))
+          return 'Fee must be a number';
+        if (value < 0) return 'Fee cannot be negative';
+        return true;
+      }
+    },
     // Top-level Category (parents only)
     {
       name: 'category',

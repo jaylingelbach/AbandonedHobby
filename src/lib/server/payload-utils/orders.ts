@@ -1,6 +1,7 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { OrderStatus } from '@/payload/views/types';
+import { Carrier } from '@/constants';
 
 /** Order status union used in our hooks. */
 
@@ -13,7 +14,7 @@ type ShipmentShape = {
 };
 
 type ShipmentGroup = {
-  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
+  carrier?: Carrier;
   trackingNumber?: string;
   trackingUrl?: string;
   shippedAt?: string;
