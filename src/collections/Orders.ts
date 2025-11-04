@@ -76,6 +76,8 @@ export const Orders: CollectionConfig = {
                 ? Math.max(1, Math.trunc(item.quantity))
                 : 1;
 
+            item.quantity = quantity;
+
             if (mode === 'flat') {
               const feeRaw = item.shippingFeeCentsPerUnit;
               const fee =
