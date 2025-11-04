@@ -34,6 +34,24 @@ const productShippingSchema = z.object({
   shippingFlatFee: z.number().nullable().optional()
 });
 
+function parseProductShipping(product: unknown): ProductForShipping {
+  const parsed = productShippingSchema.safeParse(product);
+  if (!parsed.success) {
+    const productId = (product as { id?: string })?.id ?? 'unknown';
+    console.warn('[checkout] invalid/missing shipping fields', {
+      productId,
+      issues: parsed.error.issues
+    });
+  }
+  return {
+    id: (product as { id: string }).id,
+    shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
+    shippingFlatFee: parsed.success
+      ? (parsed.data.shippingFlatFee ?? null)
+      : null
+  };
+}
+
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -265,24 +283,8 @@ export const checkoutRouter = createTRPCRouter({
       );
 
       // compute flat shipping (single checkout-level amount)
-      const productsForShipping: ProductForShipping[] = products.map((p) => {
-        const parsed = productShippingSchema.safeParse(p);
-        if (!parsed.success) {
-          console.warn('[checkout.purchase] invalid/missing shipping fields', {
-            productId: p.id,
-            issues: parsed.error.issues
-          });
-        }
-        return {
-          id: p.id,
-          shippingMode: parsed.success
-            ? (parsed.data.shippingMode ?? null)
-            : null,
-          shippingFlatFee: parsed.success
-            ? (parsed.data.shippingFlatFee ?? null)
-            : null
-        };
-      });
+      const productsForShipping: ProductForShipping[] =
+        products.map(parseProductShipping);
 
       const { shippingCents, hasCalculated } =
         computeFlatShippingCentsForCart(productsForShipping);
@@ -514,29 +516,8 @@ export const checkoutRouter = createTRPCRouter({
       }, 0);
 
       // Flat shipping preview (sum all flat fees; ignore if any are `calculated`)
-      const productsForShipping: ProductForShipping[] = data.docs.map(
-        (product) => {
-          const parsed = productShippingSchema.safeParse(product);
-          if (!parsed.success) {
-            console.warn(
-              '[checkout.getProducts] invalid/missing shipping fields',
-              {
-                productId: product.id,
-                issues: parsed.error.issues
-              }
-            );
-          }
-          return {
-            id: product.id,
-            shippingMode: parsed.success
-              ? (parsed.data.shippingMode ?? null)
-              : null,
-            shippingFlatFee: parsed.success
-              ? (parsed.data.shippingFlatFee ?? null)
-              : null
-          };
-        }
-      );
+      const productsForShipping: ProductForShipping[] =
+        data.docs.map(parseProductShipping);
 
       const flat = computeFlatShippingCentsForCart(productsForShipping);
 
