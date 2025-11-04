@@ -2,8 +2,7 @@
 
 import { Truck } from 'lucide-react';
 import { formatCurrency } from '@/lib/utils';
-
-type ShippingMode = 'free' | 'flat' | 'calculated';
+import type { ShippingMode } from '@/modules/orders/types';
 
 export type ShippingBadgeProps = {
   shippingMode?: ShippingMode | null;

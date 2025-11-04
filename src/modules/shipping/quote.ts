@@ -1,5 +1,4 @@
-export type ShippingMode = 'free' | 'flat' | 'calculated';
-
+import type { ShippingMode } from '@/modules/orders/types';
 export interface OrderItemForQuote {
   shippingMode?: ShippingMode;
   shippingSubtotalCents?: number;
