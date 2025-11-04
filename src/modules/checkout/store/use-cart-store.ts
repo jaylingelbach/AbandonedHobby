@@ -186,7 +186,7 @@ export const useCartStore = create<CartState>()(
                 ...byUser,
                 [msg.userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [], shippingByProductId: {} }
+                  [tenant]: { productIds: [] }
                 }
               }
             });

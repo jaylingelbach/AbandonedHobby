@@ -25,8 +25,7 @@ export function usdStringToCents(
   options?: { allowNegative?: boolean }
 ): number {
   if (typeof valueUsd !== 'string') return 0;
-  const parsed = Number(valueUsd);
-  return usdNumberToCents(Number.isFinite(parsed) ? parsed : 0, options);
+  return usdNumberToCents(Number(valueUsd), options);
 }
 
 /** Generic converter that accepts string or number. */

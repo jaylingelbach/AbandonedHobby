@@ -19,12 +19,9 @@ interface Props {
   shippingMode?: 'free' | 'flat' | 'calculated';
   shippingFeeCentsPerUnit?: number;
 }
-
-export const CartButton = ({
+const CartButton = ({
   tenantSlug,
   productId,
-  isPurchased, // kept for parity with prior props; not used here
-  orderId, // kept for parity with prior props; not used here
   shippingMode,
   shippingFeeCentsPerUnit
 }: Props) => {

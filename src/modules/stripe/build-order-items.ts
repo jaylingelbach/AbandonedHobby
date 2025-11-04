@@ -77,7 +77,7 @@ export function toOrderItemFromLine(
     }
   }
 
-  // --- NEW: shipping snapshot from Product ---------------------------------
+  // --- shipping snapshot from Product ---------------------------------
   const rawMode = productDoc?.shippingMode;
   const shippingMode: ShippingMode =
     rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
@@ -90,7 +90,9 @@ export function toOrderItemFromLine(
       : undefined;
 
   const shippingSubtotalCents =
-    shippingMode === 'flat' ? (shippingFeeCentsPerUnit ?? 0) * quantity : 0; // free or calculated adds nothing yet; order-level calc later
+    shippingMode === 'flat' && typeof shippingFeeCentsPerUnit === 'number'
+      ? shippingFeeCentsPerUnit * quantity
+      : undefined;
 
   return {
     product: productId,
