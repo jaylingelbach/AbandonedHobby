@@ -53,24 +53,29 @@ export const Orders: CollectionConfig = {
       ({ data }) => {
         // Normalize shipping snapshots on each item
         if (data && Array.isArray((data as { items?: unknown }).items)) {
-          const originalItems = (data as { items: unknown[] }).items;
-          (data as { items: unknown[] }).items = originalItems.map((row) => {
+          const currentItems = (data as { items: unknown[] }).items;
+
+          (data as { items: unknown[] }).items = currentItems.map((row) => {
             if (!row || typeof row !== 'object') return row;
 
             const item = row as Record<string, unknown>;
 
             // mode → required, validated, default 'free'
-            const mode = normalizeMode(item.shippingMode);
+            const mode =
+              item.shippingMode === 'free' ||
+              item.shippingMode === 'flat' ||
+              item.shippingMode === 'calculated'
+                ? (item.shippingMode as 'free' | 'flat' | 'calculated')
+                : 'free';
             item.shippingMode = mode;
 
-            // quantity default = 1
+            // quantity default = 1 (integer >= 1)
             const quantity =
               typeof item.quantity === 'number' &&
               Number.isFinite(item.quantity)
                 ? Math.max(1, Math.trunc(item.quantity))
                 : 1;
 
-            // fee (integer cents) only when flat
             if (mode === 'flat') {
               const feeRaw = item.shippingFeeCentsPerUnit;
               const fee =
@@ -78,14 +83,20 @@ export const Orders: CollectionConfig = {
                   ? Math.max(0, Math.trunc(feeRaw))
                   : 0;
 
+              const subtotal = fee * quantity;
+              if (!Number.isSafeInteger(subtotal)) {
+                throw new Error('Shipping subtotal exceeds safe integer range');
+              }
+
               item.shippingFeeCentsPerUnit = fee;
-              item.shippingSubtotalCents = fee * quantity;
+              item.shippingSubtotalCents = subtotal;
             } else {
-              // clear stale values for non-flat modes
               if ('shippingFeeCentsPerUnit' in item) {
                 delete item.shippingFeeCentsPerUnit;
               }
-              item.shippingSubtotalCents = 0;
+              if ('shippingSubtotalCents' in item) {
+                delete item.shippingSubtotalCents;
+              }
             }
 
             return item;
