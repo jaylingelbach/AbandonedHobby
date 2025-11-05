@@ -54,10 +54,11 @@ export function toProductWithShipping(
         'Downstream calculators will ignore per-unit unless shippingMode is "flat".'
     );
   }
+  const finalPerUnitCents = mode === 'free' ? undefined : perUnitCents;
 
   return {
     shippingMode: mode,
-    shippingFeeCentsPerUnit: perUnitCents,
+    shippingFeeCentsPerUnit: finalPerUnitCents,
     shippingFlatFeeCents: flatFeeCents
   };
 }
