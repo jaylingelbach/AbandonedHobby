@@ -9,22 +9,6 @@ import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-pro
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 
-type ShippingMode = 'free' | 'flat' | 'calculated';
-
-/**
- * Clears shippingFlatFee when shippingMode is not 'flat'
- * so stale values do not linger in the document.
- */
-const clearFlatFeeWhenNotFlat = (args: { data?: Record<string, unknown> }) => {
-  const next = args.data ?? {};
-  const mode = next.shippingMode as ShippingMode | undefined;
-  if (mode && mode !== 'flat') {
-    // Remove the field to avoid stale values reappearing later
-    next.shippingFlatFee = undefined;
-  }
-  return next;
-};
-
 export const Products: CollectionConfig = {
   slug: 'products',
   access: {
@@ -41,8 +25,7 @@ export const Products: CollectionConfig = {
     ],
     afterDelete: [decrementTenantCountOnDelete],
     beforeValidate: [validateCategoryPercentage],
-    // Keep your existing hook and add the cleaner afterward
-    beforeChange: [resolveTenantAndRequireStripeReady, clearFlatFeeWhenNotFlat]
+    beforeChange: [resolveTenantAndRequireStripeReady]
   },
   fields: [
     { name: 'name', type: 'text', required: true },
@@ -55,44 +38,6 @@ export const Products: CollectionConfig = {
       validate: (value: number | undefined | null) => {
         if (value === undefined || value === null) return 'Price is required';
         if (value < 0) return 'Price cannot be negative';
-        return true;
-      }
-    },
-    {
-      name: 'shippingMode',
-      label: 'Shipping',
-      type: 'select',
-      required: false,
-      defaultValue: 'free',
-      options: [
-        { label: 'Free', value: 'free' },
-        { label: 'Flat fee', value: 'flat' },
-        { label: 'Calculated at checkout', value: 'calculated' }
-      ],
-      admin: {
-        description:
-          'Choose how shipping is handled. If you pick “Flat fee,” enter the amount below.'
-      }
-    },
-    {
-      name: 'shippingFlatFee',
-      label: 'Flat fee amount (USD)',
-      type: 'number',
-      admin: {
-        condition: (_data, siblingData?: { shippingMode?: ShippingMode }) =>
-          siblingData?.shippingMode === 'flat',
-        description: 'Only required when Shipping = Flat fee'
-      },
-      validate: (
-        value: number | undefined | null,
-        { siblingData }: { siblingData?: { shippingMode?: ShippingMode } }
-      ) => {
-        if (siblingData?.shippingMode !== 'flat') return true; // not applicable
-        if (value === undefined || value === null)
-          return 'Enter a flat shipping fee';
-        if (typeof value !== 'number' || Number.isNaN(value))
-          return 'Fee must be a number';
-        if (value < 0) return 'Fee cannot be negative';
         return true;
       }
     },
@@ -175,7 +120,6 @@ export const Products: CollectionConfig = {
           'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
       }
     },
-
     // Inventory
     {
       name: 'trackInventory',
@@ -203,6 +147,7 @@ export const Products: CollectionConfig = {
           originalDoc?: Partial<{ trackInventory?: boolean }>;
         }
       ) => {
+        // Prefer the value being saved; fall back to the current doc; default to true only if unknown.
         const tracking =
           typeof siblingData?.trackInventory === 'boolean'
             ? siblingData.trackInventory
@@ -210,7 +155,7 @@ export const Products: CollectionConfig = {
               ? originalDoc.trackInventory
               : true;
 
-        if (!tracking) return true;
+        if (!tracking) return true; // When not tracking, allow undefined/null/omitted
 
         if (typeof value !== 'number') return 'Quantity is required';
         if (!Number.isInteger(value) || value < 0)
@@ -219,7 +164,6 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
     {
       name: 'images',
       type: 'array',

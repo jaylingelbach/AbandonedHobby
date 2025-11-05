@@ -1,7 +1,6 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { OrderStatus } from '@/payload/views/types';
-import { Carrier } from '@/constants';
 
 /** Order status union used in our hooks. */
 
@@ -14,7 +13,7 @@ type ShipmentShape = {
 };
 
 type ShipmentGroup = {
-  carrier?: Carrier;
+  carrier?: 'usps' | 'ups' | 'fedex' | 'other';
   trackingNumber?: string;
   trackingUrl?: string;
   shippedAt?: string;
@@ -177,7 +176,6 @@ function normalizeCarrier(input: unknown): ShipmentGroup['carrier'] {
   ) {
     return value;
   }
-  return undefined;
 }
 
 /** Carrier-specific heuristic regexes (server-side validation). */

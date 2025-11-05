@@ -2,6 +2,7 @@ import { TRPCError } from '@trpc/server';
 import { headers as getHeaders } from 'next/headers';
 import { z } from 'zod';
 
+
 import { DEFAULT_LIMIT } from '@/constants';
 import type { PriceBounds } from '@/lib/server/types';
 import { isNotFound, summarizeReviews } from '@/lib/server/utils';
@@ -189,23 +190,8 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
+      // ✅ Use new images[] for gallery; keep cover for hero
       const gallery = mapGalleryFromImages(product.images);
-
-      const rawMode = product.shippingMode ?? 'free';
-      const shippingMode: 'free' | 'flat' | 'calculated' =
-        rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
-          ? rawMode
-          : 'free';
-
-      const shippingFlatFeeUsd =
-        typeof (product as { shippingFlatFee?: unknown }).shippingFlatFee ===
-        'number'
-          ? (product as { shippingFlatFee?: number }).shippingFlatFee
-          : 0;
-      const shippingFeeCentsPerUnit =
-        shippingMode === 'flat'
-          ? Math.max(0, Math.round((shippingFlatFeeUsd ?? 0) * 100))
-          : 0;
 
       return {
         ...product,
@@ -225,10 +211,7 @@ export const productsRouter = createTRPCRouter({
         reviewRating,
         reviewCount: reviews.totalDocs,
         ratingDistribution,
-        gallery, // Array<{ url, alt? }> for the component under the description
-        shippingMode,
-        shippingFlatFee: shippingFlatFeeUsd,
-        shippingFeeCentsPerUnit
+        gallery // Array<{ url, alt? }> for the component under the description
       };
     }),
 

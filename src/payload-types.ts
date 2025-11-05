@@ -200,14 +200,6 @@ export interface Product {
    */
   price: number;
   /**
-   * Choose how shipping is handled. If you pick “Flat fee,” enter the amount below.
-   */
-  shippingMode?: ('free' | 'flat' | 'calculated') | null;
-  /**
-   * Only required when Shipping = Flat fee
-   */
-  shippingFlatFee?: number | null;
-  /**
    * Pick a top-level category first.
    */
   category: string | Category;
@@ -464,15 +456,6 @@ export interface Order {
     amountSubtotal?: number | null;
     amountTax?: number | null;
     amountTotal?: number | null;
-    shippingMode: 'free' | 'flat' | 'calculated';
-    /**
-     * Only when mode = flat
-     */
-    shippingFeeCentsPerUnit?: number | null;
-    /**
-     * quantity-applied shipping for this line
-     */
-    shippingSubtotalCents?: number | null;
     refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
     returnsAcceptedThrough?: string | null;
     id?: string | null;
@@ -908,9 +891,6 @@ export interface OrdersSelect<T extends boolean = true> {
         amountSubtotal?: T;
         amountTax?: T;
         amountTotal?: T;
-        shippingMode?: T;
-        shippingFeeCentsPerUnit?: T;
-        shippingSubtotalCents?: T;
         refundPolicy?: T;
         returnsAcceptedThrough?: T;
         id?: T;
@@ -1000,8 +980,6 @@ export interface ProductsSelect<T extends boolean = true> {
   name?: T;
   description?: T;
   price?: T;
-  shippingMode?: T;
-  shippingFlatFee?: T;
   category?: T;
   subcategory?: T;
   tags?: T;

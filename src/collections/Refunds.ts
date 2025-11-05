@@ -68,7 +68,7 @@ export const Refunds: CollectionConfig = {
       ]
     },
 
-    //  Store both quantity and amount selections
+    // ✅ Store both quantity and amount selections
     {
       name: 'selections',
       type: 'blocks',

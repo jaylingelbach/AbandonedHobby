@@ -142,7 +142,7 @@ export default function middleware(req: NextRequest): NextResponse {
     // if (origin && !allowed.includes(origin)) return new NextResponse('Forbidden', { status: 403 });
 
     const res = NextResponse.next();
-    const cookieDomainPH = computeCookieDomain(hostname, rootDomain); //  unified
+    const cookieDomainPH = computeCookieDomain(hostname, rootDomain); // ✅ unified
     ensureDeviceIdCookie(req, res, cookieDomainPH);
     return res;
   }
@@ -164,7 +164,7 @@ export default function middleware(req: NextRequest): NextResponse {
 
   if (isApex || isForeignHost) {
     const res = NextResponse.next();
-    ensureDeviceIdCookie(req, res, sharedCookieDomain); // undefined for foreign, .root for apex
+    ensureDeviceIdCookie(req, res, sharedCookieDomain); // ✅ undefined for foreign, .root for apex
     return res;
   }
 

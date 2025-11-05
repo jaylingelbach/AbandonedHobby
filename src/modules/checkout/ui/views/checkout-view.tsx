@@ -298,23 +298,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
+  // Safe locals
   const docs = data?.docs ?? [];
-
-  const subtotalCents =
-    typeof data?.subtotalCents === 'number'
-      ? data.subtotalCents
-      : // fallback to old behavior if running against older server
-        typeof data?.totalCents === 'number'
-        ? data.totalCents
-        : Math.round((data?.totalPrice ?? 0) * 100);
-
-  const shippingCents =
-    typeof data?.shippingCents === 'number' ? data.shippingCents : 0;
-
   const totalCents =
     typeof data?.totalCents === 'number'
       ? data.totalCents
-      : subtotalCents + shippingCents;
+      : Math.round((data?.totalPrice ?? 0) * 100);
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -373,10 +362,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {/* Sidebar */}
         <div className="lg:col-span-3">
           <CheckoutSidebar
-            subtotalCents={subtotalCents}
-            shippingCents={shippingCents}
-            totalCents={totalCents}
-            onPurchaseAction={() => purchase.mutate({ productIds })}
+            total={totalCents / 100}
+            onPurchase={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={isBusy}
           />
