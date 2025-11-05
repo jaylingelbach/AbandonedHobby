@@ -340,13 +340,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     const productWithShipping = product as ProductWithShipping;
     return (productWithShipping.shippingMode ?? 'free') === 'calculated';
   });
-  console.log('docs', docs);
-  console.log(
-    'first doc shipping fields',
-    (docs?.[0] as ProductWithShipping)?.shippingMode,
-    (docs?.[0] as ProductWithShipping)?.shippingFlatFeeCents,
-    (docs?.[0] as ProductWithShipping)?.shippingFeeCentsPerUnit
-  );
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">

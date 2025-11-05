@@ -63,33 +63,6 @@ export const CheckoutSidebar = ({
           <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
         </div>
 
-        {/* Per-item shipping breakdown (only when present)
-        {itemizedShipping.length > 0 || hasCalculatedShipping ? (
-          <div className="mt-2 pl-2">
-            {itemizedShipping.length > 0 && (
-              <ul className="space-y-1">
-                {itemizedShipping.map((line) => (
-                  <li
-                    key={line.id}
-                    className="flex items-center justify-between text-xs text-muted-foreground"
-                  >
-                    <span className="truncate">{line.label}</span>
-                    <span className="font-medium">
-                      {toUsd(line.amountCents)}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            )}
-
-            {hasCalculatedShipping && (
-              <p className="mt-1 text-xs text-muted-foreground italic">
-                Additional shipping will be calculated at checkout.
-              </p>
-            )}
-          </div>
-        ) : null} */}
-
         {/* Per-item shipping breakdown (component) */}
         {(itemizedShipping.length > 0 || hasCalculatedShipping) && (
           <div className="mt-2 pl-2">
