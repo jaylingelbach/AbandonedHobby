@@ -31,7 +31,8 @@ import {
 import type { TenantWithContact } from '@/modules/tenants/resolve';
 import type { Product, User } from '@/payload-types';
 
-import { OrderItemInput } from './utils/types';
+import { OrderItemOutput } from '@/modules/stripe/build-order-items';
+
 import {
   toQtyMap,
   getProductsModel,
@@ -561,17 +562,32 @@ export async function POST(req: Request) {
               });
             }
 
+            type AmountsShape = {
+              subtotalCents?: number | null;
+              taxTotalCents?: number | null;
+              shippingTotalCents?: number | null;
+              discountTotalCents?: number | null;
+              platformFeeCents?: number | null;
+              stripeFeeCents?: number | null;
+              sellerNetCents?: number | null;
+            };
+
+            const existingAmounts =
+              (existing as { amounts?: AmountsShape })?.amounts ?? {};
+
             const updateData: {
-              amounts?: { stripeFeeCents: number };
+              amounts?: AmountsShape;
               documents?: { receiptUrl: string | null };
               stripeEventId: string;
             } = { stripeEventId: event.id };
 
             if (!stripeFeePresent && feesResult) {
               updateData.amounts = {
+                ...existingAmounts,
                 stripeFeeCents: feesResult.stripeFeeCents
               };
             }
+
             if (!receiptPresent && feesResult) {
               updateData.documents = { receiptUrl: feesResult.receiptUrl };
             }
@@ -668,7 +684,13 @@ export async function POST(req: Request) {
           []) as Stripe.LineItem[];
         if (rawLineItems.length === 0) throw new Error('No line items found');
 
-        let totalAmountInCents = sumAmountTotalCents(rawLineItems);
+        const amountShipping =
+          expandedSession.total_details?.amount_shipping ??
+          expandedSession.shipping_cost?.amount_total ??
+          0;
+
+        let totalAmountInCents =
+          sumAmountTotalCents(rawLineItems) + amountShipping;
 
         const expandedLineItems = rawLineItems.filter(isExpandedLineItem);
         if (expandedLineItems.length === 0) {
@@ -798,7 +820,7 @@ export async function POST(req: Request) {
           (productsResult.docs as Product[]).map((p) => [p.id, p])
         );
 
-        const orderItems: OrderItemInput[] = buildOrderItems(
+        const orderItems: OrderItemOutput[] = buildOrderItems(
           expandedLineItems,
           productById
         );
@@ -886,7 +908,7 @@ export async function POST(req: Request) {
                 fulfillmentStatus: 'unfulfilled',
                 total: totalAmountInCents,
                 ...(shippingGroup ? { shipping: shippingGroup } : {}),
-                amounts: { stripeFeeCents },
+                amounts: { stripeFeeCents, shippingTotalCents: amountShipping },
                 documents: { receiptUrl }
               },
               overrideAccess: true

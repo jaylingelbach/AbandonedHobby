@@ -1,17 +1,19 @@
-
 import { daysForPolicy } from '@/lib/server/utils';
 import type { Product } from '@/payload-types';
-
 
 import {
   type ExpandedLineItem,
   requireStripeProductIdFromLine
 } from './guards';
 
+import { usdToCents } from '@/lib/money';
+
 import type Stripe from 'stripe';
 
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;
+
+export type ShippingMode = 'free' | 'flat' | 'calculated';
 
 export type OrderItemOutput = {
   product: string;
@@ -24,6 +26,9 @@ export type OrderItemOutput = {
   refundPolicy?: RefundPolicy;
   returnsAcceptedThrough?: string; // ISO
   thumbnailUrl?: string | null;
+  shippingMode: ShippingMode;
+  shippingFeeCentsPerUnit?: number;
+  shippingSubtotalCents?: number;
 };
 
 /**
@@ -69,6 +74,23 @@ export function toOrderItemFromLine(
     }
   }
 
+  // --- shipping snapshot from Product ---------------------------------
+  const rawMode = productDoc?.shippingMode;
+  const shippingMode: ShippingMode =
+    rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
+      ? rawMode
+      : 'free';
+
+  const shippingFeeCentsPerUnit =
+    shippingMode === 'flat'
+      ? usdToCents(productDoc?.shippingFlatFee, { allowNegative: false })
+      : undefined;
+
+  const shippingSubtotalCents =
+    shippingMode === 'flat' && typeof shippingFeeCentsPerUnit === 'number'
+      ? shippingFeeCentsPerUnit * quantity
+      : undefined;
+
   return {
     product: productId,
     nameSnapshot,
@@ -78,8 +100,10 @@ export function toOrderItemFromLine(
     amountTax,
     amountTotal,
     refundPolicy: policy,
-    returnsAcceptedThrough
-    // thumbnailUrl: you can set this later from productDoc if you want
+    returnsAcceptedThrough,
+    shippingMode,
+    shippingFeeCentsPerUnit,
+    shippingSubtotalCents
   };
 }
 
