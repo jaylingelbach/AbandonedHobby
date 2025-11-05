@@ -23,7 +23,6 @@ import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
 import type { Product } from '@/payload-types';
-import type { ProductWithShipping } from '../../types';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';

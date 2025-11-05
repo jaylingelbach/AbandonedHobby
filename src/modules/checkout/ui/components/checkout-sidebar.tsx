@@ -8,7 +8,6 @@ import type {
   SidebarShippingLine
 } from '@/modules/orders/types';
 import { ShippingBreakdown } from '@/modules/shipping/ui/shipping-breakdown';
-import { useEffect } from 'react';
 
 interface CheckoutSidebarProps {
   subtotalCents: number;
