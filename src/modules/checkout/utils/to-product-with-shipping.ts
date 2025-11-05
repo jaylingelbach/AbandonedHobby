@@ -1,9 +1,11 @@
-import { ProductWithShipping, ShippingModeUnion } from '../types';
+import { usdToCents, isFiniteNumber } from '@/lib/money';
+import type { ProductWithShipping, ShippingModeUnion } from '../types';
 
 export function toProductWithShipping(
   raw: unknown
 ): ProductWithShipping | null {
   if (typeof raw !== 'object' || raw === null) return null;
+
   const record = raw as Record<string, unknown>;
 
   const rawMode = record['shippingMode'];
@@ -11,22 +13,23 @@ export function toProductWithShipping(
   const rawFlatFeeCents = record['shippingFlatFeeCents'];
   const rawFlatFeeUsd = record['shippingFlatFee'];
 
-  const perUnitCents =
-    typeof rawPerUnitCents === 'number' && Number.isFinite(rawPerUnitCents)
-      ? Math.max(0, Math.trunc(rawPerUnitCents))
+  // Normalize cents-per-unit (already cents)
+  const perUnitCents = isFiniteNumber(rawPerUnitCents)
+    ? Math.max(0, Math.trunc(rawPerUnitCents))
+    : undefined;
+
+  // Normalize a flat amount in cents (prefer cents field, fallback to USD)
+  const flatFeeCents = isFiniteNumber(rawFlatFeeCents)
+    ? Math.max(0, Math.trunc(rawFlatFeeCents))
+    : isFiniteNumber(rawFlatFeeUsd)
+      ? Math.max(0, usdToCents(rawFlatFeeUsd))
       : undefined;
 
-  const flatFeeCents =
-    typeof rawFlatFeeCents === 'number' && Number.isFinite(rawFlatFeeCents)
-      ? Math.max(0, Math.trunc(rawFlatFeeCents))
-      : typeof rawFlatFeeUsd === 'number' && Number.isFinite(rawFlatFeeUsd)
-        ? Math.max(0, Math.round(rawFlatFeeUsd * 100))
-        : undefined;
-
+  // Legacy guard: if any finite flat config exists but mode is missing, treat as 'flat'
   const hasLegacyFlat =
-    typeof rawFlatFeeCents === 'number' ||
-    typeof rawFlatFeeUsd === 'number' ||
-    typeof rawPerUnitCents === 'number';
+    isFiniteNumber(rawFlatFeeCents) ||
+    isFiniteNumber(rawFlatFeeUsd) ||
+    isFiniteNumber(rawPerUnitCents);
 
   const mode: ShippingModeUnion =
     rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'

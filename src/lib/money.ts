@@ -1,4 +1,4 @@
-// Centralized, safe money helpers (USD). No `any`.
+// Centralized, safe money helpers (USD).
 
 export function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
