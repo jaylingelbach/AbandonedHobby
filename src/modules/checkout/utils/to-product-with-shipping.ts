@@ -1,6 +1,22 @@
 import { usdToCents, isFiniteNumber } from '@/lib/money';
 import type { ProductWithShipping, ShippingModeUnion } from '../types';
 
+/**
+ * Transforms unknown product data into a ProductWithShipping object.
+ *
+ * Handles legacy fields:
+ * - Converts `shippingFlatFee` (USD) to cents
+ * - Falls back to `shippingFlatFeeCents` or `shippingFeeCentsPerUnit`
+ *
+ * Mode defaults:
+ * - If explicit mode is set, uses that
+ * - If any legacy fee field exists, defaults to 'flat'
+ * - Otherwise defaults to 'free'
+ *
+ * @param raw - Unknown product data to transform
+ * @returns ProductWithShipping object or null if input is invalid
+ */
+
 export function toProductWithShipping(
   raw: unknown
 ): ProductWithShipping | null {
