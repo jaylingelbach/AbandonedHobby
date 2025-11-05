@@ -15,6 +15,7 @@ import type { CollectionConfig, FieldAccess } from 'payload';
 import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
 import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
 import { computeLatestShippedAt } from '@/lib/server/orders/compute-latest-shipped-at';
+import type { ShippingMode } from '@/modules/orders/types';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
   const roles: string[] | undefined = req?.user?.roles as string[] | undefined;
@@ -53,11 +54,11 @@ export const Orders: CollectionConfig = {
             const item = row as Record<string, unknown>;
 
             // mode → required, validated, default 'free'
-            const mode =
+            const mode: ShippingMode =
               item.shippingMode === 'free' ||
               item.shippingMode === 'flat' ||
               item.shippingMode === 'calculated'
-                ? (item.shippingMode as 'free' | 'flat' | 'calculated')
+                ? (item.shippingMode as ShippingMode)
                 : 'free';
             item.shippingMode = mode;
 
