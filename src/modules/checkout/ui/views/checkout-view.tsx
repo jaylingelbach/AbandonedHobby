@@ -42,18 +42,13 @@ interface CheckoutViewProps {
   tenantSlug: string;
 }
 
-type TrpcErrorShape = {
-  data?: { code?: string };
-};
+type TrpcErrorShape = { data?: { code?: string } };
 
 function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    ('data' in value
-      ? typeof (value as { data?: unknown }).data === 'object'
-      : true)
-  );
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('data' in value)) return true; // allow absence of data
+  const data = (value as { data?: unknown }).data;
+  return data === undefined || data === null || typeof data === 'object';
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
@@ -130,7 +125,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   // Stable docs array for downstream memos and maps
   const docs = useMemo<Product[]>(
-    () => (Array.isArray(data?.docs) ? (data!.docs as Product[]) : []),
+    () => (Array.isArray(data?.docs) ? (data.docs as Product[]) : []),
     [data]
   );
 
