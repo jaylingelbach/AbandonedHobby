@@ -9,8 +9,7 @@ import { flushIfNeeded } from '@/lib/server/analytics';
 import { posthogServer } from '@/lib/server/posthog-server';
 import { asId } from '@/lib/server/utils';
 import { stripe } from '@/lib/stripe';
-import { generateTenantURL } from '@/lib/utils';
-import { usdToCents } from '@/lib/money';
+import { generateTenantURL, usdToCents } from '@/lib/utils';
 import { Media, Tenant } from '@/payload-types';
 import {
   baseProcedure,
@@ -22,35 +21,7 @@ import { CheckoutMetadata, ProductMetadata } from '../types';
 import { getPrimaryCardImageUrl } from './utils';
 import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
 
-import {
-  computeFlatShippingCentsForCart,
-  type ProductForShipping
-} from './utils';
-
 export const runtime = 'nodejs';
-
-const productShippingSchema = z.object({
-  shippingMode: z.enum(['free', 'flat', 'calculated']).nullable().optional(),
-  shippingFlatFee: z.number().nullable().optional()
-});
-
-function parseProductShipping(product: unknown): ProductForShipping {
-  const parsed = productShippingSchema.safeParse(product);
-  if (!parsed.success) {
-    const productId = (product as { id?: string })?.id ?? 'unknown';
-    console.warn('[checkout] invalid/missing shipping fields', {
-      productId,
-      issues: parsed.error.issues
-    });
-  }
-  return {
-    id: (product as { id: string }).id,
-    shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
-    shippingFlatFee: parsed.success
-      ? (parsed.data.shippingFlatFee ?? null)
-      : null
-  };
-}
 
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
@@ -89,8 +60,8 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       const mcc = '5932';
-      const account = await stripe.accounts.retrieve(tenant.stripeAccountId);
-      if (account.type !== 'standard') {
+      const acct = await stripe.accounts.retrieve(tenant.stripeAccountId);
+      if (acct.type !== 'standard') {
         await stripe.accounts.update(tenant.stripeAccountId, {
           business_profile: {
             url: generateTenantURL(tenant.slug),
@@ -99,13 +70,11 @@ export const checkoutRouter = createTRPCRouter({
           }
         });
       } else {
-        // Standard accounts manage their own business profile—skip.
-        // Keep the log to make future debugging easier.
+        // Optional: log and proceed to account link creation for Standard accounts
         console.debug(
           `Skipping business_profile update for standard account ${tenant.stripeAccountId}`
         );
       }
-
       const accountLink = await stripe.accountLinks.create({
         account: tenant.stripeAccountId,
         refresh_url: `${process.env.NEXT_PUBLIC_APP_URL!}/admin`,
@@ -144,6 +113,12 @@ export const checkoutRouter = createTRPCRouter({
 
       /**
        * Extracts a tenant ID from a Tenant object or tenant ID string.
+       *
+       * Accepts a Tenant object (with an `id` string) or a plain tenant ID string and returns the tenant ID.
+       *
+       * @param tenant - A Tenant object, a tenant ID string, or null/undefined.
+       * @returns The tenant ID as a string.
+       * @throws TRPCError with code `BAD_REQUEST` when `tenant` is null/undefined or does not contain a valid string `id`.
        */
       function getTenantId(tenant: Tenant | string | null | undefined): string {
         if (!tenant) {
@@ -165,7 +140,6 @@ export const checkoutRouter = createTRPCRouter({
           message: 'Product is missing a valid tenant reference.'
         });
       }
-
       const uniqueProductIds = Array.from(new Set(input.productIds));
       const productsRes = await ctx.db.find({
         collection: 'products',
@@ -219,7 +193,6 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // Inventory precheck (quantity=1 per product)
       const getInventoryInfo = (product: (typeof products)[0]) => {
         const p = product as {
           trackInventory?: boolean;
@@ -232,6 +205,7 @@ export const checkoutRouter = createTRPCRouter({
         };
       };
 
+      // Enforce available stock (you sell quantity=1 per product)
       const soldOutNames: string[] = [];
       for (const product of products) {
         const { trackInventory, stockQuantity } = getInventoryInfo(product);
@@ -247,7 +221,7 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // Stripe line items (product price only; shipping added separately)
+      // Build Stripe line items
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
         products.map((product) => {
           const unitAmountCents = usdToCents(
@@ -272,41 +246,24 @@ export const checkoutRouter = createTRPCRouter({
           };
         });
 
-      // Compute product subtotal & platform fee
-      const productSubtotalCents = products.reduce(
-        (accumulator, current) =>
-          accumulator + usdToCents(current.price as unknown as string | number),
+      // Compute totals & platform fee
+      const totalCents = products.reduce(
+        (acc, p) => acc + usdToCents(p.price as unknown as string | number),
         0
       );
       const platformFeeAmount = Math.round(
-        (productSubtotalCents * PLATFORM_FEE_PERCENTAGE) / 100
+        (totalCents * PLATFORM_FEE_PERCENTAGE) / 100
       );
 
-      // compute flat shipping (single checkout-level amount)
-      const productsForShipping: ProductForShipping[] =
-        products.map(parseProductShipping);
-
-      const { shippingCents, hasCalculated } =
-        computeFlatShippingCentsForCart(productsForShipping);
-
-      if (hasCalculated && shippingCents > 0) {
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message:
-            'Mixing flat-fee and calculated shipping is not supported yet. Please split the cart so we do not undercharge shipping.'
-        });
-      }
-
-      // Success URL (same as your current behavior)
+      // Success uses subdomain when enabled; otherwise path-based
       const success_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
 
-      // Keep cancel path-based
+      // Keep cancel path-based so you don't need a subdomain checkout page
       const cancel_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout?cancel=true`;
 
-      // Read tax readiness to enable automatic tax when available
-      let isTaxReady = false;
+      let checkout: Stripe.Checkout.Session;
       try {
-        const [settings, registrations] = await Promise.all([
+        const [settings, regs] = await Promise.all([
           stripe.tax.settings.retrieve(
             {},
             { stripeAccount: sellerTenant.stripeAccountId }
@@ -316,121 +273,94 @@ export const checkoutRouter = createTRPCRouter({
             { stripeAccount: sellerTenant.stripeAccountId }
           )
         ]);
-        isTaxReady =
-          settings.status === 'active' && registrations.data.length > 0;
-      } catch {
-        // Non-fatal; proceed without autocalc tax
-        isTaxReady = false;
-      }
 
-      // Build Checkout Session payload
-      const attemptId = randomUUID();
-      const sessionPayloadBase: Stripe.Checkout.SessionCreateParams = {
-        mode: 'payment',
-        line_items: lineItems,
-        client_reference_id: attemptId,
+        const isTaxReady = settings.status === 'active' && regs.data.length > 0;
+        const attemptId = randomUUID();
 
-        automatic_tax: { enabled: isTaxReady },
-        invoice_creation: { enabled: true },
+        // Build the *exact* payload first
+        const sessionPayloadBase: Stripe.Checkout.SessionCreateParams = {
+          mode: 'payment',
+          line_items: lineItems,
+          client_reference_id: attemptId,
 
-        customer_email: user.email ?? undefined,
-        success_url,
-        cancel_url,
+          automatic_tax: { enabled: isTaxReady },
+          invoice_creation: { enabled: true },
 
-        metadata: {
-          userId: user.id,
-          tenantId: String(sellerTenantId),
-          tenantSlug: String(sellerTenant.slug),
-          sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-          productIds: input.productIds.join(','),
-          // For visibility in dashboard / troubleshooting
-          shippingCents: String(shippingCents)
-        } satisfies CheckoutMetadata & { shippingCents: string },
+          customer_email: user.email ?? undefined,
+          success_url,
+          cancel_url,
 
-        payment_intent_data: {
-          application_fee_amount: platformFeeAmount
-        },
+          metadata: {
+            userId: user.id,
+            tenantId: String(sellerTenantId),
+            tenantSlug: String(sellerTenant.slug),
+            sellerStripeAccountId: String(sellerTenant.stripeAccountId),
+            productIds: input.productIds.join(',')
+          } satisfies CheckoutMetadata,
 
-        shipping_address_collection: { allowed_countries: ['US'] },
-        billing_address_collection: 'required'
-      };
+          payment_intent_data: {
+            application_fee_amount: platformFeeAmount
+          },
 
-      // Add a fixed-amount shipping option when we have a flat fee
-      // and NOTHING is calculated per-rate in Checkout (we do a single cart-level fee).
-      if (!hasCalculated && shippingCents > 0) {
-        sessionPayloadBase.shipping_options = [
-          {
-            shipping_rate_data: {
-              type: 'fixed_amount',
-              fixed_amount: { amount: shippingCents, currency: 'usd' },
-              display_name: 'Shipping',
-              delivery_estimate: {
-                minimum: { unit: 'business_day', value: 2 },
-                maximum: { unit: 'business_day', value: 7 }
-              },
-              tax_behavior: 'exclusive'
+          shipping_address_collection: { allowed_countries: ['US'] },
+          billing_address_collection: 'required'
+        };
+
+        const stableForKey: {
+          mode: Stripe.Checkout.SessionCreateParams.Mode;
+          // keep only the fields that influence actual Stripe semantics
+          line_items: Stripe.Checkout.SessionCreateParams.LineItem[];
+          automatic_tax: Stripe.Checkout.SessionCreateParams.AutomaticTax;
+          invoice_creation: Stripe.Checkout.SessionCreateParams.InvoiceCreation;
+          customer_email?: string;
+          success_url: string;
+          cancel_url: string;
+          metadata: CheckoutMetadata;
+          payment_intent_data?: Stripe.Checkout.SessionCreateParams.PaymentIntentData;
+          shipping_address_collection?: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection;
+          billing_address_collection?: Stripe.Checkout.SessionCreateParams.BillingAddressCollection;
+        } = {
+          mode: sessionPayloadBase.mode!,
+          // sort deterministically by product id, then unit_amount, then quantity
+          line_items: [...(sessionPayloadBase.line_items ?? [])].sort(
+            (a, b) => {
+              const aMeta = (a.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const bMeta = (b.price_data?.product_data?.metadata ??
+                {}) as CheckoutMetadata & ProductMetadata;
+              const aId = String((aMeta as ProductMetadata).id ?? '');
+              const bId = String((bMeta as ProductMetadata).id ?? '');
+              if (aId !== bId) return aId < bId ? -1 : 1;
+              const aAmt = a.price_data?.unit_amount ?? 0;
+              const bAmt = b.price_data?.unit_amount ?? 0;
+              if (aAmt !== bAmt) return aAmt - bAmt;
+              const aQty = a.quantity ?? 0;
+              const bQty = b.quantity ?? 0;
+              return aQty - bQty;
             }
-          }
-        ];
-      }
+          ),
+          automatic_tax: sessionPayloadBase.automatic_tax!,
+          invoice_creation: sessionPayloadBase.invoice_creation!,
+          customer_email: sessionPayloadBase.customer_email,
+          success_url: sessionPayloadBase.success_url!,
+          cancel_url: sessionPayloadBase.cancel_url!,
+          metadata: sessionPayloadBase.metadata as CheckoutMetadata,
+          payment_intent_data: sessionPayloadBase.payment_intent_data,
+          shipping_address_collection:
+            sessionPayloadBase.shipping_address_collection,
+          billing_address_collection:
+            sessionPayloadBase.billing_address_collection
+        };
 
-      // Derive a deterministic idempotency key to avoid duplicate param mismatch errors
-      const stableForKey: {
-        mode: Stripe.Checkout.SessionCreateParams.Mode;
-        line_items: Stripe.Checkout.SessionCreateParams.LineItem[];
-        automatic_tax: Stripe.Checkout.SessionCreateParams.AutomaticTax;
-        invoice_creation: Stripe.Checkout.SessionCreateParams.InvoiceCreation;
-        customer_email?: string;
-        success_url: string;
-        cancel_url: string;
-        metadata: CheckoutMetadata & { shippingCents: string };
-        payment_intent_data?: Stripe.Checkout.SessionCreateParams.PaymentIntentData;
-        shipping_address_collection?: Stripe.Checkout.SessionCreateParams.ShippingAddressCollection;
-        billing_address_collection?: Stripe.Checkout.SessionCreateParams.BillingAddressCollection;
-        shipping_options?: Stripe.Checkout.SessionCreateParams.ShippingOption[];
-      } = {
-        mode: sessionPayloadBase.mode!,
-        line_items: [...(sessionPayloadBase.line_items ?? [])].sort((a, b) => {
-          const aMeta = (a.price_data?.product_data?.metadata ??
-            {}) as CheckoutMetadata & ProductMetadata;
-          const bMeta = (b.price_data?.product_data?.metadata ??
-            {}) as CheckoutMetadata & ProductMetadata;
-          const aId = String((aMeta as ProductMetadata).id ?? '');
-          const bId = String((bMeta as ProductMetadata).id ?? '');
-          if (aId !== bId) return aId < bId ? -1 : 1;
-          const aAmt = a.price_data?.unit_amount ?? 0;
-          const bAmt = b.price_data?.unit_amount ?? 0;
-          if (aAmt !== bAmt) return aAmt - bAmt;
-          const aQty = a.quantity ?? 0;
-          const bQty = b.quantity ?? 0;
-          return aQty - bQty;
-        }),
-        automatic_tax: sessionPayloadBase.automatic_tax!,
-        invoice_creation: sessionPayloadBase.invoice_creation!,
-        customer_email: sessionPayloadBase.customer_email,
-        success_url: sessionPayloadBase.success_url!,
-        cancel_url: sessionPayloadBase.cancel_url!,
-        metadata: sessionPayloadBase.metadata as CheckoutMetadata & {
-          shippingCents: string;
-        },
-        payment_intent_data: sessionPayloadBase.payment_intent_data,
-        shipping_address_collection:
-          sessionPayloadBase.shipping_address_collection,
-        billing_address_collection:
-          sessionPayloadBase.billing_address_collection,
-        shipping_options: sessionPayloadBase.shipping_options
-      };
+        // Derive a deterministic key from the payload (prevents parameter-mismatch errors)
+        const idempotencyKey = buildIdempotencyKey({
+          prefix: 'checkout',
+          actorId: user.id,
+          tenantId: String(sellerTenantId),
+          payload: stableForKey, // deterministic
+          salt: attemptId // randomness lives here
+        });
 
-      const idempotencyKey = buildIdempotencyKey({
-        prefix: 'checkout',
-        actorId: user.id,
-        tenantId: String(sellerTenantId),
-        payload: stableForKey,
-        salt: attemptId
-      });
-
-      let checkout: Stripe.Checkout.Session;
-      try {
         checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
           stripeAccount: sellerTenant.stripeAccountId,
           idempotencyKey
@@ -444,8 +374,7 @@ export const checkoutRouter = createTRPCRouter({
             properties: {
               productIds: input.productIds,
               itemCount: products.length,
-              productSubtotalCents,
-              shippingCents,
+              totalCents,
               platformFeeCents: platformFeeAmount,
               stripeSessionId: checkout.id,
               sellerStripeAccountId: sellerTenant.stripeAccountId,
@@ -458,11 +387,10 @@ export const checkoutRouter = createTRPCRouter({
             timestamp: new Date()
           });
           await flushIfNeeded();
-        } catch (analyticsError) {
-          console.warn(
-            '[analytics] checkoutStarted capture failed:',
-            analyticsError
-          );
+        } catch (err) {
+          if (process.env.NODE_ENV !== 'production') {
+            console.warn('[analytics] checkoutStarted capture failed:', err);
+          }
         }
       } catch (err: unknown) {
         if (err instanceof Stripe.errors.StripeError) {
@@ -511,35 +439,19 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // Subtotal (items only)
-      const subtotalCents = data.docs.reduce(
-        (accumulator, product) =>
-          accumulator + usdToCents(product.price as unknown as string | number),
+      const totalCents = data.docs.reduce(
+        (acc, p) => acc + usdToCents(p.price as unknown as string | number),
         0
       );
-
-      // Flat shipping preview (sum all flat fees; ignore if any are `calculated`)
-      const productsForShipping: ProductForShipping[] =
-        data.docs.map(parseProductShipping);
-
-      const flat = computeFlatShippingCentsForCart(productsForShipping);
-
-      // If any item is "calculated", Stripe will compute shipping at checkout.
-      // For the sidebar we show $0 shipping (preview), so we don't double-charge.
-      const shippingCents = flat.hasCalculated ? 0 : flat.shippingCents;
-
-      const totalCents = subtotalCents + shippingCents;
+      const totalPrice = totalCents / 100; // keep for current UI if needed
 
       return {
         ...data,
-        // keep legacy totalPrice for existing UI that might read it
-        totalPrice: totalCents / 100,
-        // new precise fields the UI can use
-        subtotalCents,
-        shippingCents,
+        totalPrice,
         totalCents,
         docs: data.docs.map((doc) => ({
           ...doc,
+          // legacy image removed
           cover: doc.cover as Media | null,
           tenant: doc.tenant as Tenant & { image: Media | null },
           cardImageUrl: getPrimaryCardImageUrl(doc)

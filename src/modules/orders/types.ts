@@ -1,32 +1,5 @@
 import { Carrier } from '@/constants';
 
-export type ShippingMode = 'free' | 'flat' | 'calculated';
-
-export interface OrderItemCore {
-  product: string; // or Product
-  nameSnapshot: string;
-  unitAmountCents: number;
-  quantity: number;
-
-  // NEW:
-  shippingMode: ShippingMode;
-  shippingFeeCentsPerUnit?: number; // only when shippingMode === 'flat'
-  shippingSubtotalCents: number; // per-line, quantity-applied
-}
-
-export interface OrderAmounts {
-  itemsSubtotalCents: number;
-  shippingTotalCents: number;
-  discountTotalCents: number;
-  taxTotalCents: number;
-  totalCents: number; // itemsSubtotalCents + shippingTotalCents - discountTotalCents + taxTotalCents
-}
-
-export interface OrderForBuyer {
-  items: OrderItemCore[];
-  amounts: OrderAmounts;
-}
-
 export type ShippingAddress = {
   name?: string | null;
   line1?: string | null;
