@@ -1,12 +1,10 @@
 'use client';
 
+import { useMemo } from 'react';
 import { CircleXIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import type {
-  CartItemForShipping,
-  SidebarShippingLine
-} from '@/modules/orders/types';
+import type { CartItemForShipping } from '@/modules/orders/types';
 import { ShippingBreakdown } from '@/modules/shipping/ui/shipping-breakdown';
 
 interface CheckoutSidebarProps {
@@ -16,7 +14,9 @@ interface CheckoutSidebarProps {
   onPurchaseAction: () => void;
   isCanceled: boolean;
   disabled: boolean;
-  itemizedShipping?: SidebarShippingLine[];
+
+  /** Prebuilt items with real quantities (build in checkout-view) */
+  breakdownItems?: CartItemForShipping[];
   hasCalculatedShipping?: boolean;
 }
 
@@ -27,7 +27,7 @@ export const CheckoutSidebar = ({
   onPurchaseAction,
   isCanceled,
   disabled,
-  itemizedShipping = [],
+  breakdownItems = [],
   hasCalculatedShipping = false
 }: CheckoutSidebarProps) => {
   const toUsd = (cents: number) => {
@@ -38,6 +38,39 @@ export const CheckoutSidebar = ({
     }
     return formatCurrency((cents || 0) / 100);
   };
+
+  // Dev-only: validate total math once per render while in development
+  useMemo(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    const expectedTotal = subtotalCents + shippingCents;
+    if (totalCents !== expectedTotal) {
+      console.error(
+        `CheckoutSidebar total mismatch: expected ${expectedTotal}, got ${totalCents}`
+      );
+    }
+  }, [subtotalCents, shippingCents, totalCents]);
+
+  // Dev-only: if shipping is fully flat (no calculated rows), ensure the itemized sum matches shippingCents
+  useMemo(() => {
+    if (process.env.NODE_ENV !== 'development') return;
+    if (hasCalculatedShipping || breakdownItems.length === 0) return;
+
+    const flatSum = breakdownItems.reduce((accumulator, item) => {
+      if (item.shippingMode !== 'flat') return accumulator;
+      const perUnit = Number.isFinite(item.shippingFeeCentsPerUnit)
+        ? (item.shippingFeeCentsPerUnit as number)
+        : 0;
+      const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
+      return accumulator + perUnit * quantity;
+    }, 0);
+
+    if (flatSum !== shippingCents) {
+      console.error(
+        `Shipping breakdown mismatch: flat sum ${flatSum} != shippingCents ${shippingCents}`
+      );
+    }
+  }, [breakdownItems, hasCalculatedShipping, shippingCents]);
+
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
       <div className="p-4 border-b">
@@ -53,22 +86,9 @@ export const CheckoutSidebar = ({
           <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
         </div>
 
-        {/* Per-item shipping breakdown (component) */}
-        {(itemizedShipping.length > 0 || hasCalculatedShipping) && (
+        {(breakdownItems.length > 0 || hasCalculatedShipping) && (
           <div className="mt-2 pl-2">
-            <ShippingBreakdown
-              items={itemizedShipping.map(
-                (line): CartItemForShipping => ({
-                  id: line.id,
-                  name: line.label,
-                  quantity: 1, // current cart is one-per-id; adjust if you add quantities
-                  shippingMode: line.mode,
-                  shippingFeeCentsPerUnit:
-                    line.mode === 'flat' ? line.amountCents : 0
-                })
-              )}
-            />
-
+            <ShippingBreakdown items={breakdownItems} />
             {hasCalculatedShipping && (
               <p className="mt-1 text-xs text-muted-foreground italic">
                 Additional shipping will be calculated at checkout.
@@ -105,7 +125,7 @@ export const CheckoutSidebar = ({
           >
             <div className="flex items-center">
               <CircleXIcon className="size-6 mr-2 fill-red-500 text-red-100" />
-              <span>Checkout failed, please try again. </span>
+              <span>Checkout failed, please try again.</span>
             </div>
           </div>
         </div>

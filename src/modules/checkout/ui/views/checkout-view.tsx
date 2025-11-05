@@ -23,6 +23,10 @@ import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
 import type { Product } from '@/payload-types';
+import type {
+  CartItemForShipping,
+  SidebarShippingLine
+} from '@/modules/orders/types';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';
@@ -65,14 +69,15 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   );
 
   // Build query options once for stable keys
-  const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
-    ids: productIds
-  });
+  const productsQueryOptions = useMemo(
+    () => trpc.checkout.getProducts.queryOptions({ ids: productIds }),
+    [trpc.checkout.getProducts, productIds]
+  );
 
   // Load products in cart (localStorage-driven, so no SSR/hydration needed)
   const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
     ...productsQueryOptions,
-    enabled: productIds.length > 0, // don't fetch for empty cart
+    enabled: productIds.length > 0,
     placeholderData: (previous) => previous,
     retry: 1
   });
@@ -86,7 +91,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
-        // stash the scope that initiated this checkout
         const scope = buildScopeClient(tenantSlug, session?.user?.id);
         localStorage.setItem('ah_checkout_scope', scope);
         cartDebug('redirecting to Stripe', {
@@ -109,6 +113,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             typeof window !== 'undefined' ? window.location.href : '/';
           window.location.assign(buildSignInUrl(next));
         } else {
+          // eslint-disable-next-line no-console
           console.error('checkout.purchase failed:', err);
           toast.error('Checkout failed. Please try again.');
         }
@@ -147,12 +152,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return subtotalCents + shippingCents;
   }, [data, subtotalCents, shippingCents]);
 
-  const itemizedShipping = useMemo(
+  // 1) Build display lines (keeps 'calculated', drops only 'free')
+  const itemizedShippingLines = useMemo<SidebarShippingLine[]>(
     () =>
       docs
         .map((product) => {
           const normalized = toProductWithShipping(product);
-          const mode = normalized?.shippingMode ?? 'free';
+          const shippingMode = normalized?.shippingMode ?? 'free';
           const amountCents = normalized
             ? calculateShippingAmount(normalized)
             : 0;
@@ -161,26 +167,35 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             id: String(product.id),
             label: typeof product.name === 'string' ? product.name : 'Item',
             amountCents,
-            mode
+            mode: shippingMode
           };
         })
-        // keep 'calculated' rows so you can show "calculated at checkout"; drop only 'free'
         .filter((line) => line.mode !== 'free'),
     [docs]
   );
 
   const hasCalculatedShipping = useMemo(
+    () => itemizedShippingLines.some((line) => line.mode === 'calculated'),
+    [itemizedShippingLines]
+  );
+
+  // 2) Transform to CartItemForShipping[] (wire quantity here; currently 1)
+  const breakdownItems = useMemo<CartItemForShipping[]>(
     () =>
-      docs.some((product) => {
-        const normalized = toProductWithShipping(product);
-        return (normalized?.shippingMode ?? 'free') === 'calculated';
-      }),
-    [docs]
+      itemizedShippingLines.map((line) => ({
+        id: line.id,
+        name: line.label,
+        quantity: 1, // TODO: replace with real quantity when cart supports it
+        shippingMode: line.mode,
+        shippingFeeCentsPerUnit:
+          line.mode === 'flat' ? line.amountCents : undefined
+      })),
+    [itemizedShippingLines]
   );
 
   // ---- Effects (safe; hooks already called above) ----
 
-  // Handle ?cancel=true (Stripe cancel_url) — set state and clean URL
+  // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
     if (!isCanceled) return;
@@ -192,9 +207,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     const queryString = url.searchParams.toString();
     router.replace(
       queryString ? `${url.pathname}?${queryString}` : url.pathname,
-      {
-        scroll: false
-      }
+      { scroll: false }
     );
   }, [router, searchParams, setStates]);
 
@@ -212,14 +225,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     }
   }, [error, clearCart]);
 
-  // Success flow (if you toggle via state after returning from success_url)
+  // Success flow (after returning from success_url)
   useEffect(() => {
     if (!states.success) return;
 
     setStates({ success: false, cancel: false });
     clearCart();
 
-    // Refresh library queries
     queryClient.invalidateQueries(libraryFilter);
     router.push('/orders');
   }, [
@@ -231,14 +243,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     libraryFilter
   ]);
 
-  // inside CheckoutView component: session success handling
+  // Session success handling (?success=true or ?session_id=...)
   useEffect(() => {
     const isSuccess =
       searchParams.get('success') === 'true' ||
       !!searchParams.get('session_id');
     if (!isSuccess) return;
 
-    // Prefer clearing the exact scope that initiated checkout
     const scope =
       typeof window !== 'undefined'
         ? localStorage.getItem('ah_checkout_scope')
@@ -260,9 +271,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       const queryString = url.searchParams.toString();
       router.replace(
         queryString ? `${url.pathname}?${queryString}` : url.pathname,
-        {
-          scroll: false
-        }
+        { scroll: false }
       );
 
       queryClient.invalidateQueries(libraryFilter);
@@ -312,9 +321,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  // ----- Early-return UIs (safe; hooks were already called) -----
+  // ----- Early-return UIs -----
 
-  // Loading: show spinner if there are items to fetch
   if (productIds.length > 0 && isLoading) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -337,7 +345,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Error or missing data (avoid crashing on data!)
   if (productIds.length > 0 && (isError || !data)) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -368,13 +375,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Empty cart (no ids OR fetched result is empty)
   if (productIds.length === 0 || (data && data.totalDocs === 0)) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled // no items to resume with
+            disabled
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
               clearCart();
@@ -453,8 +459,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             onPurchaseAction={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={isBusy}
-            itemizedShipping={itemizedShipping}
             hasCalculatedShipping={hasCalculatedShipping}
+            breakdownItems={breakdownItems}
           />
         </div>
       </div>

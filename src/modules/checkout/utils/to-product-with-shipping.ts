@@ -3,20 +3,9 @@ import type { ProductWithShipping, ShippingModeUnion } from '../types';
 
 /**
  * Transforms unknown product data into a ProductWithShipping object.
- *
- * Handles legacy fields:
- * - Converts `shippingFlatFee` (USD) to cents
- * - Falls back to `shippingFlatFeeCents` or `shippingFeeCentsPerUnit`
- *
- * Mode defaults:
- * - If explicit mode is set, uses that
- * - If any legacy fee field exists, defaults to 'flat'
- * - Otherwise defaults to 'free'
- *
- * @param raw - Unknown product data to transform
- * @returns ProductWithShipping object or null if input is invalid
+ * - Normalizes cents fields (trunc) and USD (round via usdToCents).
+ * - Legacy "flat" fallback ONLY when flat-fee fields exist (NOT per-unit).
  */
-
 export function toProductWithShipping(
   raw: unknown
 ): ProductWithShipping | null {
@@ -41,18 +30,31 @@ export function toProductWithShipping(
       ? Math.max(0, usdToCents(rawFlatFeeUsd))
       : undefined;
 
-  // Legacy guard: if any finite flat config exists but mode is missing, treat as 'flat'
+  // Legacy guard: only treat true flat-fee fields as legacy "flat"
   const hasLegacyFlat =
-    isFiniteNumber(rawFlatFeeCents) ||
-    isFiniteNumber(rawFlatFeeUsd) ||
-    isFiniteNumber(rawPerUnitCents);
+    isFiniteNumber(rawFlatFeeCents) || isFiniteNumber(rawFlatFeeUsd);
 
+  // NOTE: do not use per-unit to force 'flat' here; rely on explicit mode for per-unit setups
   const mode: ShippingModeUnion =
     rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
       ? rawMode
       : hasLegacyFlat
         ? 'flat'
         : 'free';
+
+  // Optional: surface a dev warning if per-unit is set but mode is missing/legacy-free
+  if (
+    process.env.NODE_ENV === 'development' &&
+    perUnitCents !== undefined &&
+    !hasLegacyFlat &&
+    (rawMode === undefined || rawMode === null)
+  ) {
+    // eslint-disable-next-line no-console
+    console.warn(
+      '[toProductWithShipping] Per-unit fee present but shippingMode missing; defaulting to "free". ' +
+        'Downstream calculators will ignore per-unit unless shippingMode is "flat".'
+    );
+  }
 
   return {
     shippingMode: mode,
