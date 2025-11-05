@@ -2,7 +2,7 @@
 
 import { RichText } from '@payloadcms/richtext-lexical/react';
 import { useSuspenseQuery } from '@tanstack/react-query';
-import { CheckCheckIcon, LinkIcon, StarIcon, Truck } from 'lucide-react';
+import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';

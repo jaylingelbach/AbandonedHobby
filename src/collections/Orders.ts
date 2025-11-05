@@ -21,14 +21,6 @@ const readIfSuperAdmin: FieldAccess = ({ req }) => {
   return Array.isArray(roles) && roles.includes('super-admin');
 };
 
-type ShippingMode = 'free' | 'flat' | 'calculated';
-
-function normalizeMode(value: unknown): ShippingMode {
-  return value === 'free' || value === 'flat' || value === 'calculated'
-    ? value
-    : 'free';
-}
-
 export const Orders: CollectionConfig = {
   slug: 'orders',
   admin: {
