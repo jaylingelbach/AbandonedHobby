@@ -16,17 +16,22 @@ export function calculateShippingAmount(product: ProductWithShipping): number {
   const mode = product.shippingMode ?? 'free';
   if (mode !== 'flat') return 0;
 
-  const centsFromSnapshot = product.shippingFeeCentsPerUnit;
-  if (
-    typeof centsFromSnapshot === 'number' &&
-    Number.isFinite(centsFromSnapshot)
-  ) {
-    return Math.max(0, Math.trunc(centsFromSnapshot));
+  // 1) Most authoritative: explicit cents per unit snapshot
+  const centsPerUnit = product.shippingFeeCentsPerUnit;
+  if (typeof centsPerUnit === 'number' && Number.isFinite(centsPerUnit)) {
+    return Math.max(0, Math.trunc(centsPerUnit));
   }
 
-  const usdFromFlat = product.shippingFlatFeeCents;
-  if (typeof usdFromFlat === 'number' && Number.isFinite(usdFromFlat)) {
-    return Math.max(0, Math.round(usdFromFlat * 100));
+  // 2) Next: a flat fee already expressed in cents
+  const flatCents = product.shippingFlatFeeCents;
+  if (typeof flatCents === 'number' && Number.isFinite(flatCents)) {
+    return Math.max(0, Math.trunc(flatCents));
+  }
+
+  // 3) Fallback: USD flat fee that must be converted to cents
+  const flatUsd = product.shippingFlatFee;
+  if (typeof flatUsd === 'number' && Number.isFinite(flatUsd)) {
+    return Math.max(0, Math.round(flatUsd * 100));
   }
 
   return 0;

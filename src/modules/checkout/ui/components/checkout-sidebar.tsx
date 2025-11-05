@@ -3,7 +3,11 @@
 import { CircleXIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
-import type { SidebarShippingLine } from '@/modules/orders/types'; // path to where you added it
+import type {
+  CartItemForShipping,
+  SidebarShippingLine
+} from '@/modules/orders/types';
+import { ShippingBreakdown } from '@/modules/shipping/ui/shipping-breakdown';
 
 interface CheckoutSidebarProps {
   subtotalCents: number;
@@ -53,11 +57,13 @@ export const CheckoutSidebar = ({
         </div>
 
         <div className="flex items-center justify-between py-1">
-          <span className="text-sm text-muted-foreground">Shipping</span>
+          <span className="text-sm text-muted-foreground">
+            Shipping (total)
+          </span>
           <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
         </div>
 
-        {/* Per-item shipping breakdown (only when present) */}
+        {/* Per-item shipping breakdown (only when present)
         {itemizedShipping.length > 0 || hasCalculatedShipping ? (
           <div className="mt-2 pl-2">
             {itemizedShipping.length > 0 && (
@@ -82,7 +88,31 @@ export const CheckoutSidebar = ({
               </p>
             )}
           </div>
-        ) : null}
+        ) : null} */}
+
+        {/* Per-item shipping breakdown (component) */}
+        {(itemizedShipping.length > 0 || hasCalculatedShipping) && (
+          <div className="mt-2 pl-2">
+            <ShippingBreakdown
+              items={itemizedShipping.map(
+                (line): CartItemForShipping => ({
+                  id: line.id,
+                  name: line.label,
+                  quantity: 1, // current cart is one-per-id; adjust if you add quantities
+                  shippingMode: line.mode,
+                  shippingFeeCentsPerUnit:
+                    line.mode === 'flat' ? line.amountCents : 0
+                })
+              )}
+            />
+
+            {hasCalculatedShipping && (
+              <p className="mt-1 text-xs text-muted-foreground italic">
+                Additional shipping will be calculated at checkout.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex items-center justify-between py-2 border-t mt-2">
           <h4 className="font-semibold text-base">Total</h4>

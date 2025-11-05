@@ -318,20 +318,18 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       ? data.totalCents
       : subtotalCents + shippingCents;
 
-  const itemizedShipping = docs
+  const itemizedShipping = (docs ?? [])
     .map((product) => {
-      const productWithShipping = product as ProductWithShipping;
-      const label = typeof product.name === 'string' ? product.name : 'Item';
-      const mode = (productWithShipping.shippingMode ?? 'free') as
-        | 'free'
-        | 'flat'
-        | 'calculated';
-
-      const amountCents = calculateShippingAmount(productWithShipping);
+      const amountCents = calculateShippingAmount(
+        product as ProductWithShipping
+      );
+      const mode = ((
+        product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
+      ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
 
       return {
-        id: product.id,
-        label,
+        id: String(product.id),
+        label: typeof product.name === 'string' ? product.name : 'Item',
         amountCents,
         mode
       };
@@ -342,6 +340,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     const productWithShipping = product as ProductWithShipping;
     return (productWithShipping.shippingMode ?? 'free') === 'calculated';
   });
+  console.log('docs', docs);
+  console.log(
+    'first doc shipping fields',
+    (docs?.[0] as ProductWithShipping)?.shippingMode,
+    (docs?.[0] as ProductWithShipping)?.shippingFlatFeeCents,
+    (docs?.[0] as ProductWithShipping)?.shippingFeeCentsPerUnit
+  );
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">

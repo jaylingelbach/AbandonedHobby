@@ -27,4 +27,5 @@ export interface ProductWithShipping {
   shippingMode?: 'free' | 'flat' | 'calculated';
   shippingFeeCentsPerUnit?: number;
   shippingFlatFeeCents?: number;
+  shippingFlatFee?: number | null; // USD, legacy shape in your payload dump
 }
