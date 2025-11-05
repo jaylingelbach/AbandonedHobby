@@ -49,7 +49,6 @@ export function toProductWithShipping(
     !hasLegacyFlat &&
     (rawMode === undefined || rawMode === null)
   ) {
-    // eslint-disable-next-line no-console
     console.warn(
       '[toProductWithShipping] Per-unit fee present but shippingMode missing; defaulting to "free". ' +
         'Downstream calculators will ignore per-unit unless shippingMode is "flat".'

@@ -113,7 +113,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             typeof window !== 'undefined' ? window.location.href : '/';
           window.location.assign(buildSignInUrl(next));
         } else {
-          // eslint-disable-next-line no-console
           console.error('checkout.purchase failed:', err);
           toast.error('Checkout failed. Please try again.');
         }
