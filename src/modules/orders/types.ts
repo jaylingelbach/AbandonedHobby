@@ -6,7 +6,7 @@ export interface OrderItemCore {
   product: string; // or Product
   nameSnapshot: string;
   unitAmountCents: number;
-  quantity: number;
+  quantity: number; // positive int
 
   // NEW:
   shippingMode: ShippingMode;
@@ -126,6 +126,21 @@ export type CentsVariant = BaseOrderSummaryProps & {
   totalCents: number; // cents
   currency?: string; // optional, reserved for future
   totalPaid?: never;
+};
+
+export type CartItemForShipping = {
+  id: string;
+  name: string;
+  quantity: number;
+  shippingMode: ShippingMode;
+  shippingFeeCentsPerUnit?: number; // cents, only for 'flat'
+};
+
+export type SidebarShippingLine = {
+  id: string;
+  label: string;
+  amountCents: number; // per-item, quantity=1 in your cart
+  mode: ShippingMode;
 };
 
 export type OrderSummaryCardProps = DollarsVariant | CentsVariant;

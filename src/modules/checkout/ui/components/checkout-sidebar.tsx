@@ -1,16 +1,23 @@
+// CheckoutSidebar.tsx
+
 'use client';
 
 import { CircleXIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
+import type { SidebarShippingLine } from '@/modules/orders/types'; // path to where you added it
 
 interface CheckoutSidebarProps {
   subtotalCents: number;
   shippingCents: number;
   totalCents: number;
-  onPurchaseAction: () => void; // renamed to satisfy Next rule
+  onPurchaseAction: () => void;
   isCanceled: boolean;
   disabled: boolean;
+
+  // NEW (optional)
+  itemizedShipping?: SidebarShippingLine[];
+  hasCalculatedShipping?: boolean;
 }
 
 export const CheckoutSidebar = ({
@@ -19,11 +26,12 @@ export const CheckoutSidebar = ({
   totalCents,
   onPurchaseAction,
   isCanceled,
-  disabled
+  disabled,
+  itemizedShipping = [],
+  hasCalculatedShipping = false
 }: CheckoutSidebarProps) => {
   const toUsd = (cents: number) => {
     if (!Number.isFinite(cents) || cents < 0) {
-      // Soft warn in dev; still render.
       if (process.env.NODE_ENV === 'development') {
         console.warn('Non-finite or negative monetary value:', cents);
       }
@@ -31,7 +39,6 @@ export const CheckoutSidebar = ({
     return formatCurrency((cents || 0) / 100);
   };
 
-  // Dev-only validation that parent computed total correctly
   if (process.env.NODE_ENV === 'development') {
     const expectedTotal = subtotalCents + shippingCents;
     if (totalCents !== expectedTotal) {
@@ -48,10 +55,39 @@ export const CheckoutSidebar = ({
           <span className="text-sm text-muted-foreground">Subtotal</span>
           <span className="text-sm font-medium">{toUsd(subtotalCents)}</span>
         </div>
+
         <div className="flex items-center justify-between py-1">
           <span className="text-sm text-muted-foreground">Shipping</span>
           <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
         </div>
+
+        {/* Per-item shipping breakdown (only when present) */}
+        {itemizedShipping.length > 0 || hasCalculatedShipping ? (
+          <div className="mt-2 pl-2">
+            {itemizedShipping.length > 0 && (
+              <ul className="space-y-1">
+                {itemizedShipping.map((line) => (
+                  <li
+                    key={line.id}
+                    className="flex items-center justify-between text-xs text-muted-foreground"
+                  >
+                    <span className="truncate">{line.label}</span>
+                    <span className="font-medium">
+                      {toUsd(line.amountCents)}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            {hasCalculatedShipping && (
+              <p className="mt-1 text-xs text-muted-foreground italic">
+                Additional shipping will be calculated at checkout.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         <div className="flex items-center justify-between py-2 border-t mt-2">
           <h4 className="font-semibold text-base">Total</h4>
           <p className="font-semibold text-base">{toUsd(totalCents)}</p>

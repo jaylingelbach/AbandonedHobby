@@ -19,6 +19,7 @@ import {
   getTenantSlugSafe
 } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
+import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
 import { Product } from '@/payload-types';
@@ -34,6 +35,7 @@ import { cartDebug } from '../../debug';
 import CheckoutBanner from './checkout-banner';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
+import { ProductWithShipping } from '../../types';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -316,6 +318,32 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       ? data.totalCents
       : subtotalCents + shippingCents;
 
+  const itemizedShipping = docs
+    .map((product) => {
+      const label = typeof product.name === 'string' ? product.name : 'Item';
+      const mode = ((product as ProductWithShipping).shippingMode ?? 'free') as
+        | 'free'
+        | 'flat'
+        | 'calculated';
+
+      const amountCents = calculateShippingAmount(
+        product as ProductWithShipping
+      );
+
+      return {
+        id: product.id,
+        label,
+        amountCents,
+        mode
+      };
+    })
+    .filter((line) => line.amountCents > 0);
+
+  const hasCalculatedShipping = docs.some(
+    (product) =>
+      ((product as ProductWithShipping).shippingMode ?? 'free') === 'calculated'
+  );
+
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
       {states.cancel && (
@@ -379,6 +407,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             onPurchaseAction={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={isBusy}
+            itemizedShipping={itemizedShipping}
+            hasCalculatedShipping={hasCalculatedShipping}
           />
         </div>
       </div>
