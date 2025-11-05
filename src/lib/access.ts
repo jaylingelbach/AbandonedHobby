@@ -21,7 +21,7 @@ export const mustBeStripeVerified: Access = async ({ req }) => {
 
     return Boolean(
       tenant?.stripeAccountId && tenant?.stripeDetailsSubmitted
-      // && tenant?.stripeChargesEnabled // ✅ optional harder gate
+      // && tenant?.stripeChargesEnabled // optional harder gate
     );
   } catch (error) {
     console.error('mustBeStripeVerified: failed to load tenant', {
