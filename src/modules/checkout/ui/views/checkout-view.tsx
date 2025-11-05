@@ -22,7 +22,8 @@ import { useTRPC } from '@/trpc/client';
 import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
-import { Product } from '@/payload-types';
+import type { Product } from '@/payload-types';
+import type { ProductWithShipping } from '../../types';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';
@@ -35,10 +36,23 @@ import { cartDebug } from '../../debug';
 import CheckoutBanner from './checkout-banner';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
-import { ProductWithShipping } from '../../types';
 
 interface CheckoutViewProps {
   tenantSlug: string;
+}
+
+type TrpcErrorShape = {
+  data?: { code?: string };
+};
+
+function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    ('data' in value
+      ? typeof (value as { data?: unknown }).data === 'object'
+      : true)
+  );
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
@@ -46,12 +60,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
+
   const { productIds, removeProduct, clearCart } = useCart(
     tenantSlug,
     session?.user?.id
   );
-  const queryClient = useQueryClient();
 
   // Build query options once for stable keys
   const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
@@ -62,7 +78,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
     ...productsQueryOptions,
     enabled: productIds.length > 0, // don't fetch for empty cart
-    placeholderData: (prev) => prev,
+    placeholderData: (previous) => previous,
     retry: 1
   });
 
@@ -87,8 +103,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         window.location.assign(payload.url);
       },
       onError: (err) => {
-        const code = (err as unknown as { data?: { code?: string } })?.data
-          ?.code;
+        const maybeTrpcError = err as unknown;
+        const code =
+          isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
+            ? maybeTrpcError.data.code
+            : undefined;
+
         if (code === 'UNAUTHORIZED') {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
@@ -104,6 +124,68 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   // Single flag for disabling “Return to checkout”
   const isBusy = purchase.isPending || isFetching;
   const disableResume = productIds.length === 0 || isBusy;
+
+  // ---- HOISTED MEMOS (before any early returns) ----
+
+  // Stable docs array for downstream memos and maps
+  const docs = useMemo<Product[]>(
+    () => (Array.isArray(data?.docs) ? (data!.docs as Product[]) : []),
+    [data]
+  );
+
+  // Subtotal (cents) derived once; works for older or newer server responses
+  const subtotalCents = useMemo(() => {
+    if (typeof data?.subtotalCents === 'number') return data.subtotalCents;
+    if (typeof data?.totalCents === 'number') return data.totalCents;
+    const totalPriceDollars =
+      (data as { totalPrice?: number } | undefined)?.totalPrice ?? 0;
+    return Math.round(totalPriceDollars * 100);
+  }, [data]);
+
+  const shippingCents = useMemo(
+    () => (typeof data?.shippingCents === 'number' ? data.shippingCents : 0),
+    [data]
+  );
+
+  const totalCents = useMemo(() => {
+    if (typeof data?.totalCents === 'number') return data.totalCents;
+    return subtotalCents + shippingCents;
+  }, [data, subtotalCents, shippingCents]);
+
+  // Build per-item shipping lines for the sidebar (keep 'calculated', drop only 'free')
+  const itemizedShipping = useMemo(
+    () =>
+      docs
+        .map((product) => {
+          const amountCents = calculateShippingAmount(
+            product as unknown as ProductWithShipping
+          );
+          const shippingMode = ((
+            product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
+          ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
+
+          return {
+            id: String(product.id),
+            label: typeof product.name === 'string' ? product.name : 'Item',
+            amountCents,
+            mode: shippingMode
+          };
+        })
+        .filter((line) => line.mode !== 'free'),
+    [docs]
+  );
+
+  const hasCalculatedShipping = useMemo(
+    () =>
+      docs.some((product) => {
+        const productWithShipping = product as unknown as ProductWithShipping;
+        return (productWithShipping.shippingMode ?? 'free') === 'calculated';
+      }),
+    [docs]
+  );
+
+  // ---- Effects (safe; hooks already called above) ----
+
   // Handle ?cancel=true (Stripe cancel_url) — set state and clean URL
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
@@ -113,15 +195,23 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     const url = new URL(window.location.href);
     url.searchParams.delete('cancel');
-    const qs = url.searchParams.toString();
-    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
-      scroll: false
-    });
+    const queryString = url.searchParams.toString();
+    router.replace(
+      queryString ? `${url.pathname}?${queryString}` : url.pathname,
+      {
+        scroll: false
+      }
+    );
   }, [router, searchParams, setStates]);
 
   // Clear cart if server says products are invalid
   useEffect(() => {
-    const code = (error as unknown as { data?: { code?: string } })?.data?.code;
+    const maybeTrpcError = error as unknown;
+    const code =
+      isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
+        ? maybeTrpcError.data.code
+        : undefined;
+
     if (code === 'NOT_FOUND') {
       clearCart();
       toast.warning('Invalid products found, your cart has been cleared');
@@ -147,7 +237,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     libraryFilter
   ]);
 
-  // inside CheckoutView component
+  // inside CheckoutView component: session success handling
   useEffect(() => {
     const isSuccess =
       searchParams.get('success') === 'true' ||
@@ -173,17 +263,20 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       const url = new URL(window.location.href);
       url.searchParams.delete('success');
       url.searchParams.delete('session_id');
-      const qs = url.searchParams.toString();
-      router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
-        scroll: false
-      });
+      const queryString = url.searchParams.toString();
+      router.replace(
+        queryString ? `${url.pathname}?${queryString}` : url.pathname,
+        {
+          scroll: false
+        }
+      );
 
       queryClient.invalidateQueries(libraryFilter);
     };
 
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
+    return () => unsubscribe?.();
   }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
 
   // ---- Analytics: checkout_canceled on page load with cancel=true ----
@@ -191,12 +284,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   useEffect(() => {
     if (!states.cancel || sentCancelEventRef.current) return;
 
-    // Compute metrics (fallbacks safe if data is not ready yet)
     const itemCount = productIds.length;
     const cartTotalCents =
       typeof data?.totalCents === 'number'
         ? data.totalCents
-        : Math.round((data?.totalPrice ?? 0) * 100);
+        : Math.round(
+            ((data as { totalPrice?: number } | undefined)?.totalPrice ?? 0) *
+              100
+          );
 
     const userType = session?.user ? 'auth' : 'guest';
 
@@ -210,6 +305,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     sentCancelEventRef.current = true;
   }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
 
+  // Migrate cart scope once user logs in
   useEffect(() => {
     if (!session?.user?.id) return;
     const run = () => {
@@ -217,12 +313,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
       }
     };
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
+    return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  // ----- Renders -----
+  // ----- Early-return UIs (safe; hooks were already called) -----
 
   // Loading: show spinner if there are items to fetch
   if (productIds.length > 0 && isLoading) {
@@ -300,55 +396,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  const docs = data?.docs ?? [];
-
-  const subtotalCents =
-    typeof data?.subtotalCents === 'number'
-      ? data.subtotalCents
-      : // fallback to old behavior if running against older server
-        typeof data?.totalCents === 'number'
-        ? data.totalCents
-        : Math.round((data?.totalPrice ?? 0) * 100);
-
-  const shippingCents =
-    typeof data?.shippingCents === 'number' ? data.shippingCents : 0;
-
-  const totalCents =
-    typeof data?.totalCents === 'number'
-      ? data.totalCents
-      : subtotalCents + shippingCents;
-
-  const itemizedShipping = useMemo(
-    () =>
-      (docs ?? [])
-        .map((product) => {
-          const amountCents = calculateShippingAmount(
-            product as ProductWithShipping
-          );
-          const mode = ((
-            product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
-          ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
-
-          return {
-            id: String(product.id),
-            label: typeof product.name === 'string' ? product.name : 'Item',
-            amountCents,
-            mode
-          };
-        })
-        // keep 'calculated' to render row-level “calculated at checkout”; drop only 'free'
-        .filter((line) => line.mode !== 'free'),
-    [docs]
-  );
-
-  const hasCalculatedShipping = useMemo(
-    () =>
-      docs.some((product) => {
-        const productWithShipping = product as ProductWithShipping;
-        return (productWithShipping.shippingMode ?? 'free') === 'calculated';
-      }),
-    [docs]
-  );
+  // ----- Main render -----
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -373,11 +421,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
                 (product as { cardImageUrl?: string | null }).cardImageUrl ??
                 getPrimaryCardImageUrl(product);
 
-              const tenantSlugSafe = getTenantSlugSafe(
-                (product as Product).tenant
-              );
+              const tenantSlugSafe = getTenantSlugSafe(product.tenant);
               const tenantNameSafe =
-                getTenantNameSafe((product as Product).tenant) ?? 'Shop';
+                getTenantNameSafe(product.tenant) ?? 'Shop';
 
               const productURL = tenantSlugSafe
                 ? `${generateTenantURL(tenantSlugSafe)}/products/${product.id}`
