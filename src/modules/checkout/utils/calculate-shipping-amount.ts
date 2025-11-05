@@ -12,7 +12,7 @@ export function calculateShippingAmount(product: ProductWithShipping): number {
     return Math.max(0, Math.trunc(centsFromSnapshot));
   }
 
-  const usdFromFlat = product.shippingFlatFee;
+  const usdFromFlat = product.shippingFlatFeeCents;
   if (typeof usdFromFlat === 'number' && Number.isFinite(usdFromFlat)) {
     return Math.max(0, Math.round(usdFromFlat * 100));
   }

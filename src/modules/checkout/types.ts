@@ -24,7 +24,7 @@ export type ExpandedLineItem = Stripe.LineItem & {
 };
 
 export interface ProductWithShipping {
-  shippingMode?: 'free' | 'flat' | 'calculated' | null;
-  shippingFeeCentsPerUnit?: number | null;
-  shippingFlatFee?: number | null;
+  shippingMode?: 'free' | 'flat' | 'calculated';
+  shippingFeeCentsPerUnit?: number;
+  shippingFlatFeeCents?: number;
 }
