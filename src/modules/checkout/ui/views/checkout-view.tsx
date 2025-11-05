@@ -320,15 +320,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   const itemizedShipping = docs
     .map((product) => {
+      const productWithShipping = product as ProductWithShipping;
       const label = typeof product.name === 'string' ? product.name : 'Item';
-      const mode = ((product as ProductWithShipping).shippingMode ?? 'free') as
+      const mode = (productWithShipping.shippingMode ?? 'free') as
         | 'free'
         | 'flat'
         | 'calculated';
 
-      const amountCents = calculateShippingAmount(
-        product as ProductWithShipping
-      );
+      const amountCents = calculateShippingAmount(productWithShipping);
 
       return {
         id: product.id,
@@ -339,10 +338,10 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     })
     .filter((line) => line.amountCents > 0);
 
-  const hasCalculatedShipping = docs.some(
-    (product) =>
-      ((product as ProductWithShipping).shippingMode ?? 'free') === 'calculated'
-  );
+  const hasCalculatedShipping = docs.some((product) => {
+    const productWithShipping = product as ProductWithShipping;
+    return (productWithShipping.shippingMode ?? 'free') === 'calculated';
+  });
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
