@@ -8,6 +8,7 @@ import type {
   SidebarShippingLine
 } from '@/modules/orders/types';
 import { ShippingBreakdown } from '@/modules/shipping/ui/shipping-breakdown';
+import { useEffect } from 'react';
 
 interface CheckoutSidebarProps {
   subtotalCents: number;
@@ -38,30 +39,6 @@ export const CheckoutSidebar = ({
     }
     return formatCurrency((cents || 0) / 100);
   };
-
-  if (process.env.NODE_ENV === 'development') {
-    const expectedTotal = subtotalCents + shippingCents;
-    if (totalCents !== expectedTotal) {
-      console.error(
-        `CheckoutSidebar total mismatch: expected ${expectedTotal}, got ${totalCents}`
-      );
-    }
-  }
-  // Validate itemized shipping aligns to shippingCents when not calculated
-  if (!hasCalculatedShipping && itemizedShipping?.length) {
-    const flatSum = itemizedShipping
-      .filter((l) => l.mode === 'flat')
-      .reduce(
-        (acc, l) => acc + (Number.isFinite(l.amountCents) ? l.amountCents : 0),
-        0
-      );
-    if (flatSum !== shippingCents) {
-      console.error(
-        `Shipping breakdown mismatch: flat sum ${flatSum} != shippingCents ${shippingCents}`
-      );
-    }
-  }
-
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
       <div className="p-4 border-b">

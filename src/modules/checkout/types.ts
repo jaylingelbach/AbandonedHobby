@@ -34,3 +34,5 @@ export interface ProductWithShipping {
   /** legacy USD flat fee; will be converted to cents */
   shippingFlatFee?: number | null;
 }
+
+export type ShippingModeUnion = 'free' | 'flat' | 'calculated';

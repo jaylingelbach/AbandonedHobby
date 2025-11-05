@@ -36,6 +36,7 @@ import { cartDebug } from '../../debug';
 import CheckoutBanner from './checkout-banner';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
+import { toProductWithShipping } from '../../utils/to-product-with-shipping';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -152,25 +153,24 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return subtotalCents + shippingCents;
   }, [data, subtotalCents, shippingCents]);
 
-  // Build per-item shipping lines for the sidebar (keep 'calculated', drop only 'free')
   const itemizedShipping = useMemo(
     () =>
       docs
         .map((product) => {
-          const amountCents = calculateShippingAmount(
-            product as unknown as ProductWithShipping
-          );
-          const shippingMode = ((
-            product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
-          ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
+          const normalized = toProductWithShipping(product);
+          const mode = normalized?.shippingMode ?? 'free';
+          const amountCents = normalized
+            ? calculateShippingAmount(normalized)
+            : 0;
 
           return {
             id: String(product.id),
             label: typeof product.name === 'string' ? product.name : 'Item',
             amountCents,
-            mode: shippingMode
+            mode
           };
         })
+        // keep 'calculated' rows so you can show "calculated at checkout"; drop only 'free'
         .filter((line) => line.mode !== 'free'),
     [docs]
   );
@@ -178,8 +178,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const hasCalculatedShipping = useMemo(
     () =>
       docs.some((product) => {
-        const productWithShipping = product as unknown as ProductWithShipping;
-        return (productWithShipping.shippingMode ?? 'free') === 'calculated';
+        const normalized = toProductWithShipping(product);
+        return (normalized?.shippingMode ?? 'free') === 'calculated';
       }),
     [docs]
   );

@@ -1,5 +1,5 @@
 import { CartItemForShipping } from '@/modules/orders/types';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents } from '@/lib/utils';
 
 /**
  * Render a compact breakdown of shipping charges for cart items that are not free.
@@ -38,12 +38,10 @@ export function ShippingBreakdown({ items }: { items: CartItemForShipping[] }) {
           <span>
             {row.name}{' '}
             {row.mode === 'flat'
-              ? `(shipping ${row.quantity} × ${formatCurrency(row.perUnit / 100)})`
+              ? `(shipping ${row.quantity} × ${formatCents(row.perUnit)})`
               : `(calculated at checkout)`}
           </span>
-          <span>
-            {row.mode === 'flat' ? formatCurrency(row.subtotal / 100) : '—'}
-          </span>
+          <span>{row.mode === 'flat' ? formatCents(row.subtotal) : '—'}</span>
         </div>
       ))}
     </div>
