@@ -1,15 +1,14 @@
 import { ProductWithShipping } from '../types';
 
 /**
- * Calculates the shipping amount for a product.
+ * Compute the shipping amount for a product in cents when the product uses flat shipping.
+ *
+ * Chooses the first valid source in this order: `shippingFeeCentsPerUnit` (truncated to an integer),
+ * `shippingFlatFeeCents` (truncated to an integer), then `shippingFlatFee` (USD converted and rounded to cents).
+ * If the product's `shippingMode` is not `'flat'` or no valid values are present, returns 0. All results are non-negative.
  *
  * @param product - Product with shipping configuration
- * @returns Shipping amount in cents (non-negative)
- *
- * Priority:
- * 1. Uses shippingFeeCentsPerUnit if valid (truncated to integer)
- * 2. Falls back to shippingFlatFee converted to cents (rounded)
- * 3. Returns 0 if neither is valid or mode is not 'flat'
+ * @returns The shipping amount in cents (integer >= 0)
  */
 
 export function calculateShippingAmount(product: ProductWithShipping): number {
