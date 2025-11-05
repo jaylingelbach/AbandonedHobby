@@ -534,7 +534,6 @@ export const checkoutRouter = createTRPCRouter({
         ...data,
         // keep legacy totalPrice for existing UI that might read it
         totalPrice: totalCents / 100,
-        // new precise fields the UI can use
         subtotalCents,
         shippingCents,
         totalCents,

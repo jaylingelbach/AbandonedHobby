@@ -19,9 +19,14 @@ import {
   getTenantSlugSafe
 } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
+import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
-import { Product } from '@/payload-types';
+import type { Product } from '@/payload-types';
+import type {
+  CartItemForShipping,
+  SidebarShippingLine
+} from '@/modules/orders/types';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '../../hooks/use-cart';
@@ -34,9 +39,19 @@ import { cartDebug } from '../../debug';
 import CheckoutBanner from './checkout-banner';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
+import { toProductWithShipping } from '../../utils/to-product-with-shipping';
 
 interface CheckoutViewProps {
   tenantSlug: string;
+}
+
+type TrpcErrorShape = { data?: { code?: string } };
+
+function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('data' in value)) return true; // allow absence of data
+  const data = (value as { data?: unknown }).data;
+  return data === undefined || data === null || typeof data === 'object';
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
@@ -44,23 +59,26 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
+  const queryClient = useQueryClient();
+
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
+
   const { productIds, removeProduct, clearCart } = useCart(
     tenantSlug,
     session?.user?.id
   );
-  const queryClient = useQueryClient();
 
   // Build query options once for stable keys
-  const productsQueryOptions = trpc.checkout.getProducts.queryOptions({
-    ids: productIds
-  });
+  const productsQueryOptions = useMemo(
+    () => trpc.checkout.getProducts.queryOptions({ ids: productIds }),
+    [trpc.checkout.getProducts, productIds]
+  );
 
   // Load products in cart (localStorage-driven, so no SSR/hydration needed)
   const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
     ...productsQueryOptions,
-    enabled: productIds.length > 0, // don't fetch for empty cart
-    placeholderData: (prev) => prev,
+    enabled: productIds.length > 0,
+    placeholderData: (previous) => previous,
     retry: 1
   });
 
@@ -73,7 +91,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
-        // stash the scope that initiated this checkout
         const scope = buildScopeClient(tenantSlug, session?.user?.id);
         localStorage.setItem('ah_checkout_scope', scope);
         cartDebug('redirecting to Stripe', {
@@ -85,8 +102,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         window.location.assign(payload.url);
       },
       onError: (err) => {
-        const code = (err as unknown as { data?: { code?: string } })?.data
-          ?.code;
+        const maybeTrpcError = err as unknown;
+        const code =
+          isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
+            ? maybeTrpcError.data.code
+            : undefined;
+
         if (code === 'UNAUTHORIZED') {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
@@ -102,7 +123,78 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   // Single flag for disabling “Return to checkout”
   const isBusy = purchase.isPending || isFetching;
   const disableResume = productIds.length === 0 || isBusy;
-  // Handle ?cancel=true (Stripe cancel_url) — set state and clean URL
+
+  // ---- HOISTED MEMOS (before any early returns) ----
+
+  // Stable docs array for downstream memos and maps
+  const docs = useMemo<Product[]>(
+    () => (Array.isArray(data?.docs) ? (data.docs as Product[]) : []),
+    [data]
+  );
+
+  // Subtotal (cents) derived once; works for older or newer server responses
+  const subtotalCents = useMemo(() => {
+    if (typeof data?.subtotalCents === 'number') return data.subtotalCents;
+    if (typeof data?.totalCents === 'number') return data.totalCents;
+    const totalPriceDollars =
+      (data as { totalPrice?: number } | undefined)?.totalPrice ?? 0;
+    return Math.round(totalPriceDollars * 100);
+  }, [data]);
+
+  const shippingCents = useMemo(
+    () => (typeof data?.shippingCents === 'number' ? data.shippingCents : 0),
+    [data]
+  );
+
+  const totalCents = useMemo(() => {
+    if (typeof data?.totalCents === 'number') return data.totalCents;
+    return subtotalCents + shippingCents;
+  }, [data, subtotalCents, shippingCents]);
+
+  // 1) Build display lines (keeps 'calculated', drops only 'free')
+  const itemizedShippingLines = useMemo<SidebarShippingLine[]>(
+    () =>
+      docs
+        .map((product) => {
+          const normalized = toProductWithShipping(product);
+          const shippingMode = normalized?.shippingMode ?? 'free';
+          const amountCents = normalized
+            ? calculateShippingAmount(normalized)
+            : 0;
+
+          return {
+            id: String(product.id),
+            label: typeof product.name === 'string' ? product.name : 'Item',
+            amountCents,
+            mode: shippingMode
+          };
+        })
+        .filter((line) => line.mode !== 'free'),
+    [docs]
+  );
+
+  const hasCalculatedShipping = useMemo(
+    () => itemizedShippingLines.some((line) => line.mode === 'calculated'),
+    [itemizedShippingLines]
+  );
+
+  // 2) Transform to CartItemForShipping[] (wire quantity here; currently 1)
+  const breakdownItems = useMemo<CartItemForShipping[]>(
+    () =>
+      itemizedShippingLines.map((line) => ({
+        id: line.id,
+        name: line.label,
+        quantity: 1, // TODO: replace with real quantity when cart supports it
+        shippingMode: line.mode,
+        shippingFeeCentsPerUnit:
+          line.mode === 'flat' ? line.amountCents : undefined
+      })),
+    [itemizedShippingLines]
+  );
+
+  // ---- Effects (safe; hooks already called above) ----
+
+  // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
     const isCanceled = searchParams.get('cancel') === 'true';
     if (!isCanceled) return;
@@ -111,29 +203,34 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     const url = new URL(window.location.href);
     url.searchParams.delete('cancel');
-    const qs = url.searchParams.toString();
-    router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
-      scroll: false
-    });
+    const queryString = url.searchParams.toString();
+    router.replace(
+      queryString ? `${url.pathname}?${queryString}` : url.pathname,
+      { scroll: false }
+    );
   }, [router, searchParams, setStates]);
 
   // Clear cart if server says products are invalid
   useEffect(() => {
-    const code = (error as unknown as { data?: { code?: string } })?.data?.code;
+    const maybeTrpcError = error as unknown;
+    const code =
+      isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
+        ? maybeTrpcError.data.code
+        : undefined;
+
     if (code === 'NOT_FOUND') {
       clearCart();
       toast.warning('Invalid products found, your cart has been cleared');
     }
   }, [error, clearCart]);
 
-  // Success flow (if you toggle via state after returning from success_url)
+  // Success flow (after returning from success_url)
   useEffect(() => {
     if (!states.success) return;
 
     setStates({ success: false, cancel: false });
     clearCart();
 
-    // Refresh library queries
     queryClient.invalidateQueries(libraryFilter);
     router.push('/orders');
   }, [
@@ -145,14 +242,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     libraryFilter
   ]);
 
-  // inside CheckoutView component
+  // Session success handling (?success=true or ?session_id=...)
   useEffect(() => {
     const isSuccess =
       searchParams.get('success') === 'true' ||
       !!searchParams.get('session_id');
     if (!isSuccess) return;
 
-    // Prefer clearing the exact scope that initiated checkout
     const scope =
       typeof window !== 'undefined'
         ? localStorage.getItem('ah_checkout_scope')
@@ -171,17 +267,18 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       const url = new URL(window.location.href);
       url.searchParams.delete('success');
       url.searchParams.delete('session_id');
-      const qs = url.searchParams.toString();
-      router.replace(qs ? `${url.pathname}?${qs}` : url.pathname, {
-        scroll: false
-      });
+      const queryString = url.searchParams.toString();
+      router.replace(
+        queryString ? `${url.pathname}?${queryString}` : url.pathname,
+        { scroll: false }
+      );
 
       queryClient.invalidateQueries(libraryFilter);
     };
 
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
+    return () => unsubscribe?.();
   }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
 
   // ---- Analytics: checkout_canceled on page load with cancel=true ----
@@ -189,12 +286,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   useEffect(() => {
     if (!states.cancel || sentCancelEventRef.current) return;
 
-    // Compute metrics (fallbacks safe if data is not ready yet)
     const itemCount = productIds.length;
     const cartTotalCents =
       typeof data?.totalCents === 'number'
         ? data.totalCents
-        : Math.round((data?.totalPrice ?? 0) * 100);
+        : Math.round(
+            ((data as { totalPrice?: number } | undefined)?.totalPrice ?? 0) *
+              100
+          );
 
     const userType = session?.user ? 'auth' : 'guest';
 
@@ -208,6 +307,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     sentCancelEventRef.current = true;
   }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
 
+  // Migrate cart scope once user logs in
   useEffect(() => {
     if (!session?.user?.id) return;
     const run = () => {
@@ -215,14 +315,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
       }
     };
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
     if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
+    return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  // ----- Renders -----
+  // ----- Early-return UIs -----
 
-  // Loading: show spinner if there are items to fetch
   if (productIds.length > 0 && isLoading) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -245,7 +344,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Error or missing data (avoid crashing on data!)
   if (productIds.length > 0 && (isError || !data)) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -276,13 +374,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  // Empty cart (no ids OR fetched result is empty)
   if (productIds.length === 0 || (data && data.totalDocs === 0)) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled // no items to resume with
+            disabled
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
               clearCart();
@@ -298,23 +395,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  const docs = data?.docs ?? [];
-
-  const subtotalCents =
-    typeof data?.subtotalCents === 'number'
-      ? data.subtotalCents
-      : // fallback to old behavior if running against older server
-        typeof data?.totalCents === 'number'
-        ? data.totalCents
-        : Math.round((data?.totalPrice ?? 0) * 100);
-
-  const shippingCents =
-    typeof data?.shippingCents === 'number' ? data.shippingCents : 0;
-
-  const totalCents =
-    typeof data?.totalCents === 'number'
-      ? data.totalCents
-      : subtotalCents + shippingCents;
+  // ----- Main render -----
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
@@ -339,11 +420,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
                 (product as { cardImageUrl?: string | null }).cardImageUrl ??
                 getPrimaryCardImageUrl(product);
 
-              const tenantSlugSafe = getTenantSlugSafe(
-                (product as Product).tenant
-              );
+              const tenantSlugSafe = getTenantSlugSafe(product.tenant);
               const tenantNameSafe =
-                getTenantNameSafe((product as Product).tenant) ?? 'Shop';
+                getTenantNameSafe(product.tenant) ?? 'Shop';
 
               const productURL = tenantSlugSafe
                 ? `${generateTenantURL(tenantSlugSafe)}/products/${product.id}`
@@ -379,6 +458,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             onPurchaseAction={() => purchase.mutate({ productIds })}
             isCanceled={states.cancel}
             disabled={isBusy}
+            hasCalculatedShipping={hasCalculatedShipping}
+            breakdownItems={breakdownItems}
           />
         </div>
       </div>

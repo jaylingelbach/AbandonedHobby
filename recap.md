@@ -4691,3 +4691,11 @@ src/payload-types.ts, src/payload/views/types.ts
 
 - src/lib/access.ts, src/lib/seed.ts, src/middleware.ts, src/collections/Refunds.ts
   - Non-functional comment/text tweaks, seed file brace fix, and small formatting adjustments.
+
+# Per item shipping breakdown 11/05/25
+
+## New Features
+
+- Itemized shipping breakdown now displays during checkout, showing per-item shipping costs and modes.
+- Support for multiple shipping modes: free, flat-rate, and calculated at checkout.
+- Detailed shipping information visible for each product in the cart, with fees calculated based on product type.

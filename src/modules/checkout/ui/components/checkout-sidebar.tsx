@@ -3,14 +3,20 @@
 import { CircleXIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
+import type { CartItemForShipping } from '@/modules/orders/types';
+import { ShippingBreakdown } from '@/modules/shipping/ui/shipping-breakdown';
 
 interface CheckoutSidebarProps {
   subtotalCents: number;
   shippingCents: number;
   totalCents: number;
-  onPurchaseAction: () => void; // renamed to satisfy Next rule
+  onPurchaseAction: () => void;
   isCanceled: boolean;
   disabled: boolean;
+
+  /** Prebuilt items with real quantities (build in checkout-view) */
+  breakdownItems?: CartItemForShipping[];
+  hasCalculatedShipping?: boolean;
 }
 
 export const CheckoutSidebar = ({
@@ -19,27 +25,18 @@ export const CheckoutSidebar = ({
   totalCents,
   onPurchaseAction,
   isCanceled,
-  disabled
+  disabled,
+  breakdownItems = [],
+  hasCalculatedShipping = false
 }: CheckoutSidebarProps) => {
   const toUsd = (cents: number) => {
     if (!Number.isFinite(cents) || cents < 0) {
-      // Soft warn in dev; still render.
       if (process.env.NODE_ENV === 'development') {
         console.warn('Non-finite or negative monetary value:', cents);
       }
     }
     return formatCurrency((cents || 0) / 100);
   };
-
-  // Dev-only validation that parent computed total correctly
-  if (process.env.NODE_ENV === 'development') {
-    const expectedTotal = subtotalCents + shippingCents;
-    if (totalCents !== expectedTotal) {
-      console.error(
-        `CheckoutSidebar total mismatch: expected ${expectedTotal}, got ${totalCents}`
-      );
-    }
-  }
 
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
@@ -48,10 +45,25 @@ export const CheckoutSidebar = ({
           <span className="text-sm text-muted-foreground">Subtotal</span>
           <span className="text-sm font-medium">{toUsd(subtotalCents)}</span>
         </div>
+
         <div className="flex items-center justify-between py-1">
-          <span className="text-sm text-muted-foreground">Shipping</span>
+          <span className="text-sm text-muted-foreground">
+            Shipping (total)
+          </span>
           <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
         </div>
+
+        {(breakdownItems.length > 0 || hasCalculatedShipping) && (
+          <div className="mt-2 pl-2">
+            <ShippingBreakdown items={breakdownItems} />
+            {hasCalculatedShipping && (
+              <p className="mt-1 text-xs text-muted-foreground italic">
+                Additional shipping will be calculated at checkout.
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center justify-between py-2 border-t mt-2">
           <h4 className="font-semibold text-base">Total</h4>
           <p className="font-semibold text-base">{toUsd(totalCents)}</p>
@@ -80,7 +92,7 @@ export const CheckoutSidebar = ({
           >
             <div className="flex items-center">
               <CircleXIcon className="size-6 mr-2 fill-red-500 text-red-100" />
-              <span>Checkout failed, please try again. </span>
+              <span>Checkout failed, please try again.</span>
             </div>
           </div>
         </div>

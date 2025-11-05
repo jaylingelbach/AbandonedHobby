@@ -298,7 +298,7 @@ export const ordersRouter = createTRPCRouter({
             : undefined) ??
           'Item';
 
-        // NEW: resolve image from cover → images[0]
+        // Resolve image from cover → images[0]
         const productImageURL = productDoc
           ? (getPrimaryCardImageUrl(productDoc, 'thumbnail') ?? undefined)
           : undefined;
