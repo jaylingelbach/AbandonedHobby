@@ -4,7 +4,7 @@ import { formatCents } from '@/lib/utils';
 /**
  * Render a compact breakdown of shipping charges for cart items that are not free.
  *
- * Filters out items with `shippingMode` of "free" and displays a line per remaining item:
+ * Filters out items with bshippingMode` of "free" and displays a line per remaining item:
  * for `flat` shipping it shows quantity, per-unit shipping, and the subtotal; for other modes it
  * indicates the shipping will be calculated at checkout.
  *

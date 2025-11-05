@@ -4,43 +4,40 @@ export function toProductWithShipping(
   raw: unknown
 ): ProductWithShipping | null {
   if (typeof raw !== 'object' || raw === null) return null;
-
   const record = raw as Record<string, unknown>;
 
-  // Mode: coerce to a safe enum-like value (default 'free')
   const rawMode = record['shippingMode'];
-  const mode: ShippingModeUnion =
-    rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
-      ? rawMode
-      : 'free';
-
-  // Cents snapshot (already-per-unit, integer-ish)
   const rawPerUnitCents = record['shippingFeeCentsPerUnit'];
-  const shippingFeeCentsPerUnit =
+  const rawFlatFeeCents = record['shippingFlatFeeCents'];
+  const rawFlatFeeUsd = record['shippingFlatFee'];
+
+  const perUnitCents =
     typeof rawPerUnitCents === 'number' && Number.isFinite(rawPerUnitCents)
       ? Math.max(0, Math.trunc(rawPerUnitCents))
       : undefined;
 
-  // Flat fee (server may store either dollars or cents depending on version)
-  // Prefer *_Cents if present; otherwise accept dollar field and convert.
-  const rawFlatFeeCents = record['shippingFlatFeeCents'];
-  const rawFlatFeeDollars = record['shippingFlatFee'];
+  const flatFeeCents =
+    typeof rawFlatFeeCents === 'number' && Number.isFinite(rawFlatFeeCents)
+      ? Math.max(0, Math.trunc(rawFlatFeeCents))
+      : typeof rawFlatFeeUsd === 'number' && Number.isFinite(rawFlatFeeUsd)
+        ? Math.max(0, Math.round(rawFlatFeeUsd * 100))
+        : undefined;
 
-  let shippingFlatFeeCents: number | undefined = undefined;
+  const hasLegacyFlat =
+    typeof rawFlatFeeCents === 'number' ||
+    typeof rawFlatFeeUsd === 'number' ||
+    typeof rawPerUnitCents === 'number';
 
-  if (typeof rawFlatFeeCents === 'number' && Number.isFinite(rawFlatFeeCents)) {
-    shippingFlatFeeCents = Math.max(0, Math.trunc(rawFlatFeeCents));
-  } else if (
-    typeof rawFlatFeeDollars === 'number' &&
-    Number.isFinite(rawFlatFeeDollars)
-  ) {
-    shippingFlatFeeCents = Math.max(0, Math.round(rawFlatFeeDollars * 100));
-  }
+  const mode: ShippingModeUnion =
+    rawMode === 'free' || rawMode === 'flat' || rawMode === 'calculated'
+      ? rawMode
+      : hasLegacyFlat
+        ? 'flat'
+        : 'free';
 
-  // If everything is default/undefined AND mode resolves to 'free', still return a valid object
   return {
     shippingMode: mode,
-    shippingFeeCentsPerUnit,
-    shippingFlatFeeCents
+    shippingFeeCentsPerUnit: perUnitCents,
+    shippingFlatFeeCents: flatFeeCents
   };
 }
