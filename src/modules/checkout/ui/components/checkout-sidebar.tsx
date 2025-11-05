@@ -1,6 +1,5 @@
 'use client';
 
-import { useMemo } from 'react';
 import { CircleXIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { formatCurrency } from '@/lib/utils';
@@ -38,38 +37,6 @@ export const CheckoutSidebar = ({
     }
     return formatCurrency((cents || 0) / 100);
   };
-
-  // Dev-only: validate total math once per render while in development
-  useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    const expectedTotal = subtotalCents + shippingCents;
-    if (totalCents !== expectedTotal) {
-      console.error(
-        `CheckoutSidebar total mismatch: expected ${expectedTotal}, got ${totalCents}`
-      );
-    }
-  }, [subtotalCents, shippingCents, totalCents]);
-
-  // Dev-only: if shipping is fully flat (no calculated rows), ensure the itemized sum matches shippingCents
-  useMemo(() => {
-    if (process.env.NODE_ENV !== 'development') return;
-    if (hasCalculatedShipping || breakdownItems.length === 0) return;
-
-    const flatSum = breakdownItems.reduce((accumulator, item) => {
-      if (item.shippingMode !== 'flat') return accumulator;
-      const perUnit = Number.isFinite(item.shippingFeeCentsPerUnit)
-        ? (item.shippingFeeCentsPerUnit as number)
-        : 0;
-      const quantity = Number.isFinite(item.quantity) ? item.quantity : 0;
-      return accumulator + perUnit * quantity;
-    }, 0);
-
-    if (flatSum !== shippingCents) {
-      console.error(
-        `Shipping breakdown mismatch: flat sum ${flatSum} != shippingCents ${shippingCents}`
-      );
-    }
-  }, [breakdownItems, hasCalculatedShipping, shippingCents]);
 
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
