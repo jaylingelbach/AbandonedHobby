@@ -1,4 +1,6 @@
-// Centralized, safe money helpers (USD).
+/**
+ * Narrowly checks that a value is a finite number (not NaN/Infinity).
+ */
 
 export function isFiniteNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isFinite(value);
@@ -51,4 +53,36 @@ export function sumCents(values: Array<unknown>): number {
     total += typeof v === 'number' && Number.isFinite(v) ? Math.trunc(v) : 0;
   }
   return total;
+}
+
+/**
+ * Coerces a value that represents **cents** into a non-negative integer (cents).
+ * - Strings are coerced with Number(...).
+ * - Null/undefined/invalid become 0.
+ * - Fractions are truncated toward 0.
+ */
+export function toIntCents(value: unknown): number {
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(numeric)) return 0;
+  return Math.max(0, Math.trunc(numeric));
+}
+
+/**
+ * Like toIntCents, but returns NaN when the input cannot be coerced to a finite number.
+ * Valid numbers are clamped to >= 0 and truncated to integer cents.
+ */
+export function toIntCentsOrNaN(value: unknown): number {
+  const numeric =
+    typeof value === 'number'
+      ? value
+      : typeof value === 'string'
+        ? Number(value)
+        : Number.NaN;
+  if (!Number.isFinite(numeric)) return Number.NaN;
+  return Math.max(0, Math.trunc(numeric));
 }

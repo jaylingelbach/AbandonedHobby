@@ -1,6 +1,7 @@
 import { ShippingMode } from '@/modules/orders/types';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
+import { toIntCents } from '@/lib/money';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -98,10 +99,6 @@ type CartMessage =
   | { type: 'CLEAR_ALL_GLOBAL' };
 
 /** ── Helpers ───────────────────────────────────────────────────────────── */
-function toIntCents(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
-}
 
 /**
  * Merge composite tenant keys "tenant::sub" into base tenant per user.

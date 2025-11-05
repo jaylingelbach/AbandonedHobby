@@ -8,10 +8,7 @@ import { getFirstTenantId } from '@/modules/users/server/getFirstTenantId';
 
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 
-function toIntCents(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
-}
+import { toIntCents } from '@/lib/money';
 
 export async function GET(
   _request: NextRequest,

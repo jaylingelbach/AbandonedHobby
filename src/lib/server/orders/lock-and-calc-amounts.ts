@@ -2,14 +2,9 @@ import type { CollectionBeforeChangeHook } from 'payload';
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 import { quoteCalculatedShipping } from '@/modules/shipping/quote';
 import type { OrderItemForQuote } from '@/modules/shipping/quote';
+import { toIntCents } from '@/lib/money';
 
-/** Narrow, explicit helper to coerce to non-negative integer cents. */
-function toIntCents(value: unknown): number {
-  const numeric = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(numeric) ? Math.max(0, Math.trunc(numeric)) : 0;
-}
-
-type ShippingMode = 'free' | 'flat' | 'calculated';
+import type { ShippingMode } from '@/modules/orders/types';
 
 type AmountsShape = {
   subtotalCents: number;

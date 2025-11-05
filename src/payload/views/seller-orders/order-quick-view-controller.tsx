@@ -1,11 +1,12 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents, formatCurrency } from '@/lib/utils';
 import { compactAddress } from '../utils';
 import type { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
+import { toIntCents } from '@/lib/money';
 
 export default function OrderQuickViewController() {
   const searchParams = useSearchParams();
@@ -240,24 +241,70 @@ export default function OrderQuickViewController() {
                           </tr>
                         </thead>
                         <tbody>
-                          {detail.items.map((item, index) => (
-                            <tr key={`${item.nameSnapshot}-${index}`}>
-                              <td>{item.nameSnapshot}</td>
-                              <td className="ah-col--qty">{item.quantity}</td>
-                              <td className="ah-col--unit">
-                                {formatCurrency(
-                                  item.unitAmountCents / 100,
-                                  currency
+                          {detail.items.map((item, index) => {
+                            const isFlatShipping = item.shippingMode === 'flat';
+                            const isCalculatedShipping =
+                              item.shippingMode === 'calculated';
+
+                            // safe, non-negative integers
+                            const shippingSubtotalCentsSafe = toIntCents(
+                              item.shippingSubtotalCents
+                            );
+                            const perUnitCentsSafe = toIntCents(
+                              item.shippingFeeCentsPerUnit
+                            );
+
+                            // only show the per-unit × qty hint when flat and quantity > 1
+                            const flatPerUnitHint =
+                              isFlatShipping && item.quantity > 1
+                                ? ` (${item.quantity} × ${formatCents(perUnitCentsSafe, currency)})`
+                                : '';
+
+                            return (
+                              <Fragment key={`${item.nameSnapshot}-${index}`}>
+                                {/* Primary item row */}
+                                <tr>
+                                  <td>{item.nameSnapshot}</td>
+                                  <td className="ah-col--qty">
+                                    {item.quantity}
+                                  </td>
+                                  <td className="ah-col--unit">
+                                    {formatCents(
+                                      item.unitAmountCents,
+                                      currency
+                                    )}
+                                  </td>
+                                  <td className="ah-col--line">
+                                    {formatCents(
+                                      item.amountTotalCents,
+                                      currency
+                                    )}
+                                  </td>
+                                </tr>
+
+                                {/* Secondary shipping row (muted) — only when it’s not free */}
+                                {(isFlatShipping || isCalculatedShipping) && (
+                                  <tr className="text-xs text-muted-foreground">
+                                    <td colSpan={4}>
+                                      <span className="font-medium">
+                                        Shipping:
+                                      </span>{' '}
+                                      {isFlatShipping
+                                        ? `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
+                                        : isCalculatedShipping
+                                          ? 'Calculated at checkout'
+                                          : '—'}
+                                    </td>
+                                  </tr>
                                 )}
-                              </td>
-                              <td className="ah-col--line">
-                                {formatCurrency(
-                                  item.amountTotalCents / 100,
-                                  currency
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+
+                                {/* Optional divider row for readability */}
+                                <tr aria-hidden>
+                                  <td colSpan={4} className="py-1" />
+                                </tr>
+                              </Fragment>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
