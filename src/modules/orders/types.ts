@@ -7,8 +7,6 @@ export interface OrderItemCore {
   nameSnapshot: string;
   unitAmountCents: number;
   quantity: number; // positive int
-
-  // NEW:
   shippingMode: ShippingMode;
   shippingFeeCentsPerUnit?: number; // only when shippingMode === 'flat'
   shippingSubtotalCents: number; // per-line, quantity-applied

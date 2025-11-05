@@ -1,5 +1,3 @@
-// CheckoutSidebar.tsx
-
 'use client';
 
 import { CircleXIcon } from 'lucide-react';
@@ -14,8 +12,6 @@ interface CheckoutSidebarProps {
   onPurchaseAction: () => void;
   isCanceled: boolean;
   disabled: boolean;
-
-  // NEW (optional)
   itemizedShipping?: SidebarShippingLine[];
   hasCalculatedShipping?: boolean;
 }
