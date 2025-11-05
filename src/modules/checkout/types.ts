@@ -1,4 +1,5 @@
 import Stripe from 'stripe';
+import { ShippingMode } from '../orders/types';
 
 export type ProductMetadata = {
   stripeAccountId: string;
@@ -24,8 +25,12 @@ export type ExpandedLineItem = Stripe.LineItem & {
 };
 
 export interface ProductWithShipping {
-  shippingMode?: 'free' | 'flat' | 'calculated';
+  /** 'free' | 'flat' | 'calculated' */
+  shippingMode?: ShippingMode;
+  /** cents per unit when flat */
   shippingFeeCentsPerUnit?: number;
+  /** flat fee in cents (per unit) */
   shippingFlatFeeCents?: number;
-  shippingFlatFee?: number | null; // USD, legacy shape in your payload dump
+  /** legacy USD flat fee; will be converted to cents */
+  shippingFlatFee?: number | null;
 }

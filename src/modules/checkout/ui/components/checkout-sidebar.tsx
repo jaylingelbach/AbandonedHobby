@@ -47,6 +47,20 @@ export const CheckoutSidebar = ({
       );
     }
   }
+  // Validate itemized shipping aligns to shippingCents when not calculated
+  if (!hasCalculatedShipping && itemizedShipping?.length) {
+    const flatSum = itemizedShipping
+      .filter((l) => l.mode === 'flat')
+      .reduce(
+        (acc, l) => acc + (Number.isFinite(l.amountCents) ? l.amountCents : 0),
+        0
+      );
+    if (flatSum !== shippingCents) {
+      console.error(
+        `Shipping breakdown mismatch: flat sum ${flatSum} != shippingCents ${shippingCents}`
+      );
+    }
+  }
 
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">

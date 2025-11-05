@@ -318,28 +318,37 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       ? data.totalCents
       : subtotalCents + shippingCents;
 
-  const itemizedShipping = (docs ?? [])
-    .map((product) => {
-      const amountCents = calculateShippingAmount(
-        product as ProductWithShipping
-      );
-      const mode = ((
-        product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
-      ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
+  const itemizedShipping = useMemo(
+    () =>
+      (docs ?? [])
+        .map((product) => {
+          const amountCents = calculateShippingAmount(
+            product as ProductWithShipping
+          );
+          const mode = ((
+            product as { shippingMode?: 'free' | 'flat' | 'calculated' | null }
+          ).shippingMode ?? 'free') as 'free' | 'flat' | 'calculated';
 
-      return {
-        id: String(product.id),
-        label: typeof product.name === 'string' ? product.name : 'Item',
-        amountCents,
-        mode
-      };
-    })
-    .filter((line) => line.amountCents > 0);
+          return {
+            id: String(product.id),
+            label: typeof product.name === 'string' ? product.name : 'Item',
+            amountCents,
+            mode
+          };
+        })
+        // keep 'calculated' to render row-level “calculated at checkout”; drop only 'free'
+        .filter((line) => line.mode !== 'free'),
+    [docs]
+  );
 
-  const hasCalculatedShipping = docs.some((product) => {
-    const productWithShipping = product as ProductWithShipping;
-    return (productWithShipping.shippingMode ?? 'free') === 'calculated';
-  });
+  const hasCalculatedShipping = useMemo(
+    () =>
+      docs.some((product) => {
+        const productWithShipping = product as ProductWithShipping;
+        return (productWithShipping.shippingMode ?? 'free') === 'calculated';
+      }),
+    [docs]
+  );
 
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
