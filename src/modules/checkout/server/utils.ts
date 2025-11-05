@@ -1,3 +1,4 @@
+import { usdNumberToCents } from '@/lib/money';
 import { getBestUrlFromMedia } from '@/lib/utils';
 
 export type MediaLike = {
@@ -35,4 +36,32 @@ export function getPrimaryCardImageUrl(product: unknown): string | undefined {
     ? p.images.find((row) => row?.image)
     : undefined;
   return getBestUrlFromMedia(first?.image, 'medium');
+}
+export type ProductForShipping = {
+  id: string;
+  shippingMode?: 'free' | 'flat' | 'calculated' | null;
+  shippingFlatFee?: number | null; // USD as number in your schema
+};
+
+/**
+ * Computes a single Checkout-level fixed shipping amount for a cart.
+ * Returns { shippingCents, hasCalculated }. If hasCalculated is true, you should
+ * NOT add a fixed shipping option to the Session.
+ */
+export function computeFlatShippingCentsForCart(
+  products: ProductForShipping[]
+): { shippingCents: number; hasCalculated: boolean } {
+  let shippingCents = 0;
+  let hasCalculated = false;
+
+  for (const product of products) {
+    const mode = product.shippingMode ?? 'free';
+    if (mode === 'flat') {
+      shippingCents += usdNumberToCents(product.shippingFlatFee ?? 0);
+    } else if (mode === 'calculated') {
+      hasCalculated = true;
+    }
+  }
+
+  return { shippingCents, hasCalculated };
 }

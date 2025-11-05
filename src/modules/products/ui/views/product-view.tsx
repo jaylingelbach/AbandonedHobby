@@ -18,10 +18,10 @@ import { useUser } from '@/hooks/use-user';
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 import { useTRPC } from '@/trpc/client';
-
 import ProductGallery from '../components/product-gallery';
 import ViewInOrdersButton from '../components/view-in-order-button';
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
+import { ShippingBadge } from '../components/shipping/shippingBadge';
 
 const CartButton = dynamic(
   () =>
@@ -36,7 +36,7 @@ const CartButton = dynamic(
       </Button>
     )
   }
-); // doing this to solve hydration errors while using local storage.
+); // avoid hydration issues while using localStorage
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
@@ -49,7 +49,7 @@ const ProductRatingsBreakdown = ({ ratings }: ProductRatingsBreakdownProps) => (
         <div className="font-medium">
           {stars} {stars === 1 ? 'star' : 'stars'}
         </div>
-        <Progress value={percentage} className="h-[1lh]" />
+        <Progress value={percentage} className="h-1lh" />
         <div className="font-medium">{percentage}%</div>
       </Fragment>
     ))}
@@ -148,7 +148,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           <div className="col-span-4">
             {/* Product name */}
             <div className="p-6">
-              {/*  Add Sold out badge */}
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-medium">{data.name}</h1>
                 {isSoldOut && (
@@ -162,16 +161,37 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
 
-            {/* Holds price, shop and ratings */}
+            {/* Price / shop / ratings row */}
             <div className="border-y flex">
-              {/* Price */}
+              {/* Price + Shipping */}
               <div className="px-6 py-4 flex items-center justify-center border-r">
-                <div className="px-2 py-1 border bg-pink-400 w-fit">
-                  <p className="text-base font-medium">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
+                  {/* Price badge */}
+                  <span className="inline-flex items-center rounded-full border-2 border-black bg-pink-400 px-2.5 py-1 text-xs font-semibold shadow-[3px_3px_0_0_rgba(0,0,0,1)]">
                     {formatCurrency(data.price)}
-                  </p>
+                  </span>
+
+                  {/* Shipping badge with spacing */}
+                  <ShippingBadge
+                    shippingMode={
+                      (
+                        data as {
+                          shippingMode?: 'free' | 'flat' | 'calculated' | null;
+                        }
+                      ).shippingMode
+                    }
+                    shippingFlatFee={
+                      (data as { shippingFlatFee?: number | null })
+                        .shippingFlatFee
+                    }
+                    shippingFeeCentsPerUnit={
+                      (data as { shippingFeeCentsPerUnit?: number | null })
+                        .shippingFeeCentsPerUnit
+                    }
+                  />
                 </div>
               </div>
+
               {/* Shop name */}
               <div className="px-6 py-4 flex items-center justify-center lg:border-r">
                 <Link
@@ -184,7 +204,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       alt={data.tenant.name}
                       width={20}
                       height={20}
-                      className="rounded-full border shrink-0 size-[20px]"
+                      className="rounded-full border shrink-0 size-5"
                       sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
                     />
                   )}
@@ -193,7 +213,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   </p>
                 </Link>
               </div>
-              {/* Shop Rating? */}
+
+              {/* Shop rating (desktop) */}
               <div className="hidden lg:flex px-6 py-4 items-center justify-center">
                 <div className="flex items-center gap-2">
                   <StarRating rating={data.reviewRating} />
@@ -204,7 +225,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
 
-            {/* Mobile hidden on desktop */}
+            {/* Ratings (mobile) */}
             <div className="block lg:hidden px-6 py-4 items-center">
               <div className="flex items-center gap-2 ">
                 <StarRating rating={data.reviewRating} iconClassName="size-4" />
@@ -214,7 +235,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
 
-            {/* Product Description */}
+            {/* Description */}
             <div className="p-6">
               {data.description ? (
                 <RichText data={data.description} />
@@ -224,10 +245,9 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 </p>
               )}
             </div>
+
+            {/* Gallery */}
             <div className="p-6 pt-0">
-              {/*
-                Map once; ProductGallery already filters invalid items.
-              */}
               <ProductGallery
                 items={useMemo(
                   () => mapProductImagesFromPayload(productImages, 'medium'),
@@ -238,10 +258,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               />
             </div>
           </div>
+
+          {/* Right column */}
           <div className="col-span-2">
-            {/* Div around add to cart and ratings */}
             <div className="border-t lg:border-t-0 lg:border-l h-full">
-              {/* Add to cart */}
+              {/* Add to cart + actions */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
                   <ViewInOrdersButton
@@ -249,12 +270,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     tenantSlug={tenantSlug}
                     productId={productId}
                   />
-                  {/*  Disable buy when sold out (swap CartButton for a disabled button) */}
+
                   {inStock ? (
                     <CartButton
                       isPurchased={data.isPurchased}
                       tenantSlug={tenantSlug}
                       productId={productId}
+                      shippingMode={data.shippingMode}
+                      shippingFeeCentsPerUnit={data.shippingFeeCentsPerUnit}
                     />
                   ) : (
                     <Button
@@ -308,7 +331,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     : `${data.refundPolicy} money back guarantee`}
                 </p>
 
-                {/* Availability label */}
                 {trackInventory && (
                   <p className="text-center text-sm font-bold text-muted-foreground">
                     {availabilityLabel}
@@ -316,7 +338,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 )}
               </div>
 
-              {/* Ratings */}
+              {/* Ratings breakdown */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-medium">Ratings</h3>
@@ -330,7 +352,10 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 <ProductRatingsBreakdown
                   ratings={[5, 4, 3, 2, 1].map((stars) => ({
                     stars,
-                    percentage: Number(data.ratingDistribution[stars])
+                    percentage: Number(
+                      (data as { ratingDistribution?: Record<number, number> })
+                        ?.ratingDistribution?.[stars] ?? 0
+                    )
                   }))}
                 />
               </div>
