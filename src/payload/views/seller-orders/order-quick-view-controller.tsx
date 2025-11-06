@@ -291,9 +291,7 @@ export default function OrderQuickViewController() {
                                       </span>{' '}
                                       {isFlatShipping
                                         ? `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
-                                        : isCalculatedShipping
-                                          ? 'Calculated at checkout'
-                                          : '—'}
+                                        : 'Calculated at checkout'}
                                     </td>
                                   </tr>
                                 )}

@@ -50,12 +50,31 @@ export function computeOrderAmounts(input: {
         ? 1
         : quantityCandidate;
 
+    // Pre-read provided totals (so we can decide what to do if unitAmount is bad)
+    const amountSubtotalCandidate = toIntCentsOrNaN(item.amountSubtotal);
+    const amountTotalCandidate = toIntCentsOrNaN(item.amountTotal);
+
     // Unit amount (cents)
     const unitAmount = toIntCents(item.unitAmount);
 
+    // If unit amount is non-positive AND no explicit subtotals/totals are provided,
+    // treat the line as invalid and drop it (prevents "free" items by accident).
+    if (
+      unitAmount <= 0 &&
+      Number.isNaN(amountSubtotalCandidate) &&
+      Number.isNaN(amountTotalCandidate)
+    ) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[computeOrderAmounts] Dropping line with non-positive unitAmount and no provided totals:',
+          { item }
+        );
+      }
+      continue;
+    }
+
     // Subtotal (prefer provided; else fallback = unit * qty)
     const fallbackSubtotal = unitAmount * quantity;
-    const amountSubtotalCandidate = toIntCentsOrNaN(item.amountSubtotal);
     const amountSubtotal = Number.isNaN(amountSubtotalCandidate)
       ? fallbackSubtotal
       : amountSubtotalCandidate;
@@ -64,7 +83,6 @@ export function computeOrderAmounts(input: {
     const amountTax = toIntCents(item.amountTax);
 
     // Line total (prefer provided; else subtotal + tax)
-    const amountTotalCandidate = toIntCentsOrNaN(item.amountTotal);
     const amountTotal = Number.isNaN(amountTotalCandidate)
       ? amountSubtotal + amountTax
       : amountTotalCandidate;

@@ -8,6 +8,8 @@ import { getFirstTenantId } from '@/modules/users/server/getFirstTenantId';
 
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 
+import { zSellerOrderDetail } from '@/lib/validation/seller-order';
+
 import { toIntCents } from '@/lib/money';
 
 export async function GET(
@@ -15,6 +17,10 @@ export async function GET(
   ctx: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await ctx.params;
+
+  if (!orderId || typeof orderId !== 'string' || orderId.trim().length === 0) {
+    return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+  }
 
   try {
     // 1) Auth & current user via your tRPC context
@@ -142,7 +148,7 @@ export async function GET(
       grossTotalCents - platformFeeCents - storedStripeFeeCents
     );
 
-    return NextResponse.json({
+    const detailPayload = {
       id: String(order.id),
       orderNumber: String(
         (order as { orderNumber?: unknown }).orderNumber ?? order.id
@@ -175,7 +181,24 @@ export async function GET(
           ((order as { documents?: { receiptUrl?: unknown } }).documents
             ?.receiptUrl as string | null) ?? null
       }
-    });
+    };
+
+    // Runtime validation
+    const parsed = zSellerOrderDetail.safeParse(detailPayload);
+    if (!parsed.success) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          '[seller order detail] validation failed',
+          parsed.error.format()
+        );
+      }
+      return NextResponse.json(
+        { error: 'Invalid order detail shape' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed.data);
   } catch (error) {
     console.error(error);
     if (
