@@ -12,6 +12,15 @@ import { zSellerOrderDetail } from '@/lib/validation/seller-order';
 
 import { toIntCents } from '@/lib/money';
 
+/**
+ * Retrieve seller-facing order detail for the specified order ID.
+ *
+ * Loads the order, enforces seller tenancy and role-based access, computes server-authoritative totals and per-item breakdown (including `lineItemId`), validates the shape against the seller order schema, and returns the validated detail.
+ *
+ * @param _request - Incoming request (unused)
+ * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
+ * @returns The validated seller order detail object on success; otherwise a JSON error object with status 400 (invalid order id), 403 (forbidden), 404 (order not found), or 500 (validation or unexpected error).
+ */
 export async function GET(
   _request: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }

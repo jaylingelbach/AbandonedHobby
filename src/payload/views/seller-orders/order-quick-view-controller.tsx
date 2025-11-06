@@ -8,6 +8,13 @@ import { compactAddress } from '../utils';
 import type { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
 import { toIntCents } from '@/lib/money';
 
+/**
+ * Renders a modal showing a seller order breakdown when the URL contains a `view` query parameter.
+ *
+ * The modal fetches and displays order details, provides retry and close actions, and closes on Escape.
+ *
+ * @returns A React portal containing the order breakdown modal when `?view=` is present; `null` otherwise.
+ */
 export default function OrderQuickViewController() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
