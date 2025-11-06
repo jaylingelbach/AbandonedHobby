@@ -261,7 +261,7 @@ export default function OrderQuickViewController() {
                                 : '';
 
                             return (
-                              <Fragment key={`${item.nameSnapshot}-${index}`}>
+                              <Fragment key={`${item.lineItemId}-${index}`}>
                                 {/* Primary item row */}
                                 <tr>
                                   <td>{item.nameSnapshot}</td>
@@ -284,7 +284,10 @@ export default function OrderQuickViewController() {
 
                                 {/* Secondary shipping row (muted) — only when it’s not free */}
                                 {(isFlatShipping || isCalculatedShipping) && (
-                                  <tr className="text-xs text-muted-foreground">
+                                  <tr
+                                    className="text-xs text-muted-foreground"
+                                    key={`${item.lineItemId}-ship`}
+                                  >
                                     <td colSpan={4}>
                                       <span className="font-medium">
                                         Shipping:
@@ -297,7 +300,7 @@ export default function OrderQuickViewController() {
                                 )}
 
                                 {/* Optional divider row for readability */}
-                                <tr aria-hidden>
+                                <tr aria-hidden key={`${item.lineItemId}-sep`}>
                                   <td colSpan={4} className="py-1" />
                                 </tr>
                               </Fragment>

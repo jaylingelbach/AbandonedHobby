@@ -81,7 +81,13 @@ export async function GET(
     // 4) Build seller-safe breakdown (server-authoritative totals)
     const rawItems = (order as { items?: unknown[] }).items ?? [];
     const items = Array.isArray(rawItems)
-      ? rawItems.map((raw) => {
+      ? rawItems.map((raw, index) => {
+          // Prefer embedded subdocument id; fallback to _id; final fallback is orderId:index
+          const lineItemId = String(
+            (raw as { id?: unknown }).id ??
+              (raw as { _id?: unknown })._id ??
+              `${order.id}:${index}`
+          );
           const nameSnapshot =
             (raw as { nameSnapshot?: unknown }).nameSnapshot ??
             (raw as { product?: { name?: unknown } }).product?.name ??
@@ -98,6 +104,7 @@ export async function GET(
               unitAmountCents * quantity
           );
           return {
+            lineItemId,
             nameSnapshot: String(nameSnapshot),
             quantity,
             unitAmountCents,

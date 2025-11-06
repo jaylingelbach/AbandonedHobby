@@ -7,7 +7,7 @@ export type SellerOrderItem = {
   quantity: number; // integer >= 1
   unitAmountCents: number; // item price in cents
   amountTotalCents: number; // line total in cents (price * quantity, excl. shipping/tax)
-
+  lineItemId: string;
   // Optional shipping details per line (present when the order used shipping)
   shippingMode?: ShippingMode; // 'free' | 'flat' | 'calculated'
   shippingFeeCentsPerUnit?: number | null; // for 'flat' mode, per-unit fee in cents (sanitized, non-negative)
