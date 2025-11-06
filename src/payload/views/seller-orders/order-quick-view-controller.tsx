@@ -321,8 +321,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Items Subtotal</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.itemsSubtotalCents / 100,
+                            {formatCents(
+                              detail.amounts.itemsSubtotalCents,
                               currency
                             )}
                           </span>
@@ -330,8 +330,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Shipping</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.shippingCents / 100,
+                            {formatCents(
+                              detail.amounts.shippingCents,
                               currency
                             )}
                           </span>
@@ -340,8 +340,8 @@ export default function OrderQuickViewController() {
                           <span>Discounts</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.discountCents / 100,
+                            {formatCents(
+                              detail.amounts.discountCents,
                               currency
                             )}
                           </span>
@@ -349,17 +349,14 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Tax</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.taxCents / 100,
-                              currency
-                            )}
+                            {formatCents(detail.amounts.taxCents, currency)}
                           </span>
                         </div>
                         <div className="ah-totals__row ah-totals__row--em">
                           <span>Gross Total</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.grossTotalCents / 100,
+                            {formatCents(
+                              detail.amounts.grossTotalCents,
                               currency
                             )}
                           </span>
@@ -376,8 +373,8 @@ export default function OrderQuickViewController() {
                           <span>Platform Fee</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.platformFeeCents / 100,
+                            {formatCents(
+                              detail.amounts.platformFeeCents,
                               currency
                             )}
                           </span>
@@ -386,8 +383,8 @@ export default function OrderQuickViewController() {
                           <span>Stripe Fee</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.stripeFeeCents / 100,
+                            {formatCents(
+                              detail.amounts.stripeFeeCents,
                               currency
                             )}
                           </span>
@@ -395,8 +392,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row ah-totals__row--strong">
                           <span>Net Payout</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.sellerNetCents / 100,
+                            {formatCents(
+                              detail.amounts.sellerNetCents,
                               currency
                             )}
                           </span>
