@@ -94,7 +94,7 @@ export async function GET(
             'Item';
           const quantity = Math.max(
             1,
-            toIntCents((raw as { quantity?: unknown }).quantity ?? 1)
+            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
           );
           const unitAmountCents = toIntCents(
             (raw as { unitAmount?: unknown }).unitAmount ?? 0
