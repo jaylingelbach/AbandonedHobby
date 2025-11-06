@@ -1,12 +1,20 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { formatCurrency } from '@/lib/utils';
+import { formatCents } from '@/lib/utils';
 import { compactAddress } from '../utils';
 import type { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
+import { toIntCents } from '@/lib/money';
 
+/**
+ * Renders a modal showing a seller order breakdown when the URL contains a `view` query parameter.
+ *
+ * The modal fetches and displays order details, provides retry and close actions, and closes on Escape.
+ *
+ * @returns A React portal containing the order breakdown modal when `?view=` is present; `null` otherwise.
+ */
 export default function OrderQuickViewController() {
   const searchParams = useSearchParams();
   const pathname = usePathname();
@@ -240,24 +248,76 @@ export default function OrderQuickViewController() {
                           </tr>
                         </thead>
                         <tbody>
-                          {detail.items.map((item, index) => (
-                            <tr key={`${item.nameSnapshot}-${index}`}>
-                              <td>{item.nameSnapshot}</td>
-                              <td className="ah-col--qty">{item.quantity}</td>
-                              <td className="ah-col--unit">
-                                {formatCurrency(
-                                  item.unitAmountCents / 100,
-                                  currency
+                          {detail.items.map((item, index) => {
+                            const isFlatShipping = item.shippingMode === 'flat';
+                            const isCalculatedShipping =
+                              item.shippingMode === 'calculated';
+
+                            // safe, non-negative integers
+                            const shippingSubtotalCentsSafe = toIntCents(
+                              item.shippingSubtotalCents
+                            );
+                            const perUnitCentsSafe = toIntCents(
+                              item.shippingFeeCentsPerUnit
+                            );
+
+                            // only show the per-unit × qty hint when flat and quantity > 1
+                            const flatPerUnitHint =
+                              isFlatShipping && item.quantity > 1
+                                ? ` (${item.quantity} × ${formatCents(perUnitCentsSafe, currency)})`
+                                : '';
+
+                            const baseKey =
+                              typeof item.lineItemId === 'string' &&
+                              item.lineItemId.trim() !== ''
+                                ? item.lineItemId.trim()
+                                : `${detail.id}:${index}`;
+                            return (
+                              <Fragment key={`${baseKey}`}>
+                                {/* Primary item row */}
+                                <tr>
+                                  <td>{item.nameSnapshot}</td>
+                                  <td className="ah-col--qty">
+                                    {item.quantity}
+                                  </td>
+                                  <td className="ah-col--unit">
+                                    {formatCents(
+                                      item.unitAmountCents,
+                                      currency
+                                    )}
+                                  </td>
+                                  <td className="ah-col--line">
+                                    {formatCents(
+                                      item.amountTotalCents,
+                                      currency
+                                    )}
+                                  </td>
+                                </tr>
+
+                                {/* Secondary shipping row (muted) — only when it’s not free */}
+                                {(isFlatShipping || isCalculatedShipping) && (
+                                  <tr
+                                    className="text-xs text-muted-foreground"
+                                    key={`${baseKey}-ship`}
+                                  >
+                                    <td colSpan={4}>
+                                      <span className="font-medium">
+                                        Shipping:
+                                      </span>{' '}
+                                      {isFlatShipping
+                                        ? `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
+                                        : 'Calculated at Stripe checkout'}
+                                    </td>
+                                  </tr>
                                 )}
-                              </td>
-                              <td className="ah-col--line">
-                                {formatCurrency(
-                                  item.amountTotalCents / 100,
-                                  currency
-                                )}
-                              </td>
-                            </tr>
-                          ))}
+
+                                {/* Optional divider row for readability */}
+                                <tr aria-hidden key={`${baseKey}-sep`}>
+                                  <td colSpan={4} className="py-1" />
+                                </tr>
+                              </Fragment>
+                            );
+                          })}
                         </tbody>
                       </table>
                     </div>
@@ -273,8 +333,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Items Subtotal</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.itemsSubtotalCents / 100,
+                            {formatCents(
+                              detail.amounts.itemsSubtotalCents,
                               currency
                             )}
                           </span>
@@ -282,8 +342,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Shipping</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.shippingCents / 100,
+                            {formatCents(
+                              detail.amounts.shippingCents,
                               currency
                             )}
                           </span>
@@ -292,8 +352,8 @@ export default function OrderQuickViewController() {
                           <span>Discounts</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.discountCents / 100,
+                            {formatCents(
+                              detail.amounts.discountCents,
                               currency
                             )}
                           </span>
@@ -301,17 +361,14 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Tax</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.taxCents / 100,
-                              currency
-                            )}
+                            {formatCents(detail.amounts.taxCents, currency)}
                           </span>
                         </div>
                         <div className="ah-totals__row ah-totals__row--em">
                           <span>Gross Total</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.grossTotalCents / 100,
+                            {formatCents(
+                              detail.amounts.grossTotalCents,
                               currency
                             )}
                           </span>
@@ -328,8 +385,8 @@ export default function OrderQuickViewController() {
                           <span>Platform Fee</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.platformFeeCents / 100,
+                            {formatCents(
+                              detail.amounts.platformFeeCents,
                               currency
                             )}
                           </span>
@@ -338,8 +395,8 @@ export default function OrderQuickViewController() {
                           <span>Stripe Fee</span>
                           <span className="ah-money">
                             −
-                            {formatCurrency(
-                              detail.amounts.stripeFeeCents / 100,
+                            {formatCents(
+                              detail.amounts.stripeFeeCents,
                               currency
                             )}
                           </span>
@@ -347,8 +404,8 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row ah-totals__row--strong">
                           <span>Net Payout</span>
                           <span className="ah-money">
-                            {formatCurrency(
-                              detail.amounts.sellerNetCents / 100,
+                            {formatCents(
+                              detail.amounts.sellerNetCents,
                               currency
                             )}
                           </span>

@@ -8,16 +8,28 @@ import { getFirstTenantId } from '@/modules/users/server/getFirstTenantId';
 
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 
-function toIntCents(value: unknown): number {
-  const n = typeof value === 'number' ? value : Number(value);
-  return Number.isFinite(n) ? Math.max(0, Math.trunc(n)) : 0;
-}
+import { zSellerOrderDetail } from '@/lib/validation/seller-order';
 
+import { toIntCents } from '@/lib/money';
+
+/**
+ * Retrieve seller-facing order detail for the specified order ID.
+ *
+ * Loads the order, enforces seller tenancy and role-based access, computes server-authoritative totals and per-item breakdown (including `lineItemId`), validates the shape against the seller order schema, and returns the validated detail.
+ *
+ * @param _request - Incoming request (unused)
+ * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
+ * @returns The validated seller order detail object on success; otherwise a JSON error object with status 400 (invalid order id), 403 (forbidden), 404 (order not found), or 500 (validation or unexpected error).
+ */
 export async function GET(
   _request: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await ctx.params;
+
+  if (!orderId || typeof orderId !== 'string' || orderId.trim().length === 0) {
+    return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
+  }
 
   try {
     // 1) Auth & current user via your tRPC context
@@ -78,14 +90,20 @@ export async function GET(
     // 4) Build seller-safe breakdown (server-authoritative totals)
     const rawItems = (order as { items?: unknown[] }).items ?? [];
     const items = Array.isArray(rawItems)
-      ? rawItems.map((raw) => {
+      ? rawItems.map((raw, index) => {
+          // Prefer embedded subdocument id; fallback to _id; final fallback is orderId:index
+          const lineItemId = String(
+            (raw as { id?: unknown }).id ??
+              (raw as { _id?: unknown })._id ??
+              `${order.id}:${index}`
+          );
           const nameSnapshot =
             (raw as { nameSnapshot?: unknown }).nameSnapshot ??
             (raw as { product?: { name?: unknown } }).product?.name ??
             'Item';
           const quantity = Math.max(
             1,
-            toIntCents((raw as { quantity?: unknown }).quantity ?? 1)
+            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
           );
           const unitAmountCents = toIntCents(
             (raw as { unitAmount?: unknown }).unitAmount ?? 0
@@ -95,6 +113,7 @@ export async function GET(
               unitAmountCents * quantity
           );
           return {
+            lineItemId,
             nameSnapshot: String(nameSnapshot),
             quantity,
             unitAmountCents,
@@ -145,7 +164,7 @@ export async function GET(
       grossTotalCents - platformFeeCents - storedStripeFeeCents
     );
 
-    return NextResponse.json({
+    const detailPayload = {
       id: String(order.id),
       orderNumber: String(
         (order as { orderNumber?: unknown }).orderNumber ?? order.id
@@ -178,7 +197,24 @@ export async function GET(
           ((order as { documents?: { receiptUrl?: unknown } }).documents
             ?.receiptUrl as string | null) ?? null
       }
-    });
+    };
+
+    // Runtime validation
+    const parsed = zSellerOrderDetail.safeParse(detailPayload);
+    if (!parsed.success) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          '[seller order detail] validation failed',
+          parsed.error.format()
+        );
+      }
+      return NextResponse.json(
+        { error: 'Invalid order detail shape' },
+        { status: 500 }
+      );
+    }
+
+    return NextResponse.json(parsed.data);
   } catch (error) {
     console.error(error);
     if (

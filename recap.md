@@ -4699,3 +4699,50 @@ src/payload-types.ts, src/payload/views/types.ts
 - Itemized shipping breakdown now displays during checkout, showing per-item shipping costs and modes.
 - Support for multiple shipping modes: free, flat-rate, and calculated at checkout.
 - Detailed shipping information visible for each product in the cart, with fees calculated based on product type.
+
+# Shipping quick view 11/05/25
+
+## Walkthrough
+
+- This PR introduces per-item shipping support for seller orders by extracting and standardizing money utilities, adding Zod-based validation schemas for order data, refactoring SellerOrderDetail types with ShippingMode and lineItemId fields, enhancing the order detail route with input validation, and improving order display components with refined shipping and amount handling.
+
+## New Features
+
+- Public order types added for per-item shipping, line IDs, and aggregated amounts.
+- New money utilities to coerce/truncate values and improved cent-based formatting in UI.
+- Quick-view modal enhanced with richer per-item blocks, shipping hints, keyboard support, loading and retry flows.
+
+## Bug Fixes
+
+- Stronger input and payload validation with clearer error paths.
+- More robust totals calculation and consistent cent-handling across summaries.
+
+## File changes
+
+### Money Utilities Refactoring
+
+- src/lib/money.ts, src/lib/server/orders/compute-amounts.ts, src/lib/server/orders/lock-and-calc-amounts.ts, src/modules/checkout/store/use-cart-store.ts, src/modules/checkout/utils/to-product-with-shipping.ts
+  - Added toIntCents and toIntCentsOrNaN public utilities with coercion and optional empty-string handling; updated existing functions with coerceEmptyStringToZero option.
+  - Refactored dependent modules to use external helpers instead of local implementations; improved shipping fee normalization in to-product-with-shipping.ts with per-unit and flat-fee coercion logic.
+
+### Validation Infrastructure
+
+- src/lib/validation/seller-order-validation-types.ts, src/lib/validation/seller-order.ts
+  - Introduced new Zod schema definitions (zCentsIntNonNegative, zQuantityInt, zCurrencyCode, zIsoString, zShippingMode, etc.) and comprehensive zSellerOrderDetail and zSellerOrderItem schemas for runtime validation of seller order payloads.
+
+### Type Refactoring
+
+- src/app/(app)/api/seller/orders/[orderId]/detail/types.ts
+  - Extracted and exported new types: ShippingMode ('free' | 'flat' | 'calculated'), SellerOrderItem (with per-line shipping fields), and SellerOrderAmounts (aggregated monetary fields).
+  - Refactored SellerOrderDetail to use these modular types; added lineItemId and receiptUrl fields.
+
+### Route Handler Enhancement
+
+src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
+
+- Added input validation for orderId; imported and applied zSellerOrderDetail validation schema; augmented items with generated lineItemId; introduced runtime validation of final payload with 400/500 error handling.
+
+### Type Consolidation & UI Enhancements
+
+- src/payload/views/utils.ts, src/payload/views/seller-orders/order-quick-view-controller.tsx
+  - Moved SellerOrderDetail type to centralized import; enriched item rendering with per-item shipping mode detection, toIntCents coercion, and formatCents formatting for all monetary display; added Fragment and improved keying with lineItemId.
