@@ -13,6 +13,7 @@ import { toIntCents } from '@/lib/money';
  *
  * The modal fetches and displays order details, provides retry and close actions, and closes on Escape.
  *
+ *
  * @returns A React portal containing the order breakdown modal when `?view=` is present; `null` otherwise.
  */
 export default function OrderQuickViewController() {

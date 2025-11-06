@@ -110,13 +110,9 @@ export function computeOrderAmounts(input: {
   const stripeFeeCents = toIntCents(input.stripeFeeCents);
 
   // Platform fee: compute from server total unless a valid provided value exists.
-  const computedPlatformFee = Math.max(
-    0,
-    Math.trunc((serverTotalCents * PLATFORM_FEE_PERCENTAGE) / 100)
-  );
   const platformFeeCandidate = toIntCentsOrNaN(input.platformFeeCents);
   const platformFeeCents = Number.isNaN(platformFeeCandidate)
-    ? computedPlatformFee
+    ? 0
     : platformFeeCandidate;
 
   // Seller net = server total - platform fee - Stripe fee

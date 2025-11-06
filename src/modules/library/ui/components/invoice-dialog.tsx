@@ -134,12 +134,12 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
               <div className="text-sm text-muted-foreground mb-1">
                 Billed to
               </div>
-              <div className="whitespace-pre-wrap break-words">
+              <div className="whitespace-pre-wrap wrap-break-word">
                 {compactAddress(order?.shipping) || '—'}
               </div>
               {order?.buyerEmail && (
                 <div
-                  className="mt-2 text-sm text-muted-foreground min-w-0 break-words sm:max-w-[260px] md:max-w-none"
+                  className="mt-2 text-sm text-muted-foreground min-w-0 wrap-break-word sm:max-w-[260px] md:max-w-none"
                   title={order.buyerEmail}
                 >
                   {order.buyerEmail}
@@ -149,9 +149,9 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
 
             <div className="min-w-0">
               <div className="text-sm text-muted-foreground mb-1">Sold by</div>
-              <div className="min-w-0 break-words">{sellerName}</div>
+              <div className="min-w-0 wrap-break-word">{sellerName}</div>
               <div
-                className="min-w-0 break-words sm:max-w-[260px] md:max-w-none"
+                className="min-w-0 wrap-break-word sm:max-w-[260px] md:max-w-none"
                 title={sellerEmail}
               >
                 {sellerEmail}

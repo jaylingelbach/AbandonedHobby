@@ -144,21 +144,25 @@ export async function GET(
     const discountCents = toIntCents(amountsGroup.discountTotalCents ?? 0);
     const taxCents = toIntCents(amountsGroup.taxTotalCents ?? 0);
 
+    // Items subtotal should be the basis for app fee fallback
     const grossTotalCents = Math.max(
       0,
       Math.trunc(itemsSubtotalCents + shippingCents - discountCents + taxCents)
     );
 
+    // This is the Stripe *processing* fee that webhook stored from the connected account balance transaction
     const storedStripeFeeCents = toIntCents(amountsGroup.stripeFeeCents ?? 0);
 
-    const computedPlatformFeeCents = Math.max(
+    // ✅ Platform fee: prefer stored from webhook; fallback = percentage * ITEMS SUBTOTAL (not gross)
+    const fallbackPlatformFeeCents = Math.max(
       0,
-      Math.trunc(grossTotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+      Math.trunc(itemsSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
     );
-    const platformFeeCents =
-      toIntCents(amountsGroup.platformFeeCents ?? computedPlatformFeeCents) ||
-      computedPlatformFeeCents;
+    const platformFeeCents = toIntCents(
+      amountsGroup.platformFeeCents ?? fallbackPlatformFeeCents
+    );
 
+    // Net payout
     const sellerNetCents = Math.max(
       0,
       grossTotalCents - platformFeeCents - storedStripeFeeCents

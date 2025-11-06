@@ -55,12 +55,26 @@ export type ExpandedLineItem = Stripe.LineItem & {
 };
 
 // ── Narrowing helpers to inspect optional nested fields on "existing" without unsafe casts
-type WithAmountsShape = { amounts?: { stripeFeeCents?: unknown } };
+type WithAmountsShape = {
+  amounts?: {
+    stripeFeeCents?: unknown;
+    platformFeeCents?: unknown;
+  };
+};
+
 function hasStripeFee(
   value: unknown
 ): value is { amounts: { stripeFeeCents: number } } {
   return (
     typeof (value as WithAmountsShape)?.amounts?.stripeFeeCents === 'number'
+  );
+}
+
+function hasPlatformFee(
+  value: unknown
+): value is { amounts: { platformFeeCents: number } } {
+  return (
+    typeof (value as WithAmountsShape)?.amounts?.platformFeeCents === 'number'
   );
 }
 
@@ -73,14 +87,18 @@ function hasReceiptUrl(
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
- * Helpers: Stripe fee + receipt retrieval (truth from balance transaction)
+ * Helpers: Stripe fees (processing + application) + receipt (truth from Stripe)
  * ────────────────────────────────────────────────────────────────────────────── */
 
 async function readStripeFeesAndReceiptUrl(args: {
   stripeAccountId: string;
   paymentIntentId?: string | null;
   chargeId?: string | null;
-}): Promise<{ stripeFeeCents: number; receiptUrl: string | null }> {
+}): Promise<{
+  stripeFeeCents: number;
+  platformFeeCents: number;
+  receiptUrl: string | null;
+}> {
   const { stripeAccountId, paymentIntentId, chargeId } = args;
 
   // Prefer PaymentIntent path so we can expand latest_charge.balance_transaction
@@ -95,14 +113,18 @@ async function readStripeFeesAndReceiptUrl(args: {
     const balanceTransaction =
       latestCharge?.balance_transaction as Stripe.BalanceTransaction | null;
 
-    const fee =
+    const stripeFeeCents =
       typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    const platformFeeCents =
+      typeof latestCharge?.application_fee_amount === 'number'
+        ? latestCharge.application_fee_amount
+        : 0;
     const receiptUrl =
       typeof latestCharge?.receipt_url === 'string'
         ? latestCharge.receipt_url
         : null;
 
-    return { stripeFeeCents: fee, receiptUrl };
+    return { stripeFeeCents, platformFeeCents, receiptUrl };
   }
 
   // Fallback: start from Charge if that’s all we have
@@ -116,15 +138,19 @@ async function readStripeFeesAndReceiptUrl(args: {
     const balanceTransaction =
       charge.balance_transaction as Stripe.BalanceTransaction | null;
 
-    const fee =
+    const stripeFeeCents =
       typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    const platformFeeCents =
+      typeof charge.application_fee_amount === 'number'
+        ? charge.application_fee_amount
+        : 0;
     const receiptUrl =
       typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
 
-    return { stripeFeeCents: fee, receiptUrl };
+    return { stripeFeeCents, platformFeeCents, receiptUrl };
   }
 
-  return { stripeFeeCents: 0, receiptUrl: null };
+  return { stripeFeeCents: 0, platformFeeCents: 0, receiptUrl: null };
 }
 
 /* ──────────────────────────────────────────────────────────────────────────────
@@ -528,16 +554,18 @@ export async function POST(req: Request) {
           try {
             const stripeFeePresent =
               hasStripeFee(existing) && existing.amounts.stripeFeeCents > 0;
+            const platformFeePresent =
+              hasPlatformFee(existing) && existing.amounts.platformFeeCents > 0;
             const receiptPresent =
               hasReceiptUrl(existing) && existing.documents.receiptUrl != null;
 
-            // Hoist so we can assign after the fetch block
             let feesResult: {
               stripeFeeCents: number;
+              platformFeeCents: number;
               receiptUrl: string | null;
             } | null = null;
 
-            if (!stripeFeePresent || !receiptPresent) {
+            if (!stripeFeePresent || !platformFeePresent || !receiptPresent) {
               const paymentIntentId =
                 typeof (existing as { stripePaymentIntentId?: unknown })
                   .stripePaymentIntentId === 'string'
@@ -581,22 +609,32 @@ export async function POST(req: Request) {
               stripeEventId: string;
             } = { stripeEventId: event.id };
 
-            if (!stripeFeePresent && feesResult) {
+            if (feesResult) {
               updateData.amounts = {
                 ...existingAmounts,
-                stripeFeeCents: feesResult.stripeFeeCents
+                stripeFeeCents:
+                  stripeFeePresent && existingAmounts.stripeFeeCents != null
+                    ? existingAmounts.stripeFeeCents
+                    : feesResult.stripeFeeCents,
+                platformFeeCents:
+                  platformFeePresent && existingAmounts.platformFeeCents != null
+                    ? existingAmounts.platformFeeCents
+                    : feesResult.platformFeeCents
               };
             }
 
             if (!receiptPresent && feesResult) {
               updateData.documents = { receiptUrl: feesResult.receiptUrl };
             }
-            await payloadInstance.update({
-              collection: 'orders',
-              id: String((existing as { id: unknown }).id),
-              data: updateData,
-              overrideAccess: true
-            });
+
+            if (updateData.amounts || updateData.documents) {
+              await payloadInstance.update({
+                collection: 'orders',
+                id: String((existing as { id: unknown }).id),
+                data: updateData,
+                overrideAccess: true
+              });
+            }
           } catch (backfillError) {
             console.warn(
               '[webhook] duplicate path backfill failed',
@@ -717,8 +755,8 @@ export async function POST(req: Request) {
           })
         );
 
-        // --- NEW: read Stripe fee + receipt from the connected account
-        const { stripeFeeCents, receiptUrl } =
+        // --- Read Stripe processing fee + application fee + receipt from the connected account
+        const { stripeFeeCents, platformFeeCents, receiptUrl } =
           await readStripeFeesAndReceiptUrl({
             stripeAccountId: accountId,
             paymentIntentId: paymentIntent.id,
@@ -730,6 +768,7 @@ export async function POST(req: Request) {
           paymentIntentId: paymentIntent.id,
           chargeId: String(charge.id),
           stripeFeeCents,
+          platformFeeCents,
           receiptUrl
         });
 
@@ -875,7 +914,7 @@ export async function POST(req: Request) {
           );
         }
 
-        // Create order (include stripeFeeCents + receiptUrl so hooks can compute sellerNet)
+        // Create order (include stripeFeeCents + platformFeeCents + receiptUrl so hooks can compute sellerNet)
         let orderDocumentId: string;
 
         console.log('[webhook] creating order with', {
@@ -908,7 +947,11 @@ export async function POST(req: Request) {
                 fulfillmentStatus: 'unfulfilled',
                 total: totalAmountInCents,
                 ...(shippingGroup ? { shipping: shippingGroup } : {}),
-                amounts: { stripeFeeCents, shippingTotalCents: amountShipping },
+                amounts: {
+                  stripeFeeCents,
+                  platformFeeCents,
+                  shippingTotalCents: amountShipping
+                },
                 documents: { receiptUrl }
               },
               overrideAccess: true
