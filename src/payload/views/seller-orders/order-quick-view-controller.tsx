@@ -261,7 +261,7 @@ export default function OrderQuickViewController() {
                                 : '';
 
                             return (
-                              <Fragment key={`${item.lineItemId}-${index}`}>
+                              <Fragment key={`${item.lineItemId}`}>
                                 {/* Primary item row */}
                                 <tr>
                                   <td>{item.nameSnapshot}</td>
@@ -294,7 +294,7 @@ export default function OrderQuickViewController() {
                                       </span>{' '}
                                       {isFlatShipping
                                         ? `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
-                                        : 'Calculated at checkout'}
+                                        : 'Calculated at Stripe checkout'}
                                     </td>
                                   </tr>
                                 )}
