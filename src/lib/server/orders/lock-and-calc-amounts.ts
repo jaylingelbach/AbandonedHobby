@@ -151,10 +151,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     return unitAmountCents * quantity;
   });
 
-  const itemsSubtotalCents = itemTotals.reduce(
-    (sum, n) => sum + toIntCents(n),
-    0
-  );
+  const itemsSubtotalCents = itemTotals.reduce((sum, n) => sum + n, 0);
 
   // 2) Total (amount actually paid to Stripe, cents)
   // - If this is a system write *or* operation is 'create', accept incoming `data.total`
