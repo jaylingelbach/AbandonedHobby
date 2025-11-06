@@ -9,6 +9,7 @@ import {
 } from './seller-order-validation-types';
 
 export const zSellerOrderItem = z.object({
+  lineItemId: z.string().min(1),
   nameSnapshot: z.string().min(1),
   quantity: zQuantityInt, // integer >= 1
   unitAmountCents: zCentsIntNonNegative, // >= 0

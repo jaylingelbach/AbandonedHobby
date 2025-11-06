@@ -291,7 +291,7 @@ export default function OrderQuickViewController() {
                                 {(isFlatShipping || isCalculatedShipping) && (
                                   <tr
                                     className="text-xs text-muted-foreground"
-                                    key={`${item.lineItemId}-ship`}
+                                    key={`${baseKey}-ship`}
                                   >
                                     <td colSpan={4}>
                                       <span className="font-medium">
@@ -305,7 +305,7 @@ export default function OrderQuickViewController() {
                                 )}
 
                                 {/* Optional divider row for readability */}
-                                <tr aria-hidden key={`${item.lineItemId}-sep`}>
+                                <tr aria-hidden key={`${baseKey}-sep`}>
                                   <td colSpan={4} className="py-1" />
                                 </tr>
                               </Fragment>
