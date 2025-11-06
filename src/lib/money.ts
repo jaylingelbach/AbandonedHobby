@@ -41,6 +41,8 @@ function coerceToNumber(
  * @param options - Optional settings.
  * @param options.allowNegative - If `true`, negative cent values are preserved; otherwise negative results are clamped to `0`.
  * @returns The resulting integer number of cents rounded to the nearest cent. Returns `0` for non-finite or missing input.
+ */
+
 export function usdNumberToCents(
   valueUsd: number | null | undefined,
   options?: { allowNegative?: boolean }
@@ -138,6 +140,8 @@ export function sumCents(values: Array<unknown>): number {
  * @param options.allowNegative - If true, allow negative integer cents; otherwise negative results are clamped to 0.
  * @param options.coerceEmptyStringToZero - If true, treat an empty string as `0` during coercion.
  * @returns The resulting integer number of cents; returns `0` when the input cannot be coerced to a finite number.
+ */
+
 export function toIntCents(
   value: unknown,
   options?: { allowNegative?: boolean; coerceEmptyStringToZero?: boolean }
