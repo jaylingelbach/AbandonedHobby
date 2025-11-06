@@ -260,8 +260,13 @@ export default function OrderQuickViewController() {
                                 ? ` (${item.quantity} × ${formatCents(perUnitCentsSafe, currency)})`
                                 : '';
 
+                            const baseKey =
+                              typeof item.lineItemId === 'string' &&
+                              item.lineItemId.trim() !== ''
+                                ? item.lineItemId.trim()
+                                : `${detail.id}:${index}`;
                             return (
-                              <Fragment key={`${item.lineItemId}`}>
+                              <Fragment key={`${baseKey}`}>
                                 {/* Primary item row */}
                                 <tr>
                                   <td>{item.nameSnapshot}</td>
