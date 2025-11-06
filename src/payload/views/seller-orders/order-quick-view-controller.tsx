@@ -3,7 +3,7 @@
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { formatCents, formatCurrency } from '@/lib/utils';
+import { formatCents } from '@/lib/utils';
 import { compactAddress } from '../utils';
 import type { SellerOrderDetail } from '@/app/(app)/api/seller/orders/[orderId]/detail/types';
 import { toIntCents } from '@/lib/money';
