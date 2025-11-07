@@ -170,12 +170,15 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const persistedAmounts = (persisted.amounts ?? {}) as Partial<AmountsShape>;
 
   // Accept incoming fees on any operation (update or create)
-  const platformFromIncomingAny = toIntCents(
-    incomingAmounts.platformFeeCents as number | undefined
-  );
-  const stripeFeeFromIncomingAny = toIntCents(
-    incomingAmounts.stripeFeeCents as number | undefined
-  );
+  const platformFromIncoming =
+    operation === 'create' || isSystem
+      ? toIntCents(incomingAmounts.platformFeeCents as number | undefined)
+      : 0;
+
+  const stripeFeeFromIncoming =
+    operation === 'create' || isSystem
+      ? toIntCents(incomingAmounts.stripeFeeCents as number | undefined)
+      : 0;
 
   // Shipping: if caller supplied items, do NOT let persisted short-circuit recomputation.
   const shippingFromCtx = toIntCents(context.fees?.shippingTotalCents);
@@ -287,8 +290,8 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const stripeFeeCents =
     stripeFeeFromCtx > 0
       ? stripeFeeFromCtx
-      : stripeFeeFromIncomingAny > 0
-        ? stripeFeeFromIncomingAny
+      : stripeFeeFromIncoming > 0
+        ? stripeFeeFromIncoming
         : stripeFeeFromPersisted > 0
           ? stripeFeeFromPersisted
           : 0;
@@ -317,8 +320,8 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const platformFeeCents =
     platformFromCtx > 0
       ? platformFromCtx
-      : platformFromIncomingAny > 0
-        ? platformFromIncomingAny
+      : platformFromIncoming > 0
+        ? platformFromIncoming
         : platformFromPersisted > 0
           ? platformFromPersisted
           : computedPlatformFeeCents;

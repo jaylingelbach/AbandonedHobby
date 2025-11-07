@@ -131,7 +131,14 @@ async function main() {
       },
       documents: { receiptUrl: fees.receiptUrl }
     },
-    overrideAccess: true
+    overrideAccess: true,
+    context: {
+      ahSystem: true as const,
+      fees: {
+        platformFeeCents: fees.platformFeeCents,
+        stripeFeeCents: fees.stripeFeeCents
+      }
+    }
   });
 
   console.log('[backfill] updated order amounts ✅');
