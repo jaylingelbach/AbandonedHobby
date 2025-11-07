@@ -62,6 +62,11 @@ type WithAmountsShape = {
   };
 };
 
+/**
+ * Type guard that checks whether a value contains a numeric Stripe processing fee under `amounts.stripeFeeCents`.
+ *
+ * @returns `true` if `value.amounts.stripeFeeCents` is a number, `false` otherwise.
+ */
 function hasStripeFee(
   value: unknown
 ): value is { amounts: { stripeFeeCents: number } } {
@@ -70,6 +75,12 @@ function hasStripeFee(
   );
 }
 
+/**
+ * Type guard that detects objects with a numeric `amounts.platformFeeCents` property.
+ *
+ * @param value - The value to test for the `amounts.platformFeeCents` shape
+ * @returns `true` if `value` has an `amounts.platformFeeCents` number, `false` otherwise.
+ */
 function hasPlatformFee(
   value: unknown
 ): value is { amounts: { platformFeeCents: number } } {
@@ -79,6 +90,14 @@ function hasPlatformFee(
 }
 
 type WithDocumentsShape = { documents?: { receiptUrl?: unknown } };
+/**
+ * Type guard that checks whether a value has a `documents.receiptUrl` property (a string or `null`).
+ *
+ * When this function returns `true`, TypeScript will narrow the input to `{ documents: { receiptUrl: string | null } }`.
+ *
+ * @param value - The value to test for the `documents.receiptUrl` shape
+ * @returns `true` if `value` has a `documents.receiptUrl` property that is a string or `null`, `false` otherwise.
+ */
 function hasReceiptUrl(
   value: unknown
 ): value is { documents: { receiptUrl: string | null } } {
@@ -86,9 +105,19 @@ function hasReceiptUrl(
   return typeof url === 'string' || url === null;
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Helpers: Stripe fees (processing-only + application) + receipt
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Read the Stripe processing fee (merchant/processor), the application (platform) fee, and the charge receipt URL for a given Stripe charge or payment intent on a connected account.
+ *
+ * If `paymentIntentId` is provided, the latest charge for that payment intent is used. If neither `paymentIntentId` nor `chargeId` is provided, zeros and `null` are returned.
+ *
+ * @param args.stripeAccountId - The Stripe connected account ID to query against.
+ * @param args.paymentIntentId - Optional Stripe PaymentIntent ID to derive the charge from.
+ * @param args.chargeId - Optional Stripe Charge ID to read fees and receipt from.
+ * @returns An object with:
+ *  - `stripeFeeCents`: processing-only fee in cents,
+ *  - `platformFeeCents`: application/platform fee in cents,
+ *  - `receiptUrl`: the charge's receipt URL or `null`.
+ */
 
 async function readStripeFeesAndReceiptUrl(args: {
   stripeAccountId: string;
@@ -101,6 +130,12 @@ async function readStripeFeesAndReceiptUrl(args: {
 }> {
   const { stripeAccountId, paymentIntentId, chargeId } = args;
 
+  /**
+   * Read the processing fee, platform (application) fee, and receipt URL for a Stripe Charge.
+   *
+   * @param id - The Stripe Charge ID to retrieve
+   * @returns An object containing `stripeFeeCents` (processing fees in cents), `platformFeeCents` (application/platform fee in cents), and `receiptUrl` (the charge receipt URL or `null`)
+   */
   async function fromChargeId(id: string) {
     const charge = await stripe.charges.retrieve(
       id,
@@ -164,9 +199,20 @@ async function readStripeFeesAndReceiptUrl(args: {
   return { stripeFeeCents: 0, platformFeeCents: 0, receiptUrl: null };
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Inventory decrement (atomic) + batch  (Mongo / Mongoose + Payload fallback)
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Atomically decreases a product's stock by a given quantity and optionally archives the product when stock reaches zero.
+ *
+ * Validates that `quantity` is a positive integer. Attempts an atomic Mongo/Mongoose decrement when available and falls back to a Payload read-and-update path if necessary. May mark the product archived when `options.autoArchive` is true and resulting stock is zero.
+ *
+ * @param productId - The product document ID to decrement.
+ * @param quantity - Quantity to subtract; must be an integer greater than zero.
+ * @param options.autoArchive - If true, set the product's `isArchived` flag when stock reaches zero.
+ * @returns On success: `{ ok: true, after: { stockQuantity }, archived }` with the resulting stock and whether the product is archived. On failure: `{ ok: false, reason }` where `reason` is one of:
+ * - `not-supported` — atomic decrement not available,
+ * - `not-tracked` — product does not track stockQuantity,
+ * - `not-found` — product not found,
+ * - `insufficient` — not enough stock to fulfill the decrement.
+ */
 
 async function decrementProductStockAtomic(
   payloadInstance: import('payload').Payload,
@@ -261,6 +307,14 @@ async function decrementProductStockAtomic(
   };
 }
 
+/**
+ * Attempts to decrement stock for a batch of products, retrying transient insufficient-stock conflicts.
+ *
+ * For each product in `qtyByProductId` this function calls `decrementProductStockAtomic` (up to 3 attempts when the failure reason is "insufficient") and logs successes or failures. If any product fails to decrement, a consolidated error line is written to stderr.
+ *
+ * @param args.payload - Payload CMS instance used to read and update product documents.
+ * @param args.qtyByProductId - Map of product IDs to quantities to decrement.
+ */
 async function decrementInventoryBatch(args: {
   payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
@@ -435,6 +489,14 @@ function normalizeRelationshipId(value: unknown): string | null {
   return null;
 }
 
+/**
+ * Finds the tenant ID for the first product referenced in the provided order items.
+ *
+ * @param items - Array of order line items; each item must contain a `product` id string.
+ * @param productsById - Map from product id to `Product` objects used to resolve the product's tenant relation.
+ * @returns The resolved tenant id for the first product that has a tenant.
+ * @throws Error if no product in `items` resolves to a tenant id.
+ */
 function getProductTenantIdForOrder(
   items: Array<{ product: string }>,
   productsById: Map<string, Product>
@@ -448,7 +510,10 @@ function getProductTenantIdForOrder(
 }
 
 /**
- * Choose who to email on seller notification (tenant primary contact vs payout tenant).
+ * Resolve the email address and display name to use when notifying a tenant about a sale.
+ *
+ * @param args.tenant - Tenant object that may contain `notificationEmail`, `notificationName`, `primaryContact`, and `name` used to derive the contact.
+ * @returns An object with `email` set to `tenant.notificationEmail` if present, otherwise the primary contact user's email if available, or `null`; `displayName` set to `tenant.notificationName`, otherwise the primary user's `firstName` or `username`, otherwise `tenant.name`, or `'Seller'`.
  */
 async function deriveNotificationContactForTenant(args: {
   payload: import('payload').Payload;
@@ -490,7 +555,19 @@ async function deriveNotificationContactForTenant(args: {
 }
 
 /**
- * Handle incoming Stripe webhook POST requests.
+ * Handle Stripe webhook POST requests: validate the signature, deduplicate events,
+ * and process supported event types (checkout sessions, payment failures/expiration,
+ * account updates, refunds, and charge refunds) to create/update orders, adjust inventory,
+ * sync refund state, send notifications, and record analytics.
+ *
+ * The request must include Stripe's signature header (`stripe-signature`) and a body
+ * containing the raw webhook payload; the function verifies the payload using
+ * STRIPE_WEBHOOK_SECRET.
+ *
+ * @param req - The incoming HTTP Request containing the Stripe webhook payload and the `stripe-signature` header
+ * @returns A NextResponse JSON object describing the outcome. Typical HTTP statuses:
+ *          200 for processed/ignored/deduplicated events, 400 for webhook verification errors,
+ *          and 500 for internal errors in production (non-production environments return 200 on handler errors).
  */
 export async function POST(req: Request) {
   let event: Stripe.Event;

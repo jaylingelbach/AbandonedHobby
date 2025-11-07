@@ -15,6 +15,15 @@ export const dynamic = 'force-dynamic';
 export const revalidate = 0;
 export const runtime = 'nodejs';
 
+/**
+ * Handle GET requests for a seller's order detail by orderId, validate access, compute amounts, and return a normalized order detail payload.
+ *
+ * Validates the `orderId` route parameter, enforces tenant-based authorization, assembles an items snapshot and amounts (preferring DB-stored fee values with safe fallbacks), validates the resulting shape, and returns it. When the environment variable `SELLER_ORDER_DETAIL_DEBUG` is enabled (and not in production), the response will include an `_debug` object with internal computed values.
+ *
+ * @param _request - The incoming NextRequest (unused).
+ * @param ctx - Request context containing `params`, a Promise that resolves to an object with `orderId`.
+ * @returns A JSON NextResponse: on success the body is a `SellerOrderDetail` object; on error the body is `{ error: string }` with one of the status codes 400 (invalid order id), 403 (forbidden), 404 (order not found), or 500 (invalid payload shape or unexpected error).
+ */
 export async function GET(
   _request: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }
