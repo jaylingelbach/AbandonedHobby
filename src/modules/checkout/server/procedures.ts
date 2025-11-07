@@ -282,10 +282,6 @@ export const checkoutRouter = createTRPCRouter({
         Math.round(productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
       );
 
-      const platformFeeAmount = Math.round(
-        (productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE) / 100
-      );
-
       // compute flat shipping (single checkout-level amount)
       const productsForShipping: ProductForShipping[] =
         products.map(parseProductShipping);

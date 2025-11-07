@@ -196,8 +196,6 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const taxFromPersisted = toIntCents(persistedAmounts.taxTotalCents);
 
   const stripeFeeFromCtx = toIntCents(context.fees?.stripeFeeCents);
-  const stripeFeeFromIncomingCreate =
-    operation === 'create' ? toIntCents(incomingAmounts.stripeFeeCents) : 0;
   const stripeFeeFromPersisted = toIntCents(persistedAmounts.stripeFeeCents);
 
   // 4) Compute shipping from current lines (only if not provided by ctx/incoming/persisted)
@@ -308,8 +306,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
 
   // 6) Platform fee: allow ctx override, else respect incoming on create, else compute
   const platformFromCtx = toIntCents(context.fees?.platformFeeCents);
-  const platformFromIncomingCreate =
-    operation === 'create' ? toIntCents(incomingAmounts.platformFeeCents) : 0;
+
   const platformFromPersisted = toIntCents(persistedAmounts.platformFeeCents);
 
   const computedPlatformFeeCents = Math.max(
