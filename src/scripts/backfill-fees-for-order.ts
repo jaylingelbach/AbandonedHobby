@@ -104,7 +104,7 @@ async function main() {
   const orderId = process.argv[2];
   if (!orderId) {
     console.error(
-      'Usage: ts-node scripts/backfill-fees-for-order.ts <orderId>'
+      'Usage: ts-node src/scripts/backfill-fees-for-order.ts <orderId>'
     );
     process.exit(1);
   }

@@ -299,7 +299,7 @@ export const checkoutRouter = createTRPCRouter({
 
       //  what we’re about to send to Stripe
       console.log('[checkout:create]', {
-        tenantId: String(sellerTenantId),
+        tenantId: sellerTenantId,
         stripeAccountId: sellerTenant.stripeAccountId,
         productSubtotalCents,
         shippingCents,

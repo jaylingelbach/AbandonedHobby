@@ -4746,3 +4746,59 @@ src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
 
 - src/payload/views/utils.ts, src/payload/views/seller-orders/order-quick-view-controller.tsx
   - Moved SellerOrderDetail type to centralized import; enriched item rendering with per-item shipping mode detection, toIntCents coercion, and formatCents formatting for all monetary display; added Fragment and improved keying with lineItemId.
+
+# Adjust fee computation and display 11/07/25
+
+## Walkthrough
+
+- This PR refactors fee handling across the order and payment systems, introducing explicit platform fee tracking separate from Stripe processing fees. It adds Next.js route exports for caching control, CSS styling updates for text wrapping, and a new backfill script for Stripe fee data recovery.
+
+##
+
+## File changes
+
+### Dependency Updates
+
+- package.json
+  - Updated tsx devDependency from ^4.20.5 to ^4.20.6.
+
+### Seller Order Detail Route
+
+- src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
+  - Added Next.js route exports (dynamic, revalidate, runtime), SELLER_ORDER_DETAIL_DEBUG flag, tightened tenancy/auth flow, prefer DB-sourced amounts/fees with safe fallbacks, and standardized 404/error responses with no-store headers.
+
+### Stripe Webhook & Fee Context
+
+src/app/(app)/api/stripe/webhooks/route.ts
+
+- Split platform vs. Stripe processing fees; refactored readStripeFeesAndReceiptUrl and helpers to return platformFeeCents and stripeFeeCents; added contextFees propagation for trusted fees on order create/update; updated types and normalization; added deriveNotificationContactForTenant.
+
+### Compute Amounts
+
+- src/lib/server/orders/compute-amounts.ts
+  - Switched import to DECIMAL_PLATFORM_PERCENTAGE; prefer provided platformFeeCents otherwise compute from items subtotal; always trust provided Stripe fee; drop phantom/free lines; clarified subtotal/total logic and rounding behavior.
+
+### Lock & Calc Amounts
+
+- src/lib/server/orders/lock-and-calc-amounts.ts
+  - Accept incoming platform/stripe fees for create/update via context; added isSystem flag influence; updated precedence for selecting totals/fees (context → incoming/system → persisted → computed) and refined shipping/total resolution and rounding.
+
+### Checkout Procedures
+
+- src/modules/checkout/server/procedures.ts
+  - Use DECIMAL_PLATFORM_PERCENTAGE for platform fee; compute platformFeeCents, set Stripe application_fee_amount, expand checkout metadata (shipping, fee basis, subtotals, platform fee intent), add debug logging and analytics update.
+
+### UI Wrapping Adjustments
+
+- src/components/ui/breadcrumb.tsx,`src/modules/library/ui/components/invoice-dialog.tsx
+  - Replaced break-words with wrap-break-word (and related min-width tweaks) to change text-wrapping behavior in breadcrumb and invoice dialog UI elements; no logic changes.
+
+### Order Quick View Controller (Client)
+
+- src/payload/views/seller-orders/order-quick-view-controller.tsx
+  - Add mounted flag to delay client fetch until mounted, guard renders when unmounted or missing orderId, compute safe fee fields (platformFeeCentsSafe, stripeProcessingFeeCents, netPayoutCents) and use them in UI.
+
+### Backfill Script
+
+- src/scripts/backfill-fees-for-order.ts
+  - New script to fetch Stripe charge/paymentIntent and derive stripeFeeCents, platformFeeCents, and receiptUrl (using balance_transaction.fee_details if present), then update order amounts.\* and documents.receiptUrl in Payload with error handling.
