@@ -1,4 +1,4 @@
-import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
+import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 import { toIntCents, toIntCentsOrNaN } from '@/lib/money';
 
 type OrderItemShape = {
@@ -10,7 +10,7 @@ type OrderItemShape = {
 };
 
 type Amounts = {
-  subtotalCents: number;
+  subtotalCents: number; // items subtotal (no shipping/discount/tax)
   taxTotalCents: number;
   shippingTotalCents: number;
   discountTotalCents: number;
@@ -24,7 +24,7 @@ type Amounts = {
  *
  * Server-authoritative total is derived from line totals + shipping - discounts when item lines exist.
  * If there are no items, the provided input.totalCents is used.
- * Stripe fee is trusted if provided; platform fee prefers the provided value if valid, otherwise computed.
+ * Stripe fee is trusted if provided; platform fee prefers the provided value if valid, otherwise computed from items subtotal.
  */
 export function computeOrderAmounts(input: {
   items: unknown;
@@ -43,22 +43,18 @@ export function computeOrderAmounts(input: {
   let lineTotalsCents = 0;
 
   for (const item of itemArray) {
-    // Quantity: allow NaN sentinel to fall back to 1
     const quantityCandidate = toIntCentsOrNaN(item.quantity);
     const quantity =
       Number.isNaN(quantityCandidate) || quantityCandidate <= 0
         ? 1
         : quantityCandidate;
 
-    // Pre-read provided totals (so we can decide what to do if unitAmount is bad)
     const amountSubtotalCandidate = toIntCentsOrNaN(item.amountSubtotal);
     const amountTotalCandidate = toIntCentsOrNaN(item.amountTotal);
 
-    // Unit amount (cents)
     const unitAmount = toIntCents(item.unitAmount);
 
-    // If unit amount is non-positive AND no explicit subtotals/totals are provided,
-    // treat the line as invalid and drop it (prevents "free" items by accident).
+    // guard against “free” phantom lines
     if (
       unitAmount <= 0 &&
       Number.isNaN(amountSubtotalCandidate) &&
@@ -73,16 +69,13 @@ export function computeOrderAmounts(input: {
       continue;
     }
 
-    // Subtotal (prefer provided; else fallback = unit * qty)
     const fallbackSubtotal = unitAmount * quantity;
     const amountSubtotal = Number.isNaN(amountSubtotalCandidate)
       ? fallbackSubtotal
       : amountSubtotalCandidate;
 
-    // Tax (cents)
     const amountTax = toIntCents(item.amountTax);
 
-    // Line total (prefer provided; else subtotal + tax)
     const amountTotal = Number.isNaN(amountTotalCandidate)
       ? amountSubtotal + amountTax
       : amountTotalCandidate;
@@ -92,11 +85,9 @@ export function computeOrderAmounts(input: {
     lineTotalsCents += amountTotal;
   }
 
-  // Order-level adjustments
   const shippingTotalCents = toIntCents(input.shippingTotalCents);
   const discountTotalCents = toIntCents(input.discountTotalCents);
 
-  // Authoritative server total: derive from lines when items exist; else use provided total.
   const providedTotalCents = toIntCents(input.totalCents);
   const serverTotalCents =
     itemArray.length > 0
@@ -106,16 +97,20 @@ export function computeOrderAmounts(input: {
         )
       : providedTotalCents;
 
-  // Prefer provided webhook Stripe fee; otherwise 0 (do not guess).
+  // trust webhook for Stripe fee; do not guess
   const stripeFeeCents = toIntCents(input.stripeFeeCents);
 
-  // Platform fee: compute from server total unless a valid provided value exists.
+  // Prefer provided platform fee; else fallback = % of items subtotal (NOT gross)
   const platformFeeCandidate = toIntCentsOrNaN(input.platformFeeCents);
+  const fallbackPlatformFeeCents = Math.max(
+    0,
+    Math.round(subtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+  );
   const platformFeeCents = Number.isNaN(platformFeeCandidate)
-    ? 0
+    ? fallbackPlatformFeeCents
     : platformFeeCandidate;
 
-  // Seller net = server total - platform fee - Stripe fee
+  // Net payout
   const sellerNetCents = Math.max(
     0,
     serverTotalCents - platformFeeCents - stripeFeeCents

@@ -1,0 +1,143 @@
+import 'dotenv/config';
+import payloadConfig from '@/payload.config';
+import { getPayload } from 'payload';
+import Stripe from 'stripe';
+
+type OrderDoc = {
+  id: string;
+  stripeAccountId?: string | null;
+  stripePaymentIntentId?: string | null;
+  stripeChargeId?: string | null;
+  amounts?: {
+    platformFeeCents?: number | null;
+    stripeFeeCents?: number | null;
+  };
+};
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
+  apiVersion: '2025-08-27.basil'
+});
+
+async function readStripeFeesAndReceiptUrl(args: {
+  stripeAccountId: string;
+  paymentIntentId?: string | null;
+  chargeId?: string | null;
+}): Promise<{
+  stripeFeeCents: number;
+  platformFeeCents: number;
+  receiptUrl: string | null;
+}> {
+  const { stripeAccountId, paymentIntentId, chargeId } = args;
+
+  async function fromChargeId(id: string) {
+    const charge = await stripe.charges.retrieve(
+      id,
+      { expand: ['balance_transaction'] },
+      { stripeAccount: stripeAccountId }
+    );
+
+    const bt = charge.balance_transaction as Stripe.BalanceTransaction | null;
+
+    const appFeeCents =
+      typeof charge.application_fee_amount === 'number'
+        ? charge.application_fee_amount
+        : 0;
+
+    let processingFeeCents = 0;
+    const details = Array.isArray(bt?.fee_details) ? bt!.fee_details : null;
+    if (details) {
+      processingFeeCents = details
+        .filter((d) => d.type !== 'application_fee')
+        .reduce(
+          (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
+          0
+        );
+    } else {
+      const totalFee = typeof bt?.fee === 'number' ? bt.fee : 0;
+      processingFeeCents = Math.max(0, totalFee - appFeeCents);
+    }
+
+    const receiptUrl =
+      typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
+    return {
+      stripeFeeCents: processingFeeCents,
+      platformFeeCents: appFeeCents,
+      receiptUrl
+    };
+  }
+
+  if (paymentIntentId) {
+    const pi = await stripe.paymentIntents.retrieve(
+      paymentIntentId,
+      { expand: ['latest_charge.balance_transaction'] },
+      { stripeAccount: stripeAccountId }
+    );
+    const latestCharge = pi.latest_charge as Stripe.Charge | null;
+    if (latestCharge?.id) return fromChargeId(latestCharge.id);
+  }
+  if (chargeId) return fromChargeId(chargeId);
+  return { stripeFeeCents: 0, platformFeeCents: 0, receiptUrl: null };
+}
+
+async function main() {
+  const orderId = process.argv[2];
+  if (!orderId) {
+    console.error(
+      'Usage: ts-node scripts/backfill-fees-for-order.ts <orderId>'
+    );
+    process.exit(1);
+  }
+
+  const payload = await getPayload({ config: payloadConfig });
+
+  const order = (await payload.findByID({
+    collection: 'orders',
+    id: orderId,
+    depth: 0,
+    overrideAccess: true
+  })) as unknown as OrderDoc;
+
+  if (!order) throw new Error('Order not found');
+  if (!order.stripeAccountId) throw new Error('Order missing stripeAccountId');
+  if (!order.stripePaymentIntentId && !order.stripeChargeId) {
+    throw new Error(
+      'Order missing both stripePaymentIntentId and stripeChargeId'
+    );
+  }
+
+  console.log('[backfill] reading stripe fees', {
+    orderId: order.id,
+    stripeAccountId: order.stripeAccountId,
+    paymentIntentId: order.stripePaymentIntentId,
+    chargeId: order.stripeChargeId
+  });
+
+  const fees = await readStripeFeesAndReceiptUrl({
+    stripeAccountId: order.stripeAccountId!,
+    paymentIntentId: order.stripePaymentIntentId ?? null,
+    chargeId: order.stripeChargeId ?? null
+  });
+
+  console.log('[backfill] stripe says', fees);
+
+  await payload.update({
+    collection: 'orders',
+    id: order.id,
+    data: {
+      amounts: {
+        ...(order.amounts ?? {}),
+        platformFeeCents: fees.platformFeeCents, // ← application fee
+        stripeFeeCents: fees.stripeFeeCents // ← processing-only
+      },
+      documents: { receiptUrl: fees.receiptUrl }
+    },
+    overrideAccess: true
+  });
+
+  console.log('[backfill] updated order amounts ✅');
+}
+
+main().catch((err) => {
+  console.error(err);
+  process.exit(1);
+});

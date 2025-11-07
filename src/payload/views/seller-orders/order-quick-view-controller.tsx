@@ -13,26 +13,36 @@ import { toIntCents } from '@/lib/money';
  *
  * The modal fetches and displays order details, provides retry and close actions, and closes on Escape.
  *
- *
  * @returns A React portal containing the order breakdown modal when `?view=` is present; `null` otherwise.
  */
 export default function OrderQuickViewController() {
+  // Declare ALL hooks unconditionally and in a fixed order
   const searchParams = useSearchParams();
   const pathname = usePathname();
   const router = useRouter();
 
-  const orderId = searchParams.get('view');
+  const [mounted, setMounted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [detail, setDetail] = useState<SellerOrderDetail | null>(null);
   const [reloadTick, setReloadTick] = useState(0);
 
+  // Compute from current state/URL
+  const orderId = searchParams.get('view');
   const currency = (detail?.currency ?? 'USD').toUpperCase();
 
-  // Fetch when ?view= is set
+  // Mark as mounted once on client
   useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // Fetch when ?view= is set (after mount)
+  useEffect(() => {
+    if (!mounted) return;
+
     let isActive = true;
     const controller = new AbortController();
+
     (async () => {
       if (!orderId) {
         setDetail(null);
@@ -67,11 +77,12 @@ export default function OrderQuickViewController() {
         if (isActive) setLoading(false);
       }
     })();
+
     return () => {
       isActive = false;
       controller.abort();
     };
-  }, [orderId, reloadTick]);
+  }, [mounted, orderId, reloadTick]);
 
   const onRetry = useCallback(() => {
     setError(null);
@@ -87,18 +98,31 @@ export default function OrderQuickViewController() {
     router.replace(next, { scroll: false });
   }, [pathname, router, searchParams]);
 
-  // Close on ESC
+  // Close on ESC (after mount)
   useEffect(() => {
-    if (!orderId) return;
+    if (!mounted || !orderId) return;
     const handler = (event: KeyboardEvent) => {
       if (event.key === 'Escape') onClose();
     };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
-  }, [orderId, onClose]);
+  }, [mounted, orderId, onClose]);
 
-  // No view param? Render nothing.
-  if (!orderId) return null;
+  // No view param or not mounted? Render nothing.
+  if (!mounted || !orderId) return null;
+
+  // --- Fee display: use processing-only fee from DB
+  const platformFeeCentsSafe = toIntCents(
+    detail?.amounts.platformFeeCents ?? 0
+  );
+  const stripeProcessingFeeCents = toIntCents(
+    detail?.amounts.stripeFeeCents ?? 0
+  );
+  const grossTotalCentsSafe = toIntCents(detail?.amounts.grossTotalCents ?? 0);
+  const netPayoutCents = Math.max(
+    0,
+    grossTotalCentsSafe - platformFeeCentsSafe - stripeProcessingFeeCents
+  );
 
   const content = (
     <div
@@ -273,6 +297,7 @@ export default function OrderQuickViewController() {
                               item.lineItemId.trim() !== ''
                                 ? item.lineItemId.trim()
                                 : `${detail.id}:${index}`;
+
                             return (
                               <Fragment key={`${baseKey}`}>
                                 {/* Primary item row */}
@@ -385,30 +410,19 @@ export default function OrderQuickViewController() {
                         <div className="ah-totals__row">
                           <span>Platform Fee</span>
                           <span className="ah-money">
-                            −
-                            {formatCents(
-                              detail.amounts.platformFeeCents,
-                              currency
-                            )}
+                            −{formatCents(platformFeeCentsSafe, currency)}
                           </span>
                         </div>
                         <div className="ah-totals__row">
                           <span>Stripe Fee</span>
                           <span className="ah-money">
-                            −
-                            {formatCents(
-                              detail.amounts.stripeFeeCents,
-                              currency
-                            )}
+                            −{formatCents(stripeProcessingFeeCents, currency)}
                           </span>
                         </div>
                         <div className="ah-totals__row ah-totals__row--strong">
                           <span>Net Payout</span>
                           <span className="ah-money">
-                            {formatCents(
-                              detail.amounts.sellerNetCents,
-                              currency
-                            )}
+                            {formatCents(netPayoutCents, currency)}
                           </span>
                         </div>
 
@@ -437,7 +451,6 @@ export default function OrderQuickViewController() {
     </div>
   );
 
-  // Render into body for true modal layering over Payload admin
-  if (typeof document === 'undefined') return null;
+  // Only portal on the client (mounted === true here)
   return createPortal(content, document.body);
 }

@@ -115,6 +115,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   if (!data) return data;
 
   const context = (req?.context ?? {}) as ReqContextFees;
+
   const isSystem = context.ahSystem === true;
 
   const persisted: OriginalDocShape =
@@ -167,6 +168,14 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const incomingAmounts =
     ((incoming.amounts ?? {}) as Partial<AmountsShape>) || {};
   const persistedAmounts = (persisted.amounts ?? {}) as Partial<AmountsShape>;
+
+  // Accept incoming fees on any operation (update or create)
+  const platformFromIncomingAny = toIntCents(
+    incomingAmounts.platformFeeCents as number | undefined
+  );
+  const stripeFeeFromIncomingAny = toIntCents(
+    incomingAmounts.stripeFeeCents as number | undefined
+  );
 
   // Shipping: if caller supplied items, do NOT let persisted short-circuit recomputation.
   const shippingFromCtx = toIntCents(context.fees?.shippingTotalCents);
@@ -280,9 +289,11 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const stripeFeeCents =
     stripeFeeFromCtx > 0
       ? stripeFeeFromCtx
-      : stripeFeeFromIncomingCreate > 0
-        ? stripeFeeFromIncomingCreate
-        : stripeFeeFromPersisted;
+      : stripeFeeFromIncomingAny > 0
+        ? stripeFeeFromIncomingAny
+        : stripeFeeFromPersisted > 0
+          ? stripeFeeFromPersisted
+          : 0;
 
   // 5) Compute a gross total from our server-authoritative components.
   const grossTotalCents = Math.max(
@@ -303,14 +314,14 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
 
   const computedPlatformFeeCents = Math.max(
     0,
-    Math.trunc(grossTotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+    Math.round(itemsSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
   );
 
   const platformFeeCents =
     platformFromCtx > 0
       ? platformFromCtx
-      : platformFromIncomingCreate > 0
-        ? platformFromIncomingCreate
+      : platformFromIncomingAny > 0
+        ? platformFromIncomingAny
         : platformFromPersisted > 0
           ? platformFromPersisted
           : computedPlatformFeeCents;

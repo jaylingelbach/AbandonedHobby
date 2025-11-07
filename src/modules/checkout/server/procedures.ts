@@ -3,8 +3,7 @@ import { randomUUID } from 'crypto';
 import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
-
-import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
+import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 import { flushIfNeeded } from '@/lib/server/analytics';
 import { posthogServer } from '@/lib/server/posthog-server';
 import { asId } from '@/lib/server/utils';
@@ -278,8 +277,13 @@ export const checkoutRouter = createTRPCRouter({
           accumulator + usdToCents(current.price as unknown as string | number),
         0
       );
+      const platformFeeCents = Math.max(
+        0,
+        Math.round(productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+      );
+
       const platformFeeAmount = Math.round(
-        (productSubtotalCents * PLATFORM_FEE_PERCENTAGE) / 100
+        (productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE) / 100
       );
 
       // compute flat shipping (single checkout-level amount)
@@ -296,6 +300,16 @@ export const checkoutRouter = createTRPCRouter({
             'Mixing flat-fee and calculated shipping is not supported yet. Please split the cart so we do not undercharge shipping.'
         });
       }
+
+      //  what we’re about to send to Stripe
+      console.log('[checkout:create]', {
+        tenantId: String(sellerTenantId),
+        stripeAccountId: sellerTenant.stripeAccountId,
+        productSubtotalCents,
+        shippingCents,
+        DECIMAL_PLATFORM_PERCENTAGE,
+        platformFeeCents
+      });
 
       // Success URL (same as your current behavior)
       const success_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;
@@ -343,12 +357,20 @@ export const checkoutRouter = createTRPCRouter({
           tenantSlug: String(sellerTenant.slug),
           sellerStripeAccountId: String(sellerTenant.stripeAccountId),
           productIds: input.productIds.join(','),
-          // For visibility in dashboard / troubleshooting
-          shippingCents: String(shippingCents)
-        } satisfies CheckoutMetadata & { shippingCents: string },
+          shippingCents: String(shippingCents),
 
+          // 🔎 stash our intent for later comparison in the webhook / detail route
+          ah_fee_basis: 'items-subtotal',
+          ah_items_subtotal_cents: String(productSubtotalCents),
+          ah_platform_fee_cents_intended: String(platformFeeCents)
+        } satisfies CheckoutMetadata & { shippingCents: string } & Record<
+            string,
+            string
+          >,
+
+        // This is what Stripe records as the application fee
         payment_intent_data: {
-          application_fee_amount: platformFeeAmount
+          application_fee_amount: platformFeeCents
         },
 
         shipping_address_collection: { allowed_countries: ['US'] },
@@ -446,7 +468,7 @@ export const checkoutRouter = createTRPCRouter({
               itemCount: products.length,
               productSubtotalCents,
               shippingCents,
-              platformFeeCents: platformFeeAmount,
+              platformFeeCents,
               stripeSessionId: checkout.id,
               sellerStripeAccountId: sellerTenant.stripeAccountId,
               tenantSlug: sellerTenant.slug,
