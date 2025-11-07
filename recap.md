@@ -4753,7 +4753,20 @@ src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
 
 - This PR refactors fee handling across the order and payment systems, introducing explicit platform fee tracking separate from Stripe processing fees. It adds Next.js route exports for caching control, CSS styling updates for text wrapping, and a new backfill script for Stripe fee data recovery.
 
-##
+## New Features
+
+- Webhook and order flows now capture and propagate both platform and Stripe processing fees.
+- Checkout includes platform-fee details in payment metadata and analytics.
+- Backfill utility added to populate missing order fee and receipt data.
+
+## Bug Fixes
+
+- Safer client-side mounting for order quick views; more robust fee, total and error handling across order processing.
+- Improved invoice and breadcrumb text-wrapping for long tokens.
+
+## Chores
+
+- Updated development dependency.
 
 ## File changes
 
