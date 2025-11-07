@@ -369,7 +369,10 @@ async function decrementInventoryBatch(args: {
     const detail = failures
       .map((failure) => `${failure.productId}:${failure.reason}`)
       .join(', ');
-    console.error(detail);
+    console.error('[inv] dec-atomic failed summary', { detail, failures });
+    const error = new Error(`Inventory decrement failed: ${detail}`);
+    (error as { failures?: typeof failures }).failures = failures;
+    throw error;
   }
 }
 
