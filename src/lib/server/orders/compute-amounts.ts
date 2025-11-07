@@ -20,11 +20,22 @@ type Amounts = {
 };
 
 /**
- * Calculate aggregated monetary amounts for an order from item lines and provided totals.
+ * Compute aggregated monetary amounts for an order from item lines and provided totals.
  *
- * Server-authoritative total is derived from line totals + shipping - discounts when item lines exist.
- * If there are no items, the provided input.totalCents is used.
- * Stripe fee is trusted if provided; platform fee prefers the provided value if valid, otherwise computed from items subtotal.
+ * When item lines are present, the server-authoritative total is derived from line totals plus shipping minus discounts.
+ * If no items are provided, the input.totalCents value is used as the order total. The function trusts a provided
+ * stripeFeeCents and prefers a provided platformFeeCents if valid; otherwise it falls back to rounding the items'
+ * subtotal by the configured DECIMAL_PLATFORM_PERCENTAGE. Lines with non-positive unit amounts and missing totals are
+ * dropped.
+ *
+ * @returns An Amounts object containing:
+ *  - subtotalCents: sum of item subtotals (cents)
+ *  - taxTotalCents: sum of item taxes (cents)
+ *  - shippingTotalCents: shipping total (cents)
+ *  - discountTotalCents: discount total (cents)
+ *  - platformFeeCents: platform fee applied (cents)
+ *  - stripeFeeCents: trusted Stripe fee (cents)
+ *  - sellerNetCents: net payout to the seller (cents)
  */
 export function computeOrderAmounts(input: {
   items: unknown;

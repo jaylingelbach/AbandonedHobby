@@ -18,6 +18,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY as string, {
   apiVersion: '2025-08-27.basil'
 });
 
+/**
+ * Fetches Stripe processing and platform fees and the charge receipt URL for a given Stripe account using a PaymentIntent or Charge ID.
+ *
+ * @param args.stripeAccountId - Connected Stripe account ID used to scope the API requests
+ * @param args.paymentIntentId - Optional PaymentIntent ID; when provided, the intent's latest charge is used
+ * @param args.chargeId - Optional Charge ID to use if no PaymentIntent ID is available
+ * @returns An object with `stripeFeeCents` (processing fees in cents), `platformFeeCents` (application/platform fees in cents), and `receiptUrl` (charge receipt URL or `null`). If no charge can be resolved, fees are `0` and `receiptUrl` is `null`.
+ */
 async function readStripeFeesAndReceiptUrl(args: {
   stripeAccountId: string;
   paymentIntentId?: string | null;
@@ -79,6 +87,19 @@ async function readStripeFeesAndReceiptUrl(args: {
   return { stripeFeeCents: 0, platformFeeCents: 0, receiptUrl: null };
 }
 
+/**
+ * Backfills Stripe fee and receipt data for an order identified by a command-line order ID.
+ *
+ * Reads an order ID from process.argv, loads the order from Payload, validates presence of Stripe identifiers,
+ * retrieves Stripe processing and application fees plus a receipt URL, and updates the order document's
+ * amounts and documents.receiptUrl in Payload.
+ *
+ * Exits the process with code 1 if no order ID is provided on the command line.
+ *
+ * @throws If the order cannot be found.
+ * @throws If the order is missing `stripeAccountId`.
+ * @throws If the order is missing both `stripePaymentIntentId` and `stripeChargeId`.
+ */
 async function main() {
   const orderId = process.argv[2];
   if (!orderId) {
