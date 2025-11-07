@@ -117,9 +117,13 @@ export function computeOrderAmounts(input: {
     0,
     Math.round(subtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
   );
-  const platformFeeCents = Number.isNaN(platformFeeCandidate)
-    ? fallbackPlatformFeeCents
-    : platformFeeCandidate;
+
+  const platformFeeIsValid =
+    Number.isFinite(platformFeeCandidate) && platformFeeCandidate >= 0;
+
+  const platformFeeCents = platformFeeIsValid
+    ? platformFeeCandidate
+    : fallbackPlatformFeeCents;
 
   // Net payout
   const sellerNetCents = Math.max(
