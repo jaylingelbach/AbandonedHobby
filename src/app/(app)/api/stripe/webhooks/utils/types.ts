@@ -2,8 +2,26 @@ import { Product } from '@/payload-types';
 
 export type ExistingOrderPrecheck = {
   id: string;
-  items?: Array<{ product?: string; quantity?: number | null }>;
+
+  // What the webhook actually uses in the dup path:
+  items?: Array<{
+    product: string | { id?: string | null } | null;
+    quantity?: number | null;
+  }> | null;
+
+  amounts?: {
+    platformFeeCents?: number | null;
+    stripeFeeCents?: number | null;
+  } | null;
+
+  documents?: {
+    receiptUrl?: string | null;
+  } | null;
+
   inventoryAdjustedAt?: string | null;
+
+  stripePaymentIntentId?: string | null;
+  stripeChargeId?: string | null;
 };
 
 export type DecProductStockOptions = {

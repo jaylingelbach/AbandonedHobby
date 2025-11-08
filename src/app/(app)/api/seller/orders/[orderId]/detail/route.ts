@@ -7,63 +7,66 @@ import { appRouter } from '@/trpc/routers/_app';
 import { getFirstTenantId } from '@/modules/users/server/getFirstTenantId';
 
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
-
 import { zSellerOrderDetail } from '@/lib/validation/seller-order';
-
 import { toIntCents } from '@/lib/money';
+import type { SellerOrderDetail } from './types';
+
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
 
 /**
- * Retrieve seller-facing order detail for the specified order ID.
- *
- * Loads the order, enforces seller tenancy and role-based access, computes server-authoritative totals and per-item breakdown (including `lineItemId`), validates the shape against the seller order schema, and returns the validated detail.
- *
- * @param _request - Incoming request (unused)
- * @param ctx - Route context whose `params` promise must resolve to an object containing `orderId`
- * @returns The validated seller order detail object on success; otherwise a JSON error object with status 400 (invalid order id), 403 (forbidden), 404 (order not found), or 500 (validation or unexpected error).
+ * Handle GET requests for a seller's order detail by orderId, validate access, compute amounts, and return a normalized order detail payload.
  */
 export async function GET(
   _request: NextRequest,
   ctx: { params: Promise<{ orderId: string }> }
 ) {
   const { orderId } = await ctx.params;
-
   if (!orderId || typeof orderId !== 'string' || orderId.trim().length === 0) {
     return NextResponse.json({ error: 'Invalid order id' }, { status: 400 });
   }
 
+  const SELLER_ORDER_DETAIL_DEBUG: boolean = /^(1|true|yes)$/i.test(
+    process.env.SELLER_ORDER_DETAIL_DEBUG ?? ''
+  );
+
   try {
-    // 1) Auth & current user via your tRPC context
+    // auth / tenancy
     const trpcCtx = await createTRPCContext();
     const caller = appRouter.createCaller(trpcCtx);
     const session = await trpcCtx.db.auth({ headers: trpcCtx.headers });
+
     const roles: string[] = Array.isArray(
       (session.user as { roles?: string[] } | undefined)?.roles
     )
       ? ((session.user as { roles?: string[] }).roles as string[])
       : [];
-    const me = await caller.users.me(); // protectedProcedure ensures auth
+
+    const me = await caller.users.me();
+    const isSuperAdmin = roles.includes('super-admin'); // ← compute before tenant guard
     const tenantId = getFirstTenantId(me.user);
-    if (!tenantId)
+
+    // Only enforce tenant requirement for non-admins
+    if (!isSuperAdmin && !tenantId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
-    // 2) Load order from Payload
+    // load order
     const payload = await getPayload({ config });
-
     const order = await payload.findByID({
       collection: 'orders',
       id: orderId,
       depth: 0
     });
 
-    // 3) Enforce seller owns this order (tenant match)
-
+    // tenancy check
     const orderSellerTenant =
       typeof (order as { sellerTenant?: unknown }).sellerTenant === 'string'
         ? (order as { sellerTenant?: string }).sellerTenant
         : ((order as { sellerTenant?: { id?: string } }).sellerTenant?.id ??
           null);
 
-    const isSuperAdmin = roles.includes('super-admin');
     if (
       !isSuperAdmin &&
       (!orderSellerTenant || orderSellerTenant !== tenantId)
@@ -71,27 +74,10 @@ export async function GET(
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    if (
-      !isSuperAdmin &&
-      (!orderSellerTenant || (tenantId && orderSellerTenant !== tenantId))
-    ) {
-      return NextResponse.json(
-        {
-          error: 'Forbidden'
-        },
-        { status: 403 }
-      );
-    }
-
-    if (!orderSellerTenant || orderSellerTenant !== tenantId) {
-      return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
-    }
-
-    // 4) Build seller-safe breakdown (server-authoritative totals)
+    // items snapshot
     const rawItems = (order as { items?: unknown[] }).items ?? [];
     const items = Array.isArray(rawItems)
       ? rawItems.map((raw, index) => {
-          // Prefer embedded subdocument id; fallback to _id; final fallback is orderId:index
           const lineItemId = String(
             (raw as { id?: unknown }).id ??
               (raw as { _id?: unknown })._id ??
@@ -126,7 +112,8 @@ export async function GET(
       (sum, it) => sum + it.amountTotalCents,
       0
     );
-    // Pull order-level amounts from the amounts group
+
+    // amounts group from DB
     const amountsGroup =
       (
         order as {
@@ -149,19 +136,33 @@ export async function GET(
       Math.trunc(itemsSubtotalCents + shippingCents - discountCents + taxCents)
     );
 
-    const storedStripeFeeCents = toIntCents(amountsGroup.stripeFeeCents ?? 0);
+    // ── Preserve explicit zeros from DB for fees ───────────────────────────────
+    const rawStoredPlatformFee = (
+      amountsGroup as { platformFeeCents?: unknown }
+    ).platformFeeCents;
+    const rawStoredStripeFee = (amountsGroup as { stripeFeeCents?: unknown })
+      .stripeFeeCents;
 
-    const computedPlatformFeeCents = Math.max(
+    const storedPlatformFeeCents = toIntCents(rawStoredPlatformFee);
+    const storedStripeFeeCents = toIntCents(rawStoredStripeFee);
+
+    const fallbackPlatformFeeCents = Math.max(
       0,
-      Math.trunc(grossTotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+      Math.round(itemsSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
     );
+
     const platformFeeCents =
-      toIntCents(amountsGroup.platformFeeCents ?? computedPlatformFeeCents) ||
-      computedPlatformFeeCents;
+      rawStoredPlatformFee != null
+        ? storedPlatformFeeCents
+        : fallbackPlatformFeeCents;
+
+    // Processing-only Stripe fee: if absent, do NOT guess. Keep zero if explicitly stored as 0.
+    const stripeFeeCents =
+      rawStoredStripeFee != null ? storedStripeFeeCents : 0;
 
     const sellerNetCents = Math.max(
       0,
-      grossTotalCents - platformFeeCents - storedStripeFeeCents
+      grossTotalCents - platformFeeCents - stripeFeeCents
     );
 
     const detailPayload = {
@@ -183,8 +184,8 @@ export async function GET(
         discountCents,
         taxCents,
         grossTotalCents,
-        platformFeeCents,
-        stripeFeeCents: storedStripeFeeCents,
+        platformFeeCents, // application fee (from DB if present, zero allowed)
+        stripeFeeCents, // processing-only (from DB if present, zero allowed)
         sellerNetCents
       },
       stripe: {
@@ -199,7 +200,6 @@ export async function GET(
       }
     };
 
-    // Runtime validation
     const parsed = zSellerOrderDetail.safeParse(detailPayload);
     if (!parsed.success) {
       if (process.env.NODE_ENV !== 'production') {
@@ -208,23 +208,60 @@ export async function GET(
           parsed.error.format()
         );
       }
-      return NextResponse.json(
+      const resp = NextResponse.json(
         { error: 'Invalid order detail shape' },
         { status: 500 }
       );
+      resp.headers.set('Cache-Control', 'no-store');
+      return resp;
     }
 
-    return NextResponse.json(parsed.data);
+    const respData = parsed.data as SellerOrderDetail & { _debug?: unknown };
+
+    if (SELLER_ORDER_DETAIL_DEBUG && process.env.NODE_ENV !== 'production') {
+      respData._debug = {
+        rawAmountsGroup: amountsGroup,
+        itemsSubtotalCents,
+        shippingCents,
+        discountCents,
+        taxCents,
+        grossTotalCents,
+        rawStoredPlatformFee,
+        rawStoredStripeFee,
+        storedPlatformFeeCents,
+        storedStripeFeeCents,
+        fallbackPlatformFeeCents,
+        platformFeeCents,
+        stripeFeeCents
+      };
+      const debugResp = NextResponse.json(respData, { status: 200 });
+      debugResp.headers.set('Cache-Control', 'no-store');
+      return debugResp;
+    }
+
+    const resp = NextResponse.json(parsed.data, { status: 200 });
+    resp.headers.set('Cache-Control', 'no-store');
+    return resp;
   } catch (error) {
-    console.error(error);
+    console.error('[seller-order-detail] unexpected error:', error);
     if (
       error &&
       typeof error === 'object' &&
       'status' in error &&
-      error.status === 404
+      (error as { status?: number }).status === 404
     ) {
-      return NextResponse.json({ error: 'Order not found' }, { status: 404 });
+      const resp = NextResponse.json(
+        { error: 'Order not found' },
+        { status: 404 }
+      );
+      resp.headers.set('Cache-Control', 'no-store');
+      return resp;
     }
-    return NextResponse.json({ error: 'Unexpected error' }, { status: 500 });
+    const resp = NextResponse.json(
+      { error: 'Unexpected error' },
+      { status: 500 }
+    );
+    resp.headers.set('Cache-Control', 'no-store');
+    return resp;
   }
 }

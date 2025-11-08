@@ -100,11 +100,98 @@ function shouldComputeShippingTotal(
 }
 
 /**
+ * Best-effort audit writer for fee override attempts on non-system updates.
+ * Uses console.warn and, if available, an "audits" collection.
+ */
+async function auditFeeOverrideAttempt(args: {
+  req: unknown;
+  originalDoc: OriginalDocShape;
+  incomingAmounts: Partial<AmountsShape>;
+  isSystem: boolean;
+  operation: 'create' | 'update';
+}): Promise<void> {
+  const { req, originalDoc, incomingAmounts, isSystem, operation } = args;
+
+  // Extract safe bits from req without using 'any'
+  const requestLike = req as {
+    user?: { id?: unknown; email?: unknown; username?: unknown } | undefined;
+    payload?: {
+      create?: (input: {
+        collection: string;
+        data: Record<string, unknown>;
+        overrideAccess?: boolean;
+        depth?: number;
+        context?: Record<string, unknown>;
+      }) => Promise<unknown>;
+    };
+  };
+
+  const userId =
+    typeof requestLike.user?.id === 'string' ? requestLike.user?.id : null;
+  const userEmail =
+    typeof requestLike.user?.email === 'string'
+      ? requestLike.user?.email
+      : null;
+  const username =
+    typeof requestLike.user?.username === 'string'
+      ? requestLike.user?.username
+      : null;
+
+  const orderId = typeof originalDoc.id === 'string' ? originalDoc.id : null;
+
+  const attemptedPlatform =
+    (incomingAmounts.platformFeeCents as number | null | undefined) ?? null;
+  const attemptedStripe =
+    (incomingAmounts.stripeFeeCents as number | null | undefined) ?? null;
+
+  // Console warning (always)
+  console.warn('[orders:audit] Non-system fee override attempt blocked', {
+    operation,
+    isSystem,
+    orderId,
+    userId,
+    userEmail,
+    username,
+    attemptedPlatformFeeCents: attemptedPlatform,
+    attemptedStripeFeeCents: attemptedStripe
+  });
+
+  // Optional: write an audit row if the project has an "audits" collection
+  const createFn = requestLike.payload?.create;
+  if (typeof createFn === 'function') {
+    try {
+      await createFn({
+        collection: 'audits',
+        data: {
+          type: 'order_fee_override_attempt',
+          source: 'lockAndCalculateAmounts',
+          operation,
+          isSystem,
+          orderId,
+          userId,
+          userEmail,
+          username,
+          attemptedPlatformFeeCents: attemptedPlatform,
+          attemptedStripeFeeCents: attemptedStripe,
+          createdAt: new Date().toISOString()
+        },
+        overrideAccess: true,
+        depth: 0,
+        context: { ahSystem: true }
+      });
+    } catch {
+      // Swallow errors: audit should never block order writes
+    }
+  }
+}
+
+/**
  * Computes a server-authoritative amounts block.
  * - Item lines derive subtotal from amountSubtotal || (unitAmount * quantity) or fallbacks.
  * - Shipping/discount/tax/platform/stripe values are chosen from:
  *   trusted req.context.fees -> incoming data.amounts (CREATE only) -> computed defaults (+ persisted when no fresh items).
  * - If fresh items were supplied, we prefer recomputing shipping from those items over reading persisted amounts.
+ * - Non-system UPDATE attempts to pass fee fields are audited and ignored.
  */
 export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   data,
@@ -168,7 +255,85 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     ((incoming.amounts ?? {}) as Partial<AmountsShape>) || {};
   const persistedAmounts = (persisted.amounts ?? {}) as Partial<AmountsShape>;
 
-  // Shipping: if caller supplied items, do NOT let persisted short-circuit recomputation.
+  // ---- AUDIT: if non-system UPDATE tries to pass fee fields, log it (they'll be ignored) ----
+  const incomingHasPlatformField = Object.prototype.hasOwnProperty.call(
+    incomingAmounts,
+    'platformFeeCents'
+  );
+  const incomingHasStripeField = Object.prototype.hasOwnProperty.call(
+    incomingAmounts,
+    'stripeFeeCents'
+  );
+
+  if (
+    operation === 'update' &&
+    !isSystem &&
+    (incomingHasPlatformField || incomingHasStripeField)
+  ) {
+    await auditFeeOverrideAttempt({
+      req,
+      originalDoc: persisted,
+      incomingAmounts,
+      isSystem,
+      operation
+    });
+  }
+
+  // ----- FEES (presence-aware + create/system-only trust for incoming) -----
+
+  // Incoming (honor only on CREATE or when system)
+  const platformIncomingRaw =
+    operation === 'create' || isSystem
+      ? (incomingAmounts.platformFeeCents as number | null | undefined)
+      : undefined;
+  const hasPlatformFromIncoming =
+    platformIncomingRaw !== undefined && platformIncomingRaw !== null;
+  const platformFromIncoming = hasPlatformFromIncoming
+    ? toIntCents(platformIncomingRaw)
+    : 0;
+
+  const stripeFeeIncomingRaw =
+    operation === 'create' || isSystem
+      ? (incomingAmounts.stripeFeeCents as number | null | undefined)
+      : undefined;
+  const hasStripeFeeFromIncoming =
+    stripeFeeIncomingRaw !== undefined && stripeFeeIncomingRaw !== null;
+  const stripeFeeFromIncoming = hasStripeFeeFromIncoming
+    ? toIntCents(stripeFeeIncomingRaw)
+    : 0;
+
+  // Context (always trusted; presence-aware so 0 can win)
+  const platformFromCtxRaw = context.fees?.platformFeeCents;
+  const hasPlatformFromCtx =
+    platformFromCtxRaw !== undefined && platformFromCtxRaw !== null;
+  const platformFromCtx = hasPlatformFromCtx
+    ? toIntCents(platformFromCtxRaw)
+    : 0;
+
+  const stripeFeeFromCtxRaw = context.fees?.stripeFeeCents;
+  const hasStripeFeeFromCtx =
+    stripeFeeFromCtxRaw !== undefined && stripeFeeFromCtxRaw !== null;
+  const stripeFeeFromCtx = hasStripeFeeFromCtx
+    ? toIntCents(stripeFeeFromCtxRaw)
+    : 0;
+
+  // Persisted (presence-aware so persisted 0 can remain)
+  const platformFromPersistedRaw = persistedAmounts.platformFeeCents;
+  const hasPlatformFromPersisted =
+    platformFromPersistedRaw !== undefined && platformFromPersistedRaw !== null;
+  const platformFromPersisted = hasPlatformFromPersisted
+    ? toIntCents(platformFromPersistedRaw)
+    : 0;
+
+  const stripeFeeFromPersistedRaw = persistedAmounts.stripeFeeCents;
+  const hasStripeFeeFromPersisted =
+    stripeFeeFromPersistedRaw !== undefined &&
+    stripeFeeFromPersistedRaw !== null;
+  const stripeFeeFromPersisted = hasStripeFeeFromPersisted
+    ? toIntCents(stripeFeeFromPersistedRaw)
+    : 0;
+
+  // Shipping/discount/tax sources
   const shippingFromCtx = toIntCents(context.fees?.shippingTotalCents);
   const shippingFromIncomingCreate =
     operation === 'create' ? toIntCents(incomingAmounts.shippingTotalCents) : 0;
@@ -185,11 +350,6 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   const taxFromIncomingCreate =
     operation === 'create' ? toIntCents(incomingAmounts.taxTotalCents) : 0;
   const taxFromPersisted = toIntCents(persistedAmounts.taxTotalCents);
-
-  const stripeFeeFromCtx = toIntCents(context.fees?.stripeFeeCents);
-  const stripeFeeFromIncomingCreate =
-    operation === 'create' ? toIntCents(incomingAmounts.stripeFeeCents) : 0;
-  const stripeFeeFromPersisted = toIntCents(persistedAmounts.stripeFeeCents);
 
   // 4) Compute shipping from current lines (only if not provided by ctx/incoming/persisted)
   //    - Sum flat line shipping (already quantity-applied per line)
@@ -277,12 +437,27 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
         ? taxFromIncomingCreate
         : taxFromPersisted;
 
-  const stripeFeeCents =
-    stripeFeeFromCtx > 0
-      ? stripeFeeFromCtx
-      : stripeFeeFromIncomingCreate > 0
-        ? stripeFeeFromIncomingCreate
-        : stripeFeeFromPersisted;
+  // Presence-aware fee resolution (so 0 can win)
+  const stripeFeeCents = hasStripeFeeFromCtx
+    ? stripeFeeFromCtx
+    : hasStripeFeeFromIncoming
+      ? stripeFeeFromIncoming
+      : hasStripeFeeFromPersisted
+        ? stripeFeeFromPersisted
+        : 0;
+
+  const computedPlatformFeeCents = Math.max(
+    0,
+    Math.round(itemsSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
+  );
+
+  const platformFeeCents = hasPlatformFromCtx
+    ? platformFromCtx
+    : hasPlatformFromIncoming
+      ? platformFromIncoming
+      : hasPlatformFromPersisted
+        ? platformFromPersisted
+        : computedPlatformFeeCents;
 
   // 5) Compute a gross total from our server-authoritative components.
   const grossTotalCents = Math.max(
@@ -295,33 +470,13 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     )
   );
 
-  // 6) Platform fee: allow ctx override, else respect incoming on create, else compute
-  const platformFromCtx = toIntCents(context.fees?.platformFeeCents);
-  const platformFromIncomingCreate =
-    operation === 'create' ? toIntCents(incomingAmounts.platformFeeCents) : 0;
-  const platformFromPersisted = toIntCents(persistedAmounts.platformFeeCents);
-
-  const computedPlatformFeeCents = Math.max(
-    0,
-    Math.trunc(grossTotalCents * DECIMAL_PLATFORM_PERCENTAGE)
-  );
-
-  const platformFeeCents =
-    platformFromCtx > 0
-      ? platformFromCtx
-      : platformFromIncomingCreate > 0
-        ? platformFromIncomingCreate
-        : platformFromPersisted > 0
-          ? platformFromPersisted
-          : computedPlatformFeeCents;
-
-  // 7) Net payout = gross - platform - stripe (never negative)
+  // 6) Net payout = gross - platform - stripe (never negative)
   const sellerNetCents = Math.max(
     0,
     grossTotalCents - platformFeeCents - stripeFeeCents
   );
 
-  // 8) Write the normalized block back. Never drop unrelated persisted fields.
+  // 7) Write the normalized block back. Never drop unrelated persisted fields.
   const nextAmounts: AmountsShape = {
     ...persistedAmounts,
     subtotalCents: itemsSubtotalCents,

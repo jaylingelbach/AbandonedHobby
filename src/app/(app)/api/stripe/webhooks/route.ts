@@ -54,82 +54,140 @@ export type ExpandedLineItem = Stripe.LineItem & {
   };
 };
 
-// ── Narrowing helpers to inspect optional nested fields on "existing" without unsafe casts
-type WithAmountsShape = { amounts?: { stripeFeeCents?: unknown } };
-function hasStripeFee(
-  value: unknown
-): value is { amounts: { stripeFeeCents: number } } {
-  return (
-    typeof (value as WithAmountsShape)?.amounts?.stripeFeeCents === 'number'
-  );
-}
+/** Type used in computerFeesFromCharge */
+type FeeResult = {
+  stripeFeeCents: number; // processing-only
+  platformFeeCents: number; // application fee
+  receiptUrl: string | null;
+};
 
-type WithDocumentsShape = { documents?: { receiptUrl?: unknown } };
-function hasReceiptUrl(
-  value: unknown
-): value is { documents: { receiptUrl: string | null } } {
-  const url = (value as WithDocumentsShape)?.documents?.receiptUrl;
-  return typeof url === 'string' || url === null;
-}
+/** Compute fees directly from an expanded charge (preferred). */
+function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
+  const balanceTransaction =
+    charge.balance_transaction as Stripe.BalanceTransaction | null;
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Helpers: Stripe fee + receipt retrieval (truth from balance transaction)
- * ────────────────────────────────────────────────────────────────────────────── */
+  const applicationFeeCents =
+    typeof charge.application_fee_amount === 'number'
+      ? charge.application_fee_amount
+      : 0;
+
+  let processingFeeCents = 0;
+
+  // Prefer fee_details if present (most accurate)
+  const details = Array.isArray(balanceTransaction?.fee_details)
+    ? balanceTransaction!.fee_details
+    : null;
+
+  if (details) {
+    // Sum everything that is NOT the application fee
+    processingFeeCents = details
+      .filter((d) => d.type !== 'application_fee')
+      .reduce(
+        (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
+        0
+      );
+  } else {
+    const totalFee =
+      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    processingFeeCents = Math.max(0, totalFee - applicationFeeCents);
+  }
+
+  const receiptUrl =
+    typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
+
+  return {
+    stripeFeeCents: processingFeeCents,
+    platformFeeCents: applicationFeeCents,
+    receiptUrl
+  };
+}
+/**
+ * Read the Stripe processing fee (merchant/processor), the application (platform) fee, and the charge receipt URL for a given Stripe charge or payment intent on a connected account.
+ *
+ * If `paymentIntentId` is provided, the latest charge for that payment intent is used. If neither `paymentIntentId` nor `chargeId` is provided, zeros and `null` are returned.
+ *
+ * @param args.stripeAccountId - The Stripe connected account ID to query against.
+ * @param args.paymentIntentId - Optional Stripe PaymentIntent ID to derive the charge from.
+ * @param args.chargeId - Optional Stripe Charge ID to read fees and receipt from.
+ * @returns An object with:
+ *  - `stripeFeeCents`: processing-only fee in cents,
+ *  - `platformFeeCents`: application/platform fee in cents,
+ *  - `receiptUrl`: the charge's receipt URL or `null`.
+ */
 
 async function readStripeFeesAndReceiptUrl(args: {
   stripeAccountId: string;
   paymentIntentId?: string | null;
   chargeId?: string | null;
-}): Promise<{ stripeFeeCents: number; receiptUrl: string | null }> {
-  const { stripeAccountId, paymentIntentId, chargeId } = args;
+  charge?: Stripe.Charge | null; // ← new fast path
+}): Promise<FeeResult> {
+  const { stripeAccountId, paymentIntentId, chargeId, charge } = args;
 
-  // Prefer PaymentIntent path so we can expand latest_charge.balance_transaction
+  // Fast path: use already-fetched (and ideally expanded) charge
+  if (charge) {
+    // If somehow not expanded, fall back to one retrieve with expand
+    if (
+      charge.balance_transaction == null ||
+      typeof charge.balance_transaction === 'string'
+    ) {
+      const hydrated = await stripe.charges.retrieve(
+        charge.id,
+        { expand: ['balance_transaction'] },
+        { stripeAccount: stripeAccountId }
+      );
+      return computeFeesFromCharge(hydrated);
+    }
+    return computeFeesFromCharge(charge);
+  }
+
+  // Otherwise, resolve by paymentIntent or chargeId with a single retrieve
+  async function fromChargeId(id: string): Promise<FeeResult> {
+    const fetched = await stripe.charges.retrieve(
+      id,
+      { expand: ['balance_transaction'] },
+      { stripeAccount: stripeAccountId }
+    );
+    return computeFeesFromCharge(fetched);
+  }
+
   if (paymentIntentId) {
     const paymentIntent = await stripe.paymentIntents.retrieve(
       paymentIntentId,
       { expand: ['latest_charge.balance_transaction'] },
       { stripeAccount: stripeAccountId }
     );
-
     const latestCharge = paymentIntent.latest_charge as Stripe.Charge | null;
-    const balanceTransaction =
-      latestCharge?.balance_transaction as Stripe.BalanceTransaction | null;
-
-    const fee =
-      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
-    const receiptUrl =
-      typeof latestCharge?.receipt_url === 'string'
-        ? latestCharge.receipt_url
-        : null;
-
-    return { stripeFeeCents: fee, receiptUrl };
+    if (latestCharge?.id) {
+      if (
+        latestCharge.balance_transaction == null ||
+        typeof latestCharge.balance_transaction === 'string'
+      ) {
+        // Should be expanded by the PI expand above, but hydrate if not
+        return fromChargeId(latestCharge.id);
+      }
+      return computeFeesFromCharge(latestCharge);
+    }
   }
 
-  // Fallback: start from Charge if that’s all we have
-  if (chargeId) {
-    const charge = await stripe.charges.retrieve(
-      chargeId,
-      { expand: ['balance_transaction'] },
-      { stripeAccount: stripeAccountId }
-    );
+  if (chargeId) return fromChargeId(chargeId);
 
-    const balanceTransaction =
-      charge.balance_transaction as Stripe.BalanceTransaction | null;
-
-    const fee =
-      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
-    const receiptUrl =
-      typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
-
-    return { stripeFeeCents: fee, receiptUrl };
-  }
-
-  return { stripeFeeCents: 0, receiptUrl: null };
+  return { stripeFeeCents: 0, platformFeeCents: 0, receiptUrl: null };
 }
 
-/* ──────────────────────────────────────────────────────────────────────────────
- * Inventory decrement (atomic) + batch  (Mongo / Mongoose)
- * ────────────────────────────────────────────────────────────────────────────── */
+/**
+ * Atomically decreases a product's stock by a given quantity and optionally archives the product when stock reaches zero.
+ *
+ * Validates that `quantity` is a positive integer. Attempts an atomic Mongo/Mongoose decrement when available and falls back to a Payload read-and-update path if necessary. May mark the product archived when `options.autoArchive` is true and resulting stock is zero.
+ *
+ * @param productId - The product document ID to decrement.
+ * @param quantity - Quantity to subtract; must be an integer greater than zero.
+ * @param options.autoArchive - If true, set the product's `isArchived` flag when stock reaches zero.
+ * @returns On success: `{ ok: true, after: { stockQuantity }, archived }` with the resulting stock and whether the product is archived. On failure: `{ ok: false, reason }` where `reason` is one of:
+ * - `not-supported` — atomic decrement not available,
+ * - `not-tracked` — product does not track stockQuantity,
+ * - `not-found` — product not found,
+ * - `insufficient` — not enough stock to fulfill the decrement.
+ */
 
 async function decrementProductStockAtomic(
   payloadInstance: import('payload').Payload,
@@ -179,6 +237,7 @@ async function decrementProductStockAtomic(
     }
   }
 
+  // Payload fallback path
   const productDocument = (await payloadInstance.findByID({
     collection: 'products',
     id: productId,
@@ -223,6 +282,14 @@ async function decrementProductStockAtomic(
   };
 }
 
+/**
+ * Attempts to decrement stock for a batch of products, retrying transient insufficient-stock conflicts.
+ *
+ * For each product in `qtyByProductId` this function calls `decrementProductStockAtomic` (up to 3 attempts when the failure reason is "insufficient") and logs successes or failures. If any product fails to decrement, a consolidated error line is written to stderr.
+ *
+ * @param args.payload - Payload CMS instance used to read and update product documents.
+ * @param args.qtyByProductId - Map of product IDs to quantities to decrement.
+ */
 async function decrementInventoryBatch(args: {
   payload: import('payload').Payload;
   qtyByProductId: Map<string, number>;
@@ -231,8 +298,21 @@ async function decrementInventoryBatch(args: {
 
   const failures: Array<{ productId: string; reason: string }> = [];
   for (const [productId, purchasedQuantity] of qtyByProductId) {
-    let attempts = 0,
-      result;
+    let attempts = 0;
+    let result:
+      | {
+          ok: true;
+          after: { stockQuantity: number };
+          archived: boolean;
+        }
+      | {
+          ok: false;
+          reason:
+            | 'not-supported'
+            | 'not-tracked'
+            | 'not-found'
+            | 'insufficient';
+        };
     do {
       attempts++;
       result = await decrementProductStockAtomic(
@@ -259,11 +339,15 @@ async function decrementInventoryBatch(args: {
       failures.push({ productId, reason: result.reason });
     }
   }
+
   if (failures.length) {
     const detail = failures
       .map((failure) => `${failure.productId}:${failure.reason}`)
       .join(', ');
-    console.error(detail);
+    console.error('[inv] dec-atomic failed summary', { detail, failures });
+    const error = new Error(`Inventory decrement failed: ${detail}`);
+    (error as { failures?: typeof failures }).failures = failures;
+    throw error;
   }
 }
 
@@ -383,6 +467,14 @@ function normalizeRelationshipId(value: unknown): string | null {
   return null;
 }
 
+/**
+ * Finds the tenant ID for the first product referenced in the provided order items.
+ *
+ * @param items - Array of order line items; each item must contain a `product` id string.
+ * @param productsById - Map from product id to `Product` objects used to resolve the product's tenant relation.
+ * @returns The resolved tenant id for the first product that has a tenant.
+ * @throws Error if no product in `items` resolves to a tenant id.
+ */
 function getProductTenantIdForOrder(
   items: Array<{ product: string }>,
   productsById: Map<string, Product>
@@ -395,6 +487,12 @@ function getProductTenantIdForOrder(
   throw new Error('Could not resolve a product tenant for the order.');
 }
 
+/**
+ * Resolve the email address and display name to use when notifying a tenant about a sale.
+ *
+ * @param args.tenant - Tenant object that may contain `notificationEmail`, `notificationName`, `primaryContact`, and `name` used to derive the contact.
+ * @returns An object with `email` set to `tenant.notificationEmail` if present, otherwise the primary contact user's email if available, or `null`; `displayName` set to `tenant.notificationName`, otherwise the primary user's `firstName` or `username`, otherwise `tenant.name`, or `'Seller'`.
+ */
 async function deriveNotificationContactForTenant(args: {
   payload: import('payload').Payload;
   tenant: TenantWithContact;
@@ -435,7 +533,19 @@ async function deriveNotificationContactForTenant(args: {
 }
 
 /**
- * Handle incoming Stripe webhook POST requests.
+ * Handle Stripe webhook POST requests: validate the signature, deduplicate events,
+ * and process supported event types (checkout sessions, payment failures/expiration,
+ * account updates, refunds, and charge refunds) to create/update orders, adjust inventory,
+ * sync refund state, send notifications, and record analytics.
+ *
+ * The request must include Stripe's signature header (`stripe-signature`) and a body
+ * containing the raw webhook payload; the function verifies the payload using
+ * STRIPE_WEBHOOK_SECRET.
+ *
+ * @param req - The incoming HTTP Request containing the Stripe webhook payload and the `stripe-signature` header
+ * @returns A NextResponse JSON object describing the outcome. Typical HTTP statuses:
+ *          200 for processed/ignored/deduplicated events, 400 for webhook verification errors,
+ *          and 500 for internal errors in production (non-production environments return 200 on handler errors).
  */
 export async function POST(req: Request) {
   let event: Stripe.Event;
@@ -524,36 +634,25 @@ export async function POST(req: Request) {
             inventoryAdjustedAt: existing.inventoryAdjustedAt ?? null
           });
 
+          // ─────────────────────────────────────────────────────────────
           // Backfill Stripe fees & receipt if missing on duplicates
+          // (preserve explicit zeros by checking for null/undefined)
+          // ─────────────────────────────────────────────────────────────
           try {
-            const stripeFeePresent =
-              hasStripeFee(existing) && existing.amounts.stripeFeeCents > 0;
-            const receiptPresent =
-              hasReceiptUrl(existing) && existing.documents.receiptUrl != null;
+            const stripeFeePresent = existing.amounts?.stripeFeeCents != null; // preserves 0
+            const platformFeePresent =
+              existing.amounts?.platformFeeCents != null; // preserves 0
+            const receiptPresent = existing.documents?.receiptUrl != null; // string or null (present)
 
-            // Hoist so we can assign after the fetch block
             let feesResult: {
               stripeFeeCents: number;
+              platformFeeCents: number;
               receiptUrl: string | null;
             } | null = null;
 
-            if (!stripeFeePresent || !receiptPresent) {
-              const paymentIntentId =
-                typeof (existing as { stripePaymentIntentId?: unknown })
-                  .stripePaymentIntentId === 'string'
-                  ? String(
-                      (existing as { stripePaymentIntentId?: unknown })
-                        .stripePaymentIntentId
-                    )
-                  : null;
-
-              const chargeId =
-                typeof (existing as { stripeChargeId?: unknown })
-                  .stripeChargeId === 'string'
-                  ? String(
-                      (existing as { stripeChargeId?: unknown }).stripeChargeId
-                    )
-                  : null;
+            if (!stripeFeePresent || !platformFeePresent || !receiptPresent) {
+              const paymentIntentId = existing.stripePaymentIntentId ?? null;
+              const chargeId = existing.stripeChargeId ?? null;
 
               feesResult = await readStripeFeesAndReceiptUrl({
                 stripeAccountId: accountId,
@@ -572,8 +671,7 @@ export async function POST(req: Request) {
               sellerNetCents?: number | null;
             };
 
-            const existingAmounts =
-              (existing as { amounts?: AmountsShape })?.amounts ?? {};
+            const existingAmounts = (existing.amounts ?? {}) as AmountsShape;
 
             const updateData: {
               amounts?: AmountsShape;
@@ -581,22 +679,51 @@ export async function POST(req: Request) {
               stripeEventId: string;
             } = { stripeEventId: event.id };
 
-            if (!stripeFeePresent && feesResult) {
+            let contextFees:
+              | {
+                  ahSystem: true;
+                  fees: {
+                    platformFeeCents?: number;
+                    stripeFeeCents?: number;
+                  };
+                }
+              | undefined;
+
+            if (feesResult) {
               updateData.amounts = {
                 ...existingAmounts,
-                stripeFeeCents: feesResult.stripeFeeCents
+                stripeFeeCents: stripeFeePresent
+                  ? existingAmounts.stripeFeeCents!
+                  : feesResult.stripeFeeCents,
+                platformFeeCents: platformFeePresent
+                  ? existingAmounts.platformFeeCents!
+                  : feesResult.platformFeeCents
+              };
+
+              // Pass trusted fees so lockAndCalculateAmounts prefers them
+              contextFees = {
+                ahSystem: true as const,
+                fees: {
+                  platformFeeCents:
+                    updateData.amounts.platformFeeCents ?? undefined,
+                  stripeFeeCents: updateData.amounts.stripeFeeCents ?? undefined
+                }
               };
             }
 
             if (!receiptPresent && feesResult) {
               updateData.documents = { receiptUrl: feesResult.receiptUrl };
             }
-            await payloadInstance.update({
-              collection: 'orders',
-              id: String((existing as { id: unknown }).id),
-              data: updateData,
-              overrideAccess: true
-            });
+
+            if (updateData.amounts || updateData.documents) {
+              await payloadInstance.update({
+                collection: 'orders',
+                id: existing.id,
+                data: updateData,
+                overrideAccess: true,
+                ...(contextFees ? { context: contextFees } : {})
+              });
+            }
           } catch (backfillError) {
             console.warn(
               '[webhook] duplicate path backfill failed',
@@ -604,22 +731,28 @@ export async function POST(req: Request) {
             );
           }
 
+          // inventory adjust on dup path (unchanged)
           if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
             const quantityByProductId = toQtyMap(
-              existing.items
+              (existing.items ?? [])
                 .map((item) => {
-                  const rel = item.product as unknown;
+                  const relation = item.product as unknown;
                   const product =
-                    typeof rel === 'string'
-                      ? rel
-                      : rel && typeof rel === 'object' && 'id' in rel
-                        ? String((rel as { id?: string }).id)
+                    typeof relation === 'string'
+                      ? relation
+                      : relation &&
+                          typeof relation === 'object' &&
+                          'id' in relation
+                        ? String((relation as { id?: string | null }).id)
                         : null;
                   if (!product) return null;
                   return {
                     product,
                     quantity:
-                      typeof item.quantity === 'number' ? item.quantity : 1
+                      typeof item.quantity === 'number' &&
+                      Number.isInteger(item.quantity)
+                        ? item.quantity
+                        : 1
                   };
                 })
                 .filter(Boolean) as Array<{ product: string; quantity: number }>
@@ -639,7 +772,7 @@ export async function POST(req: Request) {
             await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
               payloadInstance.update({
                 collection: 'orders',
-                id: String(existing.id),
+                id: existing.id,
                 data: {
                   inventoryAdjustedAt: new Date().toISOString(),
                   stripeEventId: event.id
@@ -654,9 +787,7 @@ export async function POST(req: Request) {
           } else {
             console.log(
               '[webhook] duplicate path: inventory already adjusted',
-              {
-                orderId: existing.id
-              }
+              { orderId: existing.id }
             );
           }
 
@@ -664,6 +795,7 @@ export async function POST(req: Request) {
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
+        // -------- Primary path (new order) --------
         const expandedSession = await tryCall(
           'stripe.sessions.retrieve(expanded)',
           () =>
@@ -712,24 +844,28 @@ export async function POST(req: Request) {
         if (!chargeId) throw new Error('No charge found on paymentIntent');
 
         const charge = await tryCall('stripe.charges.retrieve', () =>
-          stripe.charges.retrieve(chargeId as string, {
-            stripeAccount: accountId
-          })
+          stripe.charges.retrieve(
+            chargeId as string,
+            {
+              expand: ['balance_transaction']
+            },
+            { stripeAccount: accountId }
+          )
         );
 
-        // --- NEW: read Stripe fee + receipt from the connected account
-        const { stripeFeeCents, receiptUrl } =
+        // 🧮 Get processing-only fee + application fee + receipt URL
+        const { stripeFeeCents, platformFeeCents, receiptUrl } =
           await readStripeFeesAndReceiptUrl({
             stripeAccountId: accountId,
-            paymentIntentId: paymentIntent.id,
-            chargeId: typeof charge.id === 'string' ? charge.id : null
+            // paymentIntentId is not needed when we already have the charge
+            charge
           });
-
         console.log('[webhook][fees]', {
           sessionId: session.id,
           paymentIntentId: paymentIntent.id,
           chargeId: String(charge.id),
           stripeFeeCents,
+          platformFeeCents,
           receiptUrl
         });
 
@@ -744,6 +880,8 @@ export async function POST(req: Request) {
           string,
           string
         >;
+
+        // Resolve payout tenant
         let payoutTenantDocument: TenantWithContact | null = null;
 
         const tenantIdFromMetadata = metadata.tenantId;
@@ -810,6 +948,8 @@ export async function POST(req: Request) {
                 payloadInstance.find({
                   collection: 'products',
                   where: { id: { in: productIds } },
+                  limit: Math.max(productIds.length, 1),
+                  pagination: false,
                   depth: 0,
                   overrideAccess: true
                 })
@@ -875,8 +1015,17 @@ export async function POST(req: Request) {
           );
         }
 
-        // Create order (include stripeFeeCents + receiptUrl so hooks can compute sellerNet)
+        // Create order with trusted fees via context (so hook uses them)
         let orderDocumentId: string;
+
+        const createContext = {
+          ahSystem: true as const,
+          fees: {
+            platformFeeCents: platformFeeCents,
+            stripeFeeCents: stripeFeeCents,
+            shippingTotalCents: amountShipping
+          }
+        };
 
         console.log('[webhook] creating order with', {
           sellerTenantId: productTenantId,
@@ -908,10 +1057,16 @@ export async function POST(req: Request) {
                 fulfillmentStatus: 'unfulfilled',
                 total: totalAmountInCents,
                 ...(shippingGroup ? { shipping: shippingGroup } : {}),
-                amounts: { stripeFeeCents, shippingTotalCents: amountShipping },
+                // Store these too (doc is self-contained), but context is what the hook trusts
+                amounts: {
+                  stripeFeeCents,
+                  platformFeeCents,
+                  shippingTotalCents: amountShipping
+                },
                 documents: { receiptUrl }
               },
-              overrideAccess: true
+              overrideAccess: true,
+              context: createContext
             })
           );
           orderDocumentId = String(created.id);
