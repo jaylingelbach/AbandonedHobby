@@ -357,7 +357,7 @@ export const checkoutRouter = createTRPCRouter({
           productIds: input.productIds.join(','),
           shippingCents: String(shippingCents),
 
-          // 🔎 stash our intent for later comparison in the webhook / detail route
+          // stash our intent for later comparison in the webhook / detail route
           ah_fee_basis: 'items-subtotal',
           ah_items_subtotal_cents: String(productSubtotalCents),
           ah_platform_fee_cents_intended: String(platformFeeCents)
