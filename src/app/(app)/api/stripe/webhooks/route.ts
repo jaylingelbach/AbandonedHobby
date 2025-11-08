@@ -970,6 +970,8 @@ export async function POST(req: Request) {
                 payloadInstance.find({
                   collection: 'products',
                   where: { id: { in: productIds } },
+                  limit: Math.max(productIds.length, 1),
+                  pagination: false,
                   depth: 0,
                   overrideAccess: true
                 })
