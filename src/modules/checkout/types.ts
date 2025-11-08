@@ -8,12 +8,24 @@ export type ProductMetadata = {
   price: number;
 };
 
+// export type CheckoutMetadata = {
+//   userId: string;
+//   tenantId: string;
+//   tenantSlug: string;
+//   sellerStripeAccountId: string;
+//   productIds: string; // comma-separated list, as stored in Session.metadata
+// };
+
 export type CheckoutMetadata = {
   userId: string;
   tenantId: string;
   tenantSlug: string;
   sellerStripeAccountId: string;
-  productIds: string; // comma-separated list, as stored in Session.metadata
+  productIds: string; // comma-separated list
+  shippingCents: string;
+  ah_fee_basis: string;
+  ah_items_subtotal_cents: string;
+  ah_platform_fee_cents_intended: string;
 };
 
 export type ExpandedLineItem = Stripe.LineItem & {

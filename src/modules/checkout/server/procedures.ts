@@ -301,7 +301,7 @@ export const checkoutRouter = createTRPCRouter({
       if (process.env.NODE_ENV === 'development') {
         console.log('[checkout:create]', {
           tenantId: sellerTenantId,
-          stripeAccountId: sellerTenant.stripeAccountId,
+          stripeAccountId: `***${sellerTenant.stripeAccountId.slice(-4)}`,
           productSubtotalCents,
           shippingCents,
           DECIMAL_PLATFORM_PERCENTAGE,
@@ -361,10 +361,7 @@ export const checkoutRouter = createTRPCRouter({
           ah_fee_basis: 'items-subtotal',
           ah_items_subtotal_cents: String(productSubtotalCents),
           ah_platform_fee_cents_intended: String(platformFeeCents)
-        } satisfies CheckoutMetadata & { shippingCents: string } & Record<
-            string,
-            string
-          >,
+        } satisfies CheckoutMetadata,
 
         // This is what Stripe records as the application fee
         payment_intent_data: {

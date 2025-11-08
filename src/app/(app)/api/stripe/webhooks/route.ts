@@ -54,26 +54,7 @@ export type ExpandedLineItem = Stripe.LineItem & {
   };
 };
 
-// ── Narrowing helpers for optional nested fields on "existing"
-type WithAmountsShape = {
-  amounts?: {
-    stripeFeeCents?: unknown;
-    platformFeeCents?: unknown;
-  };
-};
-
-/**
- * Type guard that checks whether a value contains a numeric Stripe processing fee under `amounts.stripeFeeCents`.
- *
- * @returns `true` if `value.amounts.stripeFeeCents` is a number, `false` otherwise.
- */
-function hasStripeFee(
-  value: unknown
-): value is { amounts: { stripeFeeCents: number } } {
-  return (
-    typeof (value as WithAmountsShape)?.amounts?.stripeFeeCents === 'number'
-  );
-}
+/** Type used in computerFeesFromCharge */
 type FeeResult = {
   stripeFeeCents: number; // processing-only
   platformFeeCents: number; // application fee
