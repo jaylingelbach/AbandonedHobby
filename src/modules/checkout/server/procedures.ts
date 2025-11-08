@@ -298,14 +298,16 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       //  what we’re about to send to Stripe
-      console.log('[checkout:create]', {
-        tenantId: sellerTenantId,
-        stripeAccountId: sellerTenant.stripeAccountId,
-        productSubtotalCents,
-        shippingCents,
-        DECIMAL_PLATFORM_PERCENTAGE,
-        platformFeeCents
-      });
+      if (process.env.NODE_ENV === 'development') {
+        console.log('[checkout:create]', {
+          tenantId: sellerTenantId,
+          stripeAccountId: sellerTenant.stripeAccountId,
+          productSubtotalCents,
+          shippingCents,
+          DECIMAL_PLATFORM_PERCENTAGE,
+          platformFeeCents
+        });
+      }
 
       // Success URL (same as your current behavior)
       const success_url = `${process.env.NEXT_PUBLIC_APP_URL!}/checkout/success?session_id={CHECKOUT_SESSION_ID}`;

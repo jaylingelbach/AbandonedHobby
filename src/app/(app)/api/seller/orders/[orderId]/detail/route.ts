@@ -198,7 +198,6 @@ export async function GET(
     const parsed = zSellerOrderDetail.safeParse(detailPayload);
     if (!parsed.success) {
       if (process.env.NODE_ENV !== 'production') {
-        // eslint-disable-next-line no-console
         console.error(
           '[seller order detail] validation failed',
           parsed.error.format()
@@ -239,7 +238,6 @@ export async function GET(
     resp.headers.set('Cache-Control', 'no-store');
     return resp;
   } catch (error) {
-    // eslint-disable-next-line no-console
     console.error('[seller-order-detail] unexpected error:', error);
     if (
       error &&

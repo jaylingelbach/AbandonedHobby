@@ -656,19 +656,18 @@ export async function POST(req: Request) {
             itemsCount: Array.isArray(existing.items)
               ? existing.items.length
               : 0,
-            inventoryAdjustedAt:
-              (existing as { inventoryAdjustedAt?: string | null })
-                .inventoryAdjustedAt ?? null
+            inventoryAdjustedAt: existing.inventoryAdjustedAt ?? null
           });
 
+          // ─────────────────────────────────────────────────────────────
           // Backfill Stripe fees & receipt if missing on duplicates
+          // (preserve explicit zeros by checking for null/undefined)
+          // ─────────────────────────────────────────────────────────────
           try {
-            const stripeFeePresent =
-              hasStripeFee(existing) && existing.amounts.stripeFeeCents > 0;
+            const stripeFeePresent = existing.amounts?.stripeFeeCents != null; // preserves 0
             const platformFeePresent =
-              hasPlatformFee(existing) && existing.amounts.platformFeeCents > 0;
-            const receiptPresent =
-              hasReceiptUrl(existing) && existing.documents.receiptUrl != null;
+              existing.amounts?.platformFeeCents != null; // preserves 0
+            const receiptPresent = existing.documents?.receiptUrl != null; // string or null (present)
 
             let feesResult: {
               stripeFeeCents: number;
@@ -677,22 +676,8 @@ export async function POST(req: Request) {
             } | null = null;
 
             if (!stripeFeePresent || !platformFeePresent || !receiptPresent) {
-              const paymentIntentId =
-                typeof (existing as { stripePaymentIntentId?: unknown })
-                  .stripePaymentIntentId === 'string'
-                  ? String(
-                      (existing as { stripePaymentIntentId?: unknown })
-                        .stripePaymentIntentId
-                    )
-                  : null;
-
-              const chargeId =
-                typeof (existing as { stripeChargeId?: unknown })
-                  .stripeChargeId === 'string'
-                  ? String(
-                      (existing as { stripeChargeId?: unknown }).stripeChargeId
-                    )
-                  : null;
+              const paymentIntentId = existing.stripePaymentIntentId ?? null;
+              const chargeId = existing.stripeChargeId ?? null;
 
               feesResult = await readStripeFeesAndReceiptUrl({
                 stripeAccountId: accountId,
@@ -711,8 +696,7 @@ export async function POST(req: Request) {
               sellerNetCents?: number | null;
             };
 
-            const existingAmounts =
-              (existing as { amounts?: AmountsShape })?.amounts ?? {};
+            const existingAmounts = (existing.amounts ?? {}) as AmountsShape;
 
             const updateData: {
               amounts?: AmountsShape;
@@ -733,17 +717,15 @@ export async function POST(req: Request) {
             if (feesResult) {
               updateData.amounts = {
                 ...existingAmounts,
-                stripeFeeCents:
-                  stripeFeePresent && existingAmounts.stripeFeeCents != null
-                    ? existingAmounts.stripeFeeCents
-                    : feesResult.stripeFeeCents,
-                platformFeeCents:
-                  platformFeePresent && existingAmounts.platformFeeCents != null
-                    ? existingAmounts.platformFeeCents
-                    : feesResult.platformFeeCents
+                stripeFeeCents: stripeFeePresent
+                  ? existingAmounts.stripeFeeCents!
+                  : feesResult.stripeFeeCents,
+                platformFeeCents: platformFeePresent
+                  ? existingAmounts.platformFeeCents!
+                  : feesResult.platformFeeCents
               };
 
-              // 🔑 Pass through trusted fees so lockAndCalculateAmounts prefers them
+              // Pass trusted fees so lockAndCalculateAmounts prefers them
               contextFees = {
                 ahSystem: true as const,
                 fees: {
@@ -761,7 +743,7 @@ export async function POST(req: Request) {
             if (updateData.amounts || updateData.documents) {
               await payloadInstance.update({
                 collection: 'orders',
-                id: String((existing as { id: unknown }).id),
+                id: existing.id,
                 data: updateData,
                 overrideAccess: true,
                 ...(contextFees ? { context: contextFees } : {})
@@ -774,19 +756,10 @@ export async function POST(req: Request) {
             );
           }
 
-          if (
-            !(existing as { inventoryAdjustedAt?: string | null })
-              .inventoryAdjustedAt &&
-            Array.isArray((existing as { items?: unknown[] }).items)
-          ) {
+          // inventory adjust on dup path (unchanged)
+          if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
             const quantityByProductId = toQtyMap(
-              (
-                (
-                  existing as {
-                    items: Array<{ product: unknown; quantity?: number }>;
-                  }
-                ).items ?? []
-              )
+              (existing.items ?? [])
                 .map((item) => {
                   const relation = item.product as unknown;
                   const product =
@@ -795,14 +768,16 @@ export async function POST(req: Request) {
                       : relation &&
                           typeof relation === 'object' &&
                           'id' in relation
-                        ? String((relation as { id?: string }).id)
+                        ? String((relation as { id?: string | null }).id)
                         : null;
                   if (!product) return null;
                   return {
                     product,
-                    quantity: Number.isInteger(item.quantity)
-                      ? (item.quantity as number)
-                      : 1
+                    quantity:
+                      typeof item.quantity === 'number' &&
+                      Number.isInteger(item.quantity)
+                        ? item.quantity
+                        : 1
                   };
                 })
                 .filter(Boolean) as Array<{ product: string; quantity: number }>
@@ -822,7 +797,7 @@ export async function POST(req: Request) {
             await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
               payloadInstance.update({
                 collection: 'orders',
-                id: String((existing as { id: string }).id),
+                id: existing.id,
                 data: {
                   inventoryAdjustedAt: new Date().toISOString(),
                   stripeEventId: event.id
@@ -832,12 +807,12 @@ export async function POST(req: Request) {
             );
 
             console.log('[webhook] inventory adjusted on duplicate path', {
-              orderId: (existing as { id: string }).id
+              orderId: existing.id
             });
           } else {
             console.log(
               '[webhook] duplicate path: inventory already adjusted',
-              { orderId: (existing as { id: string }).id }
+              { orderId: existing.id }
             );
           }
 

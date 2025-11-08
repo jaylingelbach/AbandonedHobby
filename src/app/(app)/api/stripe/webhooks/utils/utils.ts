@@ -10,6 +10,10 @@ import { PayloadMongoLike, ProductModelLite } from './types';
 
 // ─── Project Imports ─────────────────────────────────────────────────────────
 
+import { ExistingOrderPrecheck } from './types';
+
+// Helpers
+
 export const isStringValue = (value: unknown): value is string =>
   typeof value === 'string';
 
@@ -187,4 +191,129 @@ export function getProductsModel(
     return model as ProductModelLite;
   }
   return null;
+}
+
+export async function findExistingOrderBySessionOrEvent(
+  payload: Payload,
+  sessionId: string,
+  eventId: string
+): Promise<ExistingOrderPrecheck | null> {
+  const result = await payload.find({
+    collection: 'orders',
+    where: {
+      or: [
+        { stripeCheckoutSessionId: { equals: sessionId } },
+        { stripeEventId: { equals: eventId } }
+      ]
+    },
+    limit: 1,
+    depth: 0,
+    overrideAccess: true,
+    select: {
+      id: true,
+      items: true,
+      amounts: true,
+      documents: true,
+      inventoryAdjustedAt: true,
+      stripePaymentIntentId: true,
+      stripeChargeId: true
+    }
+  });
+
+  if (result.totalDocs === 0) return null;
+
+  const raw = result.docs[0] as unknown;
+
+  // Helpers that preserve explicit 0 and reject non-finite numbers
+  const toOptionalInt = (value: unknown): number | null => {
+    if (value == null) return null;
+    const asNumber = Number(value);
+    return Number.isFinite(asNumber) ? Math.trunc(asNumber) : null;
+  };
+
+  // Normalize amounts: keep explicit 0; coerce NaN/Infinity -> null
+  const amountsRaw =
+    (
+      raw as {
+        amounts?: {
+          platformFeeCents?: unknown;
+          stripeFeeCents?: unknown;
+        } | null;
+      }
+    ).amounts ?? null;
+
+  const amounts =
+    amountsRaw && typeof amountsRaw === 'object'
+      ? {
+          platformFeeCents: toOptionalInt(
+            (amountsRaw as { platformFeeCents?: unknown }).platformFeeCents
+          ),
+          stripeFeeCents: toOptionalInt(
+            (amountsRaw as { stripeFeeCents?: unknown }).stripeFeeCents
+          )
+        }
+      : null;
+
+  // Normalize documents: ensure receiptUrl is string|null when object exists
+  const documentsRaw =
+    (raw as { documents?: { receiptUrl?: unknown } | null }).documents ?? null;
+
+  const documents =
+    documentsRaw && typeof documentsRaw === 'object'
+      ? {
+          receiptUrl:
+            typeof (documentsRaw as { receiptUrl?: unknown }).receiptUrl ===
+            'string'
+              ? ((documentsRaw as { receiptUrl?: unknown })
+                  .receiptUrl as string)
+              : null
+        }
+      : null;
+
+  const normalized: ExistingOrderPrecheck = {
+    id: String((raw as { id?: unknown }).id),
+    items: Array.isArray((raw as { items?: unknown }).items)
+      ? (
+          raw as {
+            items: Array<{
+              product?: unknown;
+              quantity?: unknown;
+            }>;
+          }
+        ).items.map((item) => ({
+          // Preserve either a string id, a relationship object (with optional id),
+          // or null — caller will handle narrowing.
+          product:
+            typeof item.product === 'string' || item.product == null
+              ? (item.product as string | null)
+              : typeof item.product === 'object'
+                ? (item.product as { id?: string | null })
+                : null,
+          quantity:
+            typeof item.quantity === 'number' && Number.isInteger(item.quantity)
+              ? (item.quantity as number)
+              : null
+        }))
+      : null,
+    amounts,
+    documents,
+    inventoryAdjustedAt:
+      (raw as { inventoryAdjustedAt?: unknown }).inventoryAdjustedAt == null
+        ? null
+        : String(
+            (raw as { inventoryAdjustedAt?: unknown }).inventoryAdjustedAt
+          ),
+    stripePaymentIntentId:
+      (raw as { stripePaymentIntentId?: unknown }).stripePaymentIntentId == null
+        ? null
+        : String(
+            (raw as { stripePaymentIntentId?: unknown }).stripePaymentIntentId
+          ),
+    stripeChargeId:
+      (raw as { stripeChargeId?: unknown }).stripeChargeId == null
+        ? null
+        : String((raw as { stripeChargeId?: unknown }).stripeChargeId)
+  };
+
+  return normalized;
 }
