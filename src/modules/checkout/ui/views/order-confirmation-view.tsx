@@ -157,9 +157,9 @@ export default function OrderConfirmationView({ sessionId }: Props) {
 
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
         <div className="space-y-6">
-          {orders.map((o) => (
+          {orders.map((order) => (
             <div
-              key={o.orderId}
+              key={order.orderId}
               className="border border-black bg-white rounded-lg p-6 shadow-[6px_6px_0_0_#000]"
             >
               <div className="flex items-center justify-between">
@@ -167,12 +167,12 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                   <div className="text-sm text-muted-foreground">
                     Order Number
                   </div>
-                  <div className="text-lg font-medium">{o.orderNumber}</div>
+                  <div className="text-lg font-medium">{order.orderNumber}</div>
                 </div>
                 <div className="flex items-center gap-2">
                   <ReceiptIcon className="size-5" />
                   <span className="font-medium">
-                    {formatCents(o.totalCents, o.currency)}
+                    {formatCents(order.totalCents, order.currency)}
                   </span>
                 </div>
               </div>
@@ -180,16 +180,16 @@ export default function OrderConfirmationView({ sessionId }: Props) {
               <div className="mt-6">
                 <div className="text-sm text-muted-foreground mb-2">Items</div>
                 <ul className="space-y-2">
-                  {o.items.map((item) => (
+                  {order.items.map((item) => (
                     <li
-                      key={`${o.orderId}-${item.productId}`}
+                      key={`${order.orderId}-${item.productId}`}
                       className="border border-black border-dashed rounded p-4 flex items-center justify-between"
                     >
                       <div className="flex-1">
                         <div className="font-medium">{item.name}</div>
                         <div className="text-sm text-muted-foreground">
                           Qty {item.quantity} •{' '}
-                          {formatCents(item.unitAmountCents, o.currency)}
+                          {formatCents(item.unitAmountCents, order.currency)}
                         </div>
                         {item.returnsAcceptedThroughISO ? (
                           <div className="text-xs mt-1">
@@ -201,53 +201,55 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                         ) : null}
                       </div>
                       <div className="ml-4 font-medium">
-                        {formatCents(item.amountSubtotalCents, o.currency)}
+                        {formatCents(item.amountSubtotalCents, order.currency)}
                       </div>
                     </li>
                   ))}
                 </ul>
               </div>
 
-              {o.shipping && o.shipping.line1 ? (
+              {order.shipping && order.shipping.line1 ? (
                 <div className="mt-6 border border-black rounded p-4">
                   <div className="text-sm text-muted-foreground">
                     Shipping to
                   </div>
-                  {o.shipping.name ? (
-                    <div className="font-medium">{o.shipping.name}</div>
+                  {order.shipping.name ? (
+                    <div className="font-medium">{order.shipping.name}</div>
                   ) : null}
                   <div className="text-sm mt-1">
-                    {o.shipping.line1}
-                    {o.shipping.line2 ? (
+                    {order.shipping.line1}
+                    {order.shipping.line2 ? (
                       <>
                         <br />
-                        {o.shipping.line2}
+                        {order.shipping.line2}
                       </>
                     ) : null}
-                    {o.shipping.city && o.shipping.state ? (
+                    {order.shipping.city && order.shipping.state ? (
                       <>
                         <br />
-                        {o.shipping.city}, {o.shipping.state}{' '}
-                        {o.shipping.postalCode || ''}
+                        {order.shipping.city}, {order.shipping.state}{' '}
+                        {order.shipping.postalCode || ''}
                       </>
                     ) : null}
-                    {o.shipping.country ? (
+                    {order.shipping.country ? (
                       <>
                         <br />
-                        {o.shipping.country}
+                        {order.shipping.country}
                       </>
                     ) : null}
                   </div>
                 </div>
               ) : null}
 
-              {o.returnsAcceptedThroughISO ? (
+              {order.returnsAcceptedThroughISO ? (
                 <div className="mt-6 border border-black border-dashed rounded p-4">
                   <div className="text-sm text-muted-foreground">
                     Returns accepted through
                   </div>
                   <div className="font-medium">
-                    {new Date(o.returnsAcceptedThroughISO).toLocaleDateString()}
+                    {new Date(
+                      order.returnsAcceptedThroughISO
+                    ).toLocaleDateString()}
                   </div>
                 </div>
               ) : null}
@@ -260,10 +262,10 @@ export default function OrderConfirmationView({ sessionId }: Props) {
                 >
                   View all orders
                 </Link>
-                {o.tenantSlug ? (
+                {order.tenantSlug ? (
                   <Link
                     prefetch
-                    href={generateTenantURL(o.tenantSlug)}
+                    href={generateTenantURL(order.tenantSlug)}
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
                     Visit seller
