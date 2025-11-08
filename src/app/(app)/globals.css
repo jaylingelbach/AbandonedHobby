@@ -171,7 +171,7 @@
     inset: 0;
     padding: 24px;
     overflow-wrap: anywhere;
-    word-break: break-words;
+    word-break: break-word;
   }
 
   /* Hide buttons / dialog chrome if you want, via utility class */
