@@ -17,12 +17,6 @@ export const runtime = 'nodejs';
 
 /**
  * Handle GET requests for a seller's order detail by orderId, validate access, compute amounts, and return a normalized order detail payload.
- *
- * Validates the `orderId` route parameter, enforces tenant-based authorization, assembles an items snapshot and amounts (preferring DB-stored fee values with safe fallbacks), validates the resulting shape, and returns it. When the environment variable `SELLER_ORDER_DETAIL_DEBUG` is enabled (and not in production), the response will include an `_debug` object with internal computed values.
- *
- * @param _request - The incoming NextRequest (unused).
- * @param ctx - Request context containing `params`, a Promise that resolves to an object with `orderId`.
- * @returns A JSON NextResponse: on success the body is a `SellerOrderDetail` object; on error the body is `{ error: string }` with one of the status codes 400 (invalid order id), 403 (forbidden), 404 (order not found), or 500 (invalid payload shape or unexpected error).
  */
 export async function GET(
   _request: NextRequest,
@@ -137,9 +131,15 @@ export async function GET(
       Math.trunc(itemsSubtotalCents + shippingCents - discountCents + taxCents)
     );
 
-    // 🔒 Prefer truth from DB (set by webhook/backfill). Only fall back if missing or <= 0.
-    const storedPlatformFeeCents = toIntCents(amountsGroup.platformFeeCents);
-    const storedStripeFeeCents = toIntCents(amountsGroup.stripeFeeCents);
+    // ── Preserve explicit zeros from DB for fees ───────────────────────────────
+    const rawStoredPlatformFee = (
+      amountsGroup as { platformFeeCents?: unknown }
+    ).platformFeeCents;
+    const rawStoredStripeFee = (amountsGroup as { stripeFeeCents?: unknown })
+      .stripeFeeCents;
+
+    const storedPlatformFeeCents = toIntCents(rawStoredPlatformFee);
+    const storedStripeFeeCents = toIntCents(rawStoredStripeFee);
 
     const fallbackPlatformFeeCents = Math.max(
       0,
@@ -147,13 +147,13 @@ export async function GET(
     );
 
     const platformFeeCents =
-      storedPlatformFeeCents > 0
+      rawStoredPlatformFee != null
         ? storedPlatformFeeCents
         : fallbackPlatformFeeCents;
 
-    // Stripe fee should be processing-only; if absent, do NOT try to guess it.
-    // Keep zero rather than inventing a value.
-    const stripeFeeCents = storedStripeFeeCents > 0 ? storedStripeFeeCents : 0;
+    // Processing-only Stripe fee: if absent, do NOT guess. Keep zero if explicitly stored as 0.
+    const stripeFeeCents =
+      rawStoredStripeFee != null ? storedStripeFeeCents : 0;
 
     const sellerNetCents = Math.max(
       0,
@@ -179,8 +179,8 @@ export async function GET(
         discountCents,
         taxCents,
         grossTotalCents,
-        platformFeeCents, // ← application fee (from DB if present)
-        stripeFeeCents, // ← processing-only (from DB if present)
+        platformFeeCents, // application fee (from DB if present, zero allowed)
+        stripeFeeCents, // processing-only (from DB if present, zero allowed)
         sellerNetCents
       },
       stripe: {
@@ -198,6 +198,7 @@ export async function GET(
     const parsed = zSellerOrderDetail.safeParse(detailPayload);
     if (!parsed.success) {
       if (process.env.NODE_ENV !== 'production') {
+        // eslint-disable-next-line no-console
         console.error(
           '[seller order detail] validation failed',
           parsed.error.format()
@@ -221,6 +222,8 @@ export async function GET(
         discountCents,
         taxCents,
         grossTotalCents,
+        rawStoredPlatformFee,
+        rawStoredStripeFee,
         storedPlatformFeeCents,
         storedStripeFeeCents,
         fallbackPlatformFeeCents,
@@ -236,6 +239,7 @@ export async function GET(
     resp.headers.set('Cache-Control', 'no-store');
     return resp;
   } catch (error) {
+    // eslint-disable-next-line no-console
     console.error('[seller-order-detail] unexpected error:', error);
     if (
       error &&
