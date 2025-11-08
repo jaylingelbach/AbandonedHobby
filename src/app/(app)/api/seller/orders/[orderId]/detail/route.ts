@@ -36,15 +36,21 @@ export async function GET(
     const trpcCtx = await createTRPCContext();
     const caller = appRouter.createCaller(trpcCtx);
     const session = await trpcCtx.db.auth({ headers: trpcCtx.headers });
+
     const roles: string[] = Array.isArray(
       (session.user as { roles?: string[] } | undefined)?.roles
     )
       ? ((session.user as { roles?: string[] }).roles as string[])
       : [];
+
     const me = await caller.users.me();
+    const isSuperAdmin = roles.includes('super-admin'); // ← compute before tenant guard
     const tenantId = getFirstTenantId(me.user);
-    if (!tenantId)
+
+    // Only enforce tenant requirement for non-admins
+    if (!isSuperAdmin && !tenantId) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 });
+    }
 
     // load order
     const payload = await getPayload({ config });
@@ -61,7 +67,6 @@ export async function GET(
         : ((order as { sellerTenant?: { id?: string } }).sellerTenant?.id ??
           null);
 
-    const isSuperAdmin = roles.includes('super-admin');
     if (
       !isSuperAdmin &&
       (!orderSellerTenant || orderSellerTenant !== tenantId)
