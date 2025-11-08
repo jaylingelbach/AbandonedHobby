@@ -74,37 +74,52 @@ function hasStripeFee(
     typeof (value as WithAmountsShape)?.amounts?.stripeFeeCents === 'number'
   );
 }
+type FeeResult = {
+  stripeFeeCents: number; // processing-only
+  platformFeeCents: number; // application fee
+  receiptUrl: string | null;
+};
 
-/**
- * Type guard that detects objects with a numeric `amounts.platformFeeCents` property.
- *
- * @param value - The value to test for the `amounts.platformFeeCents` shape
- * @returns `true` if `value` has an `amounts.platformFeeCents` number, `false` otherwise.
- */
-function hasPlatformFee(
-  value: unknown
-): value is { amounts: { platformFeeCents: number } } {
-  return (
-    typeof (value as WithAmountsShape)?.amounts?.platformFeeCents === 'number'
-  );
+/** Compute fees directly from an expanded charge (preferred). */
+function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
+  const balanceTransaction =
+    charge.balance_transaction as Stripe.BalanceTransaction | null;
+
+  const applicationFeeCents =
+    typeof charge.application_fee_amount === 'number'
+      ? charge.application_fee_amount
+      : 0;
+
+  let processingFeeCents = 0;
+
+  // Prefer fee_details if present (most accurate)
+  const details = Array.isArray(balanceTransaction?.fee_details)
+    ? balanceTransaction!.fee_details
+    : null;
+
+  if (details) {
+    // Sum everything that is NOT the application fee
+    processingFeeCents = details
+      .filter((d) => d.type !== 'application_fee')
+      .reduce(
+        (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
+        0
+      );
+  } else {
+    const totalFee =
+      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    processingFeeCents = Math.max(0, totalFee - applicationFeeCents);
+  }
+
+  const receiptUrl =
+    typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
+
+  return {
+    stripeFeeCents: processingFeeCents,
+    platformFeeCents: applicationFeeCents,
+    receiptUrl
+  };
 }
-
-type WithDocumentsShape = { documents?: { receiptUrl?: unknown } };
-/**
- * Type guard that checks whether a value has a `documents.receiptUrl` property (a string or `null`).
- *
- * When this function returns `true`, TypeScript will narrow the input to `{ documents: { receiptUrl: string | null } }`.
- *
- * @param value - The value to test for the `documents.receiptUrl` shape
- * @returns `true` if `value` has a `documents.receiptUrl` property that is a string or `null`, `false` otherwise.
- */
-function hasReceiptUrl(
-  value: unknown
-): value is { documents: { receiptUrl: string | null } } {
-  const url = (value as WithDocumentsShape)?.documents?.receiptUrl;
-  return typeof url === 'string' || url === null;
-}
-
 /**
  * Read the Stripe processing fee (merchant/processor), the application (platform) fee, and the charge receipt URL for a given Stripe charge or payment intent on a connected account.
  *
@@ -123,65 +138,35 @@ async function readStripeFeesAndReceiptUrl(args: {
   stripeAccountId: string;
   paymentIntentId?: string | null;
   chargeId?: string | null;
-}): Promise<{
-  stripeFeeCents: number; // processing-only
-  platformFeeCents: number; // application fee
-  receiptUrl: string | null;
-}> {
-  const { stripeAccountId, paymentIntentId, chargeId } = args;
+  charge?: Stripe.Charge | null; // ← new fast path
+}): Promise<FeeResult> {
+  const { stripeAccountId, paymentIntentId, chargeId, charge } = args;
 
-  /**
-   * Read the processing fee, platform (application) fee, and receipt URL for a Stripe Charge.
-   *
-   * @param id - The Stripe Charge ID to retrieve
-   * @returns An object containing `stripeFeeCents` (processing fees in cents), `platformFeeCents` (application/platform fee in cents), and `receiptUrl` (the charge receipt URL or `null`)
-   */
-  async function fromChargeId(id: string) {
-    const charge = await stripe.charges.retrieve(
+  // Fast path: use already-fetched (and ideally expanded) charge
+  if (charge) {
+    // If somehow not expanded, fall back to one retrieve with expand
+    if (
+      charge.balance_transaction == null ||
+      typeof charge.balance_transaction === 'string'
+    ) {
+      const hydrated = await stripe.charges.retrieve(
+        charge.id,
+        { expand: ['balance_transaction'] },
+        { stripeAccount: stripeAccountId }
+      );
+      return computeFeesFromCharge(hydrated);
+    }
+    return computeFeesFromCharge(charge);
+  }
+
+  // Otherwise, resolve by paymentIntent or chargeId with a single retrieve
+  async function fromChargeId(id: string): Promise<FeeResult> {
+    const fetched = await stripe.charges.retrieve(
       id,
       { expand: ['balance_transaction'] },
       { stripeAccount: stripeAccountId }
     );
-
-    const balanceTransaction =
-      charge.balance_transaction as Stripe.BalanceTransaction | null;
-
-    const applicationFeeCents =
-      typeof charge.application_fee_amount === 'number'
-        ? charge.application_fee_amount
-        : 0;
-
-    let processingFeeCents = 0;
-
-    // Prefer fee_details if present (most accurate)
-    const details = Array.isArray(balanceTransaction?.fee_details)
-      ? balanceTransaction!.fee_details
-      : null;
-
-    if (details) {
-      // Sum everything that is NOT the application fee
-      processingFeeCents = details
-        .filter((d) => d.type !== 'application_fee')
-        .reduce(
-          (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
-          0
-        );
-    } else {
-      const totalFee =
-        typeof balanceTransaction?.fee === 'number'
-          ? balanceTransaction.fee
-          : 0;
-      processingFeeCents = Math.max(0, totalFee - applicationFeeCents);
-    }
-
-    const receiptUrl =
-      typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
-
-    return {
-      stripeFeeCents: processingFeeCents,
-      platformFeeCents: applicationFeeCents,
-      receiptUrl
-    };
+    return computeFeesFromCharge(fetched);
   }
 
   if (paymentIntentId) {
@@ -191,7 +176,16 @@ async function readStripeFeesAndReceiptUrl(args: {
       { stripeAccount: stripeAccountId }
     );
     const latestCharge = paymentIntent.latest_charge as Stripe.Charge | null;
-    if (latestCharge?.id) return fromChargeId(latestCharge.id);
+    if (latestCharge?.id) {
+      if (
+        latestCharge.balance_transaction == null ||
+        typeof latestCharge.balance_transaction === 'string'
+      ) {
+        // Should be expanded by the PI expand above, but hydrate if not
+        return fromChargeId(latestCharge.id);
+      }
+      return computeFeesFromCharge(latestCharge);
+    }
   }
 
   if (chargeId) return fromChargeId(chargeId);
@@ -869,19 +863,22 @@ export async function POST(req: Request) {
         if (!chargeId) throw new Error('No charge found on paymentIntent');
 
         const charge = await tryCall('stripe.charges.retrieve', () =>
-          stripe.charges.retrieve(chargeId as string, {
-            stripeAccount: accountId
-          })
+          stripe.charges.retrieve(
+            chargeId as string,
+            {
+              expand: ['balance_transaction']
+            },
+            { stripeAccount: accountId }
+          )
         );
 
         // 🧮 Get processing-only fee + application fee + receipt URL
         const { stripeFeeCents, platformFeeCents, receiptUrl } =
           await readStripeFeesAndReceiptUrl({
             stripeAccountId: accountId,
-            paymentIntentId: paymentIntent.id,
-            chargeId: typeof charge.id === 'string' ? charge.id : null
+            // paymentIntentId is not needed when we already have the charge
+            charge
           });
-
         console.log('[webhook][fees]', {
           sessionId: session.id,
           paymentIntentId: paymentIntent.id,
