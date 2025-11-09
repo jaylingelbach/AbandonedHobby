@@ -65,9 +65,10 @@ export const ordersRouter = createTRPCRouter({
         overrideAccess: true
       });
 
-      const orders: OrderConfirmationDTO[] = result.docs.map(
-        mapOrderToConfirmation
-      );
+      const orders: OrderConfirmationDTO[] = result.docs.map((doc) => {
+        const dto = mapOrderToConfirmation(doc);
+        return dto;
+      });
       return { orders };
     }),
   getLatestForProduct: protectedProcedure

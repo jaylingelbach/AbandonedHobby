@@ -6,7 +6,8 @@ import { isNonEmptyString } from '@/lib/utils';
 import type {
   OrderConfirmationDTO,
   OrderItemDTO,
-  OrderSummaryDTO
+  OrderSummaryDTO,
+  PublicAmountsDTO
 } from '../types';
 import { Order, Product, Tenant } from '@/payload-types';
 import { OrderForBuyer } from '@/modules/library/ui/components/types';
@@ -17,6 +18,13 @@ import { OrderStatus } from '@/payload/views/types';
 // Basic assertions
 // ───────────────────────────────────────────
 
+/**
+ * Assert a value is a string.
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages (e.g., "order.id").
+ * @returns The value as a string.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a string.
+ */
 export function assertString(value: unknown, path: string): string {
   if (typeof value !== 'string') {
     throw new TRPCError({
@@ -27,6 +35,13 @@ export function assertString(value: unknown, path: string): string {
   return value;
 }
 
+/**
+ * Assert a value is a number (not NaN).
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if the value is not a number or is NaN.
+ */
 function assertNumber(value: unknown, path: string): number {
   if (
     typeof value !== 'number' ||
@@ -41,6 +56,13 @@ function assertNumber(value: unknown, path: string): number {
   return value;
 }
 
+/**
+ * Assert a value is a positive integer (> 0).
+ * @param value - Unknown input to validate.
+ * @param path  - JSON-path-like hint used in error messages.
+ * @returns The value as a number.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) if not a positive integer.
+ */
 export function assertPositiveInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
   if (!Number.isInteger(n) || n <= 0) {
@@ -52,6 +74,7 @@ export function assertPositiveInt(value: unknown, path: string): number {
   return n;
 }
 
+// Better for money assert positive int does not work for 0.
 export function assertNonNegativeInt(value: unknown, path: string): number {
   const n = assertNumber(value, path);
   if (!Number.isInteger(n) || n < 0) {
@@ -63,7 +86,15 @@ export function assertNonNegativeInt(value: unknown, path: string): number {
   return n;
 }
 
-function assertOptionalNonNegativeInt(
+export function readNonNegativeInt(
+  value: unknown,
+  path: string
+): number | undefined {
+  if (value === null || value === undefined) return undefined;
+  return assertNonNegativeInt(value, path);
+}
+
+export function assertOptionalNonNegativeInt(
   value: unknown,
   path: string
 ): number | null {
@@ -117,6 +148,26 @@ export function readShippingFromOrder(
 // Mappers
 // ───────────────────────────────────────────
 
+/**
+ * Map a raw order item to an `OrderItemDTO`.
+ *
+ * Expected raw shape (from your webhook):
+ *  - `product: string` (product id)
+ *  - `nameSnapshot: string`
+ *  - `quantity: number` (positive integer)
+ *  - `unitAmount: number` (cents)
+ *  - `amountSubtotal: number` (cents)
+ *  - `amountTax?: number` (cents)
+ *  - `amountTotal: number` (cents)
+ *  - `returnsAcceptedThrough?: string` (ISO date)
+ *  - `thumbnailUrl?: string`
+ *
+ * @param orderItemRaw - Unknown raw item object.
+ * @param index        - Index in the items array (for clearer error messages).
+ * @returns A strict `OrderItemDTO`.
+ * @throws TRPCError(INTERNAL_SERVER_ERROR) on shape/type violations.
+ */
+
 export function mapOrderItem(
   orderItemRaw: unknown,
   index: number
@@ -128,6 +179,7 @@ export function mapOrderItem(
     });
   }
 
+  // Accept either a string id or a populated object { id: string }
   const productRef = (orderItemRaw as Record<string, unknown>).product;
   const productId =
     typeof productRef === 'string'
@@ -142,38 +194,42 @@ export function mapOrderItem(
           })();
 
   const name = assertString(
-    orderItemRaw.nameSnapshot,
+    (orderItemRaw as Record<string, unknown>).nameSnapshot,
     `items[${index}].nameSnapshot`
   );
+
   const quantity = assertPositiveInt(
-    orderItemRaw.quantity,
+    (orderItemRaw as Record<string, unknown>).quantity,
     `items[${index}].quantity`
   );
+
   const unitAmountCents = assertNonNegativeInt(
-    orderItemRaw.unitAmount,
+    (orderItemRaw as Record<string, unknown>).unitAmount,
     `items[${index}].unitAmount`
   );
 
   const amountSubtotalRaw = (orderItemRaw as Record<string, unknown>)
     .amountSubtotal;
   const amountSubtotalCents =
-    assertOptionalNonNegativeInt(
-      amountSubtotalRaw,
-      `items[${index}].amountSubtotal`
-    ) ?? unitAmountCents * quantity;
+    amountSubtotalRaw == null
+      ? unitAmountCents * quantity
+      : assertNonNegativeInt(
+          amountSubtotalRaw,
+          `items[${index}].amountSubtotal`
+        );
 
   const amountTaxRaw = (orderItemRaw as Record<string, unknown>).amountTax;
-  const amountTaxCents = assertOptionalNonNegativeInt(
-    amountTaxRaw,
-    `items[${index}].amountTax`
-  );
+  const amountTaxCents =
+    amountTaxRaw == null
+      ? null
+      : assertNonNegativeInt(amountTaxRaw, `items[${index}].amountTax`);
 
   const amountTotalRaw = (orderItemRaw as Record<string, unknown>).amountTotal;
   const amountTotalCents =
-    assertOptionalNonNegativeInt(
-      amountTotalRaw,
-      `items[${index}].amountTotal`
-    ) ?? amountSubtotalCents + (amountTaxCents ?? 0);
+    amountTotalRaw == null
+      ? amountSubtotalCents + (amountTaxCents ?? 0)
+      : assertNonNegativeInt(amountTotalRaw, `items[${index}].amountTotal`);
+
   const returnsRaw = (orderItemRaw as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =
@@ -192,6 +248,8 @@ export function mapOrderItem(
     amountTotalCents,
     thumbnailUrl,
     returnsAcceptedThroughISO
+    // If your OrderItemDTO doesn’t include this, remove the next line or add it to the type
+    // shippingSubtotalCents,
   };
 }
 
@@ -229,30 +287,38 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
       });
     }
 
+    // quantity as positive int
     quantitySum += assertPositiveInt(
       rawItem.quantity,
       `items[${index}].quantity`
     );
 
+    // Accept product id as:
+    // - items[].productId
+    // - items[].product (string id)
+    // - items[].product (populated object with id)
+    // - (legacy) items[].id when .product is missing
     const item = rawItem as Record<string, unknown>;
-    const from =
+    const id =
       typeof item.productId === 'string'
         ? item.productId
         : typeof item.product === 'string'
           ? item.product
-          : isObjectRecord(item.product) && typeof item.product.id === 'string'
-            ? item.product.id
-            : !('product' in item) && typeof item.id === 'string'
+          : ((isObjectRecord(item.product) &&
+            typeof item.product.id === 'string'
+              ? item.product.id
+              : null) ??
+            (!('product' in item) && typeof item.id === 'string'
               ? item.id
-              : null;
+              : null));
 
-    if (!from) {
+    if (!id) {
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: `Missing product id at items[${index}].product`
       });
     }
-    return from;
+    return id;
   });
 
   const productId = productIds[0];
@@ -285,11 +351,50 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
   };
 }
 
+/** Reads the public amounts group from a raw order doc. */
+function readPublicAmountsFromOrder(orderDocument: unknown) {
+  if (!isObjectRecord(orderDocument)) return undefined;
+  const raw = (orderDocument as Record<string, unknown>).amounts;
+  if (!isObjectRecord(raw)) return undefined;
+
+  const subtotalCents = assertNonNegativeInt(
+    raw.subtotalCents,
+    'order.amounts.subtotalCents'
+  );
+  const shippingTotalCents = assertNonNegativeInt(
+    raw.shippingTotalCents,
+    'order.amounts.shippingTotalCents'
+  );
+  const discountTotalCents = assertNonNegativeInt(
+    raw.discountTotalCents,
+    'order.amounts.discountTotalCents'
+  );
+  const taxTotalCents = assertNonNegativeInt(
+    raw.taxTotalCents,
+    'order.amounts.taxTotalCents'
+  );
+
+  // Canonical grand total is still stored at order.total
+  const totalCents = assertNonNegativeInt(
+    (orderDocument as Record<string, unknown>).total,
+    'order.total'
+  );
+
+  return {
+    subtotalCents,
+    shippingTotalCents,
+    discountTotalCents,
+    taxTotalCents,
+    totalCents
+  } as const;
+}
+
 /**
  * Builds an OrderConfirmationDTO from a raw order document.
- *
- * @param orderDocument - The raw order record to convert; must be an object containing a non-empty `items` array and standard order fields (id, orderNumber, createdAt, currency, total).
- * @returns The mapped OrderConfirmationDTO containing orderId, orderNumber, orderDateISO, uppercased currency, totalCents, optional returnsAcceptedThroughISO, optional receiptUrl, optional tenantSlug, mapped items, and optional shipping snapshot.
+ * - Attaches `amounts` (so UI can show Shipping/Tax/Discount/Total).
+ * - Tolerates absent `status` (omits the key rather than sending undefined).
+ * - Supports `sellerTenant.slug` (preferred) or `tenant.slug` (legacy).
+ * - Uppercases currency.
  */
 export function mapOrderToConfirmation(
   orderDocument: unknown
@@ -307,12 +412,14 @@ export function mapOrderToConfirmation(
     'order.orderNumber'
   );
   const orderDateISO = assertString(orderDocument.createdAt, 'order.createdAt');
+
   const currency = assertString(
     orderDocument.currency,
     'order.currency'
   ).toUpperCase();
   const totalCents = assertNonNegativeInt(orderDocument.total, 'order.total');
 
+  // Items
   const itemsUnknown = (orderDocument as Record<string, unknown>).items;
   if (!Array.isArray(itemsUnknown) || itemsUnknown.length === 0) {
     throw new TRPCError({
@@ -324,15 +431,17 @@ export function mapOrderToConfirmation(
     mapOrderItem(item, index)
   );
 
+  // Returns cutoff (order-level)
   const returnsOrderRaw = (orderDocument as Record<string, unknown>)
     .returnsAcceptedThrough;
   const returnsAcceptedThroughISO =
     typeof returnsOrderRaw === 'string' ? returnsOrderRaw : null;
 
+  // Optional receipt URL
   const receiptUrlRaw = (orderDocument as Record<string, unknown>).receiptUrl;
   const receiptUrl = typeof receiptUrlRaw === 'string' ? receiptUrlRaw : null;
 
-  // optional tenant slug (prefer sellerTenant; fallback tenant)
+  // Tenant slug: prefer sellerTenant; fallback tenant
   let tenantSlug: string | null = null;
   const maybeSeller = (orderDocument as Record<string, unknown>).sellerTenant;
   const maybeTenant = (orderDocument as Record<string, unknown>).tenant;
@@ -346,10 +455,19 @@ export function mapOrderToConfirmation(
     if (slugCandidate) tenantSlug = slugCandidate;
   }
 
+  // Shipping snapshot (address)
   const shippingRaw = (orderDocument as Record<string, unknown>).shipping;
   const shipping = readShippingFromOrder(shippingRaw);
 
-  return {
+  // Optional status (omit when absent to avoid undefined)
+  const statusRaw = (orderDocument as Record<string, unknown>).status;
+  const status = typeof statusRaw === 'string' ? statusRaw : undefined;
+
+  // Attach amounts block (server-authoritative)
+  const amounts = readPublicAmountsFromOrder(orderDocument);
+
+  // Build return, conditionally adding optional fields to avoid `undefined` serialization
+  const base: Omit<OrderConfirmationDTO, 'status'> = {
     orderId,
     orderNumber,
     orderDateISO,
@@ -359,8 +477,11 @@ export function mapOrderToConfirmation(
     receiptUrl,
     tenantSlug,
     items,
-    shipping
+    shipping,
+    amounts
   };
+
+  return status ? { ...base, status } : base;
 }
 
 export type OrderItemDoc =
@@ -424,6 +545,55 @@ export function safePositiveInt(n: unknown, fallback = 1): number {
   return Number.isInteger(n) && (n as number) > 0 ? (n as number) : fallback;
 }
 
+/** Build PublicAmountsDTO from line items when order.amounts is missing. */
+function buildPublicAmountsFallback(doc: Order): PublicAmountsDTO {
+  const items = Array.isArray(doc.items) ? doc.items : [];
+
+  // Subtotal: explicit per-line subtotal, else unit * qty
+  const subtotalCents = items.reduce((sum, it) => {
+    const qty =
+      typeof it?.quantity === 'number' && it.quantity > 0 ? it.quantity : 1;
+    const unit = typeof it?.unitAmount === 'number' ? it.unitAmount : 0;
+    const sub =
+      typeof it?.amountSubtotal === 'number' ? it.amountSubtotal : unit * qty;
+    return sum + (Number.isFinite(sub) ? sub : 0);
+  }, 0);
+
+  // Tax: sum explicit per-line taxes when present
+  const taxTotalCents = items.reduce((sum, it) => {
+    const t = typeof it?.amountTax === 'number' ? it.amountTax : 0;
+    return sum + (Number.isFinite(t) ? t : 0);
+  }, 0);
+
+  // Try to recover shipping from per-line shipping if you store it
+  const shippingTotalCents = items.reduce((sum, it) => {
+    const s =
+      typeof (it as { shippingSubtotalCents?: number })
+        .shippingSubtotalCents === 'number'
+        ? (it as { shippingSubtotalCents: number }).shippingSubtotalCents
+        : 0;
+    return sum + (Number.isFinite(s) ? s : 0);
+  }, 0);
+
+  // If you don’t store per-line shipping, you could alternatively
+  // infer: max(0, total - subtotal - tax) and assume no discounts.
+  // Leaving that commented in case you prefer it:
+  // const inferredShipping = Math.max(0, (doc.total ?? 0) - subtotalCents - taxTotalCents);
+  // const shippingTotalCents = inferredShipping;
+
+  const discountTotalCents = 0; // Unknown without the amounts block
+
+  const totalCents = typeof doc.total === 'number' ? doc.total : 0;
+
+  return {
+    subtotalCents,
+    shippingTotalCents,
+    discountTotalCents,
+    taxTotalCents,
+    totalCents
+  };
+}
+
 /**
  * Create a buyer-facing OrderForBuyer from a raw Order document.
  *
@@ -436,52 +606,50 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
 
   const itemsArray: OrderItemDoc[] = Array.isArray(doc.items) ? doc.items : [];
 
-  const quantity = itemsArray.reduce((sum, item) => {
-    return sum + safePositiveInt(item?.quantity, 1);
-  }, 0);
+  const quantity = itemsArray.reduce(
+    (sum, item) => sum + safePositiveInt(item?.quantity, 1),
+    0
+  );
 
   const items =
     itemsArray.length > 0
       ? itemsArray.map((item) => {
           const id =
-            typeof item.id === 'string' && item.id.length > 0
-              ? item.id
-              : undefined;
-
+            typeof item.id === 'string' && item.id ? item.id : undefined;
           const product = getRelIdStrict(
             (item.product as string | { id?: string } | null | undefined) ??
               null
           );
-
           const nameSnapshot =
             typeof item.nameSnapshot === 'string'
               ? item.nameSnapshot
               : undefined;
-
           const unitAmount =
             typeof item.unitAmount === 'number' ? item.unitAmount : undefined;
-
           const quantity = safePositiveInt(item.quantity, 1);
-
           const amountSubtotal =
             typeof item.amountSubtotal === 'number'
               ? item.amountSubtotal
               : undefined;
-
           const amountTax =
             typeof item.amountTax === 'number' ? item.amountTax : undefined;
-
           const amountTotal =
             typeof item.amountTotal === 'number' ? item.amountTotal : undefined;
-
           const refundPolicy =
             typeof item.refundPolicy === 'string'
               ? item.refundPolicy
               : undefined;
-
           const returnsAcceptedThrough =
             typeof item.returnsAcceptedThrough === 'string'
               ? item.returnsAcceptedThrough
+              : undefined;
+
+          // If you store per-line shipping on items, surface it here:
+          const shippingSubtotalCents =
+            typeof (item as { shippingSubtotalCents?: number })
+              .shippingSubtotalCents === 'number'
+              ? (item as { shippingSubtotalCents?: number })
+                  .shippingSubtotalCents
               : undefined;
 
           return {
@@ -494,7 +662,9 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
             amountTax,
             amountTotal,
             refundPolicy,
-            returnsAcceptedThrough
+            returnsAcceptedThrough,
+            // expose line shipping if you want to show it under each line
+            shippingSubtotalCents
           };
         })
       : undefined;
@@ -521,6 +691,9 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
           .returnsAcceptedThrough
       : null;
 
+  const amounts: PublicAmountsDTO =
+    readPublicAmountsFromOrder(doc) ?? buildPublicAmountsFallback(doc);
+
   return {
     id: String(doc.id),
     orderNumber: doc.orderNumber,
@@ -531,7 +704,8 @@ export function mapOrderToBuyer(doc: Order): OrderForBuyer {
     items,
     buyerEmail,
     shipping,
-    returnsAcceptedThroughISO
+    returnsAcceptedThroughISO,
+    amounts // ← makes Shipping, Tax, Discount available to the invoice summary
   };
 }
 

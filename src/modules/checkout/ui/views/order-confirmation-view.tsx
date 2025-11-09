@@ -1,11 +1,11 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useQuery, useSuspenseQuery } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { TRPCClientError } from '@trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
@@ -20,26 +20,100 @@ interface Props {
   sessionId: string;
 }
 
+/** Helper: render a single money line (label on left, value on right). */
+function MoneyRow(props: {
+  label: string;
+  amountCents: number;
+  currency: string;
+  emph?: boolean;
+  italicNote?: string | null;
+}) {
+  const {
+    label,
+    amountCents,
+    currency,
+    emph = false,
+    italicNote = null
+  } = props;
+  return (
+    <div className="flex items-baseline justify-between py-1">
+      <div className="text-sm text-muted-foreground">
+        {label}{' '}
+        {italicNote ? (
+          <em className="text-xs text-muted-foreground/80">({italicNote})</em>
+        ) : null}
+      </div>
+      <div className={emph ? 'font-semibold text-base' : 'text-sm font-medium'}>
+        {formatCents(amountCents, currency)}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Fallback computer for amounts if `order.amounts` is ever missing.
+ * (You mentioned you’ve cleaned old orders, but keeping this makes the UI resilient.)
+ * - subtotal: sum of item.amountSubtotalCents
+ * - shipping: 0
+ * - tax: sum of item.amountTaxCents (treat null as 0)
+ * - discount: 0
+ * - total: order.totalCents (already persisted)
+ */
+function computeFallbackAmounts(order: {
+  items: Array<{
+    amountSubtotalCents: number;
+    amountTaxCents: number | null;
+  }>;
+  totalCents: number;
+}) {
+  const subtotal = order.items.reduce(
+    (sum, item) => sum + (item.amountSubtotalCents || 0),
+    0
+  );
+  const tax = order.items.reduce(
+    (sum, item) => sum + (item.amountTaxCents || 0),
+    0
+  );
+  return {
+    subtotalCents: subtotal,
+    shippingTotalCents: 0,
+    discountTotalCents: 0,
+    taxTotalCents: tax,
+    totalCents: order.totalCents
+  };
+}
+
 /**
  * Renders the order confirmation page for a checkout session.
  *
- * Displays a pending "finalizing" state while confirmation data is awaited, an unauthorized sign-in prompt if the user is not authorized, or a detailed receipt view for one or more confirmed orders. The component also clears the shopping cart once per tenant when an order is present or the order status is settled.
- *
- * @param sessionId - The checkout session identifier used to fetch confirmation data
- * @returns The order confirmation UI for the given session
+ * IMPORTANT: Protected tRPC queries are gated behind `mounted` so nothing runs during SSR,
+ * avoiding "Must be logged in." errors when cookies/sessions aren't available server-side.
  */
-
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
-  const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
-  // Query (always call hooks)
-  const queryOptions = trpc.orders.getConfirmationBySession.queryOptions(
-    { sessionId },
-    { staleTime: 5_000 }
-  );
-  const { data, error, refetch } = useSuspenseQuery({
-    ...queryOptions,
+  // Gate all protected queries to run ONLY after the component has mounted in the browser.
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+
+  // Session query (gated to client)
+  const sessionQueryOptions = trpc.auth.session.queryOptions();
+  const { data: session } = useQuery({
+    ...sessionQueryOptions,
+    enabled: mounted
+  });
+
+  // Confirmation query (protected) — DO NOT run on SSR.
+  const confirmationBaseOptions =
+    trpc.orders.getConfirmationBySession.queryOptions(
+      { sessionId },
+      { staleTime: 5_000 }
+    );
+
+  const { data, error, refetch, isLoading, isFetching } = useQuery({
+    ...confirmationBaseOptions,
+    enabled: mounted, // key: only fire after mount
+    // keep your auto-refresh while webhook is pending
     refetchInterval: (query) => {
       const hasOrders =
         Array.isArray(query.state.data?.orders) &&
@@ -72,11 +146,8 @@ export default function OrderConfirmationView({ sessionId }: Props) {
 
   // Prevent multiple clears if component re-renders
   const clearedForTenantRef = useRef<string | null>(null);
-
   useEffect(() => {
     if (!tenantSlug) return;
-
-    // Only clear once per tenantSlug
     if (clearedForTenantRef.current === tenantSlug) return;
 
     // Clear when we have any order OR a settled status (pick either/both)
@@ -87,7 +158,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
     }
   }, [tenantSlug, hasAnyOrder, isSettled, clearCart, status]);
 
-  // Not signed in
+  // Not signed in (client-side)
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
     return (
       <div className="min-h-screen bg-white p-8">
@@ -99,8 +170,9 @@ export default function OrderConfirmationView({ sessionId }: Props) {
     );
   }
 
-  // Pending webhook: no orders yet
-  if (orders.length === 0) {
+  // While we wait to mount on client OR query is loading:
+  // show your existing "finalizing" shell (also covers the brief gap before webhook write).
+  if (!mounted || isLoading || (!error && !orders.length && isFetching)) {
     return (
       <div className="min-h-screen bg-white">
         <nav className="p-4 bg-[#F4F4F0] w-full border-b">
@@ -157,130 +229,206 @@ export default function OrderConfirmationView({ sessionId }: Props) {
 
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
         <div className="space-y-6">
-          {orders.map((order) => (
-            <div
-              key={order.orderId}
-              className="border border-black bg-white rounded-lg p-6 shadow-[6px_6px_0_0_#000]"
-            >
-              <div className="flex items-center justify-between">
-                <div>
-                  <div className="text-sm text-muted-foreground">
-                    Order Number
-                  </div>
-                  <div className="text-lg font-medium">{order.orderNumber}</div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <ReceiptIcon className="size-5" />
-                  <span className="font-medium">
-                    {formatCents(order.totalCents, order.currency)}
-                  </span>
-                </div>
-              </div>
+          {orders.map((order) => {
+            // Prefer server-authoritative amounts when present; otherwise fallback.
+            const resolvedAmounts =
+              order.amounts ??
+              computeFallbackAmounts({
+                items: order.items.map((i) => ({
+                  amountSubtotalCents: i.amountSubtotalCents,
+                  amountTaxCents: i.amountTaxCents
+                })),
+                totalCents: order.totalCents
+              });
 
-              <div className="mt-6">
-                <div className="text-sm text-muted-foreground mb-2">Items</div>
-                <ul className="space-y-2">
-                  {order.items.map((item) => (
-                    <li
-                      key={`${order.orderId}-${item.productId}`}
-                      className="border border-black border-dashed rounded p-4 flex items-center justify-between"
-                    >
-                      <div className="flex-1">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-sm text-muted-foreground">
-                          Qty {item.quantity} •{' '}
-                          {formatCents(item.unitAmountCents, order.currency)}
-                        </div>
-                        {item.returnsAcceptedThroughISO ? (
-                          <div className="text-xs mt-1">
-                            Return by{' '}
-                            {new Date(
-                              item.returnsAcceptedThroughISO
-                            ).toLocaleDateString()}
+            const {
+              subtotalCents,
+              shippingTotalCents,
+              discountTotalCents,
+              taxTotalCents,
+              totalCents
+            } = resolvedAmounts;
+
+            return (
+              <div
+                key={order.orderId}
+                className="border border-black bg-white rounded-lg p-6 shadow-[6px_6px_0_0_#000]"
+              >
+                {/* Header: order number + grand total */}
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm text-muted-foreground">
+                      Order Number
+                    </div>
+                    <div className="text-lg font-medium">
+                      {order.orderNumber}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <ReceiptIcon className="size-5" />
+                    <span className="font-medium">
+                      {formatCents(order.totalCents, order.currency)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Items */}
+                <div className="mt-6">
+                  <div className="text-sm text-muted-foreground mb-2">
+                    Items
+                  </div>
+                  <ul className="space-y-2">
+                    {order.items.map((item) => (
+                      <li
+                        key={`${order.orderId}-${item.productId}`}
+                        className="border border-black border-dashed rounded p-4 flex items-center justify-between"
+                      >
+                        <div className="flex-1">
+                          <div className="font-medium">{item.name}</div>
+                          <div className="text-sm text-muted-foreground">
+                            Qty {item.quantity} •{' '}
+                            {formatCents(item.unitAmountCents, order.currency)}
                           </div>
-                        ) : null}
-                      </div>
-                      <div className="ml-4 font-medium">
-                        {formatCents(item.amountSubtotalCents, order.currency)}
-                      </div>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+                          {item.returnsAcceptedThroughISO ? (
+                            <div className="text-xs mt-1">
+                              Return by{' '}
+                              {new Date(
+                                item.returnsAcceptedThroughISO
+                              ).toLocaleDateString()}
+                            </div>
+                          ) : null}
+                        </div>
+                        <div className="ml-4 font-medium">
+                          {formatCents(
+                            item.amountSubtotalCents,
+                            order.currency
+                          )}
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
 
-              {order.shipping && order.shipping.line1 ? (
-                <div className="mt-6 border border-black rounded p-4">
-                  <div className="text-sm text-muted-foreground">
-                    Shipping to
+                {/* Totals (Subtotal / Shipping / Tax / Discount / Total) */}
+                <div className="mt-6 border border-black rounded p-4 bg-[#F9F9F7]">
+                  <div className="text-sm text-muted-foreground mb-1">
+                    Summary
                   </div>
-                  {order.shipping.name ? (
-                    <div className="font-medium">{order.shipping.name}</div>
+
+                  <MoneyRow
+                    label="Subtotal"
+                    amountCents={subtotalCents}
+                    currency={order.currency}
+                  />
+
+                  <MoneyRow
+                    label="Shipping"
+                    amountCents={shippingTotalCents}
+                    currency={order.currency}
+                  />
+
+                  <MoneyRow
+                    label="Tax"
+                    amountCents={taxTotalCents}
+                    currency={order.currency}
+                  />
+
+                  {/* Display discount as a negative line when present */}
+                  {discountTotalCents > 0 ? (
+                    <MoneyRow
+                      label="Discount"
+                      amountCents={-discountTotalCents}
+                      currency={order.currency}
+                    />
                   ) : null}
-                  <div className="text-sm mt-1">
-                    {order.shipping.line1}
-                    {order.shipping.line2 ? (
-                      <>
-                        <br />
-                        {order.shipping.line2}
-                      </>
-                    ) : null}
-                    {order.shipping.city && order.shipping.state ? (
-                      <>
-                        <br />
-                        {order.shipping.city}, {order.shipping.state}{' '}
-                        {order.shipping.postalCode || ''}
-                      </>
-                    ) : null}
-                    {order.shipping.country ? (
-                      <>
-                        <br />
-                        {order.shipping.country}
-                      </>
-                    ) : null}
+
+                  <div className="border-t mt-2 pt-2">
+                    <MoneyRow
+                      label="Total"
+                      amountCents={totalCents}
+                      currency={order.currency}
+                      emph
+                    />
                   </div>
                 </div>
-              ) : null}
 
-              {order.returnsAcceptedThroughISO ? (
-                <div className="mt-6 border border-black border-dashed rounded p-4">
-                  <div className="text-sm text-muted-foreground">
-                    Returns accepted through
+                {/* Shipping address (if captured) */}
+                {order.shipping && order.shipping.line1 ? (
+                  <div className="mt-6 border border-black rounded p-4">
+                    <div className="text-sm text-muted-foreground">
+                      Shipping to
+                    </div>
+                    {order.shipping.name ? (
+                      <div className="font-medium">{order.shipping.name}</div>
+                    ) : null}
+                    <div className="text-sm mt-1">
+                      {order.shipping.line1}
+                      {order.shipping.line2 ? (
+                        <>
+                          <br />
+                          {order.shipping.line2}
+                        </>
+                      ) : null}
+                      {order.shipping.city && order.shipping.state ? (
+                        <>
+                          <br />
+                          {order.shipping.city}, {order.shipping.state}{' '}
+                          {order.shipping.postalCode || ''}
+                        </>
+                      ) : null}
+                      {order.shipping.country ? (
+                        <>
+                          <br />
+                          {order.shipping.country}
+                        </>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="font-medium">
-                    {new Date(
-                      order.returnsAcceptedThroughISO
-                    ).toLocaleDateString()}
-                  </div>
-                </div>
-              ) : null}
+                ) : null}
 
-              <div className="mt-6 flex flex-wrap gap-3">
-                <Link
-                  prefetch
-                  href="/orders"
-                  className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
-                >
-                  View all orders
-                </Link>
-                {order.tenantSlug ? (
+                {/* Returns cutoff */}
+                {order.returnsAcceptedThroughISO ? (
+                  <div className="mt-6 border border-black border-dashed rounded p-4">
+                    <div className="text-sm text-muted-foreground">
+                      Returns accepted through
+                    </div>
+                    <div className="font-medium">
+                      {new Date(
+                        order.returnsAcceptedThroughISO
+                      ).toLocaleDateString()}
+                    </div>
+                  </div>
+                ) : null}
+
+                {/* CTAs */}
+                <div className="mt-6 flex flex-wrap gap-3">
                   <Link
                     prefetch
-                    href={generateTenantURL(order.tenantSlug)}
+                    href="/orders"
                     className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
                   >
-                    Visit seller
+                    View all orders
                   </Link>
-                ) : null}
-                <Link
-                  prefetch
-                  href="/"
-                  className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
-                >
-                  Continue shopping
-                </Link>
+                  {order.tenantSlug ? (
+                    <Link
+                      prefetch
+                      href={generateTenantURL(order.tenantSlug)}
+                      className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
+                    >
+                      Visit seller
+                    </Link>
+                  ) : null}
+                  <Link
+                    prefetch
+                    href="/"
+                    className="px-4 py-2 bg-white border border-black rounded shadow-[4px_4px_0_0_#000] font-medium"
+                  >
+                    Continue shopping
+                  </Link>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </section>
     </div>

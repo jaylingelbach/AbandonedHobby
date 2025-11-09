@@ -5,6 +5,7 @@ import config from '@/payload.config';
 import { ShippingAddress } from '@/modules/orders/types';
 import { OrderItem } from './types';
 import { formatCurrency } from '@/lib/utils';
+import type { PublicAmountsDTO } from '@/modules/orders/types';
 
 export const runtime = 'nodejs';
 
@@ -199,6 +200,62 @@ function drawItemsTable(
   return cursorY;
 }
 
+function readPublicAmountsFromOrderDoc(
+  order: Record<string, unknown>
+): PublicAmountsDTO | undefined {
+  const a = order?.amounts as Record<string, unknown> | undefined;
+  if (!a) return undefined;
+  const getInt = (v: unknown) =>
+    Number.isInteger(v) && (v as number) >= 0 ? (v as number) : 0;
+  return {
+    subtotalCents: getInt(a.subtotalCents),
+    shippingTotalCents: getInt(a.shippingTotalCents),
+    discountTotalCents: getInt(a.discountTotalCents),
+    taxTotalCents: getInt(a.taxTotalCents),
+    totalCents: getInt((order as { total?: number }).total)
+  };
+}
+
+// Fallback when order.amounts is missing
+function buildPublicAmountsFallbackFromItems(
+  order: Record<string, unknown>
+): PublicAmountsDTO {
+  const items = Array.isArray(order.items) ? order.items : [];
+  const toInt = (n: unknown) => (Number.isInteger(n) ? (n as number) : 0);
+
+  const subtotalCents = items.reduce((sum, it) => {
+    const qty =
+      Number.isInteger(it?.quantity) && it.quantity > 0 ? it.quantity : 1;
+    const unit = toInt(it?.unitAmount);
+    const sub = Number.isInteger(it?.amountSubtotal)
+      ? it.amountSubtotal
+      : unit * qty;
+    return sum + Math.max(0, sub);
+  }, 0);
+
+  const taxTotalCents = items.reduce(
+    (sum, it) => sum + Math.max(0, toInt(it?.amountTax)),
+    0
+  );
+
+  // Prefer explicit per-line shipping snapshot if you keep it
+  const shippingTotalCents = items.reduce(
+    (sum, it) => sum + Math.max(0, toInt(it?.shippingSubtotalCents)),
+    0
+  );
+
+  const discountTotalCents = 0; // unknown without amounts block
+  const totalCents = toInt((order as { total?: number }).total);
+
+  return {
+    subtotalCents,
+    shippingTotalCents,
+    discountTotalCents,
+    taxTotalCents,
+    totalCents
+  };
+}
+
 /**
  * Generate a downloadable PDF invoice for the order identified by the route parameter `orderId`.
  *
@@ -242,6 +299,16 @@ export async function GET(
   if (!order) {
     return new NextResponse('Order not found', { status: 404 });
   }
+
+  const currency = String(order.currency || 'USD').toUpperCase();
+
+  const amounts: PublicAmountsDTO =
+    readPublicAmountsFromOrderDoc(
+      order as unknown as Record<string, unknown>
+    ) ??
+    buildPublicAmountsFallbackFromItems(
+      order as unknown as Record<string, unknown>
+    );
 
   let seller;
   try {
@@ -425,55 +492,119 @@ export async function GET(
     doc.y,
     innerW,
     rows,
-    order.currency
+    currency
   );
   y = afterTableY + 16;
   doc.x = innerX;
   doc.y = y;
 
-  // ---------- Totals card ----------
-  const totalsCardW = 280;
-  const totalsX = innerX + innerW - totalsCardW;
-  const totalsY = y;
+  // ---------- Totals (detailed) ----------
+  const cardW = 300;
+  const cardX = innerX + innerW - cardW;
+  const cardY = y;
 
-  // Card background + border
-  doc
-    .save()
-    .rect(totalsX, totalsY, totalsCardW, 88)
-    .fill(BRAND.muted)
-    .restore();
+  const lineH = 18;
+  const needsDiscount = (amounts.discountTotalCents ?? 0) > 0;
+  const rowsCount = 4 + (needsDiscount ? 1 : 0) + 1; // Subtotal, Shipping, Tax, [Discount], divider, Total
+  const cardH = 16 + rowsCount * lineH + 8;
+
+  // Background + border
+  doc.save().rect(cardX, cardY, cardW, cardH).fill(BRAND.muted).restore();
   doc
     .lineWidth(0.5)
     .strokeColor(TABLE.border)
-    .rect(totalsX, totalsY, totalsCardW, 88)
+    .rect(cardX, cardY, cardW, cardH)
     .stroke();
 
-  // Totals text
+  let ty = cardY + 12;
+  const labelW = Math.floor(cardW * 0.55);
+  const valueW = cardW - labelW - 24;
+  const labelX = cardX + 12;
+  const valueX = labelX + labelW;
+
+  const rightText = (text: string) =>
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor(BRAND.text)
+      .text(text, valueX, ty, {
+        width: valueW,
+        align: 'right'
+      });
+  const leftMuted = (text: string) =>
+    doc
+      .font('Helvetica')
+      .fontSize(10)
+      .fillColor(BRAND.subtext)
+      .text(text, labelX, ty, {
+        width: labelW
+      });
+
+  // Subtotal
+  leftMuted('Subtotal');
+  rightText(formatCurrency((amounts.subtotalCents ?? 0) / 100, currency));
+  ty += lineH;
+
+  // Shipping
+  leftMuted('Shipping');
+  rightText(formatCurrency((amounts.shippingTotalCents ?? 0) / 100, currency));
+  ty += lineH;
+
+  // Tax
+  leftMuted('Tax');
+  rightText(formatCurrency((amounts.taxTotalCents ?? 0) / 100, currency));
+  ty += lineH;
+
+  // Discount (optional, negative)
+  if (needsDiscount) {
+    leftMuted('Discount');
+    rightText(
+      formatCurrency(-(amounts.discountTotalCents ?? 0) / 100, currency)
+    );
+    ty += lineH;
+  }
+
+  // Divider
   doc
-    .font('Helvetica')
-    .fontSize(10)
-    .fillColor(BRAND.subtext)
-    .text('Total', totalsX + 16, totalsY + 14);
+    .moveTo(cardX + 12, ty + 4)
+    .lineTo(cardX + cardW - 12, ty + 4)
+    .strokeColor(TABLE.border)
+    .lineWidth(0.5)
+    .stroke();
+  ty += lineH;
+
+  // Total
   doc
     .font('Helvetica-Bold')
-    .fontSize(16)
+    .fontSize(12)
+    .fillColor(BRAND.text)
+    .text('Total', labelX, ty, {
+      width: labelW
+    });
+  doc
+    .font('Helvetica-Bold')
+    .fontSize(14)
     .fillColor(BRAND.text)
     .text(
-      formatCurrency(order.total / 100, order.currency),
-      totalsX + 16,
-      totalsY + 30
+      formatCurrency((amounts.totalCents ?? 0) / 100, currency),
+      valueX,
+      ty,
+      {
+        width: valueW,
+        align: 'right'
+      }
     );
 
   if (order.returnsAcceptedThrough) {
     doc
       .font('Helvetica')
-      .fontSize(10)
+      .fontSize(9)
       .fillColor(BRAND.subtext)
       .text(
         `Returns accepted through ${new Date(order.returnsAcceptedThrough).toLocaleDateString()}`,
-        totalsX + 16,
-        totalsY + 56,
-        { width: totalsCardW - 32 }
+        cardX + 12,
+        cardY + cardH - 16,
+        { width: cardW - 24 }
       );
   }
 

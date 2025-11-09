@@ -1,3 +1,5 @@
+import { PublicAmountsDTO } from '@/modules/orders/types';
+
 export type OrderItem = {
   id?: string;
   product?: string | { id?: string };
@@ -30,4 +32,5 @@ export type OrderForBuyer = {
     country?: string | null;
   } | null;
   returnsAcceptedThroughISO?: string | null;
+  amounts: PublicAmountsDTO;
 };
