@@ -2,6 +2,17 @@ import Stripe from 'stripe';
 
 import type { ExpandedLineItem } from './guards';
 
+function computeLineTotal(line: {
+  quantity?: number | null;
+  amount_total?: number | null;
+  price: { unit_amount?: number | null };
+}): number {
+  const qty = typeof line.quantity === 'number' ? line.quantity : 1;
+  return typeof line.amount_total === 'number'
+    ? line.amount_total
+    : (line.price.unit_amount ?? 0) * qty;
+}
+
 /**
  * Compute the total charged amount (in integer cents) across a set of Stripe line items.
  *
@@ -26,12 +37,17 @@ import type { ExpandedLineItem } from './guards';
  */
 export function sumAmountTotalCents(lines: Stripe.LineItem[]): number {
   return lines.reduce((sum, line) => {
-    const qty = typeof line.quantity === 'number' ? line.quantity : 1;
-    const lineTotal =
-      typeof line.amount_total === 'number'
-        ? line.amount_total
-        : (line.price?.unit_amount ?? 0) * qty;
-    return sum + lineTotal;
+    if (!line.price) return sum;
+    return (
+      sum +
+      computeLineTotal(
+        line as {
+          quantity?: number | null;
+          amount_total?: number | null;
+          price: { unit_amount?: number | null };
+        }
+      )
+    );
   }, 0);
 }
 
@@ -63,11 +79,7 @@ export function buildReceiptLineItems(lines: ExpandedLineItem[]) {
   return lines.map((line) => {
     const product = line.price.product;
     const description = product?.name ?? line.description ?? 'Item';
-    const qty = typeof line.quantity === 'number' ? line.quantity : 1;
-    const amount =
-      typeof line.amount_total === 'number'
-        ? line.amount_total
-        : (line.price.unit_amount ?? 0) * qty;
+    const amount = computeLineTotal(line);
 
     return {
       description,
