@@ -32,5 +32,5 @@ export type OrderForBuyer = {
     country?: string | null;
   } | null;
   returnsAcceptedThroughISO?: string | null;
-  amounts: PublicAmountsDTO;
+  amounts?: PublicAmountsDTO;
 };

@@ -1,12 +1,15 @@
 import Stripe from 'stripe';
 
 import type { ExpandedLineItem } from './guards';
+import { formatCents } from '@/lib/utils';
 
-function computeLineTotal(line: {
+type LineItemForTotal = {
   quantity?: number | null;
   amount_total?: number | null;
   price: { unit_amount?: number | null };
-}): number {
+};
+
+function computeLineTotal(line: LineItemForTotal): number {
   const qty = typeof line.quantity === 'number' ? line.quantity : 1;
   return typeof line.amount_total === 'number'
     ? line.amount_total
@@ -38,16 +41,7 @@ function computeLineTotal(line: {
 export function sumAmountTotalCents(lines: Stripe.LineItem[]): number {
   return lines.reduce((sum, line) => {
     if (!line.price) return sum;
-    return (
-      sum +
-      computeLineTotal(
-        line as {
-          quantity?: number | null;
-          amount_total?: number | null;
-          price: { unit_amount?: number | null };
-        }
-      )
-    );
+    return sum + computeLineTotal(line as LineItemForTotal);
   }, 0);
 }
 
@@ -83,7 +77,7 @@ export function buildReceiptLineItems(lines: ExpandedLineItem[]) {
 
     return {
       description,
-      amount: `$${(amount / 100).toFixed(2)}`
+      amount: formatCents(amount, 'USD')
     };
   });
 }
