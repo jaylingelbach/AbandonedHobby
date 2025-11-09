@@ -352,25 +352,27 @@ export function mapOrderToSummary(orderDocument: unknown): OrderSummaryDTO {
 }
 
 /** Reads the public amounts group from a raw order doc. */
+/** Reads the public amounts group from a raw order doc (tolerant). */
 function readPublicAmountsFromOrder(orderDocument: unknown) {
   if (!isObjectRecord(orderDocument)) return undefined;
   const raw = (orderDocument as Record<string, unknown>).amounts;
   if (!isObjectRecord(raw)) return undefined;
 
-  const subtotalCents = assertNonNegativeInt(
-    raw.subtotalCents,
+  // Treat missing fields as "absent", not fatal
+  const subtotalCents = readNonNegativeInt(
+    (raw as Record<string, unknown>).subtotalCents,
     'order.amounts.subtotalCents'
   );
-  const shippingTotalCents = assertNonNegativeInt(
-    raw.shippingTotalCents,
+  const shippingTotalCents = readNonNegativeInt(
+    (raw as Record<string, unknown>).shippingTotalCents,
     'order.amounts.shippingTotalCents'
   );
-  const discountTotalCents = assertNonNegativeInt(
-    raw.discountTotalCents,
+  const discountTotalCents = readNonNegativeInt(
+    (raw as Record<string, unknown>).discountTotalCents,
     'order.amounts.discountTotalCents'
   );
-  const taxTotalCents = assertNonNegativeInt(
-    raw.taxTotalCents,
+  const taxTotalCents = readNonNegativeInt(
+    (raw as Record<string, unknown>).taxTotalCents,
     'order.amounts.taxTotalCents'
   );
 
@@ -380,11 +382,22 @@ function readPublicAmountsFromOrder(orderDocument: unknown) {
     'order.total'
   );
 
+  // If *all* optional fields are missing, treat the block as absent
+  if (
+    subtotalCents === undefined &&
+    shippingTotalCents === undefined &&
+    discountTotalCents === undefined &&
+    taxTotalCents === undefined
+  ) {
+    return undefined;
+  }
+
+  // Normalize missing pieces to 0 so callers don't branch on undefined
   return {
-    subtotalCents,
-    shippingTotalCents,
-    discountTotalCents,
-    taxTotalCents,
+    subtotalCents: subtotalCents ?? 0,
+    shippingTotalCents: shippingTotalCents ?? 0,
+    discountTotalCents: discountTotalCents ?? 0,
+    taxTotalCents: taxTotalCents ?? 0,
     totalCents
   } as const;
 }
@@ -464,7 +477,10 @@ export function mapOrderToConfirmation(
   const status = typeof statusRaw === 'string' ? statusRaw : undefined;
 
   // Attach amounts block (server-authoritative)
-  const amounts = readPublicAmountsFromOrder(orderDocument);
+  const amounts =
+    readPublicAmountsFromOrder(orderDocument) ??
+    // optional: reuse your fallback if you want confirmations to always show the breakdown
+    buildPublicAmountsFallback(orderDocument as unknown as Order);
 
   // Build return, conditionally adding optional fields to avoid `undefined` serialization
   const base: Omit<OrderConfirmationDTO, 'status'> = {
