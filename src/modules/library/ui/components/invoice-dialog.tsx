@@ -103,9 +103,18 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
 
   // Amounts: prefer server-provided, otherwise compute a sane fallback
   const amounts: PublicAmountsDTO = useMemo(() => {
-    const maybe = (order as InvoiceOrder | null)?.amounts;
-    if (maybe) return maybe;
-    return computeFallbackAmounts(order as OrderForBuyer, lineItems);
+    const invoiceOrder = order as InvoiceOrder | null;
+    if (!invoiceOrder) {
+      return {
+        subtotalCents: 0,
+        shippingTotalCents: 0,
+        discountTotalCents: 0,
+        taxTotalCents: 0,
+        totalCents: 0
+      };
+    }
+    if (invoiceOrder.amounts) return invoiceOrder.amounts;
+    return computeFallbackAmounts(invoiceOrder, lineItems);
   }, [order, lineItems]);
 
   async function downloadInvoice(orderId: string) {
