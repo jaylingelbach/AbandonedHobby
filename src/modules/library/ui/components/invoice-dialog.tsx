@@ -37,7 +37,7 @@ function computeFallbackAmounts(
     const unit = li.unitAmount ?? 0;
     const sub =
       typeof li.amountSubtotal === 'number' ? li.amountSubtotal : unit * qty;
-    return sum + Math.max(0, sub | 0);
+    return sum + Math.max(0, Math.floor(sub));
   }, 0);
 
   const taxTotalCents = items.reduce((sum, li) => {
