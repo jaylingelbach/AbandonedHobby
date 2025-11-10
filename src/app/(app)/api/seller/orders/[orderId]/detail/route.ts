@@ -93,7 +93,10 @@ export async function GET(
             1,
             Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
           );
-          const shippingMode = (raw as { shippingMode?: unknown }).shippingMode;
+          const rawShippingMode = (raw as { shippingMode?: unknown })
+            .shippingMode;
+          const shippingMode =
+            typeof rawShippingMode === 'string' ? rawShippingMode : null;
           const perUnit = toIntCents(
             (raw as { shippingFeeCentsPerUnit?: unknown })
               .shippingFeeCentsPerUnit
@@ -116,9 +119,11 @@ export async function GET(
             quantity,
             unitAmountCents,
             amountTotalCents,
-            shippingMode: zShippingMode ? shippingMode : 'free',
-            shippingFeeCentsPerUnit: perUnit || null,
-            shippingSubtotalCents: shipSubtotal || null
+            shippingMode: zShippingMode.safeParse(shippingMode).success
+              ? shippingMode
+              : 'free',
+            shippingFeeCentsPerUnit: perUnit ?? null,
+            shippingSubtotalCents: shipSubtotal ?? null
           };
         })
       : [];

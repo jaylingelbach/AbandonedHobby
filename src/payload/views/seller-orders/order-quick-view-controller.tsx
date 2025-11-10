@@ -270,8 +270,7 @@ export default function OrderQuickViewController() {
                             <th>Item</th>
                             <th className="ah-col--qty">Qty</th>
                             <th className="ah-col--unit">Unit</th>
-                            <th className="ah-col--ship">Shipping</th>{' '}
-                            {/* NEW */}
+                            <th className="ah-col--ship">Shipping</th>
                             <th className="ah-col--line">Total</th>
                           </tr>
                         </thead>

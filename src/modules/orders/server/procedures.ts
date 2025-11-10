@@ -76,7 +76,7 @@ export const ordersRouter = createTRPCRouter({
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO | null> => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-      const userId = ctx.session.user?.id;
+      const userId = user.id;
 
       const res = (await ctx.db.find({
         collection: 'orders',
