@@ -1,6 +1,6 @@
 import type Stripe from 'stripe';
 import { OrderItem } from '../library/ui/components/types';
-import { assertPositiveInt } from '../orders/utils';
+import { assertPositiveInt } from '../orders/server/utils';
 import {
   EngineOptions,
   LineSelection,

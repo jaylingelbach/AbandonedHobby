@@ -33,6 +33,8 @@ export type OrderItemOutput = {
 
 /**
  * Convert one expanded Stripe line item into our canonical OrderItem shape.
+ * This is a snapshot of product’s relevant fields into the order at the time of purchase,
+ * so the order stays accurate even if the product later changes in the catalog.
  * Uses `productMap` to pull refundPolicy (and optionally thumbnail later if desired).
  */
 export function toOrderItemFromLine(
@@ -109,6 +111,8 @@ export function toOrderItemFromLine(
 
 /**
  * Build all order items from expanded Stripe line items.
+ * This maps the expanded Stripe lines through toOrderItemFromLine
+ * to produce an array of snapshotted items for the order.
  */
 export function buildOrderItems(
   lines: ExpandedLineItem[],
@@ -119,6 +123,7 @@ export function buildOrderItems(
 
 /**
  * Compute the earliest returns cutoff across all items (if any).
+ * Uses the per-line snapshots of returns windows (returnsAcceptedThrough) to compute the order-level earliest cutoff.
  */
 export function earliestReturnsCutoffISO(
   items: OrderItemOutput[]

@@ -12,14 +12,7 @@ export interface OrderItemCore {
   shippingSubtotalCents: number; // per-line, quantity-applied
 }
 
-export interface OrderAmounts {
-  itemsSubtotalCents: number;
-  shippingTotalCents: number;
-  discountTotalCents: number;
-  taxTotalCents: number;
-  totalCents: number; // itemsSubtotalCents + shippingTotalCents - discountTotalCents + taxTotalCents
-}
-
+export type OrderAmounts = PublicAmountsDTO;
 export interface OrderForBuyer {
   items: OrderItemCore[];
   amounts: OrderAmounts;
@@ -68,6 +61,7 @@ export type OrderItemDTO = {
   amountTotalCents: number; // total for this line (cents)
   thumbnailUrl?: string | null; // optional if you snapshot it
   returnsAcceptedThroughISO: string | null;
+  shippingSubtotalCents?: number | null;
 };
 
 export type OrderConfirmationDTO = {
@@ -82,6 +76,7 @@ export type OrderConfirmationDTO = {
   items: OrderItemDTO[]; // full receipt lines
   shipping?: ShippingAddress;
   status?: string;
+  amounts?: PublicAmountsDTO;
 };
 
 export type OrderSummaryDTO = {
@@ -139,6 +134,14 @@ export type SidebarShippingLine = {
   label: string;
   amountCents: number; // per-item, quantity=1 in your cart
   mode: ShippingMode;
+};
+
+export type PublicAmountsDTO = {
+  subtotalCents: number;
+  shippingTotalCents: number;
+  discountTotalCents: number;
+  taxTotalCents: number;
+  totalCents: number;
 };
 
 export type OrderSummaryCardProps = DollarsVariant | CentsVariant;
