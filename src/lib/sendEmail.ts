@@ -23,6 +23,9 @@ type SendSaleNotificationOptions = {
   receiptId: string;
   orderDate: string;
   lineItems: LineItem[];
+  receipt_details_v2?: ReceiptLineV2[];
+  amounts?: AmountsModel;
+  fees?: FeesModel;
   total: string;
   item_summary: string;
   shipping_name: string;
@@ -44,6 +47,8 @@ type SendOrderConfirmationOptions = {
   receiptId: string;
   orderDate: string;
   lineItems: LineItem[];
+  receipt_details_v2?: ReceiptLineV2[];
+  amounts?: AmountsModel;
   total: string;
   item_summary: string;
   support_url: string;
@@ -60,6 +65,34 @@ type SendWelcomeOptions = {
   support_url: string;
   support_email: string;
   verification_url: string;
+};
+
+type ReceiptLineV2 = {
+  name: string;
+  qty: number;
+  unit_amount?: string; // e.g. "$25.00"
+  ship_mode?: 'free' | 'flat' | 'calculated';
+  ship_per_unit?: string; // e.g. "$5.00"
+  ship_subtotal?: string; // e.g. "$10.00"
+  line_total?: string; // e.g. "$50.00"
+  // Convenience booleans for Mustachio
+  is_free?: boolean;
+  is_flat?: boolean;
+  is_calculated?: boolean;
+};
+
+type AmountsModel = {
+  items_subtotal: string;
+  shipping_total: string;
+  discount_total?: string; // omit/empty when $0
+  tax_total?: string; // omit/empty when $0
+  gross_total: string;
+};
+
+type FeesModel = {
+  platform_fee?: string; // seller email only
+  stripe_fee?: string; // seller email only
+  net_payout?: string; // seller email only
 };
 
 export type TrackingEmailVariant = 'shipped' | 'tracking-updated';
@@ -97,18 +130,25 @@ export const sendWelcomeEmailTemplate = async ({
   }
 };
 
-export const sendOrderConfirmationEmail = async ({
-  to,
-  name,
-  creditCardStatement,
-  creditCardBrand,
-  creditCardLast4,
-  receiptId,
-  orderDate,
-  lineItems,
-  total,
-  item_summary
-}: SendOrderConfirmationOptions) => {
+export const sendOrderConfirmationEmail = async (
+  opts: SendOrderConfirmationOptions
+) => {
+  const {
+    to,
+    name,
+    creditCardStatement,
+    creditCardBrand,
+    creditCardLast4,
+    receiptId,
+    orderDate,
+    lineItems,
+    total,
+    item_summary,
+    support_url,
+    receipt_details_v2,
+    amounts
+  } = opts;
+
   try {
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
@@ -122,10 +162,12 @@ export const sendOrderConfirmationEmail = async ({
         receipt_id: receiptId,
         date: orderDate,
         total,
-        receipt_details: lineItems,
-        support_url: process.env.SUPPORT_URL,
+        item_summary,
         product_name: 'Abandoned Hobby',
-        item_summary
+        support_url: support_url ?? process.env.SUPPORT_URL,
+        receipt_details: lineItems,
+        receipt_details_v2,
+        amounts
       }
     });
   } catch (error) {
@@ -136,40 +178,50 @@ export const sendOrderConfirmationEmail = async ({
   }
 };
 
-export const sendSaleNotificationEmail = async ({
-  to,
-  sellerName,
-  receiptId,
-  orderDate,
-  lineItems,
-  total,
-  item_summary,
-  shipping_name,
-  shipping_address_line1,
-  shipping_address_line2,
-  shipping_city,
-  shipping_state,
-  shipping_zip,
-  shipping_country,
-  support_url
-}: SendSaleNotificationOptions) => {
-  const model = {
+export const sendSaleNotificationEmail = async (
+  opts: SendSaleNotificationOptions
+) => {
+  const {
+    to,
     sellerName,
-    name: sellerName,
-    receipt_id: receiptId,
-    date: orderDate,
+    receiptId,
+    orderDate,
+    lineItems,
     total,
-    receipt_details: lineItems,
     item_summary,
-    support_url,
-    product_name: 'Abandoned Hobby',
     shipping_name,
     shipping_address_line1,
     shipping_address_line2,
     shipping_city,
     shipping_state,
     shipping_zip,
-    shipping_country
+    shipping_country,
+    support_url,
+    receipt_details_v2,
+    amounts,
+    fees
+  } = opts;
+
+  const model = {
+    sellerName,
+    name: sellerName,
+    receipt_id: receiptId,
+    date: orderDate,
+    total,
+    product_name: 'Abandoned Hobby',
+    item_summary,
+    support_url,
+    shipping_name,
+    shipping_address_line1,
+    shipping_address_line2,
+    shipping_city,
+    shipping_state,
+    shipping_zip,
+    shipping_country,
+    receipt_details: lineItems,
+    receipt_details_v2,
+    amounts,
+    fees
   };
 
   try {
@@ -465,4 +517,49 @@ export async function sendTrackingEmail(input: {
       `Email sending failed: ${error instanceof Error ? error.message : 'Unknown error'}`
     );
   }
+}
+
+function buildReceiptDetailsV2(
+  input: Array<{
+    name: string;
+    quantity: number;
+    unitAmountCents: number;
+    amountTotalCents: number;
+    shippingMode?: 'free' | 'flat' | 'calculated';
+    shippingFeeCentsPerUnit?: number | null;
+    shippingSubtotalCents?: number | null;
+  }>,
+  currency: string
+): ReceiptLineV2[] {
+  return input.map((it) => {
+    const shipMode = it.shippingMode ?? 'free';
+    const isFree = shipMode === 'free';
+    const isFlat = shipMode === 'flat';
+    const isCalculated = shipMode === 'calculated';
+
+    return {
+      name: it.name,
+      qty: it.quantity,
+      unit_amount:
+        it.unitAmountCents != null
+          ? formatCents(it.unitAmountCents, currency)
+          : undefined,
+      ship_mode: shipMode,
+      ship_per_unit:
+        isFlat && it.shippingFeeCentsPerUnit != null
+          ? formatCents(it.shippingFeeCentsPerUnit, currency)
+          : undefined,
+      ship_subtotal:
+        isFlat && it.shippingSubtotalCents != null
+          ? formatCents(it.shippingSubtotalCents, currency)
+          : undefined,
+      line_total:
+        it.amountTotalCents != null
+          ? formatCents(it.amountTotalCents, currency)
+          : undefined,
+      is_free: isFree,
+      is_flat: isFlat,
+      is_calculated: isCalculated
+    };
+  });
 }
