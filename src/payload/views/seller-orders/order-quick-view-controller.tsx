@@ -262,6 +262,7 @@ export default function OrderQuickViewController() {
                           <col />
                           <col className="ah-col--qty" />
                           <col className="ah-col--unit" />
+                          <col className="ah-col--ship" /> {/* NEW */}
                           <col className="ah-col--line" />
                         </colgroup>
                         <thead>
@@ -269,6 +270,7 @@ export default function OrderQuickViewController() {
                             <th>Item</th>
                             <th className="ah-col--qty">Qty</th>
                             <th className="ah-col--unit">Unit</th>
+                            <th className="ah-col--ship">Shipping</th>
                             <th className="ah-col--line">Total</th>
                           </tr>
                         </thead>
@@ -278,7 +280,6 @@ export default function OrderQuickViewController() {
                             const isCalculatedShipping =
                               item.shippingMode === 'calculated';
 
-                            // safe, non-negative integers
                             const shippingSubtotalCentsSafe = toIntCents(
                               item.shippingSubtotalCents
                             );
@@ -286,7 +287,6 @@ export default function OrderQuickViewController() {
                               item.shippingFeeCentsPerUnit
                             );
 
-                            // only show the per-unit × qty hint when flat and quantity > 1
                             const flatPerUnitHint =
                               isFlatShipping && item.quantity > 1
                                 ? ` (${item.quantity} × ${formatCents(perUnitCentsSafe, currency)})`
@@ -299,7 +299,7 @@ export default function OrderQuickViewController() {
                                 : `${detail.id}:${index}`;
 
                             return (
-                              <Fragment key={`${baseKey}`}>
+                              <Fragment key={baseKey}>
                                 {/* Primary item row */}
                                 <tr>
                                   <td>{item.nameSnapshot}</td>
@@ -312,6 +312,20 @@ export default function OrderQuickViewController() {
                                       currency
                                     )}
                                   </td>
+
+                                  {/* NEW: per-line shipping cell */}
+                                  <td className="ah-col--ship">
+                                    {isFlatShipping ? (
+                                      `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
+                                    ) : isCalculatedShipping ? (
+                                      <span title="Calculated at Stripe checkout">
+                                        —
+                                      </span>
+                                    ) : (
+                                      '—'
+                                    )}
+                                  </td>
+
                                   <td className="ah-col--line">
                                     {formatCents(
                                       item.amountTotalCents,
@@ -320,26 +334,24 @@ export default function OrderQuickViewController() {
                                   </td>
                                 </tr>
 
-                                {/* Secondary shipping row (muted) — only when it’s not free */}
-                                {(isFlatShipping || isCalculatedShipping) && (
+                                {/* Keep a muted explanatory row ONLY for calculated */}
+                                {isCalculatedShipping && (
                                   <tr
                                     className="text-xs text-muted-foreground"
                                     key={`${baseKey}-ship`}
                                   >
-                                    <td colSpan={4}>
+                                    <td colSpan={5}>
                                       <span className="font-medium">
                                         Shipping:
                                       </span>{' '}
-                                      {isFlatShipping
-                                        ? `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
-                                        : 'Calculated at Stripe checkout'}
+                                      Calculated at Stripe checkout
                                     </td>
                                   </tr>
                                 )}
 
-                                {/* Optional divider row for readability */}
+                                {/* Optional divider row */}
                                 <tr aria-hidden key={`${baseKey}-sep`}>
-                                  <td colSpan={4} className="py-1" />
+                                  <td colSpan={5} className="py-1" />
                                 </tr>
                               </Fragment>
                             );
@@ -374,16 +386,18 @@ export default function OrderQuickViewController() {
                             )}
                           </span>
                         </div>
-                        <div className="ah-totals__row">
-                          <span>Discounts</span>
-                          <span className="ah-money">
-                            −
-                            {formatCents(
-                              detail.amounts.discountCents,
-                              currency
-                            )}
-                          </span>
-                        </div>
+                        {detail.amounts.discountCents > 0 ? (
+                          <div className="ah-totals__row">
+                            <span>Discounts</span>
+                            <span className="ah-money">
+                              −
+                              {formatCents(
+                                detail.amounts.discountCents,
+                                currency
+                              )}
+                            </span>
+                          </div>
+                        ) : null}
                         <div className="ah-totals__row">
                           <span>Tax</span>
                           <span className="ah-money">

@@ -76,7 +76,7 @@ export const ordersRouter = createTRPCRouter({
     .query(async ({ ctx, input }): Promise<OrderSummaryDTO | null> => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
-      const userId = ctx.session.user?.id;
+      const userId = user.id;
 
       const res = (await ctx.db.find({
         collection: 'orders',
@@ -99,7 +99,7 @@ export const ordersRouter = createTRPCRouter({
 
       const items = Array.isArray(doc.items) ? doc.items : [];
 
-      // 📌 Per-product quantity for the requested productId
+      // Per-product quantity for the requested productId
       const quantityForProduct =
         items.reduce<number>((sum, item) => {
           const rel =
@@ -368,7 +368,7 @@ export const ordersRouter = createTRPCRouter({
       if (!session?.user?.id)
         return { items: [], total: 0, page: 1, pageSize: input.pageSize };
 
-      // Optional: assert user belongs to tenantId (if you store it in user.tenants[])
+      // Optional: assert user belongs to tenantId
       // (defense in depth; your access layer should already enforce read scope)
 
       const where = buildSellerOrdersWhere(input);

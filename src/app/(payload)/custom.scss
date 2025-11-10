@@ -83,10 +83,24 @@
     font-variant-numeric: tabular-nums;
     white-space: nowrap;
   }
-  /* Right-align numeric money columns (GLOBAL) */
-  .ah-col--items,
-  .ah-col--total {
+  /* Right-align numeric headers so they line up with the body cells */
+  .ah-table thead th.ah-col--qty,
+  .ah-table thead th.ah-col--unit,
+  .ah-table thead th.ah-col--ship,
+  .ah-table thead th.ah-col--line {
     text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* Right-align numeric money columns (GLOBAL) */
+  .ah-col--qty,
+  .ah-col--unit,
+  .ah-col--ship,
+  .ah-col--line {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   /* Row hover (gentle, theme-aware) */
@@ -976,6 +990,10 @@
   } /* right-align inherited */
   .ah-seller-orders .ah-table .ah-col--total {
     width: 120px;
+  }
+  .ah-seller-orders .ah-table .ah-col--ship {
+    width: 9rem;
+    text-align: right;
   }
   .ah-seller-orders .ah-table .ah-col--status {
     width: 140px;
