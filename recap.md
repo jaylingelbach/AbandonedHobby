@@ -4811,7 +4811,61 @@ src/app/(app)/api/stripe/webhooks/route.ts
 - src/payload/views/seller-orders/order-quick-view-controller.tsx
   - Add mounted flag to delay client fetch until mounted, guard renders when unmounted or missing orderId, compute safe fee fields (platformFeeCentsSafe, stripeProcessingFeeCents, netPayoutCents) and use them in UI.
 
-### Backfill Script
+# Add shipping to order confirmation view 11/09/25
 
-- src/scripts/backfill-fees-for-order.ts
-  - New script to fetch Stripe charge/paymentIntent and derive stripeFeeCents, platformFeeCents, and receiptUrl (using balance_transaction.fee_details if present), then update order amounts.\* and documents.receiptUrl in Payload with error handling.
+## Walkthrough
+
+- Introduces a PublicAmountsDTO and fallback computation for order totals, relocates and strengthens order validation/mapping into server utils, updates invoice PDF route and UI components to use computed amounts and currency, and adjusts related types and import paths across invoice, confirmation, and refunds codepaths.
+
+## New Features
+
+- Detailed totals breakdown on invoices and order confirmations (Subtotal, Shipping, Tax, optional Discount, Total)
+- Enhanced fallback amount calculations so receipts render when server totals are missing
+- Per-line shipping shown in order/invoice line items
+
+## Improvements
+
+- More accurate and consistent monetary formatting across order pages
+- Better order confirmation UX (client-side mounting, guarded polling while finalizing)
+- Cleaner, more compact receipt and invoice layouts
+
+## File changes
+
+### Types & Public DTO
+
+- src/modules/orders/types.ts, src/modules/library/ui/components/types.ts
+  - Adds PublicAmountsDTO, makes OrderAmounts an alias to it, exposes amounts on buyer-facing order types, adds shippingSubtotalCents to OrderItemDTO, and adds optional amounts to OrderConfirmationDTO.
+
+### Server-side utils (moved & enhanced)
+
+- src/modules/orders/server/utils.ts, (removed) src/modules/orders/utils.ts
+  - Removes legacy orders/utils.ts; consolidates and enhances validators, guards and mappers in server/utils.ts (adds assertString, numeric assertions, isProductObject, isTenantObject, getRelIdStrict, safeNumber, safePositiveInt) and adds readPublicAmountsFromOrder and buildPublicAmountsFallback for public amounts composition.
+
+### Invoice route / PDF generation
+
+- src/app/api/orders/[orderId]/invoice/route.ts
+  - Reads currency from order, uses readPublicAmountsFromOrder / fallback builder, passes currency to items table renderer, and renders a new dynamically-sized "Totals (detailed)" card (Subtotal, Shipping, Tax, optional Discount, Total) with aligned labels/values.
+
+### Invoice dialog (UI)
+
+- src/modules/library/ui/components/invoice-dialog.tsx
+  - Introduces local extended types, computes fallback amounts when needed, prefers server items or synthesizes fallback line, shows per-line shipping when present, and renders totals using computed PublicAmountsDTO.
+
+### Order confirmation view (UI)
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Adds client-side mount gate, replaces suspense queries with guarded useQuery, introduces MoneyRow and computeFallbackAmounts, polls safely while finalizing, and renders detailed receipts using server amounts or fallbacks.
+
+### Server procedures
+
+- src/modules/orders/server/procedures.ts
+  - Minor mapping change in getConfirmationBySession to use an explicit inline wrapper when mapping docs to DTOs (functional equivalence).
+
+### Stripe helpers
+
+- src/modules/stripe/build-order-items.ts, src/modules/stripe/line-items.ts
+  - Adds doc comments; centralizes line total logic (computeLineTotal), updates sumAmountTotalCents and adds buildReceiptLineItems.
+
+### Import adjustments
+
+- src/modules/refunds/utils.ts Updates assertPositiveInt import to the new ../orders/server/utils path.
