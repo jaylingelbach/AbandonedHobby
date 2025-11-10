@@ -14,8 +14,6 @@ export const zSellerOrderItem = z.object({
   quantity: zQuantityInt, // integer >= 1
   unitAmountCents: zCentsIntNonNegative, // >= 0
   amountTotalCents: zCentsIntNonNegative, // >= 0
-
-  // Optional shipping per line
   shippingMode: zShippingMode.optional(),
   shippingFeeCentsPerUnit: zCentsIntNonNegative.nullable().optional(),
   shippingSubtotalCents: zCentsIntNonNegative.nullable().optional()
