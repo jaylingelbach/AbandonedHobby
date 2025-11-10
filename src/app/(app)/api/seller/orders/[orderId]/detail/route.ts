@@ -122,8 +122,8 @@ export async function GET(
             shippingMode: zShippingMode.safeParse(shippingMode).success
               ? shippingMode
               : 'free',
-            shippingFeeCentsPerUnit: perUnit ?? null,
-            shippingSubtotalCents: shipSubtotal ?? null
+            shippingFeeCentsPerUnit: perUnit || null,
+            shippingSubtotalCents: shipSubtotal || null
           };
         })
       : [];

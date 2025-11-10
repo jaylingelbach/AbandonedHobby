@@ -4869,3 +4869,40 @@ src/app/(app)/api/stripe/webhooks/route.ts
 ### Import adjustments
 
 - src/modules/refunds/utils.ts Updates assertPositiveInt import to the new ../orders/server/utils path.
+
+# Add shipping order breakdown list
+
+## New Features
+
+## Walkthrough
+
+- The changes extend the seller order detail API response to include per-item shipping fields (mode, per-unit fee, and subtotal) with validation, update styling for numeric column alignment, refactor type safety in server procedures, and add a shipping column to the order breakdown UI.
+
+- Per-item shipping details now display in order information, including shipping mode, fees, and subtotals.
+- New Shipping column added to the Items table in the order breakdown view.
+
+## Style
+
+- Improved right-alignment and numeric formatting of table columns for better readability.
+
+## File changes
+
+### API Route & Validation
+
+- src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
+  - Adds shipping-related fields per order item: shippingMode (validated via zShippingMode, defaults to 'free'), shippingFeeCentsPerUnit (nullable), and shippingSubtotalCents (computed or derived). Introduces default item name fallback to 'Item'.
+
+### Global Styling
+
+- src/app/(payload)/custom.scss
+  - Right-aligns numeric columns (.qty, .unit, .ship, .line) in headers and body with tabular-nums and nowrap formatting. Adds seller orders override for .ah-col--ship column width (9rem).
+
+### Server Logic
+
+- src/modules/orders/server/procedures.ts
+  - Refactors userId derivation from ctx.session.user?.id to user.id after explicit non-undefined check; minor comment updates.
+
+### UI Component
+
+- src/payload/views/seller-orders/order-quick-view-controller.tsx
+  - Adds Shipping column to items table with per-line shipping display logic. Conditions shipping explanation row to calculated shipping only. Renders Discounts row only when discountCents > 0. Adjusts table colspan for alignment.
