@@ -1249,8 +1249,60 @@ export async function POST(req: Request) {
         }
 
         for (const recipientEmail of recipientEmails) {
+          const itemsSubtotalCents: number = sumAmountTotalCents(rawLineItems);
+          const shippingTotalCents: number = amountShipping;
+          const discountTotalCents: number =
+            expandedSession.total_details?.amount_discount ?? 0;
+          const taxTotalCents: number =
+            expandedSession.total_details?.amount_tax ?? 0;
+          const grossTotalCents: number = totalAmountInCents;
+
+          // Map your order items into the input shape:
+          const detailInputs: ReceiptItemInput[] = orderItems.map(
+            (orderItem) => ({
+              name: orderItem.nameSnapshot,
+              quantity: orderItem.quantity,
+              unitAmountCents: orderItem.unitAmount ?? 0,
+              amountTotalCents:
+                orderItem.amountTotal ??
+                orderItem.quantity * (orderItem.unitAmount ?? 0),
+              shippingMode: orderItem.shippingMode,
+              shippingFeeCentsPerUnit:
+                orderItem.shippingFeeCentsPerUnit ?? null,
+              shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
+            })
+          );
+          const receiptDetailsV2 = buildReceiptDetailsV2(
+            detailInputs,
+            currencyCode
+          );
           const recipientDisplayName =
             recipientNameByEmail.get(recipientEmail) ?? 'Seller';
+
+          const netPayoutCents = Math.max(
+            0,
+            grossTotalCents - platformFeeCents - stripeFeeCents
+          );
+
+          const feesModel = {
+            platform_fee: formatCents(platformFeeCents, currencyCode),
+            stripe_fee: formatCents(stripeFeeCents, currencyCode),
+            net_payout: formatCents(netPayoutCents, currencyCode)
+          };
+
+          const amountsModel = {
+            items_subtotal: formatCents(itemsSubtotalCents, currencyCode),
+            shipping_total: formatCents(shippingTotalCents, currencyCode),
+            discount_total:
+              discountTotalCents > 0
+                ? formatCents(discountTotalCents, currencyCode)
+                : undefined,
+            tax_total:
+              taxTotalCents > 0
+                ? formatCents(taxTotalCents, currencyCode)
+                : undefined,
+            gross_total: formatCents(grossTotalCents, currencyCode)
+          } as const;
 
           await sendIfEnabled('email.sendSaleNotification', () =>
             sendSaleNotificationEmail({
@@ -1259,8 +1311,14 @@ export async function POST(req: Request) {
               receiptId: orderDocumentId,
               orderDate: new Date().toLocaleDateString('en-US'),
               lineItems: receiptLineItems,
-              total: `$${(totalAmountInCents / 100).toFixed(2)}`,
+              receipt_details_v2: receiptDetailsV2,
+              amounts: amountsModel,
+              fees: feesModel,
+
+              total: `$${(grossTotalCents / 100).toFixed(2)}`,
               item_summary: lineItemSummary,
+
+              // Shipping address for the seller email
               shipping_name:
                 shippingResolved?.name ?? user.firstName ?? 'Customer',
               shipping_address_line1: shippingResolved?.line1 ?? '',
