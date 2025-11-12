@@ -150,7 +150,6 @@ export const sendOrderConfirmationEmail = async (
     amounts
   } = opts;
 
-  const currency = 'USD';
   try {
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,

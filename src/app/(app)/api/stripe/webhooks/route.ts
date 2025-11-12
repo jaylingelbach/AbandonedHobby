@@ -1152,7 +1152,7 @@ export async function POST(req: Request) {
               amountTotalCents:
                 orderItem.amountTotal ??
                 orderItem.quantity * (orderItem.unitAmount ?? 0),
-              shippingMode: orderItem.shippingMode, // 'free' | 'flat' | 'calculated'
+              shippingMode: orderItem.shippingMode,
               shippingFeeCentsPerUnit:
                 orderItem.shippingFeeCentsPerUnit ?? null,
               shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
