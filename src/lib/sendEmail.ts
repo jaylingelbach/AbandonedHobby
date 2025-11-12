@@ -641,9 +641,12 @@ function computeShipDisplay(args: {
   }
 
   if (isCalculated) {
-    // If you truly do not want this path yet, return '—' instead:
-    // return '—';
-    return 'Calculated at checkout';
+    // For receipts, show the actual calculated amount if available
+    if (shipSubtotalStr) return shipSubtotalStr;
+    if (shipPerUnitStr && Number.isFinite(quantity) && quantity > 0) {
+      return `${quantity} × ${shipPerUnitStr}`;
+    }
+    return '—';
   }
 
   // Fallback for future modes or missing flags: prefer subtotal, then per-unit

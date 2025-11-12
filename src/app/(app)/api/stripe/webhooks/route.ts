@@ -1135,7 +1135,16 @@ export async function POST(req: Request) {
 
         if (buyerEmailAddress) {
           // ── Build email models for buyer receipt ──────────────────────────────────
-          const itemsSubtotalCents: number = sumAmountTotalCents(rawLineItems);
+          const itemsSubtotalCents: number =
+            typeof expandedSession.amount_subtotal === 'number'
+              ? expandedSession.amount_subtotal
+              : rawLineItems.reduce((sum, line) => {
+                  const subtotal =
+                    typeof line.amount_subtotal === 'number'
+                      ? line.amount_subtotal
+                      : 0;
+                  return sum + subtotal;
+                }, 0);
           const shippingTotalCents: number = amountShipping;
           const discountTotalCents: number =
             expandedSession.total_details?.amount_discount ?? 0;
