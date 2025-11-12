@@ -1,4 +1,5 @@
 import { Product } from '@/payload-types';
+export type { DecProductStockResult } from '@/lib/server/types';
 
 export type ExistingOrderPrecheck = {
   id: string;
@@ -27,13 +28,6 @@ export type ExistingOrderPrecheck = {
 export type DecProductStockOptions = {
   autoArchive?: boolean;
 };
-
-export type DecProductStockResult =
-  | { ok: true; after: { stockQuantity: number }; archived: boolean }
-  | {
-      ok: false;
-      reason: 'not-found' | 'not-tracked' | 'insufficient' | 'not-supported';
-    };
 
 export type ReceiptLineItem = {
   description: string;
@@ -90,7 +84,7 @@ export type ShippingLike = {
   address?: AddressLike | null;
 };
 
-/** Type used in computerFeesFromCharge */
+/** Type used in computeFeesFromCharge */
 export type FeeResult = {
   stripeFeeCents: number; // processing-only
   platformFeeCents: number; // application fee

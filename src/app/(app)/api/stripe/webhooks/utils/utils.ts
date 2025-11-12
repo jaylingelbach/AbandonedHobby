@@ -6,7 +6,7 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 
 import type { Payload } from 'payload';
 import type Stripe from 'stripe';
-import { PayloadMongoLike, ProductModelLite, FeeResult } from './types';
+import type { PayloadMongoLike, ProductModelLite, FeeResult } from './types';
 
 // ─── Project Imports ─────────────────────────────────────────────────────────
 
