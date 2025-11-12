@@ -4906,3 +4906,52 @@ src/app/(app)/api/stripe/webhooks/route.ts
 
 - src/payload/views/seller-orders/order-quick-view-controller.tsx
   - Adds Shipping column to items table with per-line shipping display logic. Conditions shipping explanation row to calculated shipping only. Renders Discounts row only when discountCents > 0. Adjusts table colspan for alignment.
+
+# Add shipping to emails 11/12/25
+
+## Walkthrough
+
+- Adds per-item receipt v2 types and builder, amounts and fees models, Stripe metadata parsing and fee-computation helpers, and wires enriched receipt/amounts/fees into Stripe webhook buyer/seller emails; refactors email send signatures and updates a small internal import and comment.
+
+## New Features
+
+- Buyer and seller emails now include richer itemized receipts (per-item amounts, shipping display flags) and sellers see fees plus net-payout details.
+- Shipping display adapts to shipping mode (free/flat/calculated).
+
+## Bug Fixes
+
+- Duplicate-order handling consolidated to prevent double-processing and ensure missing receipt/fee data is backfilled.
+
+## Refactor
+
+- Centralized receipt construction and analytics capture for consistent notifications and event reporting.
+
+## Chores
+
+- Minor comment and textual cleanups.
+
+## File changes
+
+### Recap / docs
+
+recap.md Minor comment update and internal import path note changed; no behavior change.
+
+### Stripe webhook — route & utils
+
+- src/app/(app)/api/stripe/webhooks/route.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts, src/app/(app)/api/stripe/webhooks/utils/types.ts
+  - Replaces inline fee/receipt logic with shared helpers: adds computeFeesFromCharge and parseStripeMetadata, introduces FeeResult type, integrates analytics capture and duplicate-order handler, centralizes receipt/amounts/fees computation and attaches receipt_details_v2, amounts, and fees to buyer/seller email payloads.
+
+### Email service types & logic
+
+- src/lib/sendEmail.ts
+  - Adds ReceiptLineV2, ReceiptItemInput/Output, AmountsModel, FeesModel, buildReceiptDetailsV2, and shipping-mode display logic; extends SendOrderConfirmationOptions/SendSaleNotificationOptions to accept new fields; refactors send functions to single opts param and includes new fields in Postmark payloads.
+
+### Validation / UI (non-functional)
+
+- src/lib/validation/seller-order.ts, src/payload/views/seller-orders/order-quick-view-controller.tsx
+  - Removed or moved inline comments only; no functional or signature changes.
+
+### Other import tweak
+
+- src/modules/refunds/utils.ts
+  - Updated internal import path for assertPositiveInt to ../orders/server/utils.
