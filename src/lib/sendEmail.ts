@@ -1,6 +1,7 @@
 import { Client } from 'postmark';
 import { formatCents } from './utils';
 import { carrierLabels } from '@/constants';
+import type { ShippingMode } from '@/modules/orders/types';
 
 const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
@@ -71,7 +72,7 @@ type ReceiptLineV2 = {
   name: string;
   qty: number;
   unit_amount?: string; // e.g. "$25.00"
-  ship_mode?: 'free' | 'flat' | 'calculated';
+  ship_mode?: ShippingMode;
   ship_per_unit?: string; // e.g. "$5.00"
   ship_subtotal?: string; // e.g. "$10.00"
   line_total?: string; // e.g. "$50.00"
@@ -149,6 +150,7 @@ export const sendOrderConfirmationEmail = async (
     amounts
   } = opts;
 
+  const currency = 'USD';
   try {
     await postmark.sendEmailWithTemplate({
       From: process.env.POSTMARK_FROM_EMAIL!,
@@ -167,7 +169,9 @@ export const sendOrderConfirmationEmail = async (
         support_url: support_url ?? process.env.SUPPORT_URL,
         receipt_details: lineItems,
         receipt_details_v2,
-        amounts
+        amounts,
+        has_receipt_details_v2:
+          Array.isArray(receipt_details_v2) && receipt_details_v2.length > 0
       }
     });
   } catch (error) {
@@ -519,47 +523,143 @@ export async function sendTrackingEmail(input: {
   }
 }
 
-function buildReceiptDetailsV2(
-  input: Array<{
-    name: string;
-    quantity: number;
-    unitAmountCents: number;
-    amountTotalCents: number;
-    shippingMode?: 'free' | 'flat' | 'calculated';
-    shippingFeeCentsPerUnit?: number | null;
-    shippingSubtotalCents?: number | null;
-  }>,
-  currency: string
-): ReceiptLineV2[] {
-  return input.map((it) => {
-    const shipMode = it.shippingMode ?? 'free';
-    const isFree = shipMode === 'free';
-    const isFlat = shipMode === 'flat';
-    const isCalculated = shipMode === 'calculated';
+export interface ReceiptItemOutput {
+  name: string;
+  qty: number;
+  unit_amount?: string;
+  line_total?: string;
+  is_free: boolean;
+  is_flat: boolean;
+  is_calculated: boolean;
+  ship_per_unit?: string;
+  ship_subtotal?: string;
+  ship_display: string;
+}
 
-    return {
-      name: it.name,
-      qty: it.quantity,
-      unit_amount:
-        it.unitAmountCents != null
-          ? formatCents(it.unitAmountCents, currency)
-          : undefined,
-      ship_mode: shipMode,
-      ship_per_unit:
-        isFlat && it.shippingFeeCentsPerUnit != null
-          ? formatCents(it.shippingFeeCentsPerUnit, currency)
-          : undefined,
-      ship_subtotal:
-        isFlat && it.shippingSubtotalCents != null
-          ? formatCents(it.shippingSubtotalCents, currency)
-          : undefined,
-      line_total:
-        it.amountTotalCents != null
-          ? formatCents(it.amountTotalCents, currency)
-          : undefined,
+export interface ReceiptItemInput {
+  name: string;
+  quantity: number;
+  unitAmountCents: number;
+  amountTotalCents: number;
+  shippingMode: ShippingMode; // 'free' | 'flat' | 'calculated'
+  shippingFeeCentsPerUnit: number | null;
+  shippingSubtotalCents: number | null;
+}
+
+/**
+ * Build per-line receipt details for the Postmark template.
+ * Adds a precomputed `ship_display` string so the template can just print it.
+ */
+export function buildReceiptDetailsV2(
+  items: ReadonlyArray<ReceiptItemInput>,
+  currencyCode: string
+): ReceiptItemOutput[] {
+  return items.map((item) => {
+    const isFree: boolean = item.shippingMode === 'free';
+    const isFlat: boolean = item.shippingMode === 'flat';
+    const isCalculated: boolean = item.shippingMode === 'calculated';
+
+    const unitAmountStr: string | undefined =
+      Number.isFinite(item.unitAmountCents) && item.unitAmountCents > 0
+        ? formatCents(item.unitAmountCents, currencyCode)
+        : undefined;
+
+    const lineTotalStr: string | undefined =
+      Number.isFinite(item.amountTotalCents) && item.amountTotalCents > 0
+        ? formatCents(item.amountTotalCents, currencyCode)
+        : undefined;
+
+    const shipPerUnitStr: string | undefined =
+      item.shippingFeeCentsPerUnit != null && item.shippingFeeCentsPerUnit >= 0
+        ? formatCents(item.shippingFeeCentsPerUnit, currencyCode)
+        : undefined;
+
+    const shipSubtotalStr: string | undefined =
+      item.shippingSubtotalCents != null && item.shippingSubtotalCents >= 0
+        ? formatCents(item.shippingSubtotalCents, currencyCode)
+        : undefined;
+
+    const shipDisplay: string = computeShipDisplay({
+      isFree,
+      isFlat,
+      isCalculated,
+      quantity: item.quantity,
+      shipPerUnitStr,
+      shipSubtotalStr
+    });
+
+    const output: ReceiptItemOutput = {
+      name: item.name,
+      qty: item.quantity,
       is_free: isFree,
       is_flat: isFlat,
-      is_calculated: isCalculated
+      is_calculated: isCalculated,
+      ship_display: shipDisplay
     };
+
+    if (unitAmountStr) output.unit_amount = unitAmountStr;
+    if (lineTotalStr) output.line_total = lineTotalStr;
+    if (shipPerUnitStr) output.ship_per_unit = shipPerUnitStr;
+    if (shipSubtotalStr) output.ship_subtotal = shipSubtotalStr;
+
+    return output;
   });
+}
+
+function computeShipDisplay(args: {
+  isFree: boolean;
+  isFlat: boolean;
+  isCalculated: boolean;
+  quantity: number;
+  shipPerUnitStr?: string;
+  shipSubtotalStr?: string;
+}): string {
+  const {
+    isFree,
+    isFlat,
+    isCalculated,
+    quantity,
+    shipPerUnitStr,
+    shipSubtotalStr
+  } = args;
+
+  if (isFree) return 'Free';
+
+  if (isFlat) {
+    if (
+      shipSubtotalStr &&
+      shipPerUnitStr &&
+      Number.isFinite(quantity) &&
+      quantity > 1
+    ) {
+      return `${shipSubtotalStr} (${quantity} × ${shipPerUnitStr})`;
+    }
+    if (shipSubtotalStr) return shipSubtotalStr;
+    if (shipPerUnitStr && Number.isFinite(quantity) && quantity > 0) {
+      return `${quantity} × ${shipPerUnitStr}`;
+    }
+    return '—';
+  }
+
+  if (isCalculated) {
+    // If you truly do not want this path yet, return '—' instead:
+    // return '—';
+    return 'Calculated at checkout';
+  }
+
+  // Fallback for future modes or missing flags: prefer subtotal, then per-unit
+  if (
+    shipSubtotalStr &&
+    shipPerUnitStr &&
+    Number.isFinite(quantity) &&
+    quantity > 1
+  ) {
+    return `${shipSubtotalStr} (${quantity} × ${shipPerUnitStr})`;
+  }
+  if (shipSubtotalStr) return shipSubtotalStr;
+  if (shipPerUnitStr && Number.isFinite(quantity) && quantity > 0) {
+    return `${quantity} × ${shipPerUnitStr}`;
+  }
+
+  return '—';
 }

@@ -2,10 +2,13 @@ import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import Stripe from 'stripe';
 import crypto from 'node:crypto';
+import { formatCents } from '@/lib/utils';
 
 import config from '@payload-config';
 
 import {
+  buildReceiptDetailsV2,
+  ReceiptItemInput,
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
@@ -1131,6 +1134,49 @@ export async function POST(req: Request) {
         });
 
         if (buyerEmailAddress) {
+          // ── Build email models for buyer receipt ──────────────────────────────────
+          const itemsSubtotalCents: number = sumAmountTotalCents(rawLineItems);
+          const shippingTotalCents: number = amountShipping;
+          const discountTotalCents: number =
+            expandedSession.total_details?.amount_discount ?? 0;
+          const taxTotalCents: number =
+            expandedSession.total_details?.amount_tax ?? 0;
+          const grossTotalCents: number = totalAmountInCents;
+
+          // Map your order items into the input shape:
+          const detailInputs: ReceiptItemInput[] = orderItems.map(
+            (orderItem) => ({
+              name: orderItem.nameSnapshot,
+              quantity: orderItem.quantity,
+              unitAmountCents: orderItem.unitAmount ?? 0,
+              amountTotalCents:
+                orderItem.amountTotal ??
+                orderItem.quantity * (orderItem.unitAmount ?? 0),
+              shippingMode: orderItem.shippingMode, // 'free' | 'flat' | 'calculated'
+              shippingFeeCentsPerUnit:
+                orderItem.shippingFeeCentsPerUnit ?? null,
+              shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
+            })
+          );
+
+          const receiptDetailsV2 = buildReceiptDetailsV2(
+            detailInputs,
+            currencyCode
+          );
+          const amountsModel = {
+            items_subtotal: formatCents(itemsSubtotalCents, currencyCode),
+            shipping_total: formatCents(shippingTotalCents, currencyCode),
+            discount_total:
+              discountTotalCents > 0
+                ? formatCents(discountTotalCents, currencyCode)
+                : undefined,
+            tax_total:
+              taxTotalCents > 0
+                ? formatCents(taxTotalCents, currencyCode)
+                : undefined,
+            gross_total: formatCents(grossTotalCents, currencyCode)
+          } as const;
+
           await sendIfEnabled('email.sendOrderConfirmation', () =>
             sendOrderConfirmationEmail({
               to: buyerEmailAddress,
@@ -1147,7 +1193,9 @@ export async function POST(req: Request) {
               total: `$${(totalAmountInCents / 100).toFixed(2)}`,
               support_url:
                 process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-              item_summary: lineItemSummary
+              item_summary: lineItemSummary,
+              receipt_details_v2: receiptDetailsV2,
+              amounts: amountsModel
             })
           );
         } else {
