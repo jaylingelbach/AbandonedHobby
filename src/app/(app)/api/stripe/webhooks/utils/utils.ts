@@ -6,7 +6,7 @@ import { ExpandedLineItem } from '@/modules/checkout/types';
 
 import type { Payload } from 'payload';
 import type Stripe from 'stripe';
-import { PayloadMongoLike, ProductModelLite } from './types';
+import { PayloadMongoLike, ProductModelLite, FeeResult } from './types';
 
 // ─── Project Imports ─────────────────────────────────────────────────────────
 
@@ -316,4 +316,76 @@ export async function findExistingOrderBySessionOrEvent(
   };
 
   return normalized;
+}
+
+/** Compute fees directly from an expanded charge (preferred). */
+export function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
+  const balanceTransaction =
+    charge.balance_transaction as Stripe.BalanceTransaction | null;
+
+  const applicationFeeCents =
+    typeof charge.application_fee_amount === 'number'
+      ? charge.application_fee_amount
+      : 0;
+
+  let processingFeeCents = 0;
+
+  // Prefer fee_details if present (most accurate)
+  const details = Array.isArray(balanceTransaction?.fee_details)
+    ? balanceTransaction!.fee_details
+    : null;
+
+  if (details) {
+    // Sum everything that is NOT the application fee
+    processingFeeCents = details
+      .filter((d) => d.type !== 'application_fee')
+      .reduce(
+        (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
+        0
+      );
+  } else {
+    const totalFee =
+      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    processingFeeCents = Math.max(0, totalFee - applicationFeeCents);
+  }
+
+  const receiptUrl =
+    typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
+
+  return {
+    stripeFeeCents: processingFeeCents,
+    platformFeeCents: applicationFeeCents,
+    receiptUrl
+  };
+}
+
+/**
+ * Parse Stripe metadata to extract common fields used across webhook handlers.
+ *
+ * @param metadata - The metadata object from a Stripe resource (session, payment intent, etc.)
+ * @returns Parsed metadata with buyerId, tenantId, tenantSlug, and deduplicated productIds array
+ */
+export function parseStripeMetadata(
+  metadata: Record<string, string> | null | undefined
+): {
+  buyerId: string;
+  tenantId?: string;
+  tenantSlug?: string;
+  productIds?: string[];
+} {
+  const meta = (metadata ?? {}) as Record<string, string>;
+  const buyerId = meta.userId ?? meta.buyerId ?? 'anonymous';
+  const tenantId = meta.tenantId;
+  const tenantSlug = meta.tenantSlug;
+
+  const productIds =
+    typeof meta.productIds === 'string' && meta.productIds.length
+      ? meta.productIds
+          .split(',')
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .filter((id, index, self) => self.indexOf(id) === index)
+      : undefined;
+
+  return { buyerId, tenantId, tenantSlug, productIds };
 }

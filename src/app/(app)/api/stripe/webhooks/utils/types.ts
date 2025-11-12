@@ -89,3 +89,10 @@ export type ShippingLike = {
   name?: string | null;
   address?: AddressLike | null;
 };
+
+/** Type used in computerFeesFromCharge */
+export type FeeResult = {
+  stripeFeeCents: number; // processing-only
+  platformFeeCents: number; // application fee
+  receiptUrl: string | null;
+};
