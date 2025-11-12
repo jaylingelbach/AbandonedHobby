@@ -331,9 +331,10 @@ export function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
   let processingFeeCents = 0;
 
   // Prefer fee_details if present (most accurate)
-  const details = Array.isArray(balanceTransaction?.fee_details)
-    ? balanceTransaction!.fee_details
-    : null;
+  const details =
+    balanceTransaction && Array.isArray(balanceTransaction.fee_details)
+      ? balanceTransaction.fee_details
+      : null;
 
   if (details) {
     // Sum everything that is NOT the application fee
