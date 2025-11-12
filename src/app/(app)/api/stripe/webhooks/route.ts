@@ -1133,27 +1133,34 @@ export async function POST(req: Request) {
           buyerEmailPresent: Boolean(buyerEmailAddress)
         });
 
-        if (buyerEmailAddress) {
-          // ── Build email models for buyer receipt ──────────────────────────────────
+        // ── Shared receipt computation helper ────────────────────────────────────────
+        function buildReceiptModels(args: {
+          expandedSession: Stripe.Checkout.Session;
+          rawLineItems: Stripe.LineItem[];
+          orderItems: OrderItemOutput[];
+          amountShipping: number;
+          totalAmountInCents: number;
+          currencyCode: string;
+        }) {
           const itemsSubtotalCents: number =
-            typeof expandedSession.amount_subtotal === 'number'
-              ? expandedSession.amount_subtotal
-              : rawLineItems.reduce((sum, line) => {
+            typeof args.expandedSession.amount_subtotal === 'number'
+              ? args.expandedSession.amount_subtotal
+              : args.rawLineItems.reduce((sum, line) => {
                   const subtotal =
                     typeof line.amount_subtotal === 'number'
                       ? line.amount_subtotal
                       : 0;
                   return sum + subtotal;
                 }, 0);
-          const shippingTotalCents: number = amountShipping;
-          const discountTotalCents: number =
-            expandedSession.total_details?.amount_discount ?? 0;
-          const taxTotalCents: number =
-            expandedSession.total_details?.amount_tax ?? 0;
-          const grossTotalCents: number = totalAmountInCents;
 
-          // Map your order items into the input shape:
-          const detailInputs: ReceiptItemInput[] = orderItems.map(
+          const shippingTotalCents: number = args.amountShipping;
+          const discountTotalCents: number =
+            args.expandedSession.total_details?.amount_discount ?? 0;
+          const taxTotalCents: number =
+            args.expandedSession.total_details?.amount_tax ?? 0;
+          const grossTotalCents: number = args.totalAmountInCents;
+
+          const detailInputs: ReceiptItemInput[] = args.orderItems.map(
             (orderItem) => ({
               name: orderItem.nameSnapshot,
               quantity: orderItem.quantity,
@@ -1170,21 +1177,44 @@ export async function POST(req: Request) {
 
           const receiptDetailsV2 = buildReceiptDetailsV2(
             detailInputs,
-            currencyCode
+            args.currencyCode
           );
+
           const amountsModel = {
-            items_subtotal: formatCents(itemsSubtotalCents, currencyCode),
-            shipping_total: formatCents(shippingTotalCents, currencyCode),
+            items_subtotal: formatCents(itemsSubtotalCents, args.currencyCode),
+            shipping_total: formatCents(shippingTotalCents, args.currencyCode),
             discount_total:
               discountTotalCents > 0
-                ? formatCents(discountTotalCents, currencyCode)
+                ? formatCents(discountTotalCents, args.currencyCode)
                 : undefined,
             tax_total:
               taxTotalCents > 0
-                ? formatCents(taxTotalCents, currencyCode)
+                ? formatCents(taxTotalCents, args.currencyCode)
                 : undefined,
-            gross_total: formatCents(grossTotalCents, currencyCode)
+            gross_total: formatCents(grossTotalCents, args.currencyCode)
           } as const;
+
+          return {
+            itemsSubtotalCents,
+            shippingTotalCents,
+            discountTotalCents,
+            taxTotalCents,
+            grossTotalCents,
+            receiptDetailsV2,
+            amountsModel
+          };
+        }
+
+        if (buyerEmailAddress) {
+          // ── Build email models for buyer receipt ──────────────────────────────────
+          const buyerReceiptModels = buildReceiptModels({
+            expandedSession,
+            rawLineItems,
+            orderItems,
+            amountShipping,
+            totalAmountInCents,
+            currencyCode
+          });
 
           await sendIfEnabled('email.sendOrderConfirmation', () =>
             sendOrderConfirmationEmail({
@@ -1203,8 +1233,8 @@ export async function POST(req: Request) {
               support_url:
                 process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
               item_summary: lineItemSummary,
-              receipt_details_v2: receiptDetailsV2,
-              amounts: amountsModel
+              receipt_details_v2: buyerReceiptModels.receiptDetailsV2,
+              amounts: buyerReceiptModels.amountsModel
             })
           );
         } else {
@@ -1257,70 +1287,33 @@ export async function POST(req: Request) {
           await addRecipientFromTenant(sellerTenantDocument);
         }
 
-        for (const recipientEmail of recipientEmails) {
-          const itemsSubtotalCents: number =
-            typeof expandedSession.amount_subtotal === 'number'
-              ? expandedSession.amount_subtotal
-              : rawLineItems.reduce((sum, line) => {
-                  const subtotal =
-                    typeof line.amount_subtotal === 'number'
-                      ? line.amount_subtotal
-                      : 0;
-                  return sum + subtotal;
-                }, 0);
-          const shippingTotalCents: number = amountShipping;
-          const discountTotalCents: number =
-            expandedSession.total_details?.amount_discount ?? 0;
-          const taxTotalCents: number =
-            expandedSession.total_details?.amount_tax ?? 0;
-          const grossTotalCents: number = totalAmountInCents;
+        // ── Compute seller receipt models once (outside loop) ────────────────────────
+        const sellerReceiptModels = buildReceiptModels({
+          expandedSession,
+          rawLineItems,
+          orderItems,
+          amountShipping,
+          totalAmountInCents,
+          currencyCode
+        });
 
-          // Map your order items into the input shape:
-          const detailInputs: ReceiptItemInput[] = orderItems.map(
-            (orderItem) => ({
-              name: orderItem.nameSnapshot,
-              quantity: orderItem.quantity,
-              unitAmountCents: orderItem.unitAmount ?? 0,
-              amountTotalCents:
-                orderItem.amountTotal ??
-                orderItem.quantity * (orderItem.unitAmount ?? 0),
-              shippingMode: orderItem.shippingMode,
-              shippingFeeCentsPerUnit:
-                orderItem.shippingFeeCentsPerUnit ?? null,
-              shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
-            })
-          );
-          const receiptDetailsV2 = buildReceiptDetailsV2(
-            detailInputs,
+        const feesModel = {
+          platform_fee: formatCents(platformFeeCents, currencyCode),
+          stripe_fee: formatCents(stripeFeeCents, currencyCode),
+          net_payout: formatCents(
+            Math.max(
+              0,
+              sellerReceiptModels.grossTotalCents -
+                platformFeeCents -
+                stripeFeeCents
+            ),
             currencyCode
-          );
+          )
+        };
+
+        for (const recipientEmail of recipientEmails) {
           const recipientDisplayName =
             recipientNameByEmail.get(recipientEmail) ?? 'Seller';
-
-          const netPayoutCents = Math.max(
-            0,
-            grossTotalCents - platformFeeCents - stripeFeeCents
-          );
-
-          const feesModel = {
-            platform_fee: formatCents(platformFeeCents, currencyCode),
-            stripe_fee: formatCents(stripeFeeCents, currencyCode),
-            net_payout: formatCents(netPayoutCents, currencyCode)
-          };
-
-          const amountsModel = {
-            items_subtotal: formatCents(itemsSubtotalCents, currencyCode),
-            shipping_total: formatCents(shippingTotalCents, currencyCode),
-            discount_total:
-              discountTotalCents > 0
-                ? formatCents(discountTotalCents, currencyCode)
-                : undefined,
-            tax_total:
-              taxTotalCents > 0
-                ? formatCents(taxTotalCents, currencyCode)
-                : undefined,
-            gross_total: formatCents(grossTotalCents, currencyCode)
-          } as const;
 
           await sendIfEnabled('email.sendSaleNotification', () =>
             sendSaleNotificationEmail({
@@ -1329,11 +1322,11 @@ export async function POST(req: Request) {
               receiptId: orderDocumentId,
               orderDate: new Date().toLocaleDateString('en-US'),
               lineItems: receiptLineItems,
-              receipt_details_v2: receiptDetailsV2,
-              amounts: amountsModel,
+              receipt_details_v2: sellerReceiptModels.receiptDetailsV2,
+              amounts: sellerReceiptModels.amountsModel,
               fees: feesModel,
 
-              total: `$${(grossTotalCents / 100).toFixed(2)}`,
+              total: `$${(sellerReceiptModels.grossTotalCents / 100).toFixed(2)}`,
               item_summary: lineItemSummary,
 
               // Shipping address for the seller email
