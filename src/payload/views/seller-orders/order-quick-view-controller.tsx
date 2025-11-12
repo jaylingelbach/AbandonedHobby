@@ -262,7 +262,7 @@ export default function OrderQuickViewController() {
                           <col />
                           <col className="ah-col--qty" />
                           <col className="ah-col--unit" />
-                          <col className="ah-col--ship" /> {/* NEW */}
+                          <col className="ah-col--ship" />
                           <col className="ah-col--line" />
                         </colgroup>
                         <thead>
@@ -312,8 +312,6 @@ export default function OrderQuickViewController() {
                                       currency
                                     )}
                                   </td>
-
-                                  {/* NEW: per-line shipping cell */}
                                   <td className="ah-col--ship">
                                     {isFlatShipping ? (
                                       `${formatCents(shippingSubtotalCentsSafe, currency)}${flatPerUnitHint}`
