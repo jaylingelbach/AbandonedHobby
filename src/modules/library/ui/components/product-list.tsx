@@ -23,7 +23,7 @@ export const ProductList = () => {
     );
 
   // 1) Flatten
-  const rows = data?.pages.flatMap((product) => product.docs) ?? [];
+  const rows = data?.pages.flatMap((page) => page.docs) ?? [];
 
   // 2) Group ONLY by orderId (skip rows without an orderId)
   type Row = (typeof rows)[number];

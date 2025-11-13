@@ -226,7 +226,11 @@ export const libraryRouter = createTRPCRouter({
 
         const normalizedImage: Media | null = pickPrimaryMedia(product);
 
-        const tenantObject = (product.tenant as Tenant | null) ?? null;
+        const tenantObject =
+          typeof product.tenant === 'object' && product.tenant !== null
+            ? product.tenant
+            : null;
+
         const normalizedTenant: (Tenant & { image: Media | null }) | null =
           tenantObject
             ? {
