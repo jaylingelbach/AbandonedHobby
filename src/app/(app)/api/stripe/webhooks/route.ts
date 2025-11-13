@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getPayload } from 'payload';
 import Stripe from 'stripe';
 import crypto from 'node:crypto';
+import { formatCents } from '@/lib/utils';
 
 import config from '@payload-config';
 
@@ -9,7 +10,6 @@ import {
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
-import { posthogServer } from '@/lib/server/posthog-server';
 import { stripe } from '@/lib/stripe';
 import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
 import {
@@ -36,10 +36,15 @@ import { OrderItemOutput } from '@/modules/stripe/build-order-items';
 import {
   toQtyMap,
   getProductsModel,
-  flushIfNeeded,
   isUniqueViolation,
   tryCall
 } from './utils/utils';
+import {
+  parseStripeMetadata,
+  captureAnalyticsEvent,
+  buildReceiptModels,
+  handleDuplicateOrder
+} from './utils/helpers';
 import {
   recomputeRefundState,
   toLocalRefundStatus
@@ -75,7 +80,7 @@ function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
 
   // Prefer fee_details if present (most accurate)
   const details = Array.isArray(balanceTransaction?.fee_details)
-    ? balanceTransaction!.fee_details
+    ? balanceTransaction.fee_details
     : null;
 
   if (details) {
@@ -625,173 +630,14 @@ export async function POST(req: Request) {
         );
 
         if (existing) {
-          console.log('[webhook] dup-precheck hit (before)', {
-            orderId: existing.id,
-            hasItems: Array.isArray(existing.items),
-            itemsCount: Array.isArray(existing.items)
-              ? existing.items.length
-              : 0,
-            inventoryAdjustedAt: existing.inventoryAdjustedAt ?? null
+          await handleDuplicateOrder({
+            existing,
+            event,
+            accountId,
+            payloadInstance,
+            readStripeFeesAndReceiptUrl,
+            decrementInventoryBatch
           });
-
-          // ─────────────────────────────────────────────────────────────
-          // Backfill Stripe fees & receipt if missing on duplicates
-          // (preserve explicit zeros by checking for null/undefined)
-          // ─────────────────────────────────────────────────────────────
-          try {
-            const stripeFeePresent = existing.amounts?.stripeFeeCents != null; // preserves 0
-            const platformFeePresent =
-              existing.amounts?.platformFeeCents != null; // preserves 0
-            const receiptPresent = existing.documents?.receiptUrl != null; // string or null (present)
-
-            let feesResult: {
-              stripeFeeCents: number;
-              platformFeeCents: number;
-              receiptUrl: string | null;
-            } | null = null;
-
-            if (!stripeFeePresent || !platformFeePresent || !receiptPresent) {
-              const paymentIntentId = existing.stripePaymentIntentId ?? null;
-              const chargeId = existing.stripeChargeId ?? null;
-
-              feesResult = await readStripeFeesAndReceiptUrl({
-                stripeAccountId: accountId,
-                paymentIntentId,
-                chargeId
-              });
-            }
-
-            type AmountsShape = {
-              subtotalCents?: number | null;
-              taxTotalCents?: number | null;
-              shippingTotalCents?: number | null;
-              discountTotalCents?: number | null;
-              platformFeeCents?: number | null;
-              stripeFeeCents?: number | null;
-              sellerNetCents?: number | null;
-            };
-
-            const existingAmounts = (existing.amounts ?? {}) as AmountsShape;
-
-            const updateData: {
-              amounts?: AmountsShape;
-              documents?: { receiptUrl: string | null };
-              stripeEventId: string;
-            } = { stripeEventId: event.id };
-
-            let contextFees:
-              | {
-                  ahSystem: true;
-                  fees: {
-                    platformFeeCents?: number;
-                    stripeFeeCents?: number;
-                  };
-                }
-              | undefined;
-
-            if (feesResult) {
-              updateData.amounts = {
-                ...existingAmounts,
-                stripeFeeCents: stripeFeePresent
-                  ? existingAmounts.stripeFeeCents!
-                  : feesResult.stripeFeeCents,
-                platformFeeCents: platformFeePresent
-                  ? existingAmounts.platformFeeCents!
-                  : feesResult.platformFeeCents
-              };
-
-              // Pass trusted fees so lockAndCalculateAmounts prefers them
-              contextFees = {
-                ahSystem: true as const,
-                fees: {
-                  platformFeeCents:
-                    updateData.amounts.platformFeeCents ?? undefined,
-                  stripeFeeCents: updateData.amounts.stripeFeeCents ?? undefined
-                }
-              };
-            }
-
-            if (!receiptPresent && feesResult) {
-              updateData.documents = { receiptUrl: feesResult.receiptUrl };
-            }
-
-            if (updateData.amounts || updateData.documents) {
-              await payloadInstance.update({
-                collection: 'orders',
-                id: existing.id,
-                data: updateData,
-                overrideAccess: true,
-                ...(contextFees ? { context: contextFees } : {})
-              });
-            }
-          } catch (backfillError) {
-            console.warn(
-              '[webhook] duplicate path backfill failed',
-              backfillError
-            );
-          }
-
-          // inventory adjust on dup path (unchanged)
-          if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
-            const quantityByProductId = toQtyMap(
-              (existing.items ?? [])
-                .map((item) => {
-                  const relation = item.product as unknown;
-                  const product =
-                    typeof relation === 'string'
-                      ? relation
-                      : relation &&
-                          typeof relation === 'object' &&
-                          'id' in relation
-                        ? String((relation as { id?: string | null }).id)
-                        : null;
-                  if (!product) return null;
-                  return {
-                    product,
-                    quantity:
-                      typeof item.quantity === 'number' &&
-                      Number.isInteger(item.quantity)
-                        ? item.quantity
-                        : 1
-                  };
-                })
-                .filter(Boolean) as Array<{ product: string; quantity: number }>
-            );
-
-            console.log('[webhook] decrement on duplicate path', {
-              entries: [...quantityByProductId.entries()]
-            });
-
-            await tryCall('inventory.decrementBatch(dup)', () =>
-              decrementInventoryBatch({
-                payload: payloadInstance,
-                qtyByProductId: quantityByProductId
-              })
-            );
-
-            await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
-              payloadInstance.update({
-                collection: 'orders',
-                id: existing.id,
-                data: {
-                  inventoryAdjustedAt: new Date().toISOString(),
-                  stripeEventId: event.id
-                },
-                overrideAccess: true
-              })
-            );
-
-            console.log('[webhook] inventory adjusted on duplicate path', {
-              orderId: existing.id
-            });
-          } else {
-            console.log(
-              '[webhook] duplicate path: inventory already adjusted',
-              { orderId: existing.id }
-            );
-          }
-
-          await markProcessed(payloadInstance, event.id);
           return NextResponse.json({ received: true }, { status: 200 });
         }
 
@@ -1130,6 +976,16 @@ export async function POST(req: Request) {
           buyerEmailPresent: Boolean(buyerEmailAddress)
         });
 
+        // ── Build receipt models for emails ────────────────────────────────────────
+        const buyerReceiptModels = buildReceiptModels({
+          expandedSession,
+          rawLineItems,
+          orderItems,
+          amountShipping,
+          totalAmountInCents,
+          currencyCode
+        });
+
         if (buyerEmailAddress) {
           await sendIfEnabled('email.sendOrderConfirmation', () =>
             sendOrderConfirmationEmail({
@@ -1147,7 +1003,9 @@ export async function POST(req: Request) {
               total: `$${(totalAmountInCents / 100).toFixed(2)}`,
               support_url:
                 process.env.SUPPORT_URL || 'https://abandonedhobby.com/support',
-              item_summary: lineItemSummary
+              item_summary: lineItemSummary,
+              receipt_details_v2: buyerReceiptModels.receiptDetailsV2,
+              amounts: buyerReceiptModels.amountsModel
             })
           );
         } else {
@@ -1200,6 +1058,30 @@ export async function POST(req: Request) {
           await addRecipientFromTenant(sellerTenantDocument);
         }
 
+        // ── Compute seller receipt models once (outside loop) ────────────────────────
+        const sellerReceiptModels = buildReceiptModels({
+          expandedSession,
+          rawLineItems,
+          orderItems,
+          amountShipping,
+          totalAmountInCents,
+          currencyCode
+        });
+
+        const feesModel = {
+          platform_fee: formatCents(platformFeeCents, currencyCode),
+          stripe_fee: formatCents(stripeFeeCents, currencyCode),
+          net_payout: formatCents(
+            Math.max(
+              0,
+              sellerReceiptModels.grossTotalCents -
+                platformFeeCents -
+                stripeFeeCents
+            ),
+            currencyCode
+          )
+        };
+
         for (const recipientEmail of recipientEmails) {
           const recipientDisplayName =
             recipientNameByEmail.get(recipientEmail) ?? 'Seller';
@@ -1211,7 +1093,10 @@ export async function POST(req: Request) {
               receiptId: orderDocumentId,
               orderDate: new Date().toLocaleDateString('en-US'),
               lineItems: receiptLineItems,
-              total: `$${(totalAmountInCents / 100).toFixed(2)}`,
+              receipt_details_v2: sellerReceiptModels.receiptDetailsV2,
+              amounts: sellerReceiptModels.amountsModel,
+              fees: feesModel,
+              total: `$${(sellerReceiptModels.grossTotalCents / 100).toFixed(2)}`,
               item_summary: lineItemSummary,
               shipping_name:
                 shippingResolved?.name ?? user.firstName ?? 'Customer',
@@ -1228,32 +1113,21 @@ export async function POST(req: Request) {
         }
 
         // Analytics (best-effort)
-        try {
-          posthogServer?.capture({
-            distinctId: user.id ?? 'unknown',
-            event: 'purchaseCompleted',
-            properties: {
-              stripeSessionId: session.id,
-              amountTotal: totalAmountInCents,
-              currency: currencyCode,
-              productIdsFromLines: productIds,
-              tenantId: payoutTenantDocument.id,
-              $insert_id: `purchase:${session.id}`
-            },
-            groups: payoutTenantDocument.id
-              ? { tenant: payoutTenantDocument.id }
-              : undefined
-          });
-
-          await flushIfNeeded();
-        } catch (analyticsError) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[analytics] purchaseCompleted capture failed:',
-              analyticsError
-            );
-          }
-        }
+        await captureAnalyticsEvent({
+          event: 'purchaseCompleted',
+          distinctId: user.id ?? 'unknown',
+          properties: {
+            stripeSessionId: session.id,
+            amountTotal: totalAmountInCents,
+            currency: currencyCode,
+            productIdsFromLines: productIds,
+            tenantId: payoutTenantDocument.id,
+            $insert_id: `purchase:${session.id}`
+          },
+          groups: payoutTenantDocument.id
+            ? { tenant: payoutTenantDocument.id }
+            : undefined
+        });
 
         await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
@@ -1262,48 +1136,24 @@ export async function POST(req: Request) {
       case 'payment_intent.payment_failed': {
         const paymentIntent = event.data.object as Stripe.PaymentIntent;
 
-        const metadata = (paymentIntent.metadata ?? {}) as Record<
-          string,
-          string
-        >;
-        const buyerId = metadata.userId ?? metadata.buyerId ?? 'anonymous';
-        const tenantId = metadata.tenantId;
-        const tenantSlug = metadata.tenantSlug;
-        const productIds =
-          typeof metadata.productIds === 'string' && metadata.productIds.length
-            ? metadata.productIds
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .filter((id, index, self) => self.indexOf(id) === index)
-            : undefined;
+        const { buyerId, tenantId, tenantSlug, productIds } =
+          parseStripeMetadata(paymentIntent.metadata);
 
-        try {
-          posthogServer?.capture({
-            distinctId: buyerId,
-            event: 'checkoutFailed',
-            properties: {
-              stripePaymentIntentId: paymentIntent.id,
-              failureCode: paymentIntent.last_payment_error?.code,
-              failureMessage: paymentIntent.last_payment_error?.message,
-              tenantId,
-              tenantSlug,
-              productIds,
-              $insert_id: event.id
-            },
-            groups: tenantId ? { tenant: tenantId } : undefined,
-            timestamp: new Date(event.created * 1000)
-          });
-
-          await flushIfNeeded();
-        } catch (analyticsError) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[analytics] checkoutFailed capture failed:',
-              analyticsError
-            );
-          }
-        }
+        await captureAnalyticsEvent({
+          event: 'checkoutFailed',
+          distinctId: buyerId,
+          properties: {
+            stripePaymentIntentId: paymentIntent.id,
+            failureCode: paymentIntent.last_payment_error?.code,
+            failureMessage: paymentIntent.last_payment_error?.message,
+            tenantId,
+            tenantSlug,
+            productIds,
+            $insert_id: event.id
+          },
+          groups: tenantId ? { tenant: tenantId } : undefined,
+          timestamp: new Date(event.created * 1000)
+        });
 
         await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
@@ -1312,47 +1162,26 @@ export async function POST(req: Request) {
       case 'checkout.session.expired': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const metadata = (session.metadata ?? {}) as Record<string, string>;
-        const buyerId = metadata.userId ?? metadata.buyerId ?? 'anonymous';
-        const tenantId = metadata.tenantId;
-        const tenantSlug = metadata.tenantSlug;
-        const productIds =
-          typeof metadata.productIds === 'string' && metadata.productIds.length
-            ? metadata.productIds
-                .split(',')
-                .map((s) => s.trim())
-                .filter(Boolean)
-                .filter((id, index, self) => self.indexOf(id) === index)
-            : undefined;
+        const { buyerId, tenantId, tenantSlug, productIds } =
+          parseStripeMetadata(session.metadata);
 
-        try {
-          posthogServer?.capture({
-            distinctId: buyerId,
-            event: 'checkoutFailed',
-            properties: {
-              reason: 'expired',
-              productIds,
-              tenantId,
-              tenantSlug,
-              stripeSessionId: session.id,
-              expiresAt: session.expires_at
-                ? new Date(session.expires_at * 1000).toISOString()
-                : undefined,
-              $insert_id: event.id
-            },
-            groups: tenantId ? { tenant: tenantId } : undefined,
-            timestamp: new Date(event.created * 1000)
-          });
-
-          await flushIfNeeded();
-        } catch (analyticsError) {
-          if (process.env.NODE_ENV !== 'production') {
-            console.warn(
-              '[analytics] checkoutFailed(expired) capture failed:',
-              analyticsError
-            );
-          }
-        }
+        await captureAnalyticsEvent({
+          event: 'checkoutFailed',
+          distinctId: buyerId,
+          properties: {
+            reason: 'expired',
+            productIds,
+            tenantId,
+            tenantSlug,
+            stripeSessionId: session.id,
+            expiresAt: session.expires_at
+              ? new Date(session.expires_at * 1000).toISOString()
+              : undefined,
+            $insert_id: event.id
+          },
+          groups: tenantId ? { tenant: tenantId } : undefined,
+          timestamp: new Date(event.created * 1000)
+        });
 
         await markProcessed(payloadInstance, event.id);
         return NextResponse.json({ received: true }, { status: 200 });
