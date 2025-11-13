@@ -46,7 +46,12 @@ type RefundForShippingAggregation = {
 };
 
 /**
- * Convert API selections to engine selections.
+ * Normalize API selection objects into engine-compatible line selections.
+ *
+ * Converts each API selection into a LineSelection, ensuring numeric values are truncated to integers suitable for the refund engine.
+ *
+ * @param apiSelections - Array of user-provided line selections from the API
+ * @returns An array of line selections where each entry contains `itemId` and either `amountCents` (truncated integer) or `quantity` (truncated integer)
  */
 function toEngineSelections(
   apiSelections: ApiLineSelection[]
@@ -65,7 +70,13 @@ function toEngineSelections(
 }
 
 /**
- * Normalize selections for storage in refunds.selections.
+ * Convert API line selections into normalized persisted selection objects for storage.
+ *
+ * Numeric selection values are truncated to integers and each selection is mapped
+ * to a persisted shape with `blockType` set to either `'amount'` or `'quantity'`.
+ *
+ * @param apiSelections - The array of API-facing line selections to normalize
+ * @returns An array of persisted selection objects with integer `amountCents` or `quantity` and the corresponding `blockType`
  */
 function toPersistedSelections(
   apiSelections: ApiLineSelection[]
@@ -86,7 +97,13 @@ function toPersistedSelections(
 }
 
 /**
- * Safely convert a value to a non-negative integer, with a fallback.
+ * Convert an input to a non-negative integer, returning a fallback when conversion is not possible.
+ *
+ * The function truncates any fractional part of a finite number and returns it if it is greater than or equal to zero; otherwise it returns `fallback`.
+ *
+ * @param value - The value to convert to a non-negative integer
+ * @param fallback - The value to return when `value` is not a finite number or truncates to a negative integer (default: `0`)
+ * @returns A non-negative integer derived from `value`, or `fallback` when conversion is not applicable
  */
 function toSafeNonNegativeInteger(value: unknown, fallback = 0): number {
   if (typeof value !== 'number' || !Number.isFinite(value)) return fallback;
@@ -94,6 +111,18 @@ function toSafeNonNegativeInteger(value: unknown, fallback = 0): number {
   return integer >= 0 ? integer : fallback;
 }
 
+/**
+ * Handle an admin POST request to create a refund for an order, validate input, enforce server-side shipping refund limits, invoke the refund engine, persist normalized selections (non-fatal), and trigger a recompute of refund state (non-fatal).
+ *
+ * Performs:
+ * - request body validation,
+ * - super-admin authorization,
+ * - shipping-amount guard that prevents refunding more shipping than remains refundable,
+ * - creation of the refund via the refund engine,
+ * - best-effort persistence of normalized selections and recompute of refund state.
+ *
+ * @returns A NextResponse with JSON. On success: `{ ok: true, stripeRefundId, status, amount, refundId }`. On failure: an error object `{ error }` and, when applicable, `{ code, orderId }` (validation failures include `details` with `fieldErrors`/`formErrors`).
+ */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
     // ---------- Parse and validate body ----------

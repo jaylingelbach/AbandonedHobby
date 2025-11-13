@@ -189,9 +189,15 @@ function getLineTotalCents(item: OrderItem): number {
 }
 
 /**
- * Create and persist a Stripe refund for an order based on requested line selections and optional adjustments.
+ * Initiates a Stripe refund for an order based on line selections and optional adjustments, and persists an audit record.
  *
- * Enforces per-line residual caps (qty and amount) to prevent over-refunds across multiple operations.
+ * @param orderId - ID of the order to refund
+ * @param selections - Array of line selections; may be empty for shipping-only refunds
+ * @param options - Optional adjustments and metadata (e.g., refundShippingCents, restockingFeeCents, reason, idempotencyKey)
+ * @returns An object containing the Stripe refund and the created refund record
+ * @throws FullyRefundedError when the order has no remaining refundable balance
+ * @throws ExceedsRefundableError when the computed refund amount exceeds the order's remaining refundable balance
+ * @throws Error for validation failures (missing order, missing Stripe references, invalid selections, or non-positive computed refund)
  */
 export async function createRefundForOrder(args: {
   payload: Payload;
@@ -363,6 +369,12 @@ export async function createRefundForOrder(args: {
 
   // Persist an audit record in your Refunds collection
   type LineSelectionWithQuantity = Extract<LineSelection, { quantity: number }>;
+  /**
+   * Determine whether a line selection specifies a quantity.
+   *
+   * @param sel - The line selection to test
+   * @returns `true` if `sel` includes a numeric `quantity` property and therefore is a `LineSelectionWithQuantity`, `false` otherwise.
+   */
   function hasQuantity(sel: LineSelection): sel is LineSelectionWithQuantity {
     return 'quantity' in sel; // zod schema guarantees when present it is a number
   }

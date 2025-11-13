@@ -35,6 +35,12 @@ import type { ApiSelection } from './utils/ui/refund-calc';
 
 const DEBUG_REFUNDS = process.env.NODE_ENV === 'development';
 
+/**
+ * Logs a collapsed console group with an optional payload for refund UI debugging.
+ *
+ * @param title - Short label used as the console group header
+ * @param data - Optional value to log inside the group
+ */
 function dbg(title: string, data?: unknown) {
   if (!DEBUG_REFUNDS) return;
   console.groupCollapsed(`[refunds][ui] ${title}`);
@@ -56,6 +62,15 @@ function dbgTable(
   console.groupEnd();
 }
 
+/**
+ * Renders the admin RefundManager UI for inspecting an order's refundable state and creating refunds.
+ *
+ * Displays per-line refund controls, shipping/restocking inputs, a live refund preview, and a create-refund action.
+ * Fetches order data and server-side refund state, auto-populates refundable shipping when available, enforces server-driven limits,
+ * and submits refunds to the server (including support for shipping-only refunds and idempotency keys).
+ *
+ * @returns The RefundManager React component UI (JSX) or `null` when refunds are not available for the current document/collection.
+ */
 export function RefundManager() {
   const { id: documentId, collectionSlug } = useDocumentInfo();
   const { user } = useAuth();
