@@ -143,29 +143,38 @@ export const libraryRouter = createTRPCRouter({
         totalDocs: number;
       };
 
-      // 2) Collect product ids on this page + map newest orderId per product
+      // 2) Build:
+      //    - productIdSet: unique products for this page (for fetches)
+      //    - orderProductRefs: one entry per (orderId, productId) pair
       const productIdSet = new Set<string>();
-      const latestOrderIdByProduct = new Map<string, string>();
+      const orderProductRefs: { orderId: string; productId: string }[] = [];
 
       for (const order of orders.docs) {
-        let foundInItems = false;
+        let orderHasItemProduct = false;
+
         if (Array.isArray(order.items) && order.items.length > 0) {
-          for (const it of order.items) {
-            const pid = getRelId(it?.product ?? null);
-            if (pid) {
-              productIdSet.add(pid);
-              if (!latestOrderIdByProduct.has(pid))
-                latestOrderIdByProduct.set(pid, order.id);
-              foundInItems = true;
+          for (const item of order.items) {
+            const productIdentifier = getRelId(item?.product ?? null);
+            if (productIdentifier) {
+              productIdSet.add(productIdentifier);
+              orderProductRefs.push({
+                orderId: order.id,
+                productId: productIdentifier
+              });
+              orderHasItemProduct = true;
             }
           }
         }
-        if (!foundInItems) {
-          const pid = getRelId(order.product ?? null);
-          if (pid) {
-            productIdSet.add(pid);
-            if (!latestOrderIdByProduct.has(pid))
-              latestOrderIdByProduct.set(pid, order.id);
+
+        // Legacy shape: top-level `product` when items[] is empty
+        if (!orderHasItemProduct) {
+          const legacyProductIdentifier = getRelId(order.product ?? null);
+          if (legacyProductIdentifier) {
+            productIdSet.add(legacyProductIdentifier);
+            orderProductRefs.push({
+              orderId: order.id,
+              productId: legacyProductIdentifier
+            });
           }
         }
       }
@@ -201,38 +210,48 @@ export const libraryRouter = createTRPCRouter({
 
       const summaries = summarizeReviews(reviewsRes.docs);
 
-      // 5) Build normalized DTOs in the same order as productIds (recency)
-      const productById = new Map(productsRes.docs.map((p) => [p.id, p]));
+      // 5) Build normalized DTOs in order of (orderId, productId) pairs
+      const productById = new Map(
+        productsRes.docs.map((product) => [product.id, product])
+      );
 
-      const docs: ProductCardDTO[] = productIds.flatMap((pid) => {
-        const p = productById.get(pid);
-        if (!p) return []; // product deleted/filtered
+      const docs: ProductCardDTO[] = orderProductRefs.flatMap((reference) => {
+        const product = productById.get(reference.productId);
+        if (!product) return []; // product deleted/filtered or filtered out
 
-        const orderId = latestOrderIdByProduct.get(pid);
-        if (!orderId) return []; // safety
+        const stats = summaries.get(reference.productId) ?? {
+          count: 0,
+          avg: 0
+        };
 
-        const stats = summaries.get(pid) ?? { count: 0, avg: 0 };
+        const normalizedImage: Media | null = pickPrimaryMedia(product);
 
-        const normalizedImage: Media | null = pickPrimaryMedia(p);
+        const tenantObject =
+          typeof product.tenant === 'object' && product.tenant !== null
+            ? product.tenant
+            : null;
 
-        const tenantObj = (p.tenant as Tenant | null) ?? null;
         const normalizedTenant: (Tenant & { image: Media | null }) | null =
-          tenantObj
+          tenantObject
             ? {
-                ...tenantObj,
-                image: (tenantObj.image as Media | null) ?? null
+                ...tenantObject,
+                image:
+                  typeof tenantObject.image === 'object' &&
+                  tenantObject.image !== null
+                    ? tenantObject.image
+                    : null
               }
             : null;
 
         return [
           {
-            id: p.id,
-            name: p.name,
+            id: product.id,
+            name: product.name,
             image: normalizedImage,
             tenant: normalizedTenant,
             reviewCount: stats.count,
             reviewRating: stats.avg,
-            orderId
+            orderId: reference.orderId
           }
         ];
       });

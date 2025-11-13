@@ -5126,3 +5126,26 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - src/payload/views/buyer-dashboard/buyer-dashboard-utils.ts, src/payload/views/buyer-dashboard/buyer-dashboard.tsx
   - Extracts and exports formatCurrencyDisplay(amount, currency?, locale?) and readCurrencyFromOrder(value, fallback?); replaces in-file implementations with imports in the buyer dashboard view.
+
+# Show each order separately 11/13/25
+
+## Walkthrough
+
+- Refactors server getMany to emit flat (orderId, productId) references and rebuild DTOs from those refs; adjusts UI locals for readability. No public function or type signatures changed.
+
+## Refactor
+
+- Internal data handling and variable renaming to improve clarity and maintainability; no changes to user-facing behavior or public APIs.
+
+## File changes
+
+### Server: order→product refactor
+
+- src/modules/library/server/procedures.ts
+  - Replaced per-product latest-order mapping with orderProductRefs (flat list of {orderId, productId}), added productIdSet, and orderHasItemProduct legacy handling.
+  - Collects productIds from order.items (falls back to top-level order.product), fetches products by set, and builds DTOs by iterating refs; skips missing products. Stats, media, and tenant normalization updated to use product lookups and orderId included in each DTO.
+
+### UI: local variable renames
+
+- src/modules/library/ui/components/product-list.tsx
+  - Renamed locals for clarity (e.g., p → product, c → card) and simplified a reviewCount formatting expression. No behavioral or API change.

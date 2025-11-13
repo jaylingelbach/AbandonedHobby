@@ -17,13 +17,13 @@ export const ProductList = () => {
         { limit: DEFAULT_LIMIT },
         {
           getNextPageParam: (lastPage) =>
-            lastPage.docs.length > 0 ? lastPage.nextPage : undefined,
+            lastPage.docs.length > 0 ? lastPage.nextPage : undefined
         }
       )
     );
 
   // 1) Flatten
-  const rows = data?.pages.flatMap((p) => p.docs) ?? [];
+  const rows = data?.pages.flatMap((page) => page.docs) ?? [];
 
   // 2) Group ONLY by orderId (skip rows without an orderId)
   type Row = (typeof rows)[number];
@@ -54,8 +54,7 @@ export const ProductList = () => {
       tenantImageURL: first.tenant?.image?.url ?? null,
       reviewRating:
         typeof first.reviewRating === 'number' ? first.reviewRating : 0,
-      reviewCount:
-        typeof first.reviewCount === 'number' ? first.reviewCount : 0,
+      reviewCount: typeof first.reviewCount === 'number' ? first.reviewCount : 0
     };
   });
 
@@ -71,16 +70,16 @@ export const ProductList = () => {
   return (
     <>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-4">
-        {cards.map((c) => (
+        {cards.map((card) => (
           <ProductCard
-            key={c.orderId}
-            orderId={c.orderId}
-            name={c.title}
-            imageURL={c.imageURL}
-            tenantSlug={c.tenantSlug}
-            tenantImageURL={c.tenantImageURL}
-            reviewRating={c.reviewRating}
-            reviewCount={c.reviewCount}
+            key={card.orderId}
+            orderId={card.orderId}
+            name={card.title}
+            imageURL={card.imageURL}
+            tenantSlug={card.tenantSlug}
+            tenantImageURL={card.tenantImageURL}
+            reviewRating={card.reviewRating}
+            reviewCount={card.reviewCount}
           />
         ))}
       </div>
