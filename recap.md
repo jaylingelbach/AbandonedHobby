@@ -28,7 +28,7 @@
 
 #
 
-# tRPC integration 5/2/25
+# tRPC integration 05/02/25
 
 ## New Features
 
@@ -53,7 +53,7 @@
 
 ###
 
-# Authentication 5/5/25
+# Authentication 05/05/25
 
 ## New Features
 
@@ -103,7 +103,7 @@
 
 ###
 
-# Auth states 5/6/25
+# Auth states 05/06/25
 
 ## New Features
 
@@ -141,7 +141,7 @@
 - src/trpc/server.ts
   - Added new exported caller for direct server-side tRPC procedure invocation.
 
-# Category Pages 5/6/25
+# Category Pages 05/06/25
 
 ## New Features
 
@@ -181,7 +181,7 @@
 - src/lib/seed.ts
   - Improved seeding logic to prevent duplicate categories and subcategories, added "All" and "Drawing & Painting" categories, and updated success message.
 
-# Products 5/6/25
+# Products 05/06/25
 
 ### Summary
 
@@ -218,7 +218,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/modules/home/ui/components/search-filters/categories.tsx
   - Added a TODO comment to clarify future logic for the "all" category button; no functional changes.
 
-# Filters 1 5/10/25
+# Filters 1 05/10/25
 
 ## New Features
 
@@ -268,7 +268,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - tsconfig.json
   - Enabled noUncheckedIndexedAccess for stricter type checking; reformatted arrays for compactness.
 
-# Sort filters 5/11/25
+# Sort filters 05/11/25
 
 ## New Features
 
@@ -323,7 +323,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/trpc/routers/\_app.ts
   - Added tagsRouter to the main TRPC app router.
 
-# Product List - UI 5/12/25
+# Product List - UI 05/12/25
 
 ## New Features
 
@@ -419,7 +419,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/modules/home/ui/components/search-filters/category-dropdown.tsx
   - Reordered imports for clarity; no functional change.
 
-# Tenant Pages 5/15/25
+# Tenant Pages 05/15/25
 
 ## New Features
 
@@ -469,7 +469,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/trpc/routers/\_app.ts
   - Registered tenantsRouter in the main application router.
 
-# Product Page 5/15/25
+# Product Page 05/15/25
 
 ## Walkthrough:
 
@@ -510,7 +510,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/collections/Products.ts src/payload-types.ts
   - Added a cover field to products, updated refund policy options from plural to singular day forms, and updated type definitions accordingly.
 
-# Cart (F.E. only) 5/16/25
+# Cart (F.E. only) 05/16/25
 
 ## Walkthrough
 
@@ -1056,7 +1056,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - eslint.config.mjs
   - Replaced compat.extends with compat.config for configuration style.
 
-  ### Vercel deployment lesson learned:
+  ### Vercel deployment lesson learned
   - When setting env vars for public domain or root url DO NOT INCLUDE A TRAILING /
     - it will ruin your day.
 

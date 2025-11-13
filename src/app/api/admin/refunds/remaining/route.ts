@@ -362,7 +362,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
       const coveredByQuantity =
         purchasedQuantity > 0 && quantityRemaining === 0;
-      const coveredByAmount = refundedAmount >= Math.max(0, lineTotal - 1); // 1¢ slop
+      const coveredByAmount =
+        lineTotal > 0 && approximatelyEqual(refundedAmount, lineTotal, 1);
 
       if (coveredByQuantity || coveredByAmount) {
         fullyRefundedItemIds.push(itemId);

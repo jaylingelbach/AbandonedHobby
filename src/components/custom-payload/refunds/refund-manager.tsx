@@ -100,6 +100,8 @@ export function RefundManager() {
   const [restockingFeeDollars, setRestockingFeeDollars] =
     useState<string>('0.00');
 
+  const [hasEditedShipping, setHasEditedShipping] = useState(false);
+
   const isOrdersCollection = collectionSlug === 'orders';
   const isStaff =
     Array.isArray(user?.roles) && user.roles.includes('super-admin');
@@ -109,12 +111,13 @@ export function RefundManager() {
     if (
       shippingInfo &&
       shippingInfo.remainingCents > 0 &&
-      !refundShippingDollars
+      !refundShippingDollars &&
+      !hasEditedShipping
     ) {
       const suggested = (shippingInfo.remainingCents / 100).toFixed(2);
       setRefundShippingDollars(suggested);
     }
-  }, [shippingInfo, refundShippingDollars]);
+  }, [shippingInfo, refundShippingDollars, hasEditedShipping]);
 
   useEffect(() => {
     if (!DEBUG_REFUNDS) return;
@@ -428,14 +431,14 @@ export function RefundManager() {
       );
     } else {
       // Also check shipping limit
-      const requestedShippingCents = parseMoneyToCents(refundShippingDollars);
+
       if (
         shippingInfo &&
-        requestedShippingCents > shippingInfo.remainingCents
+        refundShippingCentsValue > shippingInfo.remainingCents
       ) {
         setFormError(
           `Shipping refund exceeds remaining refundable shipping by ${formatCurrency(
-            (requestedShippingCents - shippingInfo.remainingCents) / 100,
+            (refundShippingCentsValue - shippingInfo.remainingCents) / 100,
             currency
           )}.`
         );
@@ -510,8 +513,8 @@ export function RefundManager() {
       clamp: clampInteger
     });
 
-    const shippingCents = parseMoneyToCents(refundShippingDollars);
-    const restockingCents = parseMoneyToCents(restockingFeeDollars);
+    const shippingCents = refundShippingCentsValue;
+    const restockingCents = restockingFeeCentsValue;
 
     // Allow either line selections OR shipping-only (positive shippingCents)
     if (selections.length === 0 && shippingCents <= 0) {
