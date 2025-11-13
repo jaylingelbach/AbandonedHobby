@@ -50,7 +50,7 @@ function parseProductShipping(product: unknown): ProductForShipping {
       : null
   };
 }
-
+const CHECKOUT_ATTEMPT_TTL_MS = 60 * 60 * 24000; // 24 hours
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -447,7 +447,9 @@ export const checkoutRouter = createTRPCRouter({
       });
 
       let checkout: Stripe.Checkout.Session;
-      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+      const expiresAt = new Date(
+        Date.now() + CHECKOUT_ATTEMPT_TTL_MS
+      ).toISOString();
 
       try {
         // 1) Create the Stripe Checkout Session first
@@ -469,7 +471,6 @@ export const checkoutRouter = createTRPCRouter({
             overrideAccess: true
           });
         } catch (attemptError) {
-          // Do NOT break checkout just because the mapping failed
           console.error(
             '[checkout] failed to persist pending checkout attempt',
             {

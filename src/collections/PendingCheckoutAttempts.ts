@@ -7,10 +7,10 @@ export const PendingCheckoutAttempts: CollectionConfig = {
   },
   access: {
     // Internal-only; your code uses overrideAccess: true where needed
-    read: ({ req }) => !!req.user, // Allow authenticated users to read
-    create: ({ req }) => !!req.user, // Require authentication for creation
-    update: () => false, // Keep updates blocked
-    delete: ({ req }) => !!req.user // Require authentication for deletion
+    read: () => false,
+    create: () => false,
+    update: () => false,
+    delete: () => false
   },
   fields: [
     {
