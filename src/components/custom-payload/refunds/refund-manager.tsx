@@ -110,12 +110,7 @@ export function RefundManager() {
 
   // Auto-populate shipping when shipping info is available
   useEffect(() => {
-    if (
-      shippingInfo &&
-      shippingInfo.remainingCents > 0 &&
-      !refundShippingDollars &&
-      !hasEditedShipping
-    ) {
+    if (shippingInfo && shippingInfo.remainingCents > 0 && !hasEditedShipping) {
       const suggested = (shippingInfo.remainingCents / 100).toFixed(2);
       setRefundShippingDollars(suggested);
     }
