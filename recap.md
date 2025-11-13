@@ -5034,7 +5034,7 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 ## Walkthrough
 
--
+- Refactors Stripe webhook helpers and exports receipt/analytics utilities and types; expands shipping data in public payloads and UI; adds server-side shipping refund guards and cross-field refund schema validation; enables shipping-only refunds and updates admin refund routes, RefundManager UI/state, refunds engine, and fee-override audit logic.
 
 ## New Features
 
@@ -5048,3 +5048,81 @@ recap.md Minor comment update and internal import path note changed; no behavior
 - Refined refund validation and error handling
 - More detailed order tracking with amounts and status data
 - Strengthened analytics integration across purchase flows
+
+## File changes
+
+### Recap / Documentation
+
+- recap.md
+  - Expanded changelog with dated "Refactor webhook 11/12/25" section and follow-ups describing webhook helpers, centralized receipt/shipping computations, analytics/verification flows, and admin/UI payload exposure.
+
+### Admin refunds — remaining calc
+
+- src/app/api/admin/refunds/remaining/route.ts
+  - Rewrote GET handler signature/flow, renamed/refined selection and refund document types, added refunded-by-item maps, computed original/refunded/remaining shipping cents, and expanded response with per-item and shipping details; standardized logging and error handling.
+
+### Admin refunds — create & guards
+
+- src/app/api/admin/refunds/route.ts, src/app/api/admin/refunds/schema.ts
+  - Renamed persisted selection types, added OrderForShippingCheck/RefundForShippingAggregation, implemented server-side shipping refund guard enforcing remaining shipping limits, updated POST signature/flow, and added schema .superRefine to allow empty selections when refundShippingCents > 0.
+
+### Refund UI & types
+
+- src/components/custom-payload/refunds/refund-manager.tsx, src/components/custom-payload/refunds/types.ts
+  - Added shippingInfo state (original/refunded/remaining), auto-populate shipping refund when unedited, support shipping-only refunds and include refundShippingCents in payload, reset shipping/restocking UI state after outcomes, and added OrderLite.amounts?.shippingTotalCents.
+
+### Refunds engine
+
+- src/modules/refunds/engine.ts Allow empty selections in createRefundForOrder (support shipping-only refunds); added inline docs and minor helper renames.
+
+### Webhook utilities & types
+
+- src/app/(app)/api/stripe/webhooks/utils.ts, src/app/(app)/api/stripe/webhooks/utils/types.ts
+  - Added/exported helpers (parseStripeMetadata, captureAnalyticsEvent, buildReceiptModels, handleDuplicateOrder) and new FeeResult type; centralized receipt/shipping computation and analytics helper exposure.
+
+### Server analytics helper
+
+- src/lib/server/analytics.ts
+  -     Added/exported flushIfNeeded used by server analytics flows.
+
+### Orders / fee audit logic
+
+- src/lib/server/orders/lock-and-calc-amounts.ts
+  - Refined fee-override audit logic to trigger only when normalized attempted fee cents differ from persisted values.
+
+### Minor cleanup
+
+- src/app/(app)/api/stripe/webhooks/utils/helpers.ts
+  - Removed an unused import (markProcessed) — no behavioral change.
+
+# Block self purchase 11/13/25
+
+## Walkthrough
+
+- Consolidates ShipmentGroup into a shared type, adds a helper to validate shipment groups, hardens tracking-server validation, extracts currency helpers into a utils module, and gates product purchase UI with a new canPurchase computed property.
+
+## Buyer dashboard now uses shared currency helpers for consistent, localized price display.
+
+- Product view updates: clearer messaging and button states for unavailable items vs. items listed by you; purchase button hidden when buying your own listing.
+
+## Bug Fixes
+
+- Improved shipment/tracking validation to safely handle unknown carriers and empty shipment data.
+
+## File changes
+
+### ShipmentGroup Type Centralization
+
+- src/lib/orders/types.ts, src/lib/server/orders/mirror-single-to-shipments.ts, src/lib/server/payload-utils/orders.ts
+  - Adds exported ShipmentGroup type and replaces local declarations with the shared import. Introduces hasAnyShipmentValue() to detect meaningful shipment data and uses it in mirroring logic.
+  - Hardens isLikelyValidTrackingServer to return false when carrier patterns are undefined.
+
+### Product Purchase Availability
+
+- src/modules/products/ui/views/product-view.tsx
+  - Adds canPurchase = inStock && !isSelf and uses it to decide rendering of CartButton vs. a disabled button; updates disabled button title and label to reflect "Unavailable" or "Listed by you".
+
+### Currency Utilities Extraction
+
+- src/payload/views/buyer-dashboard/buyer-dashboard-utils.ts, src/payload/views/buyer-dashboard/buyer-dashboard.tsx
+  - Extracts and exports formatCurrencyDisplay(amount, currency?, locale?) and readCurrencyFromOrder(value, fallback?); replaces in-file implementations with imports in the buyer dashboard view.
