@@ -11,6 +11,20 @@ const debugLog = (title: string, data?: unknown): void => {
   console.log(`[refunds][server] ${title}`, data ?? '');
 };
 
+/**
+ * Compute remaining refundable quantities and amounts for a given order, returning per-item remaining quantities, refunded totals, fully refunded items, and shipping refund status.
+ *
+ * The endpoint requires an `orderId` search parameter and only allows access to users with the `super-admin` role. If `includePending=true` is provided, pending refunds are counted alongside succeeded refunds when calculating remaining amounts. The function inspects order items and existing refund documents to attribute refunded quantities and cents back to individual items using explicit selections or heuristics.
+ *
+ * @returns JSON object with:
+ * - `ok`: `true` when the operation succeeded.
+ * - `byItemId`: record mapping itemId to remaining refundable quantity (number).
+ * - `remainingCents`: remaining refundable total for the order in cents.
+ * - `refundedQtyByItemId`: record mapping itemId to total refunded quantity (number).
+ * - `refundedAmountByItemId`: record mapping itemId to total refunded amount in cents.
+ * - `fullyRefundedItemIds`: array of itemIds considered fully refunded by quantity or amount.
+ * - `shipping`: object with `originalCents`, `refundedCents`, and `remainingCents` (all in cents).
+ */
 export async function GET(request: NextRequest): Promise<NextResponse> {
   // ---------- Canonical types ----------
   type SelectionQuantity = {
