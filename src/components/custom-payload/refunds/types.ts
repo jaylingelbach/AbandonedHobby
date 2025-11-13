@@ -13,6 +13,9 @@ export type OrderLite = {
   total: number; // cents
   currency?: string | null;
   status?: string;
+  amounts?: {
+    shippingTotalCents?: number | null;
+  };
 };
 
 export type RefundLine = {

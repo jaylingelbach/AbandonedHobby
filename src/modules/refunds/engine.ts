@@ -201,8 +201,9 @@ export async function createRefundForOrder(args: {
 }) {
   const { payload, orderId, selections, options } = args;
 
-  if (!Array.isArray(selections) || selections.length === 0) {
-    throw new Error('At least one selection is required');
+  // ⬇️ Allow empty selections (for shipping-only refunds); still require an array.
+  if (!Array.isArray(selections)) {
+    throw new Error('Selections must be an array');
   }
 
   const order = (await payload.findByID({
@@ -363,7 +364,7 @@ export async function createRefundForOrder(args: {
   // Persist an audit record in your Refunds collection
   type LineSelectionWithQuantity = Extract<LineSelection, { quantity: number }>;
   function hasQuantity(sel: LineSelection): sel is LineSelectionWithQuantity {
-    return 'quantity' in sel; // zod schema guarantees when present it's a number
+    return 'quantity' in sel; // zod schema guarantees when present it is a number
   }
 
   const selectionsForRecord = selections.map((selection) => {

@@ -79,6 +79,11 @@ export function RefundManager() {
   const [remainingCentsFromServer, setRemainingCentsFromServer] = useState<
     number | null
   >(null);
+  const [shippingInfo, setShippingInfo] = useState<{
+    originalCents: number;
+    refundedCents: number;
+    remainingCents: number;
+  } | null>(null);
 
   // LOCAL FORM
   const [quantitiesByItemId, setQuantitiesByItemId] = useState<
@@ -91,13 +96,25 @@ export function RefundManager() {
     'requested_by_customer' | 'duplicate' | 'fraudulent' | 'other'
   >('requested_by_customer');
   const [refundShippingDollars, setRefundShippingDollars] =
-    useState<string>('0.00');
+    useState<string>('');
   const [restockingFeeDollars, setRestockingFeeDollars] =
     useState<string>('0.00');
 
   const isOrdersCollection = collectionSlug === 'orders';
   const isStaff =
     Array.isArray(user?.roles) && user.roles.includes('super-admin');
+
+  // Auto-populate shipping when shipping info is available
+  useEffect(() => {
+    if (
+      shippingInfo &&
+      shippingInfo.remainingCents > 0 &&
+      !refundShippingDollars
+    ) {
+      const suggested = (shippingInfo.remainingCents / 100).toFixed(2);
+      setRefundShippingDollars(suggested);
+    }
+  }, [shippingInfo, refundShippingDollars]);
 
   useEffect(() => {
     if (!DEBUG_REFUNDS) return;
@@ -106,12 +123,14 @@ export function RefundManager() {
     dbgTable('STATE refundedAmountByItemId', refundedAmountByItemId);
     dbgTable('STATE fullyRefundedByItemId', fullyRefundedByItemId);
     dbg('STATE remainingCentsFromServer', remainingCentsFromServer);
+    dbg('STATE shippingInfo', shippingInfo);
   }, [
     remainingQtyByItemId,
     refundedQtyByItemId,
     refundedAmountByItemId,
     fullyRefundedByItemId,
-    remainingCentsFromServer
+    remainingCentsFromServer,
+    shippingInfo
   ]);
 
   /** Stable: no external reactive values used except state setters */
@@ -132,6 +151,11 @@ export function RefundManager() {
           refundedAmountByItemId?: Record<string, number>;
           refundedQtyByItemId?: Record<string, number>;
           fullyRefundedItemIds?: string[];
+          shipping?: {
+            originalCents?: number;
+            refundedCents?: number;
+            remainingCents?: number;
+          };
         } = await res.json();
 
         dbg('GET /api/admin/refunds/remaining → payload', {
@@ -158,6 +182,17 @@ export function RefundManager() {
             )
           : {};
         setFullyRefundedByItemId(fullyMap);
+
+        // 4) shipping info
+        if (json.shipping) {
+          setShippingInfo({
+            originalCents: json.shipping.originalCents ?? 0,
+            refundedCents: json.shipping.refundedCents ?? 0,
+            remainingCents: json.shipping.remainingCents ?? 0
+          });
+        } else {
+          setShippingInfo(null);
+        }
       } catch (error) {
         console.error('[refunds][ui] Failed to fetch remaining:', error);
         // Reset everything on error so UI doesn’t get stuck
@@ -166,6 +201,7 @@ export function RefundManager() {
         setRefundedQtyByItemId({});
         setRefundedAmountByItemId({});
         setFullyRefundedByItemId({});
+        setShippingInfo(null);
       }
     },
     []
@@ -318,8 +354,8 @@ export function RefundManager() {
   // Merge: either server explicitly flags the item, or our derivation does
   const mergedFullyRefundedByItemId = useMemo(() => {
     const out: Record<string, boolean> = { ...derivedFullyRefundedByItemId };
-    for (const [id, v] of Object.entries(fullyRefundedByItemId)) {
-      if (v) out[id] = true;
+    for (const [id, value] of Object.entries(fullyRefundedByItemId)) {
+      if (value) out[id] = true;
     }
     return out;
   }, [derivedFullyRefundedByItemId, fullyRefundedByItemId]);
@@ -380,7 +416,7 @@ export function RefundManager() {
   const isFullyRefunded =
     effectiveRemainingRefundableCents <= 0 && (order?.total ?? 0) > 0;
 
-  // Over-limit guard
+  // Over-limit guard (items + shipping)
   useEffect(() => {
     if (!order) return;
     if (previewCents > effectiveRemainingRefundableCents) {
@@ -391,9 +427,30 @@ export function RefundManager() {
         )}.`
       );
     } else {
-      setFormError(null);
+      // Also check shipping limit
+      const requestedShippingCents = parseMoneyToCents(refundShippingDollars);
+      if (
+        shippingInfo &&
+        requestedShippingCents > shippingInfo.remainingCents
+      ) {
+        setFormError(
+          `Shipping refund exceeds remaining refundable shipping by ${formatCurrency(
+            (requestedShippingCents - shippingInfo.remainingCents) / 100,
+            currency
+          )}.`
+        );
+      } else {
+        setFormError(null);
+      }
     }
-  }, [order, previewCents, effectiveRemainingRefundableCents, currency]);
+  }, [
+    order,
+    previewCents,
+    effectiveRemainingRefundableCents,
+    currency,
+    refundShippingDollars,
+    shippingInfo
+  ]);
 
   function setQuantityFor(itemId: string, next: number, maxQty: number): void {
     setQuantitiesByItemId((prev) => ({
@@ -425,17 +482,17 @@ export function RefundManager() {
     quantity?: number;
   };
   const hasAmount = (
-    s: InternalSelection
-  ): s is { itemId: string; amountCents: number } =>
-    typeof s.amountCents === 'number' &&
-    Number.isFinite(s.amountCents) &&
-    s.amountCents > 0;
+    selection: InternalSelection
+  ): selection is { itemId: string; amountCents: number } =>
+    typeof selection.amountCents === 'number' &&
+    Number.isFinite(selection.amountCents) &&
+    selection.amountCents > 0;
   const hasQuantity = (
-    s: InternalSelection
-  ): s is { itemId: string; quantity: number } =>
-    typeof s.quantity === 'number' &&
-    Number.isFinite(s.quantity) &&
-    Math.trunc(s.quantity) > 0;
+    selection: InternalSelection
+  ): selection is { itemId: string; quantity: number } =>
+    typeof selection.quantity === 'number' &&
+    Number.isFinite(selection.quantity) &&
+    Math.trunc(selection.quantity) > 0;
 
   type ApiSelection =
     | { type: 'amount'; itemId: string; amountCents: number }
@@ -453,35 +510,37 @@ export function RefundManager() {
       clamp: clampInteger
     });
 
-    if (selections.length === 0) {
+    const shippingCents = parseMoneyToCents(refundShippingDollars);
+    const restockingCents = parseMoneyToCents(restockingFeeDollars);
+
+    // Allow either line selections OR shipping-only (positive shippingCents)
+    if (selections.length === 0 && shippingCents <= 0) {
       toast.error(
-        'Enter a partial amount or select at least one quantity to refund.'
+        'Enter a partial amount, select at least one quantity, or provide a positive shipping refund.'
       );
       return;
     }
 
-    const apiSelections = selections.reduce<ApiSelection[]>((acc, s) => {
-      if (hasAmount(s))
-        acc.push({
-          type: 'amount',
-          itemId: s.itemId,
-          amountCents: Math.trunc(s.amountCents)
-        });
-      else if (hasQuantity(s))
-        acc.push({
-          type: 'quantity',
-          itemId: s.itemId,
-          quantity: Math.trunc(s.quantity)
-        });
-      return acc;
-    }, []);
-    if (apiSelections.length === 0) {
-      toast.error('Nothing to refund — check amounts/quantities.');
-      return;
-    }
-
-    const shippingCents = parseMoneyToCents(refundShippingDollars);
-    const restockingCents = parseMoneyToCents(restockingFeeDollars);
+    const apiSelections = selections.reduce<ApiSelection[]>(
+      (acc, selection) => {
+        if (hasAmount(selection)) {
+          acc.push({
+            type: 'amount',
+            itemId: selection.itemId,
+            amountCents: Math.trunc(selection.amountCents)
+          });
+        } else if (hasQuantity(selection)) {
+          acc.push({
+            type: 'quantity',
+            itemId: selection.itemId,
+            quantity: Math.trunc(selection.quantity)
+          });
+        }
+        return acc;
+      },
+      []
+    );
+    // Note: apiSelections may be empty for shipping-only refunds
 
     let idempotencyKey: string | undefined;
     try {
@@ -502,8 +561,9 @@ export function RefundManager() {
       orderId: order.id,
       reason,
       selections: apiSelections,
-      idempotencyKey
-      // (optionally include shipping/restocking if your POST handler accepts them)
+      idempotencyKey,
+      refundShippingCents: shippingCents > 0 ? shippingCents : undefined,
+      restockingFeeCents: restockingCents > 0 ? restockingCents : undefined
     };
 
     setIsLoading(true);
@@ -535,8 +595,10 @@ export function RefundManager() {
       await refreshAfterRefund(order.id);
       setQuantitiesByItemId({});
       setPartialAmountByItemId({});
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Refund failed.');
+      setRefundShippingDollars('');
+      setRestockingFeeDollars('0.00');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Refund failed.');
     } finally {
       setIsLoading(false);
     }
@@ -679,9 +741,8 @@ export function RefundManager() {
               const isLineFullyRefunded =
                 fromMerged ||
                 ((hasQtyKey || hasAmtKey) && (qtyFully || amountCovers));
-              const serverSaysFully = !!fullyRefundedByItemId[itemId];
 
-              // Input clamping: if we don't have remainingQty yet, allow up to purchased qty
+              // Input clamping: if we do not have remainingQty yet, allow up to purchased qty
               const maxQty = hasQtyKey
                 ? (remainingQty as number)
                 : line.quantityPurchased;
@@ -702,7 +763,6 @@ export function RefundManager() {
                     : '(unknown)',
                   refundedAmtCents: hasAmtKey ? refundedAmtCents : '(unknown)',
                   lineTotalCents,
-                  serverSaysFully,
                   qtyFully,
                   amountCovers
                 });
@@ -783,16 +843,19 @@ export function RefundManager() {
                       disabled={
                         !readyForLine || isLineFullyRefunded || isLoading
                       }
-                      onKeyDown={(e) => handleQtyKeyDown(e, itemId, maxQty)}
-                      onChange={(e) => {
-                        const parsed = Number(e.target.value);
+                      onKeyDown={(event) =>
+                        handleQtyKeyDown(event, itemId, maxQty)
+                      }
+                      onChange={(event) => {
+                        const parsed = Number(event.target.value);
                         setQuantityFor(itemId, parsed, maxQty);
                       }}
-                      onBlur={(e) => {
-                        const parsed = Number(e.target.value);
+                      onBlur={(event) => {
+                        const parsed = Number(event.target.value);
                         const clamped = clampInteger(parsed, 0, maxQty);
-                        if (clamped !== parsed)
+                        if (clamped !== parsed) {
                           setQuantityFor(itemId, clamped, maxQty);
+                        }
                       }}
                     />
                     {hasQtyKey &&
@@ -819,10 +882,10 @@ export function RefundManager() {
                           disabled={
                             !readyForLine || isLineFullyRefunded || isLoading
                           }
-                          onChange={(e) =>
+                          onChange={(event) =>
                             setPartialAmountByItemId((prev) => ({
                               ...prev,
-                              [itemId]: cleanMoneyInput(e.target.value)
+                              [itemId]: cleanMoneyInput(event.target.value)
                             }))
                           }
                         />
@@ -848,9 +911,9 @@ export function RefundManager() {
             <select
               className="ah-input"
               value={reason}
-              onChange={(e) =>
+              onChange={(event) =>
                 setReason(
-                  e.target.value as
+                  event.target.value as
                     | 'requested_by_customer'
                     | 'duplicate'
                     | 'fraudulent'
@@ -879,11 +942,34 @@ export function RefundManager() {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={refundShippingDollars}
-                onChange={(e) =>
-                  setRefundShippingDollars(cleanMoneyInput(e.target.value))
+                onChange={(event) =>
+                  setRefundShippingDollars(cleanMoneyInput(event.target.value))
                 }
               />
             </div>
+            {shippingInfo && shippingInfo.originalCents > 0 && (
+              <div className="ah-mini-hint" style={{ marginTop: 4 }}>
+                Original:{' '}
+                {formatCurrency(shippingInfo.originalCents / 100, currency)}
+                {shippingInfo.refundedCents > 0 && (
+                  <>
+                    {' '}
+                    • Refunded:{' '}
+                    {formatCurrency(shippingInfo.refundedCents / 100, currency)}
+                  </>
+                )}
+                {shippingInfo.remainingCents > 0 && (
+                  <>
+                    {' '}
+                    • Remaining:{' '}
+                    {formatCurrency(
+                      shippingInfo.remainingCents / 100,
+                      currency
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </label>
 
           <label className="ah-field">
@@ -898,8 +984,8 @@ export function RefundManager() {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={restockingFeeDollars}
-                onChange={(e) =>
-                  setRestockingFeeDollars(cleanMoneyInput(e.target.value))
+                onChange={(event) =>
+                  setRestockingFeeDollars(cleanMoneyInput(event.target.value))
                 }
               />
             </div>

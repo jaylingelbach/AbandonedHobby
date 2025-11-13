@@ -4955,3 +4955,77 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - src/modules/refunds/utils.ts
   - Updated internal import path for assertPositiveInt to ../orders/server/utils.
+
+# Refactor webhook 11/12/25
+
+## Walkthrough
+
+- This PR centralizes shipping and receipt computation across the Stripe webhook, order creation, and email flows, adding helpers for metadata parsing, fee/receipt computation, and duplicate-order backfill, while extending DTOs and UI bits to include per-item shipping fields and updated amounts breakdowns.
+
+## New Features
+
+- Per-item shipping details added to seller order views, itemized receipts, and emails (shipping mode, per-unit fees, per-line subtotals).
+
+## Enhancements
+
+- Order confirmations/invoices now show full totals breakdown (subtotal, shipping, tax, discount, total) with consistent currency handling.
+- Webhook handling now computes and persists shipping & fee amounts and backfills missing fees/receipts for duplicates.
+
+## Refactor
+
+- Centralized receipt construction and shared helpers to unify email and webhook flows.
+
+## Style
+
+- Adjusted checkout sidebar and shipping breakdown styling for improved consistency.
+
+## Documentation
+
+- Updated recap/documentation with shipping and receipt changes.
+
+## File changes
+
+### Stripe webhook route
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Reworked fee computation and receipt flow: replaced inlined logic with centralized helpers (buildReceiptModels, handleDuplicateOrder, readStripeFeesAndReceiptUrl); unified buyer/seller receipt creation; added fast-paths and updated inventory decrement wiring.
+
+### Webhook helper utilities
+
+- src/app/(app)/api/stripe/webhooks/utils/helpers.ts
+  - New helper module exposing parseStripeMetadata, captureAnalyticsEvent, buildReceiptModels, and handleDuplicateOrder for metadata normalization, analytics capture, receipt/amounts building, and duplicate-order backfill/inventory handling.
+
+### Webhook types
+
+- src/app/(app)/api/stripe/webhooks/utils/types.ts
+  - Added FeeResult type to represent structured fee data from Stripe charges/intent.
+
+### Email & receipt types / builders
+
+- src/lib/sendEmail.ts
+  - Added types (ReceiptLineV2, ReceiptItemInput, ReceiptItemOutput, AmountsModel, FeesModel) and buildReceiptDetailsV2; extended SendOrderConfirmationOptions and SendSaleNotificationOptions to accept shipping/receipt metadata and enriched receipt payloads.
+
+### Order / payload DTOs
+
+- src/payload-types.ts, src/modules/orders/types.ts
+  - Extended Order/Item shapes with per-item shipping fields, added ShippingAddress shape and order-level shipping/amounts fields to public payload types.
+
+### Admin payload config
+
+- src/payload.config.ts
+  - Registered/exposed new shipping-related payload sections for admin UI.
+
+### Checkout sidebar UI
+
+- src/modules/checkout/ui/components/checkout-sidebar.tsx
+  - Repositioned Shipping row to render after breakdown; adjusted conditional logic and removed muted subtitle styling on Subtotal.
+
+### Shipping breakdown styling
+
+- src/modules/shipping/ui/shipping-breakdown.tsx
+  - Added text-muted-foreground class to per-row container for muted text styling.
+
+### Recap/documentation
+
+- recap.md
+  - Updated summary and inline notes documenting shipping/receipt helper additions and path changes.
