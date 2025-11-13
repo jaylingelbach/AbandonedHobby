@@ -1,3 +1,5 @@
+import { Carrier } from '@/constants';
+
 export type OrderWithItems = {
   id: string;
   name?: string | null; // e.g. "Guitar effects pedal (+2 more)"
@@ -15,7 +17,7 @@ export type OrderItemLite = {
 };
 
 export type ShipmentGroup = {
-  carrier?: string;
+  carrier?: Carrier;
   trackingNumber?: string;
   trackingUrl?: string;
   shippedAt?: string;
