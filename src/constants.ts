@@ -10,3 +10,5 @@ export const carrierLabels: Record<Carrier, string> = {
   fedex: 'FedEx',
   other: 'Other'
 };
+
+export const STRIPE_METADATA_MAX_LENGTH = 500 as const;

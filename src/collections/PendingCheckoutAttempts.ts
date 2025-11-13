@@ -3,7 +3,8 @@ import type { CollectionConfig } from 'payload';
 export const PendingCheckoutAttempts: CollectionConfig = {
   slug: 'pending-checkout-attempts',
   admin: {
-    useAsTitle: 'attemptId'
+    useAsTitle: 'attemptId',
+    hidden: true
   },
   access: {
     // Internal-only; your code uses overrideAccess: true where needed

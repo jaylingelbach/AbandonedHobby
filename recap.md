@@ -5150,7 +5150,7 @@ recap.md Minor comment update and internal import path note changed; no behavior
 - src/modules/library/ui/components/product-list.tsx
   - Renamed locals for clarity (e.g., p → product, c → card) and simplified a reviewCount formatting expression. No behavioral or API change.
 
-# Remove pii from metadata 11/123/25
+# Remove pii from metadata 11/13/25
 
 ## Walkthrough
 
