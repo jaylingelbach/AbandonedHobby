@@ -42,19 +42,12 @@ export const CheckoutSidebar = ({
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
       <div className="p-4 border-b">
         <div className="flex items-center justify-between py-1">
-          <span className="text-sm text-muted-foreground">Subtotal</span>
+          <span className="text-sm">Subtotal</span>
           <span className="text-sm font-medium">{toUsd(subtotalCents)}</span>
         </div>
 
-        <div className="flex items-center justify-between py-1">
-          <span className="text-sm text-muted-foreground">
-            Shipping (total)
-          </span>
-          <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
-        </div>
-
-        {(breakdownItems.length > 0 || hasCalculatedShipping) && (
-          <div className="mt-2 pl-2">
+        {(breakdownItems.length > 1 || hasCalculatedShipping) && (
+          <div className="mt-2">
             <ShippingBreakdown items={breakdownItems} />
             {hasCalculatedShipping && (
               <p className="mt-1 text-xs text-muted-foreground italic">
@@ -63,6 +56,11 @@ export const CheckoutSidebar = ({
             )}
           </div>
         )}
+
+        <div className="flex items-center justify-between py-1">
+          <span className="text-sm">Shipping (total)</span>
+          <span className="text-sm font-medium">{toUsd(shippingCents)}</span>
+        </div>
 
         <div className="flex items-center justify-between py-2 border-t mt-2">
           <h4 className="font-semibold text-base">Total</h4>

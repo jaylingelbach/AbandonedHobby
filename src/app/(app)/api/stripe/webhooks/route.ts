@@ -7,12 +7,9 @@ import { formatCents } from '@/lib/utils';
 import config from '@payload-config';
 
 import {
-  buildReceiptDetailsV2,
-  ReceiptItemInput,
   sendOrderConfirmationEmail,
   sendSaleNotificationEmail
 } from '@/lib/sendEmail';
-import { posthogServer } from '@/lib/server/posthog-server';
 import { stripe } from '@/lib/stripe';
 import { findExistingOrderBySessionOrEvent } from '@/modules/orders/precheck';
 import {
@@ -39,14 +36,15 @@ import { OrderItemOutput } from '@/modules/stripe/build-order-items';
 import {
   toQtyMap,
   getProductsModel,
-  flushIfNeeded,
   isUniqueViolation,
-  tryCall,
-  computeFeesFromCharge,
-  parseStripeMetadata
+  tryCall
 } from './utils/utils';
-
-import type { ExistingOrderPrecheck, FeeResult } from './utils/types';
+import {
+  parseStripeMetadata,
+  captureAnalyticsEvent,
+  buildReceiptModels,
+  handleDuplicateOrder
+} from './utils/helpers';
 import {
   recomputeRefundState,
   toLocalRefundStatus
@@ -61,6 +59,53 @@ export type ExpandedLineItem = Stripe.LineItem & {
   };
 };
 
+/** Type used in computerFeesFromCharge */
+type FeeResult = {
+  stripeFeeCents: number; // processing-only
+  platformFeeCents: number; // application fee
+  receiptUrl: string | null;
+};
+
+/** Compute fees directly from an expanded charge (preferred). */
+function computeFeesFromCharge(charge: Stripe.Charge): FeeResult {
+  const balanceTransaction =
+    charge.balance_transaction as Stripe.BalanceTransaction | null;
+
+  const applicationFeeCents =
+    typeof charge.application_fee_amount === 'number'
+      ? charge.application_fee_amount
+      : 0;
+
+  let processingFeeCents = 0;
+
+  // Prefer fee_details if present (most accurate)
+  const details = Array.isArray(balanceTransaction?.fee_details)
+    ? balanceTransaction.fee_details
+    : null;
+
+  if (details) {
+    // Sum everything that is NOT the application fee
+    processingFeeCents = details
+      .filter((d) => d.type !== 'application_fee')
+      .reduce(
+        (sum, d) => sum + (typeof d.amount === 'number' ? d.amount : 0),
+        0
+      );
+  } else {
+    const totalFee =
+      typeof balanceTransaction?.fee === 'number' ? balanceTransaction.fee : 0;
+    processingFeeCents = Math.max(0, totalFee - applicationFeeCents);
+  }
+
+  const receiptUrl =
+    typeof charge.receipt_url === 'string' ? charge.receipt_url : null;
+
+  return {
+    stripeFeeCents: processingFeeCents,
+    platformFeeCents: applicationFeeCents,
+    receiptUrl
+  };
+}
 /**
  * Read the Stripe processing fee (merchant/processor), the application (platform) fee, and the charge receipt URL for a given Stripe charge or payment intent on a connected account.
  *
@@ -338,222 +383,6 @@ async function sendIfEnabled<T>(
 }
 
 /**
- * Capture an analytics event with PostHog, handling errors gracefully.
- *
- * This is a best-effort operation that will not throw errors. Failures are logged
- * in non-production environments only.
- *
- * @param args.event - The event name (e.g., 'purchaseCompleted', 'checkoutFailed')
- * @param args.distinctId - The user/distinct identifier
- * @param args.properties - Event properties to capture
- * @param args.groups - Optional group associations (e.g., { tenant: tenantId })
- * @param args.timestamp - Optional timestamp (defaults to now)
- */
-async function captureAnalyticsEvent(args: {
-  event: string;
-  distinctId: string;
-  properties: Record<string, unknown>;
-  groups?: Record<string, string>;
-  timestamp?: Date;
-}): Promise<void> {
-  try {
-    posthogServer?.capture({
-      distinctId: args.distinctId,
-      event: args.event,
-      properties: args.properties,
-      groups: args.groups,
-      timestamp: args.timestamp
-    });
-
-    await flushIfNeeded();
-  } catch (analyticsError) {
-    if (process.env.NODE_ENV !== 'production') {
-      console.warn(`[analytics] ${args.event} capture failed:`, analyticsError);
-    }
-  }
-}
-
-/**
- * Handle a duplicate order detected during webhook processing.
- *
- * This function:
- * 1. Backfills missing Stripe fees and receipt URL if needed
- * 2. Adjusts inventory if not already adjusted
- * 3. Marks the event as processed
- *
- * @param args.existing - The existing order document
- * @param args.event - The Stripe webhook event
- * @param args.accountId - The Stripe connected account ID
- * @param args.payloadInstance - Payload CMS instance
- */
-async function handleDuplicateOrder(args: {
-  existing: ExistingOrderPrecheck;
-  event: Stripe.Event;
-  accountId: string;
-  payloadInstance: import('payload').Payload;
-}): Promise<void> {
-  const { existing, event, accountId, payloadInstance } = args;
-
-  console.log('[webhook] dup-precheck hit (before)', {
-    orderId: existing.id,
-    hasItems: Array.isArray(existing.items),
-    itemsCount: Array.isArray(existing.items) ? existing.items.length : 0,
-    inventoryAdjustedAt: existing.inventoryAdjustedAt ?? null
-  });
-
-  // ─────────────────────────────────────────────────────────────
-  // Backfill Stripe fees & receipt if missing on duplicates
-  // (preserve explicit zeros by checking for null/undefined)
-  // ─────────────────────────────────────────────────────────────
-  try {
-    const stripeFeePresent = existing.amounts?.stripeFeeCents != null; // preserves 0
-    const platformFeePresent = existing.amounts?.platformFeeCents != null; // preserves 0
-    const receiptPresent = existing.documents?.receiptUrl != null; // string or null (present)
-
-    let feesResult: {
-      stripeFeeCents: number;
-      platformFeeCents: number;
-      receiptUrl: string | null;
-    } | null = null;
-
-    if (!stripeFeePresent || !platformFeePresent || !receiptPresent) {
-      const paymentIntentId = existing.stripePaymentIntentId ?? null;
-      const chargeId = existing.stripeChargeId ?? null;
-
-      feesResult = await readStripeFeesAndReceiptUrl({
-        stripeAccountId: accountId,
-        paymentIntentId,
-        chargeId
-      });
-    }
-
-    type AmountsShape = {
-      subtotalCents?: number | null;
-      taxTotalCents?: number | null;
-      shippingTotalCents?: number | null;
-      discountTotalCents?: number | null;
-      platformFeeCents?: number | null;
-      stripeFeeCents?: number | null;
-      sellerNetCents?: number | null;
-    };
-
-    const existingAmounts = (existing.amounts ?? {}) as AmountsShape;
-
-    const updateData: {
-      amounts?: AmountsShape;
-      documents?: { receiptUrl: string | null };
-      stripeEventId: string;
-    } = { stripeEventId: event.id };
-
-    let contextFees:
-      | {
-          ahSystem: true;
-          fees: {
-            platformFeeCents?: number;
-            stripeFeeCents?: number;
-          };
-        }
-      | undefined;
-
-    if (feesResult) {
-      updateData.amounts = {
-        ...existingAmounts,
-        stripeFeeCents: stripeFeePresent
-          ? existingAmounts.stripeFeeCents!
-          : feesResult.stripeFeeCents,
-        platformFeeCents: platformFeePresent
-          ? existingAmounts.platformFeeCents!
-          : feesResult.platformFeeCents
-      };
-
-      // Pass trusted fees so lockAndCalculateAmounts prefers them
-      contextFees = {
-        ahSystem: true as const,
-        fees: {
-          platformFeeCents: updateData.amounts.platformFeeCents ?? undefined,
-          stripeFeeCents: updateData.amounts.stripeFeeCents ?? undefined
-        }
-      };
-    }
-
-    if (!receiptPresent && feesResult) {
-      updateData.documents = { receiptUrl: feesResult.receiptUrl };
-    }
-
-    if (updateData.amounts || updateData.documents) {
-      await payloadInstance.update({
-        collection: 'orders',
-        id: existing.id,
-        data: updateData,
-        overrideAccess: true,
-        ...(contextFees ? { context: contextFees } : {})
-      });
-    }
-  } catch (backfillError) {
-    console.warn('[webhook] duplicate path backfill failed', backfillError);
-  }
-
-  // inventory adjust on dup path (unchanged)
-  if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
-    const quantityByProductId = toQtyMap(
-      (existing.items ?? [])
-        .map((item) => {
-          const relation = item.product as unknown;
-          const product =
-            typeof relation === 'string'
-              ? relation
-              : relation && typeof relation === 'object' && 'id' in relation
-                ? String((relation as { id?: string | null }).id)
-                : null;
-          if (!product) return null;
-          return {
-            product,
-            quantity:
-              typeof item.quantity === 'number' &&
-              Number.isInteger(item.quantity)
-                ? item.quantity
-                : 1
-          };
-        })
-        .filter(Boolean) as Array<{ product: string; quantity: number }>
-    );
-
-    console.log('[webhook] decrement on duplicate path', {
-      entries: [...quantityByProductId.entries()]
-    });
-
-    await tryCall('inventory.decrementBatch(dup)', () =>
-      decrementInventoryBatch({
-        payload: payloadInstance,
-        qtyByProductId: quantityByProductId
-      })
-    );
-
-    await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
-      payloadInstance.update({
-        collection: 'orders',
-        id: existing.id,
-        data: {
-          inventoryAdjustedAt: new Date().toISOString(),
-          stripeEventId: event.id
-        },
-        overrideAccess: true
-      })
-    );
-
-    console.log('[webhook] inventory adjusted on duplicate path', {
-      orderId: existing.id
-    });
-  } else {
-    console.log('[webhook] duplicate path: inventory already adjusted', {
-      orderId: existing.id
-    });
-  }
-
-  await markProcessed(payloadInstance, event.id);
-}
-
-/**
  * Resolve a normalized shipping address for an order from a Stripe Checkout flow.
  */
 function resolveShippingForOrder(args: {
@@ -805,7 +634,9 @@ export async function POST(req: Request) {
             existing,
             event,
             accountId,
-            payloadInstance
+            payloadInstance,
+            readStripeFeesAndReceiptUrl,
+            decrementInventoryBatch
           });
           return NextResponse.json({ received: true }, { status: 200 });
         }
@@ -1145,89 +976,17 @@ export async function POST(req: Request) {
           buyerEmailPresent: Boolean(buyerEmailAddress)
         });
 
-        // ── Shared receipt computation helper ────────────────────────────────────────
-        function buildReceiptModels(args: {
-          expandedSession: Stripe.Checkout.Session;
-          rawLineItems: Stripe.LineItem[];
-          orderItems: OrderItemOutput[];
-          amountShipping: number;
-          totalAmountInCents: number;
-          currencyCode: string;
-        }) {
-          const itemsSubtotalCents: number =
-            typeof args.expandedSession.amount_subtotal === 'number'
-              ? args.expandedSession.amount_subtotal
-              : args.rawLineItems.reduce((sum, line) => {
-                  const subtotal =
-                    typeof line.amount_subtotal === 'number'
-                      ? line.amount_subtotal
-                      : 0;
-                  return sum + subtotal;
-                }, 0);
-
-          const shippingTotalCents: number = args.amountShipping;
-          const discountTotalCents: number =
-            args.expandedSession.total_details?.amount_discount ?? 0;
-          const taxTotalCents: number =
-            args.expandedSession.total_details?.amount_tax ?? 0;
-          const grossTotalCents: number = args.totalAmountInCents;
-
-          const detailInputs: ReceiptItemInput[] = args.orderItems.map(
-            (orderItem) => ({
-              name: orderItem.nameSnapshot,
-              quantity: orderItem.quantity,
-              unitAmountCents: orderItem.unitAmount ?? 0,
-              amountTotalCents:
-                orderItem.amountTotal ??
-                orderItem.quantity * (orderItem.unitAmount ?? 0),
-              shippingMode: orderItem.shippingMode,
-              shippingFeeCentsPerUnit:
-                orderItem.shippingFeeCentsPerUnit ?? null,
-              shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
-            })
-          );
-
-          const receiptDetailsV2 = buildReceiptDetailsV2(
-            detailInputs,
-            args.currencyCode
-          );
-
-          const amountsModel = {
-            items_subtotal: formatCents(itemsSubtotalCents, args.currencyCode),
-            shipping_total: formatCents(shippingTotalCents, args.currencyCode),
-            discount_total:
-              discountTotalCents > 0
-                ? formatCents(discountTotalCents, args.currencyCode)
-                : undefined,
-            tax_total:
-              taxTotalCents > 0
-                ? formatCents(taxTotalCents, args.currencyCode)
-                : undefined,
-            gross_total: formatCents(grossTotalCents, args.currencyCode)
-          } as const;
-
-          return {
-            itemsSubtotalCents,
-            shippingTotalCents,
-            discountTotalCents,
-            taxTotalCents,
-            grossTotalCents,
-            receiptDetailsV2,
-            amountsModel
-          };
-        }
+        // ── Build receipt models for emails ────────────────────────────────────────
+        const buyerReceiptModels = buildReceiptModels({
+          expandedSession,
+          rawLineItems,
+          orderItems,
+          amountShipping,
+          totalAmountInCents,
+          currencyCode
+        });
 
         if (buyerEmailAddress) {
-          // ── Build email models for buyer receipt ──────────────────────────────────
-          const buyerReceiptModels = buildReceiptModels({
-            expandedSession,
-            rawLineItems,
-            orderItems,
-            amountShipping,
-            totalAmountInCents,
-            currencyCode
-          });
-
           await sendIfEnabled('email.sendOrderConfirmation', () =>
             sendOrderConfirmationEmail({
               to: buyerEmailAddress,
@@ -1337,11 +1096,8 @@ export async function POST(req: Request) {
               receipt_details_v2: sellerReceiptModels.receiptDetailsV2,
               amounts: sellerReceiptModels.amountsModel,
               fees: feesModel,
-
               total: `$${(sellerReceiptModels.grossTotalCents / 100).toFixed(2)}`,
               item_summary: lineItemSummary,
-
-              // Shipping address for the seller email
               shipping_name:
                 shippingResolved?.name ?? user.firstName ?? 'Customer',
               shipping_address_line1: shippingResolved?.line1 ?? '',

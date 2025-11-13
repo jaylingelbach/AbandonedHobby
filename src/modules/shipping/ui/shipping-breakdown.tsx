@@ -34,7 +34,10 @@ export function ShippingBreakdown({ items }: { items: CartItemForShipping[] }) {
   return (
     <div className="mt-2 space-y-1 text-sm">
       {rows.map((row) => (
-        <div key={row.id} className="flex justify-between">
+        <div
+          key={row.id}
+          className="flex justify-between text-muted-foreground"
+        >
           <span>
             {row.name}{' '}
             {row.mode === 'flat'
