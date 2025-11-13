@@ -5149,3 +5149,47 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - src/modules/library/ui/components/product-list.tsx
   - Renamed locals for clarity (e.g., p → product, c → card) and simplified a reviewCount formatting expression. No behavioral or API change.
+
+# Remove pii from metadata 11/13/25
+
+## Walkthrough
+
+- Replaces direct userId metadata with an attemptId (userRef) persisted to a new pending-checkout-attempts collection; webhook now resolves userId via attempt lookup with legacy fallback, and expired pending attempts are auto-purged by an afterChange hook. No public API signatures changed.
+
+## Bug Fixes
+
+- More tolerant Stripe checkout handling: missing user info no longer causes failed orders; unresolvable sessions are logged and skipped gracefully.
+- Improved multi-step user resolution to reduce payment-processing errors and retries.
+
+## New Features
+
+- Temporary checkout-attempt tracking with automatic expiry to clean up stale attempts and improve checkout reliability.
+
+## File changes
+
+### Documentation
+
+- recap.md
+  - Added "Remove pii from metadata 11/13/25" section describing enhanced Stripe error handling, multi-step user resolution, and expired-session cleanup.
+
+### Stripe webhook handler
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Reworked checkout.session.completed flow to resolve userId via attemptId (from client_reference_id or metadata.userRef) using pending-checkout-attempts, fallback to legacy metadata.userId, and gracefully skip order creation when unresolved.
+
+### Pending attempts collection
+
+src/collections/PendingCheckoutAttempts.ts, src/payload.config.ts, src/payload-types.ts
+
+- Added pending-checkout-attempts Payload collection (attemptId, userId, expiresAt), registered it in payload config, emitted types/interfaces, and wired selection/unions.
+- Includes afterChange hook that deletes expired records and logs results without throwing.
+
+### Checkout session creation
+
+- src/modules/checkout/server/procedures.ts, src/modules/checkout/types.ts
+  - Persist pending checkout attempts with a 24‑hour TTL; change CheckoutMetadata to use userRef (attemptId) instead of userId; build truncated checkoutMetadata stored in Stripe session metadata; error handling adjusted around persistence.
+
+### Utilities & constants
+
+- src/modules/checkout/server/utils.ts, src/constants.ts
+  - Added truncateToStripeMetadata(raw) to coerce/truncate metadata strings to STRIPE_METADATA_MAX_LENGTH (new constant = 500).

@@ -24,6 +24,7 @@ import { StripeEvents } from './collections/StripeEvents';
 import { Tags } from './collections/Tags';
 import { Tenants } from './collections/Tenants';
 import { Users } from './collections/Users';
+import { PendingCheckoutAttempts } from './collections/PendingCheckoutAttempts';
 import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
@@ -91,6 +92,7 @@ export default buildConfig({
     Media,
     Messages,
     Orders,
+    PendingCheckoutAttempts,
     Products,
     Refunds,
     Reviews,

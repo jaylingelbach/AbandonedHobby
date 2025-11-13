@@ -10,7 +10,7 @@ import { asId } from '@/lib/server/utils';
 import { stripe } from '@/lib/stripe';
 import { generateTenantURL } from '@/lib/utils';
 import { usdToCents } from '@/lib/money';
-import { Media, Tenant } from '@/payload-types';
+import { Media, Product, Tenant } from '@/payload-types';
 import {
   baseProcedure,
   createTRPCRouter,
@@ -18,7 +18,7 @@ import {
 } from '@/trpc/init';
 
 import { CheckoutMetadata, ProductMetadata } from '../types';
-import { getPrimaryCardImageUrl } from './utils';
+import { getPrimaryCardImageUrl, truncateToStripeMetadata } from './utils';
 import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
 
 import {
@@ -50,7 +50,7 @@ function parseProductShipping(product: unknown): ProductForShipping {
       : null
   };
 }
-
+const CHECKOUT_ATTEMPT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -248,10 +248,11 @@ export const checkoutRouter = createTRPCRouter({
 
       // Stripe line items (product price only; shipping added separately)
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
-        products.map((product) => {
+        products.map((product: Product) => {
           const unitAmountCents = usdToCents(
             product.price as unknown as string | number
           );
+
           return {
             quantity: 1,
             price_data: {
@@ -259,12 +260,14 @@ export const checkoutRouter = createTRPCRouter({
               tax_behavior: 'exclusive',
               currency: 'usd',
               product_data: {
-                name: product.name,
+                name: truncateToStripeMetadata(product.name),
                 tax_code: 'txcd_99999999',
                 metadata: {
-                  stripeAccountId: sellerTenant.stripeAccountId,
-                  id: product.id,
-                  name: product.name
+                  stripeAccountId: truncateToStripeMetadata(
+                    sellerTenant.stripeAccountId
+                  ),
+                  id: truncateToStripeMetadata(product.id),
+                  name: truncateToStripeMetadata(product.name)
                 } as ProductMetadata
               }
             }
@@ -337,6 +340,24 @@ export const checkoutRouter = createTRPCRouter({
 
       // Build Checkout Session payload
       const attemptId = randomUUID();
+      const checkoutMetadata: CheckoutMetadata = {
+        userRef: truncateToStripeMetadata(attemptId),
+        tenantId: truncateToStripeMetadata(String(sellerTenantId)),
+        tenantSlug: truncateToStripeMetadata(String(sellerTenant.slug)),
+        sellerStripeAccountId: truncateToStripeMetadata(
+          String(sellerTenant.stripeAccountId)
+        ),
+        productIds: truncateToStripeMetadata(input.productIds.join(',')),
+        shippingCents: truncateToStripeMetadata(String(shippingCents)),
+        ah_fee_basis: 'items-subtotal',
+        ah_items_subtotal_cents: truncateToStripeMetadata(
+          String(productSubtotalCents)
+        ),
+        ah_platform_fee_cents_intended: truncateToStripeMetadata(
+          String(platformFeeCents)
+        )
+      };
+
       const sessionPayloadBase: Stripe.Checkout.SessionCreateParams = {
         mode: 'payment',
         line_items: lineItems,
@@ -349,21 +370,8 @@ export const checkoutRouter = createTRPCRouter({
         success_url,
         cancel_url,
 
-        metadata: {
-          userId: user.id,
-          tenantId: String(sellerTenantId),
-          tenantSlug: String(sellerTenant.slug),
-          sellerStripeAccountId: String(sellerTenant.stripeAccountId),
-          productIds: input.productIds.join(','),
-          shippingCents: String(shippingCents),
+        metadata: checkoutMetadata,
 
-          // stash our intent for later comparison in the webhook / detail route
-          ah_fee_basis: 'items-subtotal',
-          ah_items_subtotal_cents: String(productSubtotalCents),
-          ah_platform_fee_cents_intended: String(platformFeeCents)
-        } satisfies CheckoutMetadata,
-
-        // This is what Stripe records as the application fee
         payment_intent_data: {
           application_fee_amount: platformFeeCents
         },
@@ -447,11 +455,43 @@ export const checkoutRouter = createTRPCRouter({
       });
 
       let checkout: Stripe.Checkout.Session;
+      const expiresAt = new Date(
+        Date.now() + CHECKOUT_ATTEMPT_TTL_MS
+      ).toISOString();
+
       try {
+        // 1) Create the Stripe Checkout Session first
         checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
           stripeAccount: sellerTenant.stripeAccountId,
           idempotencyKey
         });
+
+        // 2) Persist the pending checkout attempt ONLY after Stripe succeeds
+        try {
+          await ctx.db.create({
+            collection: 'pending-checkout-attempts',
+            data: {
+              attemptId,
+              userId: user.id,
+              expiresAt
+            },
+            depth: 0,
+            overrideAccess: true
+          });
+        } catch (attemptError) {
+          console.error(
+            '[checkout] failed to persist pending checkout attempt',
+            {
+              attemptId,
+              userId: user.id,
+              error: attemptError
+            }
+          );
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to initialize checkout session. Please try again.'
+          });
+        }
 
         // Analytics (non-blocking)
         try {
@@ -482,6 +522,11 @@ export const checkoutRouter = createTRPCRouter({
           );
         }
       } catch (err: unknown) {
+        // No pending-checkout-attempts row was created yet if we got here,
+        // so there is nothing to clean up.
+        if (err instanceof TRPCError) {
+          throw err;
+        }
         if (err instanceof Stripe.errors.StripeError) {
           console.error('🔥 stripe checkout error:', {
             message: err.message,

@@ -1,5 +1,6 @@
 import { usdNumberToCents } from '@/lib/money';
 import { getBestUrlFromMedia } from '@/lib/utils';
+import { STRIPE_METADATA_MAX_LENGTH } from '@/constants';
 
 export type MediaLike = {
   url?: string | null;
@@ -64,4 +65,18 @@ export function computeFlatShippingCentsForCart(
   }
 
   return { shippingCents, hasCalculated };
+}
+
+export function truncateToStripeMetadata(raw: unknown): string {
+  if (raw === null || raw === undefined) {
+    return '';
+  }
+
+  const asString = typeof raw === 'string' ? raw.trim() : String(raw);
+
+  if (asString.length <= STRIPE_METADATA_MAX_LENGTH) {
+    return asString;
+  }
+
+  return asString.slice(0, STRIPE_METADATA_MAX_LENGTH);
 }

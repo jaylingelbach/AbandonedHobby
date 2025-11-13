@@ -604,17 +604,108 @@ export async function POST(req: Request) {
       case 'checkout.session.completed': {
         const session = event.data.object as Stripe.Checkout.Session;
 
-        const userId = session.metadata?.userId;
-        if (!userId) throw new Error('User ID is required');
-        if (!event.account)
+        if (!event.account) {
           throw new Error('Stripe account ID is required for order creation');
-
+        }
         const accountId: string = event.account;
+
+        // ---- Resolve userId via attemptId (recommended) or legacy metadata.userId ----
+        const rawSessionMetadata = (session.metadata ?? {}) as Record<
+          string,
+          string
+        >;
+
+        const attemptIdFromClientRef =
+          typeof session.client_reference_id === 'string'
+            ? session.client_reference_id
+            : null;
+
+        const attemptIdFromMetadata =
+          typeof rawSessionMetadata.userRef === 'string' &&
+          rawSessionMetadata.userRef.trim().length > 0
+            ? rawSessionMetadata.userRef.trim()
+            : null;
+
+        const attemptId =
+          attemptIdFromClientRef ?? attemptIdFromMetadata ?? null;
+
+        let userId: string | null = null;
+
+        // 1) Preferred path: look up userId from pending-checkout-attempts
+        if (attemptId) {
+          try {
+            const pendingResult = await tryCall(
+              'pending-checkout-attempts.findByAttemptId',
+              () =>
+                payloadInstance.find({
+                  collection: 'pending-checkout-attempts',
+                  where: { attemptId: { equals: attemptId } },
+                  limit: 1,
+                  depth: 0,
+                  overrideAccess: true
+                })
+            );
+
+            const pendingDoc = pendingResult.docs[0] as
+              | { userId?: unknown }
+              | undefined;
+
+            const candidateUserId =
+              typeof pendingDoc?.userId === 'string' &&
+              pendingDoc.userId.trim().length > 0
+                ? pendingDoc.userId.trim()
+                : null;
+
+            if (candidateUserId) {
+              userId = candidateUserId;
+            }
+          } catch (lookupError) {
+            // Don't mask DB errors - they should be retried by Stripe
+            console.error(
+              '[webhook] failed to resolve userId from pending-checkout-attempts',
+              {
+                attemptId,
+                error: lookupError
+              }
+            );
+            throw new Error(
+              `Failed to lookup pending checkout attempt: ${lookupError instanceof Error ? lookupError.message : String(lookupError)}`
+            );
+          }
+        }
+
+        // 2) Back-compat: fall back to legacy metadata.userId for older sessions
+        if (!userId) {
+          const legacyUserId =
+            typeof rawSessionMetadata.userId === 'string' &&
+            rawSessionMetadata.userId.trim().length > 0
+              ? rawSessionMetadata.userId.trim()
+              : null;
+
+          if (legacyUserId) {
+            userId = legacyUserId;
+          }
+        }
+
+        // 3) If we *still* have no userId, log and bail (do NOT throw)
+        if (!userId) {
+          console.error(
+            '[webhook] checkout.session.completed: unable to resolve userId',
+            {
+              sessionId: session.id,
+              attemptId,
+              client_reference_id: session.client_reference_id,
+              metadata: rawSessionMetadata
+            }
+          );
+          // Return 200 so Stripe is happy; we simply skip order creation
+          return NextResponse.json({ received: true }, { status: 200 });
+        }
 
         const user = (await tryCall('users.findByID', () =>
           payloadInstance.findByID({
             collection: 'users',
-            id: userId,
+            id: userId as string,
             depth: 0,
             overrideAccess: true
           })
@@ -699,7 +790,7 @@ export async function POST(req: Request) {
           )
         );
 
-        // 🧮 Get processing-only fee + application fee + receipt URL
+        // Get processing-only fee + application fee + receipt URL
         const { stripeFeeCents, platformFeeCents, receiptUrl } =
           await readStripeFeesAndReceiptUrl({
             stripeAccountId: accountId,

@@ -8,22 +8,14 @@ export type ProductMetadata = {
   price: number;
 };
 
-// export type CheckoutMetadata = {
-//   userId: string;
-//   tenantId: string;
-//   tenantSlug: string;
-//   sellerStripeAccountId: string;
-//   productIds: string; // comma-separated list, as stored in Session.metadata
-// };
-
 export type CheckoutMetadata = {
-  userId: string;
+  userRef: string; // attemptId
   tenantId: string;
   tenantSlug: string;
   sellerStripeAccountId: string;
-  productIds: string; // comma-separated list
+  productIds: string;
   shippingCents: string;
-  ah_fee_basis: string;
+  ah_fee_basis: 'items-subtotal';
   ah_items_subtotal_cents: string;
   ah_platform_fee_cents_intended: string;
 };
