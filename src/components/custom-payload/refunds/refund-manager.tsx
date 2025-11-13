@@ -31,6 +31,8 @@ import {
   buildSelections
 } from './utils/ui/refund-calc';
 
+import type { ApiSelection } from './utils/ui/refund-calc';
+
 const DEBUG_REFUNDS = process.env.NODE_ENV === 'development';
 
 function dbg(title: string, data?: unknown) {
@@ -496,10 +498,6 @@ export function RefundManager() {
     typeof selection.quantity === 'number' &&
     Number.isFinite(selection.quantity) &&
     Math.trunc(selection.quantity) > 0;
-
-  type ApiSelection =
-    | { type: 'amount'; itemId: string; amountCents: number }
-    | { type: 'quantity'; itemId: string; quantity: number };
 
   async function submitRefund(): Promise<void> {
     if (!order) return;
@@ -1043,7 +1041,7 @@ export function RefundManager() {
 
           <Button
             onClick={submitRefund}
-            disabled={isLoading || isFullyRefunded}
+            disabled={isLoading || isFullyRefunded || !!formError}
             className="ah-refund-cta"
           >
             {isFullyRefunded
