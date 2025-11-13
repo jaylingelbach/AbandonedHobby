@@ -2,7 +2,6 @@ import Stripe from 'stripe';
 import { formatCents } from '@/lib/utils';
 import { posthogServer } from '@/lib/server/posthog-server';
 import { buildReceiptDetailsV2, ReceiptItemInput } from '@/lib/sendEmail';
-import { markProcessed } from '@/modules/stripe/guards';
 import { flushIfNeeded } from './utils';
 import { toQtyMap, tryCall } from './utils';
 import type { ExistingOrderPrecheck } from './types';
