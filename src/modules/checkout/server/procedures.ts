@@ -478,6 +478,10 @@ export const checkoutRouter = createTRPCRouter({
               error: attemptError
             }
           );
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Failed to initialize checkout session. Please try again.'
+          });
         }
 
         // Analytics (non-blocking)

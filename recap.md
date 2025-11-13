@@ -5149,3 +5149,15 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - src/modules/library/ui/components/product-list.tsx
   - Renamed locals for clarity (e.g., p → product, c → card) and simplified a reviewCount formatting expression. No behavioral or API change.
+
+# Remove pii from metadata 11/123/25
+
+## Walkthrough
+
+-
+
+## Bug Fixes
+
+- Enhanced Stripe checkout session error handling to gracefully manage missing user information during payment processing, preventing checkout failures and improving overall checkout reliability.
+- Implemented intelligent multi-step user identification resolution to increase payment processing reliability across various checkout scenarios and edge cases.
+- Added automatic cleanup mechanism for expired checkout session tracking records to maintain database integrity and prevent data accumulation.
