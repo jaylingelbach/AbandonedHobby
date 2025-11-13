@@ -114,8 +114,7 @@ export function RefundManager() {
       const suggested = (shippingInfo.remainingCents / 100).toFixed(2);
       setRefundShippingDollars(suggested);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [shippingInfo, refundShippingDollars]);
+  }, [shippingInfo, hasEditedShipping]);
 
   useEffect(() => {
     if (!DEBUG_REFUNDS) return;
