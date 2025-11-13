@@ -350,7 +350,7 @@ export const checkoutRouter = createTRPCRouter({
         cancel_url,
 
         metadata: {
-          userId: user.id,
+          userRef: attemptId,
           tenantId: String(sellerTenantId),
           tenantSlug: String(sellerTenant.slug),
           sellerStripeAccountId: String(sellerTenant.stripeAccountId),
@@ -447,6 +447,18 @@ export const checkoutRouter = createTRPCRouter({
       });
 
       let checkout: Stripe.Checkout.Session;
+      const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
+
+      await ctx.db.create({
+        collection: 'pending-checkout-attempts',
+        data: {
+          attemptId,
+          userId: user.id,
+          expiresAt
+        },
+        depth: 0,
+        overrideAccess: true
+      });
       try {
         checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
           stripeAccount: sellerTenant.stripeAccountId,

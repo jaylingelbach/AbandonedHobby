@@ -27,6 +27,7 @@ import { Users } from './collections/Users';
 import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
+import { PendingCheckoutAttempts } from './collections/PendingCheckoutAttempts';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -91,6 +92,7 @@ export default buildConfig({
     Media,
     Messages,
     Orders,
+    PendingCheckoutAttempts,
     Products,
     Refunds,
     Reviews,

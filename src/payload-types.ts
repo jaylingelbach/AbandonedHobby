@@ -72,6 +72,7 @@ export interface Config {
     media: Media;
     messages: Message;
     orders: Order;
+    'pending-checkout-attempts': PendingCheckoutAttempt;
     products: Product;
     refunds: Refund;
     reviews: Review;
@@ -95,6 +96,7 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
+    'pending-checkout-attempts': PendingCheckoutAttemptsSelect<false> | PendingCheckoutAttemptsSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
     refunds: RefundsSelect<false> | RefundsSelect<true>;
     reviews: ReviewsSelect<false> | ReviewsSelect<true>;
@@ -604,6 +606,18 @@ export interface Review {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-checkout-attempts".
+ */
+export interface PendingCheckoutAttempt {
+  id: string;
+  attemptId: string;
+  userId: string;
+  expiresAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "refunds".
  */
 export interface Refund {
@@ -710,6 +724,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'orders';
         value: string | Order;
+      } | null)
+    | ({
+        relationTo: 'pending-checkout-attempts';
+        value: string | PendingCheckoutAttempt;
       } | null)
     | ({
         relationTo: 'products';
@@ -988,6 +1006,17 @@ export interface OrdersSelect<T extends boolean = true> {
       };
   buyerNotes?: T;
   sellerPrivateNotes?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "pending-checkout-attempts_select".
+ */
+export interface PendingCheckoutAttemptsSelect<T extends boolean = true> {
+  attemptId?: T;
+  userId?: T;
+  expiresAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }
