@@ -1,10 +1,7 @@
 import Stripe from 'stripe';
 import { formatCents } from '@/lib/utils';
 import { posthogServer } from '@/lib/server/posthog-server';
-import {
-  buildReceiptDetailsV2,
-  ReceiptItemInput
-} from '@/lib/sendEmail';
+import { buildReceiptDetailsV2, ReceiptItemInput } from '@/lib/sendEmail';
 import { markProcessed } from '@/modules/stripe/guards';
 import { flushIfNeeded } from './utils';
 import { toQtyMap, tryCall } from './utils';
@@ -73,10 +70,7 @@ export async function captureAnalyticsEvent(args: {
     await flushIfNeeded();
   } catch (analyticsError) {
     if (process.env.NODE_ENV !== 'production') {
-      console.warn(
-        `[analytics] ${args.event} capture failed:`,
-        analyticsError
-      );
+      console.warn(`[analytics] ${args.event} capture failed:`, analyticsError);
     }
   }
 }
@@ -108,9 +102,7 @@ export function buildReceiptModels(args: {
       ? args.expandedSession.amount_subtotal
       : args.rawLineItems.reduce((sum, line) => {
           const subtotal =
-            typeof line.amount_subtotal === 'number'
-              ? line.amount_subtotal
-              : 0;
+            typeof line.amount_subtotal === 'number' ? line.amount_subtotal : 0;
           return sum + subtotal;
         }, 0);
 
@@ -121,20 +113,16 @@ export function buildReceiptModels(args: {
     args.expandedSession.total_details?.amount_tax ?? 0;
   const grossTotalCents: number = args.totalAmountInCents;
 
-  const detailInputs: ReceiptItemInput[] = args.orderItems.map(
-    (orderItem) => ({
-      name: orderItem.nameSnapshot,
-      quantity: orderItem.quantity,
-      unitAmountCents: orderItem.unitAmount ?? 0,
-      amountTotalCents:
-        orderItem.amountTotal ??
-        orderItem.quantity * (orderItem.unitAmount ?? 0),
-      shippingMode: orderItem.shippingMode,
-      shippingFeeCentsPerUnit:
-        orderItem.shippingFeeCentsPerUnit ?? null,
-      shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
-    })
-  );
+  const detailInputs: ReceiptItemInput[] = args.orderItems.map((orderItem) => ({
+    name: orderItem.nameSnapshot,
+    quantity: orderItem.quantity,
+    unitAmountCents: orderItem.unitAmount ?? 0,
+    amountTotalCents:
+      orderItem.amountTotal ?? orderItem.quantity * (orderItem.unitAmount ?? 0),
+    shippingMode: orderItem.shippingMode,
+    shippingFeeCentsPerUnit: orderItem.shippingFeeCentsPerUnit ?? null,
+    shippingSubtotalCents: orderItem.shippingSubtotalCents ?? null
+  }));
 
   const receiptDetailsV2 = buildReceiptDetailsV2(
     detailInputs,
@@ -200,7 +188,14 @@ export async function handleDuplicateOrder(args: {
     qtyByProductId: Map<string, number>;
   }) => Promise<void>;
 }): Promise<void> {
-  const { existing, event, accountId, payloadInstance, readStripeFeesAndReceiptUrl, decrementInventoryBatch } = args;
+  const {
+    existing,
+    event,
+    accountId,
+    payloadInstance,
+    readStripeFeesAndReceiptUrl,
+    decrementInventoryBatch
+  } = args;
 
   console.log('[webhook] dup-precheck hit (before)', {
     orderId: existing.id,
@@ -215,8 +210,7 @@ export async function handleDuplicateOrder(args: {
   // ─────────────────────────────────────────────────────────────
   try {
     const stripeFeePresent = existing.amounts?.stripeFeeCents != null; // preserves 0
-    const platformFeePresent =
-      existing.amounts?.platformFeeCents != null; // preserves 0
+    const platformFeePresent = existing.amounts?.platformFeeCents != null; // preserves 0
     const receiptPresent = existing.documents?.receiptUrl != null; // string or null (present)
 
     let feesResult: {
@@ -279,8 +273,7 @@ export async function handleDuplicateOrder(args: {
       contextFees = {
         ahSystem: true as const,
         fees: {
-          platformFeeCents:
-            updateData.amounts.platformFeeCents ?? undefined,
+          platformFeeCents: updateData.amounts.platformFeeCents ?? undefined,
           stripeFeeCents: updateData.amounts.stripeFeeCents ?? undefined
         }
       };
@@ -300,10 +293,7 @@ export async function handleDuplicateOrder(args: {
       });
     }
   } catch (backfillError) {
-    console.warn(
-      '[webhook] duplicate path backfill failed',
-      backfillError
-    );
+    console.warn('[webhook] duplicate path backfill failed', backfillError);
   }
 
   // inventory adjust on dup path (unchanged)
@@ -312,14 +302,21 @@ export async function handleDuplicateOrder(args: {
       (existing.items ?? [])
         .map((item) => {
           const relation = item.product as unknown;
-          const product =
-            typeof relation === 'string'
-              ? relation
-              : relation &&
-                  typeof relation === 'object' &&
-                  'id' in relation
-                ? String((relation as { id?: string | null }).id)
-                : null;
+          let product: string | null = null;
+
+          if (typeof relation === 'string' && relation.length > 0) {
+            product = relation;
+          } else if (
+            relation &&
+            typeof relation === 'object' &&
+            'id' in relation
+          ) {
+            const relationId = (relation as { id?: unknown }).id;
+            if (typeof relationId === 'string' && relationId.length > 0) {
+              product = relationId;
+            }
+          }
+
           if (!product) return null;
           return {
             product,
@@ -360,10 +357,8 @@ export async function handleDuplicateOrder(args: {
       orderId: existing.id
     });
   } else {
-    console.log(
-      '[webhook] duplicate path: inventory already adjusted',
-      { orderId: existing.id }
-    );
+    console.log('[webhook] duplicate path: inventory already adjusted', {
+      orderId: existing.id
+    });
   }
 }
-
