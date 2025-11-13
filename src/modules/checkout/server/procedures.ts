@@ -50,7 +50,7 @@ function parseProductShipping(product: unknown): ProductForShipping {
       : null
   };
 }
-const CHECKOUT_ATTEMPT_TTL_MS = 60 * 60 * 24000; // 24 hours
+const CHECKOUT_ATTEMPT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
