@@ -5029,3 +5029,22 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - recap.md
   - Updated summary and inline notes documenting shipping/receipt helper additions and path changes.
+
+# Add shipping to refund manager 11/12/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Shipping refunds for orders
+- Comprehensive order details with shipping, tax, and fee breakdowns
+- Invoice and receipt documentation for orders
+- Enhanced onboarding and verification workflows
+
+## Improvements
+
+- Refined refund validation and error handling
+- More detailed order tracking with amounts and status data
+- Strengthened analytics integration across purchase flows

@@ -451,7 +451,7 @@ export function RefundManager() {
     previewCents,
     effectiveRemainingRefundableCents,
     currency,
-    refundShippingDollars,
+    refundShippingCentsValue,
     shippingInfo
   ]);
 
@@ -600,6 +600,7 @@ export function RefundManager() {
       setPartialAmountByItemId({});
       setRefundShippingDollars('');
       setRestockingFeeDollars('0.00');
+      setHasEditedShipping(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Refund failed.');
     } finally {
@@ -945,9 +946,10 @@ export function RefundManager() {
                 inputMode="decimal"
                 placeholder="0.00"
                 value={refundShippingDollars}
-                onChange={(event) =>
-                  setRefundShippingDollars(cleanMoneyInput(event.target.value))
-                }
+                onChange={(event) => {
+                  setRefundShippingDollars(cleanMoneyInput(event.target.value));
+                  setHasEditedShipping(true);
+                }}
               />
             </div>
             {shippingInfo && shippingInfo.originalCents > 0 && (
