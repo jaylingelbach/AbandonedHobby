@@ -1,11 +1,5 @@
 import type { CollectionBeforeChangeHook } from 'payload';
-
-type ShipmentGroup = {
-  carrier?: string;
-  trackingNumber?: string;
-  trackingUrl?: string;
-  shippedAt?: string;
-};
+import type { ShipmentGroup } from '@/lib/orders/types';
 
 /**
  * Determines whether a shipment group contains any meaningful shipment information.

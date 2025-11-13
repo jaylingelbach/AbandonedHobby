@@ -13,3 +13,10 @@ export type OrderItemLite = {
   imageUrl?: string | null;
   product?: { image?: { url?: string | null } } | null; // if you store images on product
 };
+
+export type ShipmentGroup = {
+  carrier?: string;
+  trackingNumber?: string;
+  trackingUrl?: string;
+  shippedAt?: string;
+};

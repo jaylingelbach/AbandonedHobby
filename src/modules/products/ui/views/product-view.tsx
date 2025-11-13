@@ -132,6 +132,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   useProductViewed(productForUseProductViewed);
 
+  const canPurchase = inStock && !isSelf;
+
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
@@ -271,7 +273,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     productId={productId}
                   />
 
-                  {inStock ? (
+                  {canPurchase ? (
                     <CartButton
                       isPurchased={data.isPurchased}
                       tenantSlug={tenantSlug}
@@ -283,10 +285,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     <Button
                       disabled
                       aria-disabled="true"
-                      title="This item is unavailable"
+                      title={
+                        !inStock
+                          ? 'This item is unavailable'
+                          : "You can't purchase your own listing"
+                      }
                       className="flex-1 cursor-not-allowed"
                     >
-                      Unavailable
+                      {!inStock ? 'Unavailable' : 'Listed by you'}
                     </Button>
                   )}
 
