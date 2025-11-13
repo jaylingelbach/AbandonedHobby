@@ -660,12 +660,16 @@ export async function POST(req: Request) {
               userId = candidateUserId;
             }
           } catch (lookupError) {
+            // Don't mask DB errors - they should be retried by Stripe
             console.error(
               '[webhook] failed to resolve userId from pending-checkout-attempts',
               {
                 attemptId,
                 error: lookupError
               }
+            );
+            throw new Error(
+              `Failed to lookup pending checkout attempt: ${lookupError instanceof Error ? lookupError.message : String(lookupError)}`
             );
           }
         }

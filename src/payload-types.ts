@@ -611,7 +611,7 @@ export interface Review {
 export interface PendingCheckoutAttempt {
   id: string;
   attemptId: string;
-  userId: string;
+  userId: string | User;
   expiresAt: string;
   updatedAt: string;
   createdAt: string;

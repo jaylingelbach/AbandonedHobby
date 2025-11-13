@@ -6,11 +6,11 @@ export const PendingCheckoutAttempts: CollectionConfig = {
     useAsTitle: 'attemptId'
   },
   access: {
-    // You can tighten this later; for now, keep simple so internal code can read/write
-    read: () => false, // no one in admin UI needs to see this
-    create: () => true,
-    update: () => false,
-    delete: () => true
+    // Internal-only; your code uses overrideAccess: true where needed
+    read: ({ req }) => !!req.user, // Allow authenticated users to read
+    create: ({ req }) => !!req.user, // Require authentication for creation
+    update: () => false, // Keep updates blocked
+    delete: ({ req }) => !!req.user // Require authentication for deletion
   },
   fields: [
     {
@@ -21,13 +21,55 @@ export const PendingCheckoutAttempts: CollectionConfig = {
     },
     {
       name: 'userId',
-      type: 'text',
-      required: true
+      type: 'relationship',
+      relationTo: 'users', // Adjust to match your Users collection slug
+      required: true,
+      index: true // Add index for query performance
     },
     {
       name: 'expiresAt',
       type: 'date',
       required: true
     }
-  ]
+  ],
+  hooks: {
+    afterChange: [
+      // Runs after create/update; we only really care about create
+      async ({ req }) => {
+        const nowISO = new Date().toISOString();
+
+        try {
+          const result = await req.payload.delete({
+            collection: 'pending-checkout-attempts',
+            where: {
+              expiresAt: {
+                less_than: nowISO
+              }
+            },
+            overrideAccess: true
+          });
+
+          // `result` shape can vary by Payload version; log defensively
+          const deletedCount =
+            typeof (result as { totalDocs?: number }).totalDocs === 'number'
+              ? (result as unknown as { totalDocs: number }).totalDocs
+              : Array.isArray((result as { docs?: unknown[] }).docs)
+                ? (result as unknown as { docs: unknown[] }).docs.length
+                : undefined;
+
+          if (typeof deletedCount === 'number' && deletedCount > 0) {
+            console.log(
+              `[pending-checkout-attempts] purged ${deletedCount} expired attempts`
+            );
+          }
+        } catch (error) {
+          // Never break checkout just because cleanup failed
+          console.error(
+            '[pending-checkout-attempts] failed to purge expired attempts',
+            error
+          );
+        }
+      }
+    ]
+  }
 };

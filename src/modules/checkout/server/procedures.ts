@@ -449,21 +449,36 @@ export const checkoutRouter = createTRPCRouter({
       let checkout: Stripe.Checkout.Session;
       const expiresAt = new Date(Date.now() + 60 * 60 * 1000).toISOString(); // 1 hour from now
 
-      await ctx.db.create({
-        collection: 'pending-checkout-attempts',
-        data: {
-          attemptId,
-          userId: user.id,
-          expiresAt
-        },
-        depth: 0,
-        overrideAccess: true
-      });
       try {
+        // 1) Create the Stripe Checkout Session first
         checkout = await stripe.checkout.sessions.create(sessionPayloadBase, {
           stripeAccount: sellerTenant.stripeAccountId,
           idempotencyKey
         });
+
+        // 2) Persist the pending checkout attempt ONLY after Stripe succeeds
+        try {
+          await ctx.db.create({
+            collection: 'pending-checkout-attempts',
+            data: {
+              attemptId,
+              userId: user.id,
+              expiresAt
+            },
+            depth: 0,
+            overrideAccess: true
+          });
+        } catch (attemptError) {
+          // Do NOT break checkout just because the mapping failed
+          console.error(
+            '[checkout] failed to persist pending checkout attempt',
+            {
+              attemptId,
+              userId: user.id,
+              error: attemptError
+            }
+          );
+        }
 
         // Analytics (non-blocking)
         try {
@@ -494,6 +509,9 @@ export const checkoutRouter = createTRPCRouter({
           );
         }
       } catch (err: unknown) {
+        // No pending-checkout-attempts row was created yet if we got here,
+        // so there is nothing to clean up.
+
         if (err instanceof Stripe.errors.StripeError) {
           console.error('🔥 stripe checkout error:', {
             message: err.message,
