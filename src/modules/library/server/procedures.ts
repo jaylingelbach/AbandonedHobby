@@ -235,7 +235,11 @@ export const libraryRouter = createTRPCRouter({
           tenantObject
             ? {
                 ...tenantObject,
-                image: (tenantObject.image as Media | null) ?? null
+                image:
+                  typeof tenantObject.image === 'object' &&
+                  tenantObject.image !== null
+                    ? tenantObject.image
+                    : null
               }
             : null;
 
