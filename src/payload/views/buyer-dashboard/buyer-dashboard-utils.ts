@@ -379,3 +379,44 @@ export async function getBuyerData(props: AdminViewServerProps): Promise<{
     inTransit
   };
 }
+
+/**
+ * Formats a numeric amount into a localized currency string.
+ *
+ * @param amount - The monetary amount to format.
+ * @param currency - ISO 4217 currency code to use; defaults to `USD`.
+ * @param locale - BCP 47 locale code for formatting (e.g., `en-US`); if omitted, the runtime's default locale is used.
+ * @returns The formatted currency string (for example, "$1,234.56").
+ */
+export function formatCurrencyDisplay(
+  amount: number,
+  currency = 'USD',
+  locale?: string
+): string {
+  return new Intl.NumberFormat(locale, {
+    style: 'currency',
+    currency
+  }).format(amount);
+}
+
+/**
+ * Extracts a `currency` string from an arbitrary value if present.
+ *
+ * @param value - The value to inspect for a `currency` property.
+ * @param fallback - The currency to return when a valid `currency` string is not found (defaults to `USD`).
+ * @returns The `currency` string found on `value`, or the provided `fallback`.
+ */
+export function readCurrencyFromOrder(
+  value: unknown,
+  fallback: string = 'USD'
+): string {
+  if (
+    value !== null &&
+    typeof value === 'object' &&
+    'currency' in value &&
+    typeof (value as { currency?: unknown }).currency === 'string'
+  ) {
+    return (value as { currency: string }).currency;
+  }
+  return fallback;
+}

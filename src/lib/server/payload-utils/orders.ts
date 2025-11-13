@@ -1,20 +1,11 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { OrderStatus } from '@/payload/views/types';
-import { Carrier } from '@/constants';
-
-/** Order status union used in our hooks. */
+import type { ShipmentGroup } from '@/lib/orders/types';
 
 /** Shipment sub-shape we mutate in the hook. */
 type ShipmentShape = {
   carrier?: string;
-  trackingNumber?: string;
-  trackingUrl?: string;
-  shippedAt?: string;
-};
-
-type ShipmentGroup = {
-  carrier?: Carrier;
   trackingNumber?: string;
   trackingUrl?: string;
   shippedAt?: string;
@@ -210,6 +201,7 @@ function isLikelyValidTrackingServer(
 ): boolean {
   if (!carrier) return false;
   const patterns = serverPatterns[carrier];
+  if (patterns === undefined) return false;
   return patterns.some((regex) => regex.test(normalizedTrackingNumber));
 }
 
