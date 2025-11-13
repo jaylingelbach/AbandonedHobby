@@ -28,7 +28,7 @@
 
 #
 
-# tRPC integration 5/2/25
+# tRPC integration 05/02/25
 
 ## New Features
 
@@ -53,7 +53,7 @@
 
 ###
 
-# Authentication 5/5/25
+# Authentication 05/05/25
 
 ## New Features
 
@@ -103,7 +103,7 @@
 
 ###
 
-# Auth states 5/6/25
+# Auth states 05/06/25
 
 ## New Features
 
@@ -141,7 +141,7 @@
 - src/trpc/server.ts
   - Added new exported caller for direct server-side tRPC procedure invocation.
 
-# Category Pages 5/6/25
+# Category Pages 05/06/25
 
 ## New Features
 
@@ -181,7 +181,7 @@
 - src/lib/seed.ts
   - Improved seeding logic to prevent duplicate categories and subcategories, added "All" and "Drawing & Painting" categories, and updated success message.
 
-# Products 5/6/25
+# Products 05/06/25
 
 ### Summary
 
@@ -218,7 +218,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/modules/home/ui/components/search-filters/categories.tsx
   - Added a TODO comment to clarify future logic for the "all" category button; no functional changes.
 
-# Filters 1 5/10/25
+# Filters 1 05/10/25
 
 ## New Features
 
@@ -268,7 +268,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - tsconfig.json
   - Enabled noUncheckedIndexedAccess for stricter type checking; reformatted arrays for compactness.
 
-# Sort filters 5/11/25
+# Sort filters 05/11/25
 
 ## New Features
 
@@ -323,7 +323,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/trpc/routers/\_app.ts
   - Added tagsRouter to the main TRPC app router.
 
-# Product List - UI 5/12/25
+# Product List - UI 05/12/25
 
 ## New Features
 
@@ -419,7 +419,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/modules/home/ui/components/search-filters/category-dropdown.tsx
   - Reordered imports for clarity; no functional change.
 
-# Tenant Pages 5/15/25
+# Tenant Pages 05/15/25
 
 ## New Features
 
@@ -469,7 +469,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/trpc/routers/\_app.ts
   - Registered tenantsRouter in the main application router.
 
-# Product Page 5/15/25
+# Product Page 05/15/25
 
 ## Walkthrough:
 
@@ -510,7 +510,7 @@ This update introduces a new "Products" collection to the CMS schema, complete w
 - src/collections/Products.ts src/payload-types.ts
   - Added a cover field to products, updated refund policy options from plural to singular day forms, and updated type definitions accordingly.
 
-# Cart (F.E. only) 5/16/25
+# Cart (F.E. only) 05/16/25
 
 ## Walkthrough
 
@@ -1056,7 +1056,7 @@ This update introduces Stripe integration for checkout and order processing. It 
 - eslint.config.mjs
   - Replaced compat.extends with compat.config for configuration style.
 
-  ### Vercel deployment lesson learned:
+  ### Vercel deployment lesson learned
   - When setting env vars for public domain or root url DO NOT INCLUDE A TRAILING /
     - it will ruin your day.
 
@@ -4955,3 +4955,96 @@ recap.md Minor comment update and internal import path note changed; no behavior
 
 - src/modules/refunds/utils.ts
   - Updated internal import path for assertPositiveInt to ../orders/server/utils.
+
+# Refactor webhook 11/12/25
+
+## Walkthrough
+
+- This PR centralizes shipping and receipt computation across the Stripe webhook, order creation, and email flows, adding helpers for metadata parsing, fee/receipt computation, and duplicate-order backfill, while extending DTOs and UI bits to include per-item shipping fields and updated amounts breakdowns.
+
+## New Features
+
+- Per-item shipping details added to seller order views, itemized receipts, and emails (shipping mode, per-unit fees, per-line subtotals).
+
+## Enhancements
+
+- Order confirmations/invoices now show full totals breakdown (subtotal, shipping, tax, discount, total) with consistent currency handling.
+- Webhook handling now computes and persists shipping & fee amounts and backfills missing fees/receipts for duplicates.
+
+## Refactor
+
+- Centralized receipt construction and shared helpers to unify email and webhook flows.
+
+## Style
+
+- Adjusted checkout sidebar and shipping breakdown styling for improved consistency.
+
+## Documentation
+
+- Updated recap/documentation with shipping and receipt changes.
+
+## File changes
+
+### Stripe webhook route
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Reworked fee computation and receipt flow: replaced inlined logic with centralized helpers (buildReceiptModels, handleDuplicateOrder, readStripeFeesAndReceiptUrl); unified buyer/seller receipt creation; added fast-paths and updated inventory decrement wiring.
+
+### Webhook helper utilities
+
+- src/app/(app)/api/stripe/webhooks/utils/helpers.ts
+  - New helper module exposing parseStripeMetadata, captureAnalyticsEvent, buildReceiptModels, and handleDuplicateOrder for metadata normalization, analytics capture, receipt/amounts building, and duplicate-order backfill/inventory handling.
+
+### Webhook types
+
+- src/app/(app)/api/stripe/webhooks/utils/types.ts
+  - Added FeeResult type to represent structured fee data from Stripe charges/intent.
+
+### Email & receipt types / builders
+
+- src/lib/sendEmail.ts
+  - Added types (ReceiptLineV2, ReceiptItemInput, ReceiptItemOutput, AmountsModel, FeesModel) and buildReceiptDetailsV2; extended SendOrderConfirmationOptions and SendSaleNotificationOptions to accept shipping/receipt metadata and enriched receipt payloads.
+
+### Order / payload DTOs
+
+- src/payload-types.ts, src/modules/orders/types.ts
+  - Extended Order/Item shapes with per-item shipping fields, added ShippingAddress shape and order-level shipping/amounts fields to public payload types.
+
+### Admin payload config
+
+- src/payload.config.ts
+  - Registered/exposed new shipping-related payload sections for admin UI.
+
+### Checkout sidebar UI
+
+- src/modules/checkout/ui/components/checkout-sidebar.tsx
+  - Repositioned Shipping row to render after breakdown; adjusted conditional logic and removed muted subtitle styling on Subtotal.
+
+### Shipping breakdown styling
+
+- src/modules/shipping/ui/shipping-breakdown.tsx
+  - Added text-muted-foreground class to per-row container for muted text styling.
+
+### Recap/documentation
+
+- recap.md
+  - Updated summary and inline notes documenting shipping/receipt helper additions and path changes.
+
+# Add shipping to refund manager 11/12/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Shipping refunds for orders
+- Comprehensive order details with shipping, tax, and fee breakdowns
+- Invoice and receipt documentation for orders
+- Enhanced onboarding and verification workflows
+
+## Improvements
+
+- Refined refund validation and error handling
+- More detailed order tracking with amounts and status data
+- Strengthened analytics integration across purchase flows

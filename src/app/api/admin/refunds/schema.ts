@@ -25,9 +25,8 @@ export const apiLineSelectionSchema = z.discriminatedUnion('type', [
 export const refundRequestSchema = z
   .object({
     orderId: z.string().min(1, 'Order id is required'),
-    selections: z
-      .array(apiLineSelectionSchema)
-      .min(1, 'At least one selection required'),
+    // ⬇️ allow empty array; we will validate combination below
+    selections: z.array(apiLineSelectionSchema),
     reason: z
       .enum(['requested_by_customer', 'duplicate', 'fraudulent', 'other'])
       .optional(),
@@ -37,7 +36,21 @@ export const refundRequestSchema = z
     idempotencyKey: z.string().min(8).max(128).optional(),
     timeoutMs: z.number().int().min(1_000).max(30_000).optional()
   })
-  .strict();
+  .strict()
+  .superRefine((value, ctx) => {
+    const hasSelections = value.selections.length > 0;
+    const shippingCents = value.refundShippingCents ?? 0;
+
+    // Require either at least one line selection OR a positive shipping refund
+    if (!hasSelections && shippingCents <= 0) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['selections'],
+        message:
+          'At least one selection or a positive shipping refund is required'
+      });
+    }
+  });
 
 // Export the *API* types
 export type ApiSelectionQuantity = z.infer<typeof apiSelectionQuantity>;

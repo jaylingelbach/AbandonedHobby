@@ -255,7 +255,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     ((incoming.amounts ?? {}) as Partial<AmountsShape>) || {};
   const persistedAmounts = (persisted.amounts ?? {}) as Partial<AmountsShape>;
 
-  // ---- AUDIT: if non-system UPDATE tries to pass fee fields, log it (they'll be ignored) ----
+  // ---- AUDIT: only when a non-system UPDATE actually changes fee values ----
   const incomingHasPlatformField = Object.prototype.hasOwnProperty.call(
     incomingAmounts,
     'platformFeeCents'
@@ -265,10 +265,44 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
     'stripeFeeCents'
   );
 
+  const attemptedPlatformRaw = incomingAmounts.platformFeeCents ?? null;
+  const attemptedStripeRaw = incomingAmounts.stripeFeeCents ?? null;
+
+  const attemptedPlatformFeeCents =
+    typeof attemptedPlatformRaw === 'number'
+      ? toIntCents(attemptedPlatformRaw)
+      : null;
+  const attemptedStripeFeeCents =
+    typeof attemptedStripeRaw === 'number'
+      ? toIntCents(attemptedStripeRaw)
+      : null;
+
+  const persistedPlatformRaw = persistedAmounts.platformFeeCents ?? null;
+  const persistedStripeRaw = persistedAmounts.stripeFeeCents ?? null;
+
+  const persistedPlatformFeeCents =
+    typeof persistedPlatformRaw === 'number'
+      ? toIntCents(persistedPlatformRaw)
+      : null;
+  const persistedStripeFeeCents =
+    typeof persistedStripeRaw === 'number'
+      ? toIntCents(persistedStripeRaw)
+      : null;
+
+  const platformOverrideAttempt =
+    incomingHasPlatformField &&
+    attemptedPlatformFeeCents !== null &&
+    attemptedPlatformFeeCents !== persistedPlatformFeeCents;
+
+  const stripeOverrideAttempt =
+    incomingHasStripeField &&
+    attemptedStripeFeeCents !== null &&
+    attemptedStripeFeeCents !== persistedStripeFeeCents;
+
   if (
     operation === 'update' &&
     !isSystem &&
-    (incomingHasPlatformField || incomingHasStripeField)
+    (platformOverrideAttempt || stripeOverrideAttempt)
   ) {
     await auditFeeOverrideAttempt({
       req,
