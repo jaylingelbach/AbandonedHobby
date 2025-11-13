@@ -1,7 +1,6 @@
 import type { Access, FieldAccess, FieldHook, Where } from 'payload';
 import { isSuperAdmin } from '@/lib/access';
 import type { OrderStatus } from '@/payload/views/types';
-import { Carrier } from '@/constants';
 import type { ShipmentGroup } from '@/lib/orders/types';
 
 /** Shipment sub-shape we mutate in the hook. */
