@@ -1,4 +1,5 @@
 import type { OrderCore, OrderItemCore } from '@/domain/orders/types';
+import { Quantity } from '@/lib/validation/quantity';
 
 /* ---------- Items / Orders (UI-facing) ---------- */
 
@@ -6,10 +7,9 @@ export type OrderItem = {
   // Keep compatibility with existing consumers:
   id?: string;
   product?: string | { id?: string };
-
   nameSnapshot?: string;
   unitAmount?: number; // cents
-  quantity?: number;
+  quantity?: Quantity;
   amountSubtotal?: number; // cents
   amountTax?: number; // cents
   amountTotal?: number; // cents
@@ -106,12 +106,12 @@ export type RefundLine = {
 export type CanonicalOrder = OrderCore;
 export type CanonicalOrderItem = OrderItemCore;
 
-/** Type guards for reading historical refund selections safely */
 export type SelectionBlockQuantity = {
   blockType: 'quantity';
   itemId: string;
   quantity: number;
 };
+/** Historical data may have neither amount field present; consumers must handle undefined case */
 export type SelectionBlockAmount = {
   blockType: 'amount';
   itemId: string;
