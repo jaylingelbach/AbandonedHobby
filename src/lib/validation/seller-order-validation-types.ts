@@ -1,7 +1,8 @@
 import { z } from 'zod';
+import { quantitySchema } from './quantity';
 
 export const zCentsIntNonNegative = z.number().int().min(0);
-export const zQuantityInt = z.number().int().min(1);
+export const zQuantityInt = quantitySchema;
 
 export const zCurrencyCode = z
   .string()
