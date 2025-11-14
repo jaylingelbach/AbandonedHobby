@@ -14,6 +14,7 @@ export type MediaLike = {
 /**
  * Selects a single card image URL for a product.
  *
+ * Cover for products is now legacy
  * Prefers the product's cover image (medium size) and falls back to the first gallery image's medium URL.
  * Returns undefined if `product` is not an object or no suitable URL is found.
  *

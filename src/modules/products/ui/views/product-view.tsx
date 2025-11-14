@@ -21,7 +21,6 @@ import { useTRPC } from '@/trpc/client';
 import ProductGallery from '../components/product-gallery';
 import ViewInOrdersButton from '../components/view-in-order-button';
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
-import { ShippingBadge } from '../components/shipping/shippingBadge';
 
 const CartButton = dynamic(
   () =>
@@ -104,6 +103,55 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           ? `${stockQuantity} in stock`
           : 'Available';
 
+  // --- Shipping label  ---
+  const shippingMode =
+    (
+      data as {
+        shippingMode?: 'free' | 'flat' | 'calculated' | null;
+      }
+    ).shippingMode ?? 'free';
+
+  const shippingFlatFee = (data as { shippingFlatFee?: number | null })
+    .shippingFlatFee;
+
+  const shippingFeeCentsPerUnit = (
+    data as { shippingFeeCentsPerUnit?: number | null }
+  ).shippingFeeCentsPerUnit;
+
+  const shippingCents =
+    typeof shippingFeeCentsPerUnit === 'number' &&
+    Number.isFinite(shippingFeeCentsPerUnit)
+      ? Math.max(0, Math.trunc(shippingFeeCentsPerUnit))
+      : null;
+
+  const shippingUsd =
+    shippingMode === 'flat'
+      ? typeof shippingFlatFee === 'number' && Number.isFinite(shippingFlatFee)
+        ? Math.max(0, shippingFlatFee)
+        : 0
+      : shippingMode === 'calculated' && shippingCents != null
+        ? shippingCents / 100
+        : 0;
+
+  let shippingLabel: string;
+  if (
+    shippingMode === 'free' ||
+    (shippingMode === 'flat' && shippingUsd <= 0)
+  ) {
+    shippingLabel = 'Free';
+  } else if (shippingMode === 'flat') {
+    shippingLabel = formatCurrency(shippingUsd);
+  } else {
+    shippingLabel = 'Calculated at checkout';
+  }
+
+  // Tenant cover hero image
+  const tenantCover = (
+    data.tenant as { cover?: { url?: string } | null } | undefined
+  )?.cover;
+
+  // Placeholder present for skeleton.
+  const heroSrc = tenantCover?.url || '/placeholder.png';
   const productImages = (
     data as { images?: Array<{ image?: unknown; alt?: string }> }
   ).images;
@@ -137,19 +185,24 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
-        <div className="relative aspect-[3.9] border-b">
-          <Image
-            src={data?.cover?.url || '/placeholder.png'}
-            alt={data?.name || 'Product image'}
-            fill
-            className="object-cover"
-            sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
-          />
-        </div>
+        {/* HERO / COVER AREA */}
+        {tenantCover && heroSrc && (
+          <div className="relative h-32 sm:h-40 lg:h-48 border-b">
+            <Image
+              src={heroSrc}
+              alt={`${data.tenant.name} shop cover` || 'Shop cover image'}
+              fill
+              className="object-cover"
+              sizes="100vw"
+            />
+          </div>
+        )}
+
         <div className="grid grid-cols-1 lg:grid-cols-6">
+          {/* LEFT COLUMN: title, gallery, description (image front and center) */}
           <div className="col-span-4">
             {/* Product name */}
-            <div className="p-6">
+            <div className="px-6 pt-6 pb-4">
               <div className="flex items-center gap-3">
                 <h1 className="text-4xl font-medium">{data.name}</h1>
                 {isSoldOut && (
@@ -163,93 +216,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
 
-            {/* Price / shop / ratings row */}
-            <div className="border-y flex">
-              {/* Price + Shipping */}
-              <div className="px-6 py-4 flex items-center justify-center border-r">
-                <div className="flex flex-wrap items-center gap-2 sm:gap-3">
-                  {/* Price badge */}
-                  <span className="inline-flex items-center rounded-full border-2 border-black bg-pink-400 px-2.5 py-1 text-xs font-semibold shadow-[3px_3px_0_0_rgba(0,0,0,1)]">
-                    {formatCurrency(data.price)}
-                  </span>
-
-                  {/* Shipping badge with spacing */}
-                  <ShippingBadge
-                    shippingMode={
-                      (
-                        data as {
-                          shippingMode?: 'free' | 'flat' | 'calculated' | null;
-                        }
-                      ).shippingMode
-                    }
-                    shippingFlatFee={
-                      (data as { shippingFlatFee?: number | null })
-                        .shippingFlatFee
-                    }
-                    shippingFeeCentsPerUnit={
-                      (data as { shippingFeeCentsPerUnit?: number | null })
-                        .shippingFeeCentsPerUnit
-                    }
-                  />
-                </div>
-              </div>
-
-              {/* Shop name */}
-              <div className="px-6 py-4 flex items-center justify-center lg:border-r">
-                <Link
-                  href={generateTenantURL(tenantSlug)}
-                  className="flex items-center gap-2"
-                >
-                  {data.tenant.image?.url && (
-                    <Image
-                      src={data.tenant.image?.url}
-                      alt={data.tenant.name}
-                      width={20}
-                      height={20}
-                      className="rounded-full border shrink-0 size-5"
-                      sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
-                    />
-                  )}
-                  <p className="text-base underline font-medium">
-                    {data.tenant.name}
-                  </p>
-                </Link>
-              </div>
-
-              {/* Shop rating (desktop) */}
-              <div className="hidden lg:flex px-6 py-4 items-center justify-center">
-                <div className="flex items-center gap-2">
-                  <StarRating rating={data.reviewRating} />
-                  <p className="text-base font-medium">
-                    {data.reviewCount} ratings
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Ratings (mobile) */}
-            <div className="block lg:hidden px-6 py-4 items-center">
-              <div className="flex items-center gap-2 ">
-                <StarRating rating={data.reviewRating} iconClassName="size-4" />
-                <p className="text-base font-medium">
-                  {data.reviewCount} ratings
-                </p>
-              </div>
-            </div>
-
-            {/* Description */}
-            <div className="p-6">
-              {data.description ? (
-                <RichText data={data.description} />
-              ) : (
-                <p className="font-medium text-muted-foreground italic">
-                  No description provided
-                </p>
-              )}
-            </div>
-
-            {/* Gallery */}
-            <div className="p-6 pt-0">
+            {/* Gallery (photo first, like eBay) */}
+            <div className="px-6 pb-6 pt-0">
               <ProductGallery
                 items={useMemo(
                   () => mapProductImagesFromPayload(productImages, 'medium'),
@@ -259,11 +227,70 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 thumbColsDesktop={8}
               />
             </div>
+
+            {/* Description now below the photo */}
+            <div className="px-6 pb-6">
+              {data.description ? (
+                <RichText data={data.description} />
+              ) : (
+                <p className="font-medium text-muted-foreground italic">
+                  No description provided
+                </p>
+              )}
+            </div>
           </div>
 
-          {/* Right column */}
+          {/* RIGHT COLUMN: meta, CTAs, ratings breakdown */}
           <div className="col-span-2">
             <div className="border-t lg:border-t-0 lg:border-l h-full">
+              {/* META BLOCK — price, shipping, seller; bigger, stacked rows */}
+              <div className="p-6 border-b space-y-4">
+                {/* Price */}
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Price
+                  </p>
+                  <p className="mt-1 text-3xl font-semibold leading-tight">
+                    {formatCurrency(data.price)}
+                  </p>
+                </div>
+
+                {/* Shipping */}
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Shipping
+                  </p>
+                  <p className="mt-1 text-base font-semibold">
+                    {shippingLabel}
+                  </p>
+                </div>
+
+                {/* Seller / shop */}
+                <div>
+                  <p className="text-xs font-semibold uppercase text-muted-foreground">
+                    Seller
+                  </p>
+                  <Link
+                    href={generateTenantURL(tenantSlug)}
+                    className="mt-2 inline-flex items-center gap-2"
+                  >
+                    {data.tenant.image?.url && (
+                      <Image
+                        src={data.tenant.image?.url}
+                        alt={data.tenant.name}
+                        width={24}
+                        height={24}
+                        className="rounded-full border shrink-0 size-6"
+                        sizes="24px"
+                      />
+                    )}
+                    <p className="text-base underline font-medium">
+                      {data.tenant.name}
+                    </p>
+                  </Link>
+                </div>
+              </div>
+
               {/* Add to cart + actions */}
               <div className="flex flex-col gap-4 p-6 border-b">
                 <div className="flex flex-row items-center gap-2">
@@ -272,14 +299,15 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     tenantSlug={tenantSlug}
                     productId={productId}
                   />
-
                   {canPurchase ? (
                     <CartButton
                       isPurchased={data.isPurchased}
                       tenantSlug={tenantSlug}
                       productId={productId}
-                      shippingMode={data.shippingMode}
-                      shippingFeeCentsPerUnit={data.shippingFeeCentsPerUnit}
+                      shippingMode={shippingMode}
+                      shippingFeeCentsPerUnit={
+                        shippingFeeCentsPerUnit ?? undefined
+                      }
                     />
                   ) : (
                     <Button
@@ -295,7 +323,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       {!inStock ? 'Unavailable' : 'Listed by you'}
                     </Button>
                   )}
-
                   <Button
                     className="size-12"
                     variant="elevated"
@@ -344,7 +371,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 )}
               </div>
 
-              {/* Ratings breakdown */}
+              {/* BIG RATINGS BLOCK — stays at bottom */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-xl font-medium">Ratings</h3>
@@ -377,7 +404,8 @@ export const ProductViewSkeleton = () => {
   return (
     <div className="px-4 lg:px-12 py-10">
       <div className="border rounded-sm bg-white overflow-hidden">
-        <div className="relative aspect-[3.9] border-b">
+        {/* match the hero height change */}
+        <div className="relative h-32 sm:h-40 lg:h-48 border-b">
           <Image
             src={'/placeholder.png'}
             alt="Placeholder"

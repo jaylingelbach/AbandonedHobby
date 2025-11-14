@@ -67,25 +67,42 @@ export const Media: CollectionConfig = {
         return next;
       }
     ],
-    // Prevent deleting if the image is referenced by any product
+    // Prevent deleting if the image is referenced by any product or tenant
     beforeDelete: [
       async ({ req, id }) => {
         const mediaId = String(id);
-        const inUse = await req.payload.find({
-          collection: 'products',
-          limit: 1,
-          depth: 0,
-          pagination: false,
-          where: {
-            or: [
-              { 'images.image': { equals: mediaId } },
-              { cover: { equals: mediaId } }
-            ]
-          }
-        });
-        if (inUse.totalDocs > 0) {
+
+        const [productUse, tenantUse] = await Promise.all([
+          req.payload.find({
+            collection: 'products',
+            limit: 1,
+            depth: 0,
+            pagination: false,
+            where: {
+              or: [
+                { 'images.image': { equals: mediaId } },
+                // keep this if you want to be safe with legacy product cover data
+                { cover: { equals: mediaId } }
+              ]
+            }
+          }),
+          req.payload.find({
+            collection: 'tenants',
+            limit: 1,
+            depth: 0,
+            pagination: false,
+            where: {
+              cover: { equals: mediaId }
+            }
+          })
+        ]);
+
+        if (productUse.totalDocs > 0 || tenantUse.totalDocs > 0) {
+          const usedBy = [];
+          if (productUse.totalDocs > 0) usedBy.push('product(s)');
+          if (tenantUse.totalDocs > 0) usedBy.push('shop(s)');
           throw new Error(
-            'This image is used by a product. Remove it from all products before deleting.'
+            `This image is used by ${usedBy.join(' and ')}. Remove it from all references before deleting.`
           );
         }
       }

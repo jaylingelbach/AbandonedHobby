@@ -138,9 +138,7 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
     { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
-    { name: 'cover', type: 'upload', relationTo: 'media' },
     {
       name: 'refundPolicy',
       type: 'select',

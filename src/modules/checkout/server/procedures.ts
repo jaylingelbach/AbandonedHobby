@@ -601,7 +601,6 @@ export const checkoutRouter = createTRPCRouter({
         totalCents,
         docs: data.docs.map((doc) => ({
           ...doc,
-          cover: doc.cover as Media | null,
           tenant: doc.tenant as Tenant & { image: Media | null },
           cardImageUrl: getPrimaryCardImageUrl(doc)
         }))
