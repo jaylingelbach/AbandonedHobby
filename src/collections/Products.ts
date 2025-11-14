@@ -5,7 +5,7 @@ import { getCategoryIdFromSibling } from '@/lib/server/utils';
 import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/resolve-tenant-and-require-stripe-ready';
 import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
 import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
-import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-product-analyrics';
+import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-product-analytics';
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
