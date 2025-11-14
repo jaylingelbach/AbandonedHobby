@@ -8,6 +8,7 @@ import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-ten
 import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-product-analyrics';
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
+import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
 
 type ShippingMode = 'free' | 'flat' | 'calculated';
 
@@ -40,7 +41,10 @@ export const Products: CollectionConfig = {
       autoArchiveOrUnarchiveOnInventoryChange
     ],
     afterDelete: [decrementTenantCountOnDelete],
-    beforeValidate: [validateCategoryPercentage],
+    beforeValidate: [
+      validateCategoryPercentage,
+      forceTrackInventoryTrueForNonAdmins
+    ],
     // Keep your existing hook and add the cleaner afterward
     beforeChange: [resolveTenantAndRequireStripeReady, clearFlatFeeWhenNotFlat]
   },
@@ -148,9 +152,16 @@ export const Products: CollectionConfig = {
     {
       name: 'content',
       type: 'richText',
+      access: {
+        read: ({ req }) => isSuperAdmin(req.user),
+        create: ({ req }) => isSuperAdmin(req.user),
+        update: ({ req }) => isSuperAdmin(req.user)
+      },
       admin: {
         description:
-          'Protected content visible to customers after purchase. Add any downloadable assets here.'
+          'Reserved for future digital content. Not currently used in the customer experience.',
+        // Makes extra sure it never shows for non-admins in the UI
+        condition: (_, __, { user }) => isSuperAdmin(user)
       }
     },
     {
@@ -179,7 +190,19 @@ export const Products: CollectionConfig = {
       name: 'trackInventory',
       type: 'checkbox',
       label: 'Track inventory',
-      defaultValue: true
+      defaultValue: true,
+      access: {
+        // Only super admins can create/update this flag
+        create: ({ req }) => isSuperAdmin(req.user),
+        update: ({ req }) => isSuperAdmin(req.user),
+        // Read: I don't want normal users to see it in API responses:
+        read: ({ req }) => isSuperAdmin(req.user)
+      },
+      admin: {
+        // This ensures it never renders in the admin UI for non-super-admins
+        description:
+          'System flag: Abandoned Hobby auto-manages this based on product type.'
+      }
     },
     {
       name: 'stockQuantity',

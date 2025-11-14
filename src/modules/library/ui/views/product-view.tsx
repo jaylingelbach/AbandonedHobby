@@ -1,6 +1,5 @@
 'use client';
 
-import { RichText } from '@payloadcms/richtext-lexical/react';
 import {
   useQueryClient,
   useSuspenseQuery,
@@ -27,26 +26,7 @@ import InvoiceDialog from '../components/invoice-dialog';
 import { ReviewFormSkeleton } from '../components/review-form';
 import ReviewSidebar from '../components/review-sidebar';
 
-import { buildTrackingUrl, isLexicalRichTextEmpty } from '@/lib/utils';
-
-import type { SerializedEditorState, SerializedLexicalNode } from 'lexical';
-
-/**
- * Determines whether a value is a Lexical `SerializedEditorState` whose `root` node exists.
- *
- * @returns `true` if `value` is a `SerializedEditorState` whose `root` has `type === 'root'` and a `children` array, `false` otherwise.
- */
-
-function isLexicalEditorState(
-  value: unknown
-): value is SerializedEditorState<SerializedLexicalNode> {
-  if (value === null || typeof value !== 'object') return false;
-  const root = (value as { root?: unknown }).root;
-  if (root === null || typeof root !== 'object') return false;
-  const type = (root as { type?: unknown }).type;
-  const children = (root as { children?: unknown }).children;
-  return type === 'root' && Array.isArray(children);
-}
+import { buildTrackingUrl } from '@/lib/utils';
 
 interface Props {
   productId: string;
@@ -136,14 +116,6 @@ export const ProductView = ({ productId, orderId }: Props) => {
     url.searchParams.delete('success');
     router.replace(url.pathname + url.search, { scroll: false });
   }, [success, orderSummaryQuery.queryKey, queryClient, router]);
-
-  const contentUnknown = product.content as unknown;
-
-  const content: SerializedEditorState<SerializedLexicalNode> | null =
-    isLexicalEditorState(contentUnknown) ? contentUnknown : null;
-
-  const hasSpecialContent =
-    content !== null ? !isLexicalRichTextEmpty(content) : false;
 
   const trackingNumber = order?.shipment?.trackingNumber ?? null;
   const trackingProvided = Boolean(trackingNumber);
@@ -266,19 +238,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
             </CardContent>
           </Card>
 
-          {/* 3) Item details (only if meaningful content) */}
-          {hasSpecialContent && (
-            <Card className={neoBrut}>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-base">Item details</CardTitle>
-              </CardHeader>
-              <CardContent className="prose max-w-none">
-                {content && <RichText data={content} />}
-              </CardContent>
-            </Card>
-          )}
-
-          {/* 4) Reviews */}
+          {/* 3) Reviews */}
           <Card className={neoBrut}>
             <CardHeader className="pb-2">
               <CardTitle className="text-base">Reviews</CardTitle>
