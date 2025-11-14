@@ -18,6 +18,7 @@ function isMediaDoc(v: unknown): v is Media {
 /**
  * Selects the primary Media for a product-like object.
  *
+ * Cover for products is now legacy
  * Prefers `product.cover` if it is a Media document; otherwise returns the first
  * `images[]` entry whose `image` property is a Media document. If `product` is
  * not an object or no Media is found, returns `null`.

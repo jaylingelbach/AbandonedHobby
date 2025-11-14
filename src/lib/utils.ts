@@ -374,6 +374,7 @@ export function getBestUrlFromMedia(
  * 2) first populated product.images[].image
  * Returns a single representative image URL for a product card.
  *
+ * Cover for products is now legacy
  * Tries, in order:
  * 1. `product.cover` (preferred size), then
  * 2. the first populated `product.images[][].image`.

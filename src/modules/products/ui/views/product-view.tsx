@@ -190,7 +190,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
           <div className="relative h-32 sm:h-40 lg:h-48 border-b">
             <Image
               src={heroSrc}
-              alt={data?.name || 'Product image'}
+              alt={`${data.tenant.name} shop cover` || 'Shop cover image'}
               fill
               className="object-cover"
               sizes="100vw"

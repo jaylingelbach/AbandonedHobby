@@ -220,7 +220,6 @@ export const productsRouter = createTRPCRouter({
             : 'Available',
         isPurchased,
         // keep cover (populated by depth: 2)
-        cover: (product.cover as Media | null) ?? null,
         tenant: product.tenant as Tenant & { image: Media | null },
         reviewRating,
         reviewCount: reviews.totalDocs,

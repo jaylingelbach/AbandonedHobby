@@ -3,6 +3,7 @@ import { isObjectRecord, getBestUrlFromMedia } from '@/lib/utils';
 /**
  * Returns the best-available card image URL for a product, preferring the product cover.
  *
+ * Cover for products is now legacy
  * Attempts to resolve a medium-sized URL from `product.cover`. If none is found, looks for the
  * first entry in `product.images` that has an `image` object and returns its medium-sized URL.
  * Returns `undefined` if `product` is not an object or no suitable image URL can be found.
