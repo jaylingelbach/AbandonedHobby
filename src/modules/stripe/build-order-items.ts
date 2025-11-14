@@ -7,6 +7,7 @@ import {
 } from './guards';
 
 import { usdToCents } from '@/lib/money';
+import { parseQuantity, type Quantity } from '@/lib/validation/quantity';
 
 import type Stripe from 'stripe';
 
@@ -19,7 +20,7 @@ export type OrderItemOutput = {
   product: string;
   nameSnapshot: string;
   unitAmount: number; // cents
-  quantity: number;
+  quantity: Quantity;
   amountSubtotal: number; // cents
   amountTax?: number; // cents
   amountTotal: number; // cents
@@ -44,7 +45,7 @@ export function toOrderItemFromLine(
   const productId = requireStripeProductIdFromLine(line);
   const productDoc = productMap.get(productId);
 
-  const quantity = typeof line.quantity === 'number' ? line.quantity : 1;
+  const quantity = parseQuantity(line.quantity);
   const unitAmount = line.price.unit_amount ?? 0;
 
   const amountSubtotal =
