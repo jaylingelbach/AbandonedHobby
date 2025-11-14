@@ -11,6 +11,7 @@ import { zSellerOrderDetail } from '@/lib/validation/seller-order';
 import { toIntCents } from '@/lib/money';
 import type { SellerOrderDetail } from './types';
 import { zShippingMode } from '@/lib/validation/seller-order-validation-types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -89,18 +90,20 @@ export async function GET(
             (raw as { nameSnapshot?: unknown }).nameSnapshot ??
             (raw as { product?: { name?: unknown } }).product?.name ??
             'Item';
-          const quantity = Math.max(
-            1,
-            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
-          );
+
+          const rawQuantity = (raw as { quantity?: unknown }).quantity;
+          const quantity = readQuantityOrDefault(rawQuantity);
+
           const rawShippingMode = (raw as { shippingMode?: unknown })
             .shippingMode;
           const shippingMode =
             typeof rawShippingMode === 'string' ? rawShippingMode : null;
+
           const perUnit = toIntCents(
             (raw as { shippingFeeCentsPerUnit?: unknown })
               .shippingFeeCentsPerUnit
           );
+
           const shipSubtotal =
             toIntCents(
               (raw as { shippingSubtotalCents?: unknown }).shippingSubtotalCents
@@ -109,10 +112,12 @@ export async function GET(
           const unitAmountCents = toIntCents(
             (raw as { unitAmount?: unknown }).unitAmount ?? 0
           );
+
           const amountTotalCents = toIntCents(
             (raw as { amountTotal?: unknown }).amountTotal ??
               unitAmountCents * quantity
           );
+
           return {
             lineItemId,
             nameSnapshot: String(nameSnapshot),
