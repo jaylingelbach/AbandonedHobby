@@ -2,7 +2,6 @@ import { isSuperAdmin } from '@/lib/access';
 
 import type { CollectionConfig } from 'payload';
 
-
 export const Tenants: CollectionConfig = {
   slug: 'tenants',
   access: {
@@ -42,6 +41,15 @@ export const Tenants: CollectionConfig = {
       name: 'image',
       type: 'upload',
       relationTo: 'media'
+    },
+    {
+      name: 'cover',
+      type: 'upload',
+      relationTo: 'media',
+      admin: {
+        description:
+          'Hero/cover image shown at the top of your shop and product pages.'
+      }
     },
     {
       name: 'stripeAccountId',

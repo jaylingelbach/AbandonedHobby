@@ -218,7 +218,6 @@ export interface Product {
    */
   subcategory?: (string | null) | Category;
   tags?: (string | Tag)[] | null;
-  cover?: (string | null) | Media;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
   /**
    * Protected content visible to customers after purchase. Add any downloadable assets here.
@@ -276,6 +275,10 @@ export interface Tenant {
    */
   slug: string;
   image?: (string | null) | Media;
+  /**
+   * Hero/cover image shown at the top of your shop and product pages.
+   */
+  cover?: (string | null) | Media;
   /**
    * Stripe Account ID associated with your shop
    */
@@ -1034,7 +1037,6 @@ export interface ProductsSelect<T extends boolean = true> {
   category?: T;
   subcategory?: T;
   tags?: T;
-  cover?: T;
   refundPolicy?: T;
   content?: T;
   isArchived?: T;
@@ -1136,6 +1138,7 @@ export interface TenantsSelect<T extends boolean = true> {
   name?: T;
   slug?: T;
   image?: T;
+  cover?: T;
   stripeAccountId?: T;
   stripeDetailsSubmitted?: T;
   primaryContact?: T;
