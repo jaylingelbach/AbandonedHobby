@@ -5,7 +5,11 @@ import {
   EngineOptions,
   OrderWithTotals,
   LineSelection,
-  OrderItem
+  OrderItem,
+  SelectionBlockQuantity,
+  SelectionBlockAmount,
+  SelectionLegacyQuantity,
+  SelectionLegacyAmount
 } from './types';
 import {
   buildIdempotencyKeyV2,
@@ -14,41 +18,14 @@ import {
   toStripeRefundReason
 } from './utils';
 import { ExceedsRefundableError, FullyRefundedError } from './errors';
-
-/** Type guards for reading historical refund selections safely */
-type SelectionBlockQuantity = {
-  blockType: 'quantity';
-  itemId: string;
-  quantity: number;
-};
-type SelectionBlockAmount = {
-  blockType: 'amount';
-  itemId: string;
-  amountCents?: number;
-  amount?: number;
-};
-type SelectionLegacyQuantity = { itemId: string; quantity: number };
-type SelectionLegacyAmount = {
-  itemId: string;
-  amountCents?: number;
-  amount?: number;
-};
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-function isString(value: unknown): value is string {
-  return typeof value === 'string';
-}
-function isFiniteNumber(value: unknown): value is number {
-  return typeof value === 'number' && Number.isFinite(value);
-}
+import { isFiniteNumber } from '@/lib/money';
+import { isObject, isStringValue } from '@/lib/utils';
 
 function isBlockQuantity(sel: unknown): sel is SelectionBlockQuantity {
   return (
     isObject(sel) &&
     sel['blockType'] === 'quantity' &&
-    isString(sel['itemId']) &&
+    isStringValue(sel['itemId']) &&
     isFiniteNumber(sel['quantity'])
   );
 }
@@ -56,14 +33,14 @@ function isBlockAmount(sel: unknown): sel is SelectionBlockAmount {
   return (
     isObject(sel) &&
     sel['blockType'] === 'amount' &&
-    isString(sel['itemId']) &&
+    isStringValue(sel['itemId']) &&
     (isFiniteNumber(sel['amountCents']) || isFiniteNumber(sel['amount']))
   );
 }
 function isLegacyQuantity(sel: unknown): sel is SelectionLegacyQuantity {
   return (
     isObject(sel) &&
-    isString(sel['itemId']) &&
+    isStringValue(sel['itemId']) &&
     isFiniteNumber(sel['quantity']) &&
     !('blockType' in sel)
   );
@@ -71,7 +48,7 @@ function isLegacyQuantity(sel: unknown): sel is SelectionLegacyQuantity {
 function isLegacyAmount(sel: unknown): sel is SelectionLegacyAmount {
   return (
     isObject(sel) &&
-    isString(sel['itemId']) &&
+    isStringValue(sel['itemId']) &&
     (isFiniteNumber(sel['amountCents']) || isFiniteNumber(sel['amount'])) &&
     !('blockType' in sel)
   );

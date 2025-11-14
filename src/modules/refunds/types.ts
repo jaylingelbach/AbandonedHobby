@@ -105,3 +105,22 @@ export type RefundLine = {
 /** If you ever need the canonical shapes directly in refunds code: */
 export type CanonicalOrder = OrderCore;
 export type CanonicalOrderItem = OrderItemCore;
+
+/** Type guards for reading historical refund selections safely */
+export type SelectionBlockQuantity = {
+  blockType: 'quantity';
+  itemId: string;
+  quantity: number;
+};
+export type SelectionBlockAmount = {
+  blockType: 'amount';
+  itemId: string;
+  amountCents?: number;
+  amount?: number;
+};
+export type SelectionLegacyQuantity = { itemId: string; quantity: number };
+export type SelectionLegacyAmount = {
+  itemId: string;
+  amountCents?: number;
+  amount?: number;
+};

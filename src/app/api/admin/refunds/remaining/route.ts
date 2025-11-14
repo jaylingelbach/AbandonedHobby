@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPayload, PayloadRequest } from 'payload';
 import config from '@/payload.config';
+import { isNumber, isObject, isStringValue } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 
@@ -74,14 +75,6 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   };
 
   // ---------- helpers ----------
-  const isObject = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null;
-
-  const isString = (value: unknown): value is string =>
-    typeof value === 'string';
-
-  const isNumber = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isFinite(value);
 
   const getSelectionKind = (
     selection: unknown
@@ -95,7 +88,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     selection: unknown
   ): selection is SelectionQuantity =>
     isObject(selection) &&
-    isString(selection['itemId']) &&
+    isStringValue(selection['itemId']) &&
     isNumber(selection['quantity']) &&
     getSelectionKind(selection) === 'quantity';
 
@@ -103,7 +96,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     selection: unknown
   ): selection is SelectionAmount =>
     isObject(selection) &&
-    isString(selection['itemId']) &&
+    isStringValue(selection['itemId']) &&
     (isNumber(selection['amountCents']) || isNumber(selection['amount'])) &&
     getSelectionKind(selection) === 'amount';
 

@@ -14,9 +14,6 @@ import { ExistingOrderPrecheck } from './types';
 
 // Helpers
 
-export const isStringValue = (value: unknown): value is string =>
-  typeof value === 'string';
-
 /**
  * Type guard that checks whether `item.product` is a non-empty string.
  *
