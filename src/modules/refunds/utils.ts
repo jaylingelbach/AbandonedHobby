@@ -6,11 +6,13 @@ import {
   LineSelection,
   LocalRefundStatus,
   OrderLike,
+  OrderWithTotals,
   StripeRefundReason
 } from './types';
 
 import crypto from 'node:crypto';
 import type { Payload } from 'payload';
+import { ExceedsRefundableError } from './errors';
 
 /**
  * Creates a map of OrderItem keyed by each item's non-empty string `id`.
@@ -353,4 +355,167 @@ export async function recomputeRefundState(opts: {
     orderId,
     maxTries: MAX_TRIES
   });
+}
+
+/** Resolve a line's "total cents" using snapshot totals when available */
+function getLineTotalCents(item: OrderItem): number {
+  if (typeof item.amountTotal === 'number') return item.amountTotal;
+  const quantity = typeof item.quantity === 'number' ? item.quantity : 1;
+  const unitAmount = typeof item.unitAmount === 'number' ? item.unitAmount : 0;
+  return unitAmount * quantity;
+}
+
+export function validateSelectionsAgainstCaps(args: {
+  order: OrderWithTotals;
+  selections: LineSelection[];
+  itemById: Map<string, OrderItem>;
+  refundedQuantityByItemId: Map<string, number>;
+  refundedAmountByItemId: Map<string, number>;
+}): void {
+  const {
+    order,
+    selections,
+    itemById,
+    refundedQuantityByItemId,
+    refundedAmountByItemId
+  } = args;
+
+  for (const selection of selections) {
+    const sourceItem = itemById.get(selection.itemId);
+    if (!sourceItem) {
+      throw new Error(
+        `Item ${selection.itemId} not found in order ${order.id}`
+      );
+    }
+
+    const purchasedQuantity =
+      typeof sourceItem.quantity === 'number' &&
+      Number.isFinite(sourceItem.quantity)
+        ? Math.trunc(sourceItem.quantity)
+        : 1;
+
+    const alreadyRefundedQuantity =
+      refundedQuantityByItemId.get(selection.itemId) ?? 0;
+    const remainingRefundableQuantity = Math.max(
+      0,
+      purchasedQuantity - Math.trunc(alreadyRefundedQuantity)
+    );
+
+    const lineTotalCents = getLineTotalCents(sourceItem);
+    const alreadyRefundedAmountForLine =
+      refundedAmountByItemId.get(selection.itemId) ?? 0;
+    const remainingRefundableAmountForLine = Math.max(
+      0,
+      lineTotalCents - Math.trunc(alreadyRefundedAmountForLine)
+    );
+
+    if ('quantity' in selection) {
+      if (
+        typeof selection.quantity !== 'number' ||
+        !Number.isFinite(selection.quantity)
+      ) {
+        throw new Error(`Invalid quantity for item ${selection.itemId}`);
+      }
+      const requestedQty = Math.trunc(selection.quantity);
+      if (requestedQty <= 0) {
+        throw new Error(`Invalid quantity for item ${selection.itemId}`);
+      }
+      if (requestedQty > remainingRefundableQuantity) {
+        throw new Error(
+          `Quantity ${requestedQty} exceeds remaining refundable units (${remainingRefundableQuantity}) for item ${selection.itemId}`
+        );
+      }
+    } else {
+      const requestedCents = Math.trunc(selection.amountCents);
+      if (!Number.isFinite(requestedCents) || requestedCents <= 0) {
+        throw new Error(`Invalid amountCents for item ${selection.itemId}`);
+      }
+      if (requestedCents > remainingRefundableAmountForLine) {
+        throw new Error(
+          `amountCents (${requestedCents}) exceeds remaining refundable balance (${remainingRefundableAmountForLine}) for item ${selection.itemId}`
+        );
+      }
+    }
+  }
+}
+
+export function computeFinalRefundAmount(args: {
+  order: OrderWithTotals;
+  selections: LineSelection[];
+  options: EngineOptions | undefined;
+  remainingRefundableOrderCents: number;
+}): number {
+  const { order, selections, options, remainingRefundableOrderCents } = args;
+
+  let refundAmount = computeRefundAmountCents(order, selections);
+
+  if (typeof options?.refundShippingCents === 'number') {
+    refundAmount += Math.trunc(options.refundShippingCents);
+  }
+  if (typeof options?.restockingFeeCents === 'number') {
+    refundAmount -= Math.max(0, Math.trunc(options.restockingFeeCents));
+  }
+
+  if (refundAmount <= 0) {
+    throw new Error(
+      `Computed refund amount must be > 0 (got ${refundAmount} cents)`
+    );
+  }
+  if (refundAmount > remainingRefundableOrderCents) {
+    throw new ExceedsRefundableError(
+      order.id,
+      refundAmount,
+      remainingRefundableOrderCents
+    );
+  }
+
+  return refundAmount;
+}
+
+export function buildStripeRefundParams(args: {
+  order: OrderWithTotals;
+  orderId: string;
+  selections: LineSelection[];
+  options: EngineOptions | undefined;
+  refundAmount: number;
+  paymentIntentId: string | null;
+  chargeId: string | null;
+  stripeAccountId: string;
+}): {
+  stripeArgs: Stripe.RefundCreateParams;
+  idempotencyKey: string;
+} {
+  const {
+    order,
+    orderId,
+    selections,
+    options,
+    refundAmount,
+    paymentIntentId,
+    chargeId,
+    stripeAccountId
+  } = args;
+
+  const idempotencyKey =
+    options?.idempotencyKey ??
+    buildIdempotencyKeyV2({ orderId, selections, options });
+
+  const metadata: Stripe.MetadataParam = {
+    orderId: order.id,
+    ...(order.orderNumber ? { orderNumber: order.orderNumber } : {}),
+    selections: JSON.stringify(selections),
+    ...(options?.reason ? { app_reason: options.reason } : {}),
+    stripeAccountId
+  };
+
+  const stripeArgs: Stripe.RefundCreateParams = {
+    amount: refundAmount,
+    reason: toStripeRefundReason(options?.reason),
+    ...(paymentIntentId
+      ? { payment_intent: paymentIntentId }
+      : { charge: chargeId! }),
+    metadata
+  };
+
+  return { stripeArgs, idempotencyKey };
 }
