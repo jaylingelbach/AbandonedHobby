@@ -6,6 +6,10 @@ import { flushIfNeeded } from './utils';
 import { toQtyMap, tryCall } from './utils';
 import type { ExistingOrderPrecheck } from './types';
 import type { OrderItemOutput } from '@/modules/stripe/build-order-items';
+import {
+  readQuantityOrDefault,
+  type Quantity
+} from '@/lib/validation/quantity';
 
 /**
  * Parse Stripe metadata to extract common fields used across webhook handlers.
@@ -261,7 +265,7 @@ export async function handleDuplicateOrder(args: {
       updateData.amounts = {
         ...existingAmounts,
         stripeFeeCents: stripeFeePresent
-          ? existingAmounts.stripeFeeCents!
+          ? existingAmounts.stripeFeeCents
           : feesResult.stripeFeeCents,
         platformFeeCents: platformFeePresent
           ? existingAmounts.platformFeeCents!
@@ -297,37 +301,33 @@ export async function handleDuplicateOrder(args: {
 
   // inventory adjust on dup path (unchanged)
   if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
-    const quantityByProductId = toQtyMap(
-      (existing.items ?? [])
-        .map((item) => {
-          const relation = item.product as unknown;
-          let product: string | null = null;
+    const normalizedItems = (existing.items ?? [])
+      .map((item) => {
+        const relation = item.product as unknown;
+        let product: string | null = null;
 
-          if (typeof relation === 'string' && relation.length > 0) {
-            product = relation;
-          } else if (
-            relation &&
-            typeof relation === 'object' &&
-            'id' in relation
-          ) {
-            const relationId = (relation as { id?: unknown }).id;
-            if (typeof relationId === 'string' && relationId.length > 0) {
-              product = relationId;
-            }
+        if (typeof relation === 'string' && relation.length > 0) {
+          product = relation;
+        } else if (
+          relation &&
+          typeof relation === 'object' &&
+          'id' in relation
+        ) {
+          const relationId = (relation as { id?: unknown }).id;
+          if (typeof relationId === 'string' && relationId.length > 0) {
+            product = relationId;
           }
+        }
 
-          if (!product) return null;
-          return {
-            product,
-            quantity:
-              typeof item.quantity === 'number' &&
-              Number.isInteger(item.quantity)
-                ? item.quantity
-                : 1
-          };
-        })
-        .filter(Boolean) as Array<{ product: string; quantity: number }>
-    );
+        if (!product) return null;
+
+        const quantity: Quantity = readQuantityOrDefault(item.quantity);
+
+        return { product, quantity };
+      })
+      .filter(Boolean) as Array<{ product: string; quantity: Quantity }>;
+
+    const quantityByProductId = toQtyMap(normalizedItems);
 
     console.log('[webhook] decrement on duplicate path', {
       entries: [...quantityByProductId.entries()]

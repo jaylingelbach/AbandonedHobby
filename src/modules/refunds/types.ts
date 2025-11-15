@@ -1,4 +1,5 @@
 import type { OrderCore, OrderItemCore } from '@/domain/orders/types';
+import { Quantity } from '@/lib/validation/quantity';
 
 /* ---------- Items / Orders (UI-facing) ---------- */
 
@@ -6,10 +7,9 @@ export type OrderItem = {
   // Keep compatibility with existing consumers:
   id?: string;
   product?: string | { id?: string };
-
   nameSnapshot?: string;
   unitAmount?: number; // cents
-  quantity?: number;
+  quantity?: Quantity;
   amountSubtotal?: number; // cents
   amountTax?: number; // cents
   amountTotal?: number; // cents
@@ -47,7 +47,7 @@ export type OrderWithTotals = OrderLike & {
 
 export type LineSelectionQty = {
   itemId: string;
-  quantity: number;
+  quantity: Quantity;
   amountCents?: undefined;
 };
 
@@ -105,3 +105,22 @@ export type RefundLine = {
 /** If you ever need the canonical shapes directly in refunds code: */
 export type CanonicalOrder = OrderCore;
 export type CanonicalOrderItem = OrderItemCore;
+
+export type SelectionBlockQuantity = {
+  blockType: 'quantity';
+  itemId: string;
+  quantity: Quantity;
+};
+/** Historical data may have neither amount field present; consumers must handle undefined case */
+export type SelectionBlockAmount = {
+  blockType: 'amount';
+  itemId: string;
+  amountCents?: number;
+  amount?: number;
+};
+export type SelectionLegacyQuantity = { itemId: string; quantity: number };
+export type SelectionLegacyAmount = {
+  itemId: string;
+  amountCents?: number;
+  amount?: number;
+};

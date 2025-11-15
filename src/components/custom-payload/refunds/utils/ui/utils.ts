@@ -79,7 +79,11 @@ export function parseMoneyToCents(raw: string): number {
 /**
  * Generate a deterministic idempotency key for a refund payload.
  *
- * @param input - Object with refund data. `orderId` must be a non-empty string. `selections` must be a non-empty array of `{ itemId, quantity }`; selections are sorted deterministically by `itemId` (locale 'en-US') then `quantity`. `options` may include `reason` (one of the allowed literals), `restockingFeeCents`, and `refundShippingCents`; `reason` defaults to `null` when absent, and numeric fee fields default to `0`.
+ * @param input - Object with refund data. `orderId` must be a non-empty string.
+ * `selections` must be a non-empty array of `{ itemId, quantity }`; selections are sorted deterministically
+ *  by `itemId` (locale 'en-US') then `quantity`. `options` may include `reason` (one of the allowed literals),
+ *  `restockingFeeCents`, and `refundShippingCents`; `reason` defaults to `null` when absent,
+ * and numeric fee fields default to `0`.
  * @returns A lowercase hexadecimal string containing the SHA-256 digest of the canonical payload prefixed with `refund:v2:`.
  * @throws Error when `orderId` is missing or empty.
  * @throws Error when `selections` is missing or empty.
@@ -98,10 +102,12 @@ export async function buildClientIdempotencyKeyV2(input: {
   };
 }): Promise<string> {
   const normSelections = [...input.selections]
-    .map((s) => ({
-      itemId: s.itemId,
-      quantity: typeof s.quantity === 'number' ? s.quantity : null,
-      amountCents: typeof s.amountCents === 'number' ? s.amountCents : null
+    .map((selection) => ({
+      itemId: selection.itemId,
+      quantity:
+        typeof selection.quantity === 'number' ? selection.quantity : null,
+      amountCents:
+        typeof selection.amountCents === 'number' ? selection.amountCents : null
     }))
     .sort(
       (a, b) =>
@@ -110,13 +116,17 @@ export async function buildClientIdempotencyKeyV2(input: {
         (a.amountCents ?? -1) - (b.amountCents ?? -1)
     );
 
-  const o = input.options ?? {};
+  const options = input.options ?? {};
   const normalizedOptions = {
-    reason: o.reason ?? null,
+    reason: options.reason ?? null,
     restockingFeeCents:
-      typeof o.restockingFeeCents === 'number' ? o.restockingFeeCents : 0,
+      typeof options.restockingFeeCents === 'number'
+        ? options.restockingFeeCents
+        : 0,
     refundShippingCents:
-      typeof o.refundShippingCents === 'number' ? o.refundShippingCents : 0
+      typeof options.refundShippingCents === 'number'
+        ? options.refundShippingCents
+        : 0
   };
 
   const payload = JSON.stringify({

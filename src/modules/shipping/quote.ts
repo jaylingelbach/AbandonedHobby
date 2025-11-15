@@ -1,8 +1,9 @@
+import { Quantity } from '@/lib/validation/quantity';
 import type { ShippingMode } from '@/modules/orders/types';
 export interface OrderItemForQuote {
   shippingMode?: ShippingMode;
   shippingSubtotalCents?: number;
-  quantity?: number;
+  quantity?: Quantity;
 }
 
 export interface AddressShape {

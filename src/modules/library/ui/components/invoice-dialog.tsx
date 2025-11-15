@@ -14,6 +14,7 @@ import { Separator } from '@/components/ui/separator';
 
 import { formatCurrency } from '@/lib/utils';
 import { compactAddress } from './utils';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 // NOTE: The exported UI type doesn't have shippingSubtotalCents.
 // Extend it locally to avoid `any` and keep strict typing.
@@ -33,7 +34,7 @@ function computeFallbackAmounts(
 ): PublicAmountsDTO {
   const subtotalCents = items.reduce((sum, li) => {
     // prefer explicit subtotal; fallback to unit * qty
-    const qty = li.quantity ?? 1;
+    const qty = readQuantityOrDefault(li.quantity);
     const unit = li.unitAmount ?? 0;
     const sub =
       typeof li.amountSubtotal === 'number' ? li.amountSubtotal : unit * qty;
@@ -88,7 +89,7 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
     if (Array.isArray(order?.items) && order.items.length > 0) {
       return order.items as InvoiceOrderItem[];
     }
-    const quantity = order?.quantity ?? 1;
+    const quantity = readQuantityOrDefault(order?.quantity);
     const totalCents = order?.totalCents ?? 0;
     const unitCents = Math.round(totalCents / Math.max(quantity, 1));
     return [
@@ -222,7 +223,7 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
 
             <div className="divide-y">
               {lineItems.map((lineItem, index) => {
-                const quantity = lineItem.quantity ?? 1;
+                const quantity = readQuantityOrDefault(lineItem.quantity);
                 const unitCents = lineItem.unitAmount ?? 0;
                 const lineTotalCents =
                   lineItem.amountTotal ?? unitCents * quantity;

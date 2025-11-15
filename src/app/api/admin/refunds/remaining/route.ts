@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getPayload, PayloadRequest } from 'payload';
 import config from '@/payload.config';
+import { isNumber, isObjectRecord, isStringValue } from '@/lib/utils';
 
 export const runtime = 'nodejs';
 
@@ -74,19 +75,11 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   };
 
   // ---------- helpers ----------
-  const isObject = (value: unknown): value is Record<string, unknown> =>
-    typeof value === 'object' && value !== null;
-
-  const isString = (value: unknown): value is string =>
-    typeof value === 'string';
-
-  const isNumber = (value: unknown): value is number =>
-    typeof value === 'number' && Number.isFinite(value);
 
   const getSelectionKind = (
     selection: unknown
   ): 'quantity' | 'amount' | null => {
-    if (!isObject(selection)) return null;
+    if (!isObjectRecord(selection)) return null;
     const kind = (selection['blockType'] ?? selection['type']) as unknown;
     return kind === 'quantity' || kind === 'amount' ? kind : null;
   };
@@ -94,16 +87,16 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   const isQuantitySelection = (
     selection: unknown
   ): selection is SelectionQuantity =>
-    isObject(selection) &&
-    isString(selection['itemId']) &&
+    isObjectRecord(selection) &&
+    isStringValue(selection['itemId']) &&
     isNumber(selection['quantity']) &&
     getSelectionKind(selection) === 'quantity';
 
   const isAmountSelection = (
     selection: unknown
   ): selection is SelectionAmount =>
-    isObject(selection) &&
-    isString(selection['itemId']) &&
+    isObjectRecord(selection) &&
+    isStringValue(selection['itemId']) &&
     (isNumber(selection['amountCents']) || isNumber(selection['amount'])) &&
     getSelectionKind(selection) === 'amount';
 
@@ -398,7 +391,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
 
     const refundedShippingCents = refundDocuments.reduce(
       (sum, refundDocument) => {
-        const fees = isObject(refundDocument.fees) ? refundDocument.fees : {};
+        const fees = isObjectRecord(refundDocument.fees)
+          ? refundDocument.fees
+          : {};
         const shippingPortion = isNumber(fees.refundShippingCents)
           ? Math.trunc(fees.refundShippingCents)
           : 0;

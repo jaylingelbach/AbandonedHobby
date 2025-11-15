@@ -11,6 +11,7 @@ import { zSellerOrderDetail } from '@/lib/validation/seller-order';
 import { toIntCents } from '@/lib/money';
 import type { SellerOrderDetail } from './types';
 import { zShippingMode } from '@/lib/validation/seller-order-validation-types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -76,54 +77,61 @@ export async function GET(
     }
 
     // items snapshot
-    const rawItems = (order as { items?: unknown[] }).items ?? [];
+    const rawItems = order.items ?? [];
     const items = Array.isArray(rawItems)
       ? rawItems.map((raw, index) => {
           const lineItemId = String(
-            (raw as { id?: unknown }).id ??
-              (raw as { _id?: unknown })._id ??
-              `${order.id}:${index}`
+            raw.id ?? (raw as { _id?: unknown })._id ?? `${order.id}:${index}`
           );
 
           const nameSnapshot =
-            (raw as { nameSnapshot?: unknown }).nameSnapshot ??
+            raw.nameSnapshot ??
             (raw as { product?: { name?: unknown } }).product?.name ??
             'Item';
-          const quantity = Math.max(
-            1,
-            Math.trunc(Number((raw as { quantity?: unknown }).quantity ?? 1))
-          );
-          const rawShippingMode = (raw as { shippingMode?: unknown })
-            .shippingMode;
+
+          const rawQuantity = raw.quantity;
+          const quantity = readQuantityOrDefault(rawQuantity);
+
+          const rawShippingMode = raw.shippingMode;
           const shippingMode =
             typeof rawShippingMode === 'string' ? rawShippingMode : null;
-          const perUnit = toIntCents(
-            (raw as { shippingFeeCentsPerUnit?: unknown })
-              .shippingFeeCentsPerUnit
-          );
-          const shipSubtotal =
-            toIntCents(
-              (raw as { shippingSubtotalCents?: unknown }).shippingSubtotalCents
-            ) || (shippingMode === 'flat' ? perUnit * quantity : 0);
+          const parsedMode = zShippingMode.safeParse(shippingMode);
+          const normalizedMode = parsedMode.success ? parsedMode.data : 'free';
 
-          const unitAmountCents = toIntCents(
-            (raw as { unitAmount?: unknown }).unitAmount ?? 0
-          );
+          const hasPerUnit =
+            (raw as { shippingFeeCentsPerUnit?: unknown })
+              .shippingFeeCentsPerUnit != null;
+          const perUnit = hasPerUnit
+            ? toIntCents(raw.shippingFeeCentsPerUnit)
+            : 0;
+
+          const rawShipSubtotal = (raw as { shippingSubtotalCents?: unknown })
+            .shippingSubtotalCents;
+          const shipSubtotal =
+            rawShipSubtotal != null
+              ? toIntCents(rawShipSubtotal)
+              : normalizedMode === 'flat'
+                ? perUnit * quantity
+                : 0;
+
+          const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
+
           const amountTotalCents = toIntCents(
-            (raw as { amountTotal?: unknown }).amountTotal ??
-              unitAmountCents * quantity
+            raw.amountTotal ?? unitAmountCents * quantity
           );
+
           return {
             lineItemId,
             nameSnapshot: String(nameSnapshot),
             quantity,
             unitAmountCents,
             amountTotalCents,
-            shippingMode: zShippingMode.safeParse(shippingMode).success
-              ? shippingMode
-              : 'free',
-            shippingFeeCentsPerUnit: perUnit || null,
-            shippingSubtotalCents: shipSubtotal || null
+            shippingMode: normalizedMode,
+            shippingFeeCentsPerUnit: hasPerUnit ? perUnit : null,
+            shippingSubtotalCents:
+              rawShipSubtotal != null || normalizedMode === 'flat'
+                ? shipSubtotal
+                : null
           };
         })
       : [];

@@ -576,3 +576,9 @@ export function buildTrackingUrl(
   }
   return undefined;
 }
+
+export const isStringValue = (value: unknown): value is string =>
+  typeof value === 'string';
+
+export const isNumber = (value: unknown): value is number =>
+  typeof value === 'number' && Number.isFinite(value);

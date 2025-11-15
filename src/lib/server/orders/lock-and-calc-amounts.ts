@@ -5,6 +5,7 @@ import type { OrderItemForQuote } from '@/modules/shipping/quote';
 import { toIntCents } from '@/lib/money';
 
 import type { ShippingMode } from '@/modules/orders/types';
+import { Quantity, readQuantityOrDefault } from '@/lib/validation/quantity';
 
 type AmountsShape = {
   subtotalCents: number;
@@ -220,7 +221,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
   // Compute item line subtotals:
   // amountSubtotal (preferred) -> amountTotal - amountTax -> amountTotal -> unitAmount * quantity.
   const itemTotals: number[] = itemsArray.map((raw) => {
-    const quantity = Math.max(1, Math.trunc(Number(raw.quantity ?? 1)));
+    const quantity: Quantity = readQuantityOrDefault(raw.quantity);
     const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
     const explicitSubtotal = toIntCents(raw.amountSubtotal ?? 0);
     const explicitTotal = toIntCents(raw.amountTotal ?? 0);
@@ -416,15 +417,12 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
 
     if (needsCalculated) {
       try {
-        const itemsForQuote: OrderItemForQuote[] = itemsArray.map((i) => ({
-          shippingMode: (i.shippingMode ?? undefined) as
+        const itemsForQuote: OrderItemForQuote[] = itemsArray.map((item) => ({
+          shippingMode: (item.shippingMode ?? undefined) as
             | ShippingMode
             | undefined,
-          shippingSubtotalCents: toIntCents(i.shippingSubtotalCents ?? 0),
-          quantity:
-            typeof i.quantity === 'number'
-              ? Math.max(1, Math.trunc(i.quantity))
-              : 1
+          shippingSubtotalCents: toIntCents(item.shippingSubtotalCents ?? 0),
+          quantity: readQuantityOrDefault(item.quantity)
         }));
 
         const quote = await quoteCalculatedShipping(
