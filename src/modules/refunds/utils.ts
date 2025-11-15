@@ -496,6 +496,12 @@ export function buildStripeRefundParams(args: {
     stripeAccountId
   } = args;
 
+  if (!paymentIntentId && !chargeId) {
+    throw new Error(
+      `Cannot create refund for order ${orderId}: missing both payment_intent and charge`
+    );
+  }
+
   const idempotencyKey =
     options?.idempotencyKey ??
     buildIdempotencyKeyV2({ orderId, selections, options });
