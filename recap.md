@@ -5237,3 +5237,81 @@ src/collections/PendingCheckoutAttempts.ts, src/payload.config.ts, src/payload-t
 
 - src/lib/utils.ts, src/modules/checkout/server/utils.ts, src/modules/library/server/utils.ts, src/modules/products/ui/utils/utils.ts
   - Added JSDoc note "Cover for products is now legacy" in several utilities/docblocks; no behavioral changes.
+
+# Quantity data model and validation 11/15/25
+
+## Walkthrough
+
+- This PR implements a centralized quantity validation system, relocates product cover to tenants, refactors the refunds engine with modular helpers, adds access controls to product fields, and standardizes quantity handling across orders, refunds, and shipping modules. Additionally, Lexical content rendering is removed from product views.
+
+## New Features
+
+- Tenant-level cover images now shown; product cover moved to tenant context.
+
+## Bug Fixes
+
+- Stricter quantity validation and defaults across orders, invoices, webhooks and checkout to prevent invalid quantities.
+- Improved media-deletion checks to report referencing entities and avoid accidental removals.
+
+## Improvements
+
+- Refund flow refactored with stronger selection validation and robust refund amount computation.
+- Admin-only controls for inventory tracking and product content visibility; product "Item details" card removed.
+
+## File changes
+
+### Quantity validation & helpers
+
+- src/lib/validation/quantity.ts, src/lib/validation/seller-order-validation-types.ts Adds canonical quantitySchema, Quantity type, parseQuantity, readQuantityOrDefault, isQuantity, and refundSelectionQuantitySchema; replaces inline zQuantityInt with quantitySchema.
+
+### Quantity type propagation
+
+src/domain/orders/types.ts, src/modules/shipping/quote.ts, src/modules/stripe/build-order-items.ts Changes many quantity fields from number to Quantity across domain, shipping, and stripe order-item output types.
+
+### Order API quantity normalization
+
+src/app/(app)/api/seller/orders/[orderId]/detail/route.ts, src/app/(app)/api/seller/orders/[orderId]/detail/types.ts, src/app/api/orders/[orderId]/invoice/route.ts, src/app/api/orders/[orderId]/invoice/types.ts, src/collections/Orders.ts Replaces ad-hoc quantity parsing with readQuantityOrDefault; updates SellerOrderItem.quantity and adds LineSelectionQty/LineSelectionAmount/LineSelection types for refund selections; refines per-line shipping/amount normalization.
+
+### Stripe webhooks & inventory
+
+src/app/(app)/api/stripe/webhooks/utils/helpers.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts Normalizes item product/quantity extraction with readQuantityOrDefault/parseQuantity; changes toQtyMap and inventory maps to use Quantity; removes isStringValue export.
+
+### Server order calculations
+
+src/lib/server/orders/compute-amounts.ts, src/lib/server/orders/lock-and-calc-amounts.ts Uses readQuantityOrDefault for item quantities and adds defensive shipping-quote error handling in quote flow.
+
+### Library & UI quantity defaults
+
+src/modules/library/ui/components/invoice-dialog.tsx Replaces inline ?? 1 defaults with readQuantityOrDefault calls.
+
+### Products: cover relocation & admin changes
+
+src/payload-types.ts, src/collections/Tenants.ts, src/collections/Media.ts, src/modules/products/server/procedures.ts Removes cover from Product/ProductsSelect<T>, adds cover to Tenant/TenantsSelect<T>, updates media beforeDelete to check tenants and products for references, and omits product cover from payload mappings.
+
+### Products collection: access & hooks
+
+src/collections/Products.ts, src/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins.ts Adds content and trackInventory access restrictions for super admins, corrects analytics import, and adds forceTrackInventoryTrueForNonAdmins hook.
+
+### Product view/content removal
+
+src/modules/library/ui/views/product-view.tsx, src/modules/products/ui/views/product-view.tsx Removes Lexical RichText handling and the “Item details” card from library product view; adjusts product-view layout to use tenant cover where applicable.
+
+### Refunds engine refactor
+
+src/modules/refunds/engine.ts, src/modules/refunds/utils.ts, src/modules/refunds/types.ts Reworks refunds flow into helpers: validateSelectionsAgainstCaps, computeFinalRefundAmount, buildStripeRefundParams, createRefundRecord; introduces selection block types and integrates Quantity into refund-related types.
+
+### Refunds UI/types/helpers
+
+src/components/custom-payload/refunds/types.ts, src/components/custom-payload/refunds/refund-manager.tsx, src/components/custom-payload/refunds/utils/ui/refund-calc.ts, src/components/custom-payload/refunds/utils/ui/utils.ts, src/app/api/admin/refunds/schema.ts, src/app/api/admin/refunds/remaining/route.ts Moves InternalSelection to shared types, adds assertApiSelectionsShape, tightens runtime validation, swaps local guards for centralized isObjectRecord/isStringValue/isNumber, and replaces inline quantity schema with refundSelectionQuantitySchema.
+
+### New type guards
+
+src/lib/utils.ts Adds exported isStringValue and isNumber guards.
+
+### Product analytics hook safety
+
+src/lib/server/products/hooks/capture-product-analytics.ts Adds null check for tenantRel before accessing slug.
+
+### Refunds engine & utils (public API additions)
+
+src/modules/refunds/utils.ts Adds public helpers: validateSelectionsAgainstCaps, computeFinalRefundAmount, and buildStripeRefundParams (and related imports/usage).

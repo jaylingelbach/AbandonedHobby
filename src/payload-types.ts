@@ -220,7 +220,7 @@ export interface Product {
   tags?: (string | Tag)[] | null;
   refundPolicy?: ('30 day' | '14 day' | '7 day' | '1 day' | 'no refunds') | null;
   /**
-   * Protected content visible to customers after purchase. Add any downloadable assets here.
+   * Reserved for future digital content. Not currently used in the customer experience.
    */
   content?: {
     root: {
@@ -245,6 +245,9 @@ export interface Product {
    * Check this box if you want to hide this item from the marketplace and only show in your personal storefront.
    */
   isPrivate?: boolean | null;
+  /**
+   * System flag: Abandoned Hobby auto-manages this based on product type.
+   */
   trackInventory?: boolean | null;
   stockQuantity?: number | null;
   /**
