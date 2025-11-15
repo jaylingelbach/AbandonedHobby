@@ -11,6 +11,7 @@ import type { PayloadMongoLike, ProductModelLite, FeeResult } from './types';
 // ─── Project Imports ─────────────────────────────────────────────────────────
 
 import { ExistingOrderPrecheck } from './types';
+import { parseQuantity, Quantity } from '@/lib/validation/quantity';
 
 // Helpers
 
@@ -71,12 +72,13 @@ export const flushIfNeeded = async () => {
  */
 
 export function toQtyMap(
-  items: Array<{ product: string; quantity?: number }>
-): Map<string, number> {
-  const map = new Map<string, number>();
+  items: Array<{ product: string; quantity: Quantity | unknown }>
+): Map<string, Quantity> {
+  const map = new Map<string, Quantity>();
   for (const item of items) {
-    const qty = typeof item.quantity === 'number' ? item.quantity : 1;
-    map.set(item.product, (map.get(item.product) ?? 0) + qty);
+    const quantity = parseQuantity(item.quantity);
+    const existing = map.get(item.product) ?? 0;
+    map.set(item.product, (existing + quantity) as Quantity);
   }
   return map;
 }
@@ -94,7 +96,7 @@ export function toQtyMap(
 
 export async function decrementInventoryBatch(args: {
   payload: Payload;
-  qtyByProductId: Map<string, number>;
+  qtyByProductId: Map<string, Quantity>;
 }): Promise<void> {
   const { payload, qtyByProductId } = args;
 

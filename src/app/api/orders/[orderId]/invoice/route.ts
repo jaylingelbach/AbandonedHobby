@@ -6,6 +6,7 @@ import { ShippingAddress } from '@/modules/orders/types';
 import { OrderItem } from './types';
 import { formatCurrency } from '@/lib/utils';
 import type { PublicAmountsDTO } from '@/modules/orders/types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 export const runtime = 'nodejs';
 
@@ -224,8 +225,7 @@ function buildPublicAmountsFallbackFromItems(
   const toInt = (n: unknown) => (Number.isInteger(n) ? (n as number) : 0);
 
   const subtotalCents = items.reduce((sum, it) => {
-    const qty =
-      Number.isInteger(it?.quantity) && it.quantity > 0 ? it.quantity : 1;
+    const qty = readQuantityOrDefault(it?.quantity);
     const unit = toInt(it?.unitAmount);
     const sub = Number.isInteger(it?.amountSubtotal)
       ? it.amountSubtotal
@@ -442,8 +442,7 @@ export async function GET(
 
     const id = String(rawId ?? 'unknown');
 
-    const quantity =
-      isNum(o.quantity) && o.quantity > 0 ? Math.trunc(o.quantity) : 1;
+    const quantity = readQuantityOrDefault(o.quantity);
     const unitAmount = isNum(o.unitAmount) ? Math.trunc(o.unitAmount) : 0;
     const amountTotal = isNum(o.amountTotal)
       ? Math.trunc(o.amountTotal)
@@ -473,8 +472,7 @@ export async function GET(
   ).map(toOrderItem);
 
   const rows: ItemRow[] = items.map((li): ItemRow => {
-    const qty =
-      typeof li.quantity === 'number' && li.quantity > 0 ? li.quantity : 1;
+    const qty = readQuantityOrDefault(li.quantity);
     const unit = typeof li.unitAmount === 'number' ? li.unitAmount : 0;
     const total =
       typeof li.amountTotal === 'number' ? li.amountTotal : unit * qty;

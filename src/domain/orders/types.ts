@@ -1,5 +1,7 @@
 // Canonical, reusable order shapes for the whole app.
 
+import { Quantity } from '@/lib/validation/quantity';
+
 export type CurrencyCode = string; // e.g. "USD"
 
 // ---- Core line item (superset, safe for most features)
@@ -11,7 +13,7 @@ export type OrderItemCore = {
 
   // amounts in cents
   unitAmount: number; // required for math
-  quantity: number; // required for math
+  quantity: Quantity; // required for math
 
   amountSubtotal?: number | null;
   amountTax?: number | null;

@@ -6,6 +6,10 @@ import { flushIfNeeded } from './utils';
 import { toQtyMap, tryCall } from './utils';
 import type { ExistingOrderPrecheck } from './types';
 import type { OrderItemOutput } from '@/modules/stripe/build-order-items';
+import {
+  readQuantityOrDefault,
+  type Quantity
+} from '@/lib/validation/quantity';
 
 /**
  * Parse Stripe metadata to extract common fields used across webhook handlers.
@@ -261,7 +265,7 @@ export async function handleDuplicateOrder(args: {
       updateData.amounts = {
         ...existingAmounts,
         stripeFeeCents: stripeFeePresent
-          ? existingAmounts.stripeFeeCents!
+          ? existingAmounts.stripeFeeCents
           : feesResult.stripeFeeCents,
         platformFeeCents: platformFeePresent
           ? existingAmounts.platformFeeCents!
@@ -296,6 +300,66 @@ export async function handleDuplicateOrder(args: {
   }
 
   // inventory adjust on dup path (unchanged)
+  if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
+    const normalizedItems = (existing.items ?? [])
+      .map((item) => {
+        const relation = item.product as unknown;
+        let product: string | null = null;
+
+        if (typeof relation === 'string' && relation.length > 0) {
+          product = relation;
+        } else if (
+          relation &&
+          typeof relation === 'object' &&
+          'id' in relation
+        ) {
+          const relationId = (relation as { id?: unknown }).id;
+          if (typeof relationId === 'string' && relationId.length > 0) {
+            product = relationId;
+          }
+        }
+
+        if (!product) return null;
+
+        const quantity: Quantity = readQuantityOrDefault(item.quantity);
+
+        return { product, quantity };
+      })
+      .filter(Boolean) as Array<{ product: string; quantity: Quantity }>;
+
+    const quantityByProductId = toQtyMap(normalizedItems);
+
+    console.log('[webhook] decrement on duplicate path', {
+      entries: [...quantityByProductId.entries()]
+    });
+
+    await tryCall('inventory.decrementBatch(dup)', () =>
+      decrementInventoryBatch({
+        payload: payloadInstance,
+        qtyByProductId: quantityByProductId
+      })
+    );
+
+    await tryCall('orders.update(inventoryAdjustedAt, dup)', () =>
+      payloadInstance.update({
+        collection: 'orders',
+        id: existing.id,
+        data: {
+          inventoryAdjustedAt: new Date().toISOString(),
+          stripeEventId: event.id
+        },
+        overrideAccess: true
+      })
+    );
+
+    console.log('[webhook] inventory adjusted on duplicate path', {
+      orderId: existing.id
+    });
+  } else {
+    console.log('[webhook] duplicate path: inventory already adjusted', {
+      orderId: existing.id
+    });
+  }
   if (!existing.inventoryAdjustedAt && Array.isArray(existing.items)) {
     const quantityByProductId = toQtyMap(
       (existing.items ?? [])

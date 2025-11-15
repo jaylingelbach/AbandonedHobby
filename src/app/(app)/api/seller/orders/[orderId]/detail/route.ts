@@ -77,45 +77,35 @@ export async function GET(
     }
 
     // items snapshot
-    const rawItems = (order as { items?: unknown[] }).items ?? [];
+    const rawItems = order.items ?? [];
     const items = Array.isArray(rawItems)
       ? rawItems.map((raw, index) => {
           const lineItemId = String(
-            (raw as { id?: unknown }).id ??
-              (raw as { _id?: unknown })._id ??
-              `${order.id}:${index}`
+            raw.id ?? (raw as { _id?: unknown })._id ?? `${order.id}:${index}`
           );
 
           const nameSnapshot =
-            (raw as { nameSnapshot?: unknown }).nameSnapshot ??
+            raw.nameSnapshot ??
             (raw as { product?: { name?: unknown } }).product?.name ??
             'Item';
 
-          const rawQuantity = (raw as { quantity?: unknown }).quantity;
+          const rawQuantity = raw.quantity;
           const quantity = readQuantityOrDefault(rawQuantity);
 
-          const rawShippingMode = (raw as { shippingMode?: unknown })
-            .shippingMode;
+          const rawShippingMode = raw.shippingMode;
           const shippingMode =
             typeof rawShippingMode === 'string' ? rawShippingMode : null;
 
-          const perUnit = toIntCents(
-            (raw as { shippingFeeCentsPerUnit?: unknown })
-              .shippingFeeCentsPerUnit
-          );
+          const perUnit = toIntCents(raw.shippingFeeCentsPerUnit);
 
           const shipSubtotal =
-            toIntCents(
-              (raw as { shippingSubtotalCents?: unknown }).shippingSubtotalCents
-            ) || (shippingMode === 'flat' ? perUnit * quantity : 0);
+            toIntCents(raw.shippingSubtotalCents) ||
+            (shippingMode === 'flat' ? perUnit * quantity : 0);
 
-          const unitAmountCents = toIntCents(
-            (raw as { unitAmount?: unknown }).unitAmount ?? 0
-          );
+          const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
 
           const amountTotalCents = toIntCents(
-            (raw as { amountTotal?: unknown }).amountTotal ??
-              unitAmountCents * quantity
+            raw.amountTotal ?? unitAmountCents * quantity
           );
 
           return {
