@@ -425,10 +425,7 @@ export function validateSelectionsAgainstCaps(args: {
           `Quantity ${requestedQty} exceeds remaining refundable units (${remainingRefundableQuantity}) for item ${selection.itemId}`
         );
       }
-    } else if ('amountCents' in selection) {
-      if (typeof selection.amountCents !== 'number') {
-        throw new Error(`Invalid amountCents for item ${selection.itemId}`);
-      }
+    } else {
       const requestedCents = Math.trunc(selection.amountCents);
       if (!Number.isFinite(requestedCents) || requestedCents <= 0) {
         throw new Error(`Invalid amountCents for item ${selection.itemId}`);
@@ -436,10 +433,6 @@ export function validateSelectionsAgainstCaps(args: {
       if (requestedCents > remainingRefundableAmountForLine) {
         throw new Error(
           `amountCents (${requestedCents}) exceeds remaining refundable balance (${remainingRefundableAmountForLine}) for item ${selection.itemId}`
-        );
-      } else {
-        throw new Error(
-          `Selection for item ${selection.itemId} must specify either quantity or amountCents`
         );
       }
     }

@@ -6,7 +6,6 @@ import { toIntCents } from '@/lib/money';
 
 import type { ShippingMode } from '@/modules/orders/types';
 import { Quantity, readQuantityOrDefault } from '@/lib/validation/quantity';
-import { itemHasProductId } from '@/app/(app)/api/stripe/webhooks/utils/utils';
 
 type AmountsShape = {
   subtotalCents: number;
