@@ -1,7 +1,6 @@
 import { Carrier } from '@/constants';
 import { Quantity } from '@/lib/validation/quantity';
-
-export type ShippingMode = 'free' | 'flat' | 'calculated';
+import type { ShippingMode } from '@/modules/orders/types';
 
 export type SellerOrderItem = {
   nameSnapshot: string;

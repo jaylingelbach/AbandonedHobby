@@ -47,7 +47,7 @@ export type OrderWithTotals = OrderLike & {
 
 export type LineSelectionQty = {
   itemId: string;
-  quantity: number;
+  quantity: Quantity;
   amountCents?: undefined;
 };
 
@@ -109,7 +109,7 @@ export type CanonicalOrderItem = OrderItemCore;
 export type SelectionBlockQuantity = {
   blockType: 'quantity';
   itemId: string;
-  quantity: number;
+  quantity: Quantity;
 };
 /** Historical data may have neither amount field present; consumers must handle undefined case */
 export type SelectionBlockAmount = {

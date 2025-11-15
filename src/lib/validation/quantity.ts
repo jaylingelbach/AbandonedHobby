@@ -47,13 +47,20 @@ export function readQuantityOrDefault(
   value: unknown,
   defaultValue: Quantity = 1
 ): Quantity {
-  const result = quantitySchema.safeParse(value);
-
-  if (result.success) {
-    return result.data;
+  // First try the primary value
+  const parsed = quantitySchema.safeParse(value);
+  if (parsed.success) {
+    return parsed.data;
   }
 
-  return defaultValue;
+  // Then validate the caller-provided default at runtime too
+  const parsedDefault = quantitySchema.safeParse(defaultValue);
+  if (parsedDefault.success) {
+    return parsedDefault.data;
+  }
+
+  // Absolute last-resort fallback so we *never* return an invalid quantity
+  return 1;
 }
 
 /**
