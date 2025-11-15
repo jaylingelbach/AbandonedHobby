@@ -89,7 +89,7 @@ export default function InvoiceDialog(props: InvoiceDialogProps) {
     if (Array.isArray(order?.items) && order.items.length > 0) {
       return order.items as InvoiceOrderItem[];
     }
-    const quantity = order?.quantity ?? 1;
+    const quantity = readQuantityOrDefault(order?.quantity);
     const totalCents = order?.totalCents ?? 0;
     const unitCents = Math.round(totalCents / Math.max(quantity, 1));
     return [

@@ -423,9 +423,7 @@ export const lockAndCalculateAmounts: CollectionBeforeChangeHook = async ({
             | ShippingMode
             | undefined,
           shippingSubtotalCents: toIntCents(item.shippingSubtotalCents ?? 0),
-          quantity: readQuantityOrDefault(
-            (itemHasProductId as { quantity?: unknown }).quantity
-          )
+          quantity: readQuantityOrDefault(item.quantity)
         }));
 
         const quote = await quoteCalculatedShipping(

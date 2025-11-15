@@ -193,6 +193,11 @@ export function toApiSelections(selections: LineSelection[]): ApiSelection[] {
       };
     }
     // quantity case
+    if (typeof selection.quantity !== 'number') {
+      throw new Error(
+        `Invalid quantity selection for item ${(selection as LineSelection).itemId}`
+      );
+    }
     return {
       type: 'quantity',
       itemId: selection.itemId,

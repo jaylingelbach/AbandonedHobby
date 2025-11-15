@@ -23,7 +23,9 @@ export const captureProductAnalytics: CollectionAfterChangeHook = async ({
     | undefined;
   const tenantId = typeof tenantRel === 'string' ? tenantRel : tenantRel?.id;
   const tenantSlug =
-    typeof tenantRel === 'object' ? tenantRel?.slug : undefined;
+    typeof tenantRel === 'object' && tenantRel !== null
+      ? tenantRel.slug
+      : undefined;
 
   try {
     // optional: attach group identity so you can analyze by tenant

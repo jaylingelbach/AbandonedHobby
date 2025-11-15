@@ -79,7 +79,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   // Defensive availability derivation (works with or without server-computed fields)
   const trackInventory =
     (data as { trackInventory?: unknown })?.trackInventory === true;
-  const stockQuantityRaw = data?.stockQuantity;
+  const stockQuantityRaw = (data as { stockQuantity?: unknown })?.stockQuantity;
   const stockQuantity =
     typeof stockQuantityRaw === 'number' ? stockQuantityRaw : 0;
 
