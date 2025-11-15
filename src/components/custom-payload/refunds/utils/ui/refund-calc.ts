@@ -23,24 +23,29 @@ export function buildRefundLines(order: OrderLite | null): RefundLine[] {
   const items = order?.items ?? [];
   return items
     .filter(
-      (i): i is OrderItemLite & { id: NonNullable<OrderItemLite['id']> } =>
-        Boolean(i?.id)
+      (
+        item
+      ): item is OrderItemLite & { id: NonNullable<OrderItemLite['id']> } =>
+        Boolean(item?.id)
     )
 
-    .map((i) => {
-      const quantityPurchased = typeof i.quantity === 'number' ? i.quantity : 1;
+    .map((item) => {
+      const quantityPurchased =
+        typeof item.quantity === 'number' ? item.quantity : 1;
       const unitAmount =
-        typeof i.unitAmount === 'number'
-          ? i.unitAmount
-          : Math.round((i.amountTotal ?? 0) / Math.max(quantityPurchased, 1));
+        typeof item.unitAmount === 'number'
+          ? item.unitAmount
+          : Math.round(
+              (item.amountTotal ?? 0) / Math.max(quantityPurchased, 1)
+            );
 
       return {
-        itemId: String(i.id),
-        name: i.nameSnapshot ?? 'Item',
+        itemId: String(item.id),
+        name: item.nameSnapshot ?? 'Item',
         unitAmount,
         quantityPurchased,
         quantitySelected: 0,
-        amountTotal: i.amountTotal
+        amountTotal: item.amountTotal
       };
     });
 }
@@ -176,12 +181,23 @@ export type ApiSelection =
 
 /** Map our internal union -> API's discriminated union */
 export function toApiSelections(selections: LineSelection[]): ApiSelection[] {
-  return selections.map((s) => {
-    if ('amountCents' in s && typeof s.amountCents === 'number') {
-      return { type: 'amount', itemId: s.itemId, amountCents: s.amountCents };
+  return selections.map((selection) => {
+    if (
+      'amountCents' in selection &&
+      typeof selection.amountCents === 'number'
+    ) {
+      return {
+        type: 'amount',
+        itemId: selection.itemId,
+        amountCents: selection.amountCents
+      };
     }
     // quantity case
-    return { type: 'quantity', itemId: s.itemId, quantity: s.quantity };
+    return {
+      type: 'quantity',
+      itemId: selection.itemId,
+      quantity: selection.quantity
+    };
   });
 }
 
