@@ -1,10 +1,11 @@
 import { Carrier } from '@/constants';
+import { Quantity } from '@/lib/validation/quantity';
 
 export type ShippingMode = 'free' | 'flat' | 'calculated';
 
 export type SellerOrderItem = {
   nameSnapshot: string;
-  quantity: number; // integer >= 1
+  quantity: Quantity; // integer >= 1
   unitAmountCents: number; // item price in cents
   amountTotalCents: number; // line total in cents (price * quantity, excl. shipping/tax)
   lineItemId: string;

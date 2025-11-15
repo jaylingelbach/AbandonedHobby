@@ -59,3 +59,9 @@ export type RefundPostResult =
       error: string;
       code: 'ALREADY_FULLY_REFUNDED' | 'EXCEEDS_REMAINING' | 'FORBIDDEN';
     };
+
+export type InternalSelection = {
+  itemId: string;
+  amountCents?: number;
+  quantity?: number;
+};

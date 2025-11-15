@@ -1,5 +1,6 @@
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 import { toIntCents, toIntCentsOrNaN } from '@/lib/money';
+import { Quantity, readQuantityOrDefault } from '@/lib/validation/quantity';
 
 type OrderItemShape = {
   unitAmount?: unknown; // cents
@@ -54,11 +55,7 @@ export function computeOrderAmounts(input: {
   let lineTotalsCents = 0;
 
   for (const item of itemArray) {
-    const quantityCandidate = toIntCentsOrNaN(item.quantity);
-    const quantity =
-      Number.isNaN(quantityCandidate) || quantityCandidate <= 0
-        ? 1
-        : quantityCandidate;
+    const quantity: Quantity = readQuantityOrDefault(item.quantity);
 
     const amountSubtotalCandidate = toIntCentsOrNaN(item.amountSubtotal);
     const amountTotalCandidate = toIntCentsOrNaN(item.amountTotal);

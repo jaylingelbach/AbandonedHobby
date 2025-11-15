@@ -16,6 +16,7 @@ import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
 import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
 import { computeLatestShippedAt } from '@/lib/server/orders/compute-latest-shipped-at';
 import type { ShippingMode } from '@/modules/orders/types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
   const roles: string[] | undefined = req?.user?.roles as string[] | undefined;
@@ -63,11 +64,7 @@ export const Orders: CollectionConfig = {
             item.shippingMode = mode;
 
             // quantity default = 1 (integer >= 1)
-            const quantity =
-              typeof item.quantity === 'number' &&
-              Number.isFinite(item.quantity)
-                ? Math.max(1, Math.trunc(item.quantity))
-                : 1;
+            const quantity = readQuantityOrDefault(item.quantity);
 
             item.quantity = quantity;
 

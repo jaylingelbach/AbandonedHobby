@@ -33,7 +33,7 @@ export type RefundLine = {
   amountTotal?: number; // cents
 };
 
-// (rest of your refund types unchanged)
+// refund type
 export type LineSelectionQty = {
   itemId: string;
   quantity: number;

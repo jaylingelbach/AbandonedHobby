@@ -1,11 +1,12 @@
 import { z } from 'zod';
+import { refundSelectionQuantitySchema } from '@/lib/validation/quantity';
 
 // API-facing selections (with discriminator)
 export const apiSelectionQuantity = z
   .object({
     type: z.literal('quantity'),
     itemId: z.string().min(1, 'itemId is required'),
-    quantity: z.number().int().positive().max(100)
+    quantity: refundSelectionQuantitySchema
   })
   .strict();
 

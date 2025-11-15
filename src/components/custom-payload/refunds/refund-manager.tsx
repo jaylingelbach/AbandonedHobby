@@ -13,7 +13,7 @@ import { Button } from '@/components/ui/button';
 import { Separator } from '@/components/ui/separator';
 import { formatCurrency } from '@/lib/utils';
 
-import type { OrderLite } from './types';
+import type { InternalSelection, OrderLite } from './types';
 import {
   buildClientIdempotencyKeyV2,
   clampInteger,
@@ -491,11 +491,6 @@ export function RefundManager() {
     }
   }
 
-  type InternalSelection = {
-    itemId: string;
-    amountCents?: number;
-    quantity?: number;
-  };
   const hasAmount = (
     selection: InternalSelection
   ): selection is { itemId: string; amountCents: number } =>
