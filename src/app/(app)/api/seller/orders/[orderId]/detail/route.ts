@@ -95,12 +95,24 @@ export async function GET(
           const rawShippingMode = raw.shippingMode;
           const shippingMode =
             typeof rawShippingMode === 'string' ? rawShippingMode : null;
+          const parsedMode = zShippingMode.safeParse(shippingMode);
+          const normalizedMode = parsedMode.success ? parsedMode.data : 'free';
 
-          const perUnit = toIntCents(raw.shippingFeeCentsPerUnit);
+          const hasPerUnit =
+            (raw as { shippingFeeCentsPerUnit?: unknown })
+              .shippingFeeCentsPerUnit != null;
+          const perUnit = hasPerUnit
+            ? toIntCents(raw.shippingFeeCentsPerUnit)
+            : 0;
 
+          const rawShipSubtotal = (raw as { shippingSubtotalCents?: unknown })
+            .shippingSubtotalCents;
           const shipSubtotal =
-            toIntCents(raw.shippingSubtotalCents) ||
-            (shippingMode === 'flat' ? perUnit * quantity : 0);
+            rawShipSubtotal != null
+              ? toIntCents(rawShipSubtotal)
+              : normalizedMode === 'flat'
+                ? perUnit * quantity
+                : 0;
 
           const unitAmountCents = toIntCents(raw.unitAmount ?? 0);
 
@@ -114,11 +126,12 @@ export async function GET(
             quantity,
             unitAmountCents,
             amountTotalCents,
-            shippingMode: zShippingMode.safeParse(shippingMode).success
-              ? shippingMode
-              : 'free',
-            shippingFeeCentsPerUnit: perUnit || null,
-            shippingSubtotalCents: shipSubtotal || null
+            shippingMode: normalizedMode,
+            shippingFeeCentsPerUnit: hasPerUnit ? perUnit : null,
+            shippingSubtotalCents:
+              rawShipSubtotal != null || normalizedMode === 'flat'
+                ? shipSubtotal
+                : null
           };
         })
       : [];
