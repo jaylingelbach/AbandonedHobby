@@ -501,7 +501,7 @@ export const useCartStore = create<CartState>()(
     },
     {
       name: 'abandonedHobbies-cart',
-      /** bump: add shipping snapshots (v5) */
+      /** v5: add shipping snapshots + optional quantitiesByProductId */
       version: 5,
       storage: createJSONStorage(() => localStorage),
       migrate: (persisted: unknown, fromVersion: number) => {
@@ -578,50 +578,10 @@ if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
   useCartStore.setState({
     __cleanupTenantKeys: () => {
       const { byUser } = useCartStore.getState();
-      const fixed = (function collapse(byUserIn: UserMap): UserMap {
-        const out: UserMap = {};
-        for (const [userKey, tenantMap] of Object.entries(byUserIn || {})) {
-          const merged: TenantMap = {};
-          for (const [rawTenant, cart] of Object.entries(tenantMap || {})) {
-            const cleanTenant = rawTenant.includes('::')
-              ? rawTenant.split('::')[0]
-              : rawTenant;
-            if (!cleanTenant) continue;
-
-            const prev = merged[cleanTenant];
-
-            const prevIds = prev?.productIds ?? [];
-            const nextIds = Array.from(
-              new Set([...(prevIds ?? []), ...(cart?.productIds ?? [])])
-            );
-
-            const prevShip = prev?.shippingByProductId ?? {};
-            const nextShip = {
-              ...prevShip,
-              ...(cart?.shippingByProductId ?? {})
-            };
-
-            const prevQty = prev?.quantitiesByProductId ?? {};
-            const nextQty = {
-              ...prevQty,
-              ...(cart?.quantitiesByProductId ?? {})
-            };
-
-            merged[cleanTenant] = {
-              productIds: nextIds,
-              ...(Object.keys(nextShip).length > 0
-                ? { shippingByProductId: nextShip }
-                : {}),
-              ...(Object.keys(nextQty).length > 0
-                ? { quantitiesByProductId: nextQty }
-                : {})
-            };
-          }
-          out[userKey] = merged;
-        }
-        return out;
-      })(byUser);
-      if (fixed !== byUser) useCartStore.setState({ byUser: fixed });
+      const fixed = collapseCompositeTenantKeys(byUser);
+      if (fixed !== byUser) {
+        useCartStore.setState({ byUser: fixed });
+      }
     }
   });
 }
