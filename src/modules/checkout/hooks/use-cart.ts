@@ -197,6 +197,7 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   return {
     productIds,
     totalItems,
+    quantitiesByProductId,
     addProduct,
     removeProduct,
     clearCart,

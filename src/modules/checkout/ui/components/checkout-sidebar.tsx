@@ -38,6 +38,7 @@ export const CheckoutSidebar = ({
     return formatCurrency((cents || 0) / 100);
   };
 
+  console.log(`breakdown items: ${JSON.stringify(breakdownItems, null, 2)}`);
   return (
     <div className="border rounded-md overflow-hidden bg-white flex flex-col">
       <div className="p-4 border-b">

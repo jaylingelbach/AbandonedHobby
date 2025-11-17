@@ -63,10 +63,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
-  const { productIds, removeProduct, clearCart } = useCart(
-    tenantSlug,
-    session?.user?.id
-  );
+  const { productIds, quantitiesByProductId, removeProduct, clearCart } =
+    useCart(tenantSlug, session?.user?.id);
 
   // Build query options once for stable keys
   const productsQueryOptions = useMemo(
@@ -124,32 +122,29 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const isBusy = purchase.isPending || isFetching;
   const disableResume = productIds.length === 0 || isBusy;
 
-  // ---- HOISTED MEMOS (before any early returns) ----
-
   // Stable docs array for downstream memos and maps
   const docs = useMemo<Product[]>(
     () => (Array.isArray(data?.docs) ? (data.docs as Product[]) : []),
     [data]
   );
 
-  // Subtotal (cents) derived once; works for older or newer server responses
+  // Subtotal (cents) that respects per-item quantity
   const subtotalCents = useMemo(() => {
-    if (typeof data?.subtotalCents === 'number') return data.subtotalCents;
-    if (typeof data?.totalCents === 'number') return data.totalCents;
-    const totalPriceDollars =
-      (data as { totalPrice?: number } | undefined)?.totalPrice ?? 0;
-    return Math.round(totalPriceDollars * 100);
-  }, [data]);
+    return docs.reduce((sum, product) => {
+      const id = String(product.id);
+      const quantity = quantitiesByProductId[id] ?? 1;
 
-  const shippingCents = useMemo(
-    () => (typeof data?.shippingCents === 'number' ? data.shippingCents : 0),
-    [data]
-  );
+      // Product price is stored in USD in the schema
+      const unitPriceUsd =
+        typeof product.price === 'number' && Number.isFinite(product.price)
+          ? product.price
+          : 0;
 
-  const totalCents = useMemo(() => {
-    if (typeof data?.totalCents === 'number') return data.totalCents;
-    return subtotalCents + shippingCents;
-  }, [data, subtotalCents, shippingCents]);
+      const unitPriceCents = Math.round(unitPriceUsd * 100);
+
+      return sum + unitPriceCents * quantity;
+    }, 0);
+  }, [docs, quantitiesByProductId]);
 
   // 1) Build display lines (keeps 'calculated', drops only 'free')
   const itemizedShippingLines = useMemo<SidebarShippingLine[]>(
@@ -178,21 +173,35 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     [itemizedShippingLines]
   );
 
-  // 2) Transform to CartItemForShipping[] (wire quantity here; currently 1)
+  // 2) Transform to CartItemForShipping[] (with per-item quantities)
   const breakdownItems = useMemo<CartItemForShipping[]>(
     () =>
       itemizedShippingLines.map((line) => ({
         id: line.id,
         name: line.label,
-        quantity: 1, // TODO: replace with real quantity when cart supports it
+        quantity: quantitiesByProductId[line.id] ?? 1,
         shippingMode: line.mode,
         shippingFeeCentsPerUnit:
           line.mode === 'flat' ? line.amountCents : undefined
       })),
-    [itemizedShippingLines]
+    [itemizedShippingLines, quantitiesByProductId]
   );
 
-  // ---- Effects (safe; hooks already called above) ----
+  // Shipping total (cents), honoring quantity for flat-fee items
+  const shippingCents = useMemo(
+    () =>
+      breakdownItems.reduce((sum, item) => {
+        if (item.shippingMode !== 'flat') return sum;
+        const perUnit = item.shippingFeeCentsPerUnit ?? 0;
+        return sum + perUnit * item.quantity;
+      }, 0),
+    [breakdownItems]
+  );
+
+  const totalCents = useMemo(
+    () => subtotalCents + shippingCents,
+    [subtotalCents, shippingCents]
+  );
 
   // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
