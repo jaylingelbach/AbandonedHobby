@@ -43,16 +43,15 @@ export const CheckoutButton = ({
       }
     };
 
-    // If already hydrated, just run immediately and bail
-    if (hasHydrated) {
-      run();
-      return;
-    }
-
-    // Otherwise wait until hydration finishes once
+    // Subscribe first, then check — eliminates race window
     const unsubscribe = persistApi?.onFinishHydration?.(() => {
       run();
     });
+
+    // If already hydrated when subscription completes, run immediately
+    if (hasHydrated) {
+      run();
+    }
 
     return () => {
       unsubscribe?.();
