@@ -58,8 +58,12 @@ const bc: BroadcastChannel | null =
 /** ── Helpers ───────────────────────────────────────────────────────────── */
 
 /**
- * Merge composite tenant keys "tenant::sub" into base tenant per user.
- * Also merges `shippingByProductId` maps; later entries win on key conflicts.
+ * Collapse composite tenant keys of the form "tenant::sub" into their base tenant for each user, merging cart data.
+ *
+ * @param byUser - Map from user keys to tenant maps whose composite tenant keys should be collapsed
+ * @returns A new UserMap where composite tenant keys are replaced by their base tenant key. For each base tenant:
+ * - `productIds` is the union of all product ID lists (duplicates removed).
+ * - `shippingByProductId` and `quantitiesByProductId` are shallow-merged; values from later composite segments override earlier ones on key conflicts.
  */
 function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   const out: UserMap = {};
