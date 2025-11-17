@@ -5315,3 +5315,24 @@ src/lib/server/products/hooks/capture-product-analytics.ts Adds null check for t
 ### Refunds engine & utils (public API additions)
 
 src/modules/refunds/utils.ts Adds public helpers: validateSelectionsAgainstCaps, computeFinalRefundAmount, and buildStripeRefundParams (and related imports/usage).
+
+# Quantity button to UI 11/17/25
+
+## Walkthrough
+
+-
+
+## New Features
+
+- Added quantity selection for products before adding to cart
+- Added increment/decrement controls for item quantities in checkout
+- Line totals now calculated per item based on selected quantity
+- New button group UI component for grouped controls
+
+## Chores
+
+- Updated UI framework dependencies to latest versions
+
+## File changes
+
+###

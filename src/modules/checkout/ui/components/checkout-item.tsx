@@ -100,8 +100,12 @@ export const CheckoutItem = ({
           <button
             type="button"
             onClick={handleIncrement}
+            disabled={!canIncrement}
             aria-label={`Increase quantity of ${name}`}
-            className="h-7 w-7 inline-flex items-center justify-center rounded-full border text-xs"
+            className={cn(
+              'h-7 w-7 inline-flex items-center justify-center rounded-full border text-xs',
+              !canIncrement && 'opacity-50 cursor-not-allowed'
+            )}
           >
             <PlusIcon className="h-3 w-3" />
           </button>
