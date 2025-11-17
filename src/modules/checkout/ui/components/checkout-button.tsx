@@ -31,7 +31,6 @@ export const CheckoutButton = ({
     if (!userId) return;
 
     const persistApi = useCartStore.persist;
-    const hasHydrated = persistApi?.hasHydrated?.() ?? true;
 
     const run = () => {
       const state = useCartStore.getState();
@@ -43,13 +42,12 @@ export const CheckoutButton = ({
       }
     };
 
-    // Subscribe first, then check — eliminates race window
     const unsubscribe = persistApi?.onFinishHydration?.(() => {
       run();
     });
 
     // If already hydrated when subscription completes, run immediately
-    if (hasHydrated) {
+    if (persistApi?.hasHydrated?.()) {
       run();
     }
 
