@@ -424,6 +424,13 @@ export const useCartStore = create<CartState>()(
                 productIds: Array.from(new Set(prevCart.productIds ?? [])),
                 ...(prevCart.shippingByProductId
                   ? { shippingByProductId: { ...prevCart.shippingByProductId } }
+                  : {}),
+                ...(prevCart.quantitiesByProductId
+                  ? {
+                      quantitiesByProductId: {
+                        ...prevCart.quantitiesByProductId
+                      }
+                    }
                   : {})
               };
               byUser[newUserId] = dst;
