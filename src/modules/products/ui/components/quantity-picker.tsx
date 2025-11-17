@@ -13,11 +13,7 @@ interface Props {
 }
 
 const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
-  // If there’s only 0 or 1 available, we don’t render the picker at all.
-  // The “big Add to cart” alone is the UX in that case.
-  if (quantityAvailable <= 1) {
-    return null;
-  }
+  if (quantityAvailable <= 1) return null;
 
   const canIncrement = quantity + 1 <= quantityAvailable;
   const canDecrement = quantity > 1;
@@ -33,28 +29,30 @@ const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
   };
 
   return (
-    <div className="flex flex-1 gap-4">
-      <ButtonGroup>
+    <div className="flex shrink-0">
+      <ButtonGroup className="h-10">
         <Button
+          aria-label="Decrease quantity"
           disabled={!canDecrement}
           onClick={handleDecrement}
-          size="lg"
+          size="sm"
           variant="outline"
         >
-          <MinusIcon />
+          <MinusIcon className="size-4" />
         </Button>
 
-        <ButtonGroupText className="min-w-12 justify-center">
+        <ButtonGroupText className="min-w-10 justify-center text-sm">
           {quantity}
         </ButtonGroupText>
 
         <Button
+          aria-label="Increase quantity"
           disabled={!canIncrement}
           onClick={handleIncrement}
-          size="lg"
+          size="sm"
           variant="outline"
         >
-          <PlusIcon />
+          <PlusIcon className="size-4" />
         </Button>
       </ButtonGroup>
     </div>
