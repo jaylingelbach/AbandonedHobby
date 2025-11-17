@@ -18,8 +18,9 @@ import {
   getTenantNameSafe,
   getTenantSlugSafe
 } from '@/lib/utils';
-import { useTRPC } from '@/trpc/client';
 import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { useTRPC } from '@/trpc/client';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
 import type { Product } from '@/payload-types';
@@ -63,8 +64,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
-  const { productIds, quantitiesByProductId, removeProduct, clearCart } =
-    useCart(tenantSlug, session?.user?.id);
+  const {
+    productIds,
+    quantitiesByProductId,
+    removeProduct,
+    clearCart,
+    addProduct
+  } = useCart(tenantSlug, session?.user?.id);
 
   // Build query options once for stable keys
   const productsQueryOptions = useMemo(
@@ -128,24 +134,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     [data]
   );
 
-  // Subtotal (cents) that respects per-item quantity
-  const subtotalCents = useMemo(() => {
-    return docs.reduce((sum, product) => {
-      const id = String(product.id);
-      const quantity = quantitiesByProductId[id] ?? 1;
-
-      // Product price is stored in USD in the schema
-      const unitPriceUsd =
-        typeof product.price === 'number' && Number.isFinite(product.price)
-          ? product.price
-          : 0;
-
-      const unitPriceCents = Math.round(unitPriceUsd * 100);
-
-      return sum + unitPriceCents * quantity;
-    }, 0);
-  }, [docs, quantitiesByProductId]);
-
   // 1) Build display lines (keeps 'calculated', drops only 'free')
   const itemizedShippingLines = useMemo<SidebarShippingLine[]>(
     () =>
@@ -187,21 +175,51 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     [itemizedShippingLines, quantitiesByProductId]
   );
 
+  // Subtotal (cents) that respects per-item quantity
+  const subtotalCents = useMemo(() => {
+    if (docs.length === 0) {
+      // Fallback: older snapshot-style responses
+      if (typeof data?.subtotalCents === 'number') return data.subtotalCents;
+      if (typeof data?.totalCents === 'number') return data.totalCents;
+      const totalPriceDollars =
+        (data as { totalPrice?: number } | undefined)?.totalPrice ?? 0;
+      return Math.round(totalPriceDollars * 100);
+    }
+
+    return docs.reduce((sum, product) => {
+      const productIdStr = String(product.id);
+      const quantity = quantitiesByProductId[productIdStr] ?? 1;
+
+      const priceDollars =
+        typeof product.price === 'number' && Number.isFinite(product.price)
+          ? product.price
+          : 0;
+
+      const priceCents = Math.round(priceDollars * 100);
+      return sum + priceCents * quantity;
+    }, 0);
+  }, [docs, quantitiesByProductId, data]);
+
   // Shipping total (cents), honoring quantity for flat-fee items
-  const shippingCents = useMemo(
-    () =>
-      breakdownItems.reduce((sum, item) => {
+  const shippingCents = useMemo(() => {
+    if (breakdownItems.length > 0) {
+      // For flat shipping, feePerUnit × quantity
+      return breakdownItems.reduce((sum, item) => {
         if (item.shippingMode !== 'flat') return sum;
         const perUnit = item.shippingFeeCentsPerUnit ?? 0;
         return sum + perUnit * item.quantity;
-      }, 0),
-    [breakdownItems]
-  );
+      }, 0);
+    }
 
-  const totalCents = useMemo(
-    () => subtotalCents + shippingCents,
-    [subtotalCents, shippingCents]
-  );
+    // Fallback to server-computed snapshot if present
+    if (typeof data?.shippingCents === 'number') return data.shippingCents;
+    return 0;
+  }, [breakdownItems, data]);
+
+  const totalCents = useMemo(() => {
+    if (typeof data?.totalCents === 'number') return data.totalCents;
+    return subtotalCents + shippingCents;
+  }, [data, subtotalCents, shippingCents]);
 
   // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
@@ -425,6 +443,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         <div className="lg:col-span-4">
           <div className="border rounded-md overflow-hidden bg-white">
             {docs.map((product, index) => {
+              const productIdStr = String(product.id);
+
               const imageURL =
                 (product as { cardImageUrl?: string | null }).cardImageUrl ??
                 getPrimaryCardImageUrl(product);
@@ -441,6 +461,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
                 ? `${generateTenantURL(tenantSlugSafe)}`
                 : '#';
 
+              const quantity = quantitiesByProductId[productIdStr] ?? 1;
+
               return (
                 <CheckoutItem
                   key={product.id}
@@ -451,7 +473,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
                   tenantURL={tenantURL}
                   tenantName={tenantNameSafe}
                   price={product.price}
-                  onRemove={() => removeProduct(product.id)}
+                  quantity={quantity}
+                  onQuantityChange={(next) => {
+                    const safe = readQuantityOrDefault(next);
+                    addProduct(productIdStr, safe);
+                  }}
+                  onRemove={() => removeProduct(productIdStr)}
                 />
               );
             })}
