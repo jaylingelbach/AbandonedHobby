@@ -95,12 +95,17 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   const safe: Record<string, number> = {};
   let hasEntries = false;
   for (const [key, value] of entries) {
-    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+    if (
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      !Number.isInteger(value)
+    ) {
       continue;
     }
-    const normalized = Math.trunc(value);
+
     hasEntries = true;
-    safe[key] = normalized;
+    safe[key] = value;
   }
 
   const normalized = hasEntries ? safe : EMPTY_QUANTITIES;
@@ -142,15 +147,6 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     useCartStore,
     selectTenantSlice
   );
-
-  // logging: see exactly what useCart sees each render
-  if (process.env.NODE_ENV !== 'production') {
-    console.log('[useCart] snapshot', {
-      tenant,
-      productIds,
-      quantitiesByProductId
-    });
-  }
 
   // ─── Actions from store (plain bound hook usage is fine) ────────────────
   const addProductRaw = useCartStore((state) => state.addProduct);
