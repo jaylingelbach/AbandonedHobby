@@ -32,7 +32,7 @@ export interface CartState {
   addProduct: (
     tenantSlug: string | null | undefined,
     productId: string,
-    quantity?: number
+    quantity?: Quantity
   ) => void;
   removeProduct: (
     tenantSlug: string | null | undefined,
