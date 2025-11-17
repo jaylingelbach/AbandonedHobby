@@ -337,10 +337,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     </Button>
                   )}
 
+                  {/* Last case in ternary for untracked (digital) items, not yet used in app */}
                   {canPurchase && (
                     <QuantityPicker
                       quantity={quantity}
-                      quantityAvailable={trackInventory ? stockQuantity : 99}
+                      quantityAvailable={trackInventory ? stockQuantity : 999}
                       onChange={setQuantity}
                     />
                   )}
