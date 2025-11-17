@@ -189,7 +189,7 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     let sum = 0;
     for (const id of productIds) {
       const q = quantitiesByProductId[id];
-      sum += typeof q === 'number' && Number.isFinite(q) && q > 0 ? q : 1;
+      sum += q ?? 1;
     }
     return sum;
   }, [productIds, quantitiesByProductId]);
