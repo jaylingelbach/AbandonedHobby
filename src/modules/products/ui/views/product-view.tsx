@@ -336,11 +336,15 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       {!inStock ? 'Unavailable' : 'Listed by you'}
                     </Button>
                   )}
-                  <QuantityPicker
-                    quantity={quantity}
-                    quantityAvailable={stockQuantity}
-                    onChange={setQuantity}
-                  />
+
+                  {canPurchase && (
+                    <QuantityPicker
+                      quantity={quantity}
+                      quantityAvailable={trackInventory ? stockQuantity : 999}
+                      onChange={setQuantity}
+                    />
+                  )}
+
                   <Button
                     className="size-12"
                     variant="elevated"
