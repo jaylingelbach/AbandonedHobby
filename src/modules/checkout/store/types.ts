@@ -57,5 +57,5 @@ export type CartMessage =
 
 export type TenantCartSlice = {
   productIds: string[];
-  quantitiesByProductId: Record<string, number>;
+  quantitiesByProductId: Record<string, Quantity>;
 };
