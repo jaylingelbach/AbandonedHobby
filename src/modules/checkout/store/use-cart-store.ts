@@ -2,10 +2,7 @@ import { ShippingMode } from '@/modules/orders/types';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { toIntCents } from '@/lib/money';
-import {
-  readQuantityOrDefault,
-  type Quantity
-} from '@/lib/validation/quantity';
+import type { Quantity } from '@/lib/validation/quantity';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -121,18 +118,32 @@ function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
         : rawTenant;
       if (!cleanTenant) continue;
 
-      const prevIds = merged[cleanTenant]?.productIds ?? [];
+      const prev = merged[cleanTenant];
+
+      const prevIds = prev?.productIds ?? [];
       const nextIds = Array.from(
         new Set([...(prevIds ?? []), ...(cart?.productIds ?? [])])
       );
 
-      const prevShip = merged[cleanTenant]?.shippingByProductId ?? {};
-      const nextShip = { ...prevShip, ...(cart?.shippingByProductId ?? {}) };
+      const prevShip = prev?.shippingByProductId ?? {};
+      const nextShip = {
+        ...prevShip,
+        ...(cart?.shippingByProductId ?? {})
+      };
+
+      const prevQty = prev?.quantitiesByProductId ?? {};
+      const nextQty = {
+        ...prevQty,
+        ...(cart?.quantitiesByProductId ?? {})
+      };
 
       merged[cleanTenant] = {
         productIds: nextIds,
         ...(Object.keys(nextShip).length > 0
           ? { shippingByProductId: nextShip }
+          : {}),
+        ...(Object.keys(nextQty).length > 0
+          ? { quantitiesByProductId: nextQty }
           : {})
       };
     }
@@ -242,25 +253,43 @@ export const useCartStore = create<CartState>()(
           const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[cart:addProduct]', {
+              userKey,
+              tenant,
+              productId,
+              quantity
+            });
+          }
+
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const tenantCart: TenantCart = userBucket[tenant] ?? {
+            const existingCart: TenantCart = userBucket[tenant] ?? {
               productIds: []
             };
 
-            const currentIds = tenantCart.productIds ?? [];
-            const alreadyInCart = currentIds.includes(productId);
-
-            const effectiveQuantity = readQuantityOrDefault(quantity, 1);
-
-            const nextIds = alreadyInCart
+            const currentIds = existingCart.productIds ?? [];
+            const nextIds = currentIds.includes(productId)
               ? currentIds
               : [...currentIds, productId];
 
-            const currentQuantities = tenantCart.quantitiesByProductId ?? {};
-            const nextQuantities: Record<string, Quantity> = {
+            const currentQuantities = existingCart.quantitiesByProductId ?? {};
+            const existingQty = currentQuantities[productId];
+
+            const normalizedQuantity =
+              typeof quantity === 'number' &&
+              Number.isFinite(quantity) &&
+              quantity > 0
+                ? Math.trunc(quantity)
+                : typeof existingQty === 'number' &&
+                    Number.isFinite(existingQty) &&
+                    existingQty > 0
+                  ? Math.trunc(existingQty)
+                  : 1;
+
+            const nextQuantities: Record<string, number> = {
               ...currentQuantities,
-              [productId]: effectiveQuantity
+              [productId]: normalizedQuantity
             };
 
             return {
@@ -269,9 +298,11 @@ export const useCartStore = create<CartState>()(
                 [userKey]: {
                   ...userBucket,
                   [tenant]: {
-                    ...tenantCart,
+                    ...existingCart,
                     productIds: nextIds,
-                    quantitiesByProductId: nextQuantities
+                    ...(Object.keys(nextQuantities).length > 0
+                      ? { quantitiesByProductId: nextQuantities }
+                      : {})
                   }
                 }
               }
@@ -288,34 +319,31 @@ export const useCartStore = create<CartState>()(
             const tenantCart: TenantCart = userBucket[tenant] ?? {
               productIds: []
             };
-
-            const currentIds = tenantCart.productIds ?? [];
-            if (!currentIds.includes(productId)) return state;
-
-            const nextIds = currentIds.filter((id) => id !== productId);
+            const current = tenantCart.productIds ?? [];
+            if (!current.includes(productId)) return state;
 
             const nextShip = { ...(tenantCart.shippingByProductId ?? {}) };
             if (productId in nextShip) delete nextShip[productId];
 
-            const nextQuantities = {
-              ...(tenantCart.quantitiesByProductId ?? {})
+            const nextQty = { ...(tenantCart.quantitiesByProductId ?? {}) };
+            if (productId in nextQty) delete nextQty[productId];
+
+            const nextCart: TenantCart = {
+              productIds: current.filter((id) => id !== productId),
+              ...(Object.keys(nextShip).length > 0
+                ? { shippingByProductId: nextShip }
+                : {}),
+              ...(Object.keys(nextQty).length > 0
+                ? { quantitiesByProductId: nextQty }
+                : {})
             };
-            if (productId in nextQuantities) delete nextQuantities[productId];
 
             return {
               byUser: {
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: {
-                    productIds: nextIds,
-                    ...(Object.keys(nextShip).length > 0
-                      ? { shippingByProductId: nextShip }
-                      : {}),
-                    ...(Object.keys(nextQuantities).length > 0
-                      ? { quantitiesByProductId: nextQuantities }
-                      : {})
-                  }
+                  [tenant]: nextCart
                 }
               }
             };
@@ -326,10 +354,18 @@ export const useCartStore = create<CartState>()(
           const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
+          if (process.env.NODE_ENV !== 'production') {
+            console.log('[cart:clearCart]', { userKey, tenant });
+          }
+
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
             const existing = userBucket[tenant];
-            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+            if (
+              !existing?.productIds?.length &&
+              !existing?.shippingByProductId &&
+              !existing?.quantitiesByProductId
+            )
               return state;
 
             return {
@@ -337,7 +373,11 @@ export const useCartStore = create<CartState>()(
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [], shippingByProductId: {} }
+                  [tenant]: {
+                    productIds: [],
+                    shippingByProductId: {},
+                    quantitiesByProductId: {}
+                  }
                 }
               }
             };
@@ -357,7 +397,11 @@ export const useCartStore = create<CartState>()(
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
             const existing = userBucket[tenant];
-            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+            if (
+              !existing?.productIds?.length &&
+              !existing?.shippingByProductId &&
+              !existing?.quantitiesByProductId
+            )
               return state;
 
             return {
@@ -365,7 +409,11 @@ export const useCartStore = create<CartState>()(
                 ...state.byUser,
                 [userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [], shippingByProductId: {} }
+                  [tenant]: {
+                    productIds: [],
+                    shippingByProductId: {},
+                    quantitiesByProductId: {}
+                  }
                 }
               }
             };
@@ -420,6 +468,7 @@ export const useCartStore = create<CartState>()(
           const srcCart: TenantCart = srcBucket[tenant] ?? { productIds: [] };
           const srcIds = srcCart.productIds ?? [];
           const srcShip = srcCart.shippingByProductId ?? {};
+          const srcQty = srcCart.quantitiesByProductId ?? {};
 
           set((prev) => {
             const byUser = collapseCompositeTenantKeys(prev.byUser);
@@ -434,10 +483,18 @@ export const useCartStore = create<CartState>()(
               ...(dstCart.shippingByProductId ?? {}),
               ...srcShip
             };
+            const mergedQty = {
+              ...(dstCart.quantitiesByProductId ?? {}),
+              ...srcQty
+            };
 
             byUser[anonKey] = {
               ...src,
-              [tenant]: { productIds: [], shippingByProductId: {} }
+              [tenant]: {
+                productIds: [],
+                shippingByProductId: {},
+                quantitiesByProductId: {}
+              }
             };
             byUser[dstUserKey] = {
               ...dst,
@@ -445,6 +502,9 @@ export const useCartStore = create<CartState>()(
                 productIds: mergedIds,
                 ...(Object.keys(mergedShip).length > 0
                   ? { shippingByProductId: mergedShip }
+                  : {}),
+                ...(Object.keys(mergedQty).length > 0
+                  ? { quantitiesByProductId: mergedQty }
                   : {})
               }
             };
@@ -544,19 +604,33 @@ if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
               ? rawTenant.split('::')[0]
               : rawTenant;
             if (!cleanTenant) continue;
-            const prevIds = merged[cleanTenant]?.productIds ?? [];
+
+            const prev = merged[cleanTenant];
+
+            const prevIds = prev?.productIds ?? [];
             const nextIds = Array.from(
               new Set([...(prevIds ?? []), ...(cart?.productIds ?? [])])
             );
-            const prevShip = merged[cleanTenant]?.shippingByProductId ?? {};
+
+            const prevShip = prev?.shippingByProductId ?? {};
             const nextShip = {
               ...prevShip,
               ...(cart?.shippingByProductId ?? {})
             };
+
+            const prevQty = prev?.quantitiesByProductId ?? {};
+            const nextQty = {
+              ...prevQty,
+              ...(cart?.quantitiesByProductId ?? {})
+            };
+
             merged[cleanTenant] = {
               productIds: nextIds,
               ...(Object.keys(nextShip).length > 0
                 ? { shippingByProductId: nextShip }
+                : {}),
+              ...(Object.keys(nextQty).length > 0
+                ? { quantitiesByProductId: nextQty }
                 : {})
             };
           }
