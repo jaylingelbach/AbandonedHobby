@@ -57,13 +57,16 @@ export const CheckoutButton = ({
     };
   }, [tenantSlug, session?.user?.id]);
 
-  const { totalItems } = useCart(tenantSlug, session?.user?.id);
+  const { totalItems } = useCart(tenantSlug);
 
   if (hideIfEmpty && totalItems === 0) return null;
 
   return (
     <Button asChild variant="elevated" className={cn('bg-white', className)}>
-      <Link href={`${generateTenantURL(tenantSlug)}/checkout`}>
+      <Link
+        href={`${generateTenantURL(tenantSlug)}/checkout`}
+        aria-label={`Open checkout${totalItems ? `, ${totalItems} item${totalItems === 1 ? '' : 's'}` : ''}`}
+      >
         <ShoppingCartIcon /> {totalItems > 0 ? totalItems : ''}
       </Link>
     </Button>
