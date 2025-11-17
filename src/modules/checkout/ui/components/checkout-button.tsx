@@ -1,21 +1,14 @@
 'use client';
 
-// ─── React / Next.js Built-ins ───────────────────────────────────────────────
 import { useEffect } from 'react';
 import Link from 'next/link';
-
-// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { ShoppingCartIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
-// ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn, generateTenantURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
-
-// ─── Project Components ──────────────────────────────────────────────────────
 import { Button } from '@/components/ui/button';
 
-// ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
@@ -34,28 +27,42 @@ export const CheckoutButton = ({
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   useEffect(() => {
-    if (!session?.user?.id) return;
+    const userId = session?.user?.id;
+    if (!userId) return;
+
+    const persistApi = useCartStore.persist;
+    const hasHydrated = persistApi?.hasHydrated?.() ?? true;
 
     const run = () => {
       const state = useCartStore.getState();
+
       if (state.currentUserKey.startsWith('anon:')) {
-        if (session.user) {
-          state.migrateAnonToUser(tenantSlug, session.user.id);
-        }
+        state.migrateAnonToUser(tenantSlug, userId);
       } else {
-        if (session.user) {
-          state.setCurrentUserKey?.(session.user.id);
-        }
+        state.setCurrentUserKey?.(userId);
       }
     };
 
-    const unsub = useCartStore.persist?.onFinishHydration?.(run);
-    if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsub?.();
-  }, [tenantSlug, session?.user?.id, session?.user]);
+    // If already hydrated, just run immediately and bail
+    if (hasHydrated) {
+      run();
+      return;
+    }
+
+    // Otherwise wait until hydration finishes once
+    const unsubscribe = persistApi?.onFinishHydration?.(() => {
+      run();
+    });
+
+    return () => {
+      unsubscribe?.();
+    };
+  }, [tenantSlug, session?.user?.id]); // 🔍 note: NO `session?.user` here
 
   const { totalItems } = useCart(tenantSlug, session?.user?.id);
+
   if (hideIfEmpty && totalItems === 0) return null;
+
   return (
     <Button
       asChild
