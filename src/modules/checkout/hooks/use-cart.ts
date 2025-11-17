@@ -3,7 +3,6 @@
 import { useCallback, useMemo } from 'react';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import type { CartState, TenantCartSlice } from '../store/types';
-import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
 const DEFAULT_TENANT = '__global__';
@@ -162,11 +161,9 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     [tenant]
   );
 
-  const selectTenantSlice = useShallow(selectTenantSliceBase);
-
-  const { productIds, quantitiesByProductId } = useStore(
-    useCartStore,
-    selectTenantSlice
+  // ✅ Idiomatic Zustand: bound store + useShallow wrapper
+  const { productIds, quantitiesByProductId } = useCartStore(
+    useShallow(selectTenantSliceBase)
   );
 
   // ─── Actions from store (plain bound hook usage is fine) ────────────────
