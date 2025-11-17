@@ -5320,7 +5320,7 @@ src/modules/refunds/utils.ts Adds public helpers: validateSelectionsAgainstCaps,
 
 ## Walkthrough
 
--
+- This PR implements per-product quantity tracking throughout the cart system. It adds a new ButtonGroup UI component, introduces a QuantityPicker for product pages, refactors the cart hook and store to track quantities per product, updates checkout items to display and modify quantities, and wires quantity parameters through CartButton and ProductView. Two Radix UI dependencies are also updated.
 
 ## New Features
 
@@ -5335,4 +5335,26 @@ src/modules/refunds/utils.ts Adds public helpers: validateSelectionsAgainstCaps,
 
 ## File changes
 
-###
+### Dependencies
+
+package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui/react-slot (^1.2.0 → ^1.2.4)
+
+### UI Components - New
+
+- src/components/ui/button-group.tsx, src/modules/products/ui/components/quantity-picker.tsx
+  - Added ButtonGroup component suite with orientation variants and ButtonGroupSeparator, ButtonGroupText exports; introduced QuantityPicker component with increment/decrement controls and bounds validation
+
+### Cart State Management
+
+- src/modules/checkout/store/use-cart-store.ts, src/modules/checkout/hooks/use-cart.ts
+  - Refactored cart store and hook to track quantitiesByProductId per tenant, added sanitizeQuantities helper with caching, extended addProduct/toggleProduct to accept optional quantity, updated merge logic for quantity maps, and exposed quantitiesByProductId and totalItems in hook API
+
+### Checkout UI Components
+
+- src/modules/checkout/ui/components/checkout-item.tsx, src/modules/checkout/ui/components/checkout-button.tsx, src/modules/checkout/ui/components/checkout-sidebar.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+  - Extended CheckoutItem with quantity prop and onQuantityChange handler; refactored CheckoutButton with hydration-aware state and userId extraction; added debug logging in checkout-sidebar; updated CheckoutView to compute per-item quantities, pass quantity controls to items, and calculate totals with quantity awareness
+
+### Product UI Components
+
+- src/modules/products/ui/components/cart-button.tsx, src/modules/products/ui/views/product-view.tsx
+  - Added quantity prop to CartButton and passed effectiveQuantity to toggleProduct; introduced local quantity state in ProductView with QuantityPicker rendering and wired quantity through to CartButton
