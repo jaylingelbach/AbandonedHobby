@@ -2,7 +2,7 @@
 
 import { useCallback, useMemo } from 'react';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
-import type { CartState } from '../store/types';
+import type { CartState, TenantCartSlice } from '../store/types';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 
@@ -40,10 +40,6 @@ function normalizeTenantSlug(raw?: string | null): string {
  *  - `toggleProduct(productId, quantity?)`: adds with quantity or removes,
  *  - `isProductInCart(productId)`: returns `true` if the product is in the cart, `false` otherwise
  */
-type TenantCartSlice = {
-  productIds: string[];
-  quantitiesByProductId: Record<string, number>;
-};
 
 const EMPTY_PRODUCT_IDS: string[] = [];
 const EMPTY_QUANTITIES: Record<string, number> = {};

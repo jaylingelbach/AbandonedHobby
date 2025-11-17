@@ -54,3 +54,8 @@ export type CartMessage =
   | { type: 'CLEAR_CART'; userKey: string; tenantSlug: string }
   | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
   | { type: 'CLEAR_ALL_GLOBAL' };
+
+export type TenantCartSlice = {
+  productIds: string[];
+  quantitiesByProductId: Record<string, number>;
+};
