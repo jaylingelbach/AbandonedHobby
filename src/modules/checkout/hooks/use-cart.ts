@@ -72,27 +72,8 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
     return EMPTY_QUANTITIES;
   }
 
-  let needsClone = false;
-  for (const [, value] of entries) {
-    if (
-      typeof value !== 'number' ||
-      !Number.isFinite(value) ||
-      value <= 0 ||
-      !Number.isInteger(value)
-    ) {
-      needsClone = true;
-      break;
-    }
-  }
-
-  if (!needsClone) {
-    const typed = map as Record<string, number>;
-    quantityCache.set(map, typed);
-    return typed;
-  }
-
   const safe: Record<string, number> = {};
-  let hasEntries = false;
+  let hasInvalid = false;
   for (const [key, value] of entries) {
     if (
       typeof value !== 'number' ||
@@ -100,14 +81,19 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
       value <= 0 ||
       !Number.isInteger(value)
     ) {
+      hasInvalid = true;
       continue;
     }
-
-    hasEntries = true;
     safe[key] = value;
   }
 
-  const normalized = hasEntries ? safe : EMPTY_QUANTITIES;
+  if (!hasInvalid && Object.keys(safe).length === entries.length) {
+    const typed = map as Record<string, number>;
+    quantityCache.set(map, typed);
+    return typed;
+  }
+
+  const normalized = Object.keys(safe).length > 0 ? safe : EMPTY_QUANTITIES;
   quantityCache.set(map, normalized);
   return normalized;
 }
