@@ -54,6 +54,12 @@ const quantityCache = new WeakMap<
   Record<string, number>
 >();
 
+/**
+ * Normalize and sanitize a raw quantities map into a mapping of product IDs to positive integer quantities.
+ *
+ * @param raw - A raw value (typically an object) mapping product IDs to quantities; any non-object value is treated as empty.
+ * @returns A `Record<string, number>` containing only entries whose values are finite integers greater than zero. If no valid entries exist, an empty mapping is returned. The result may be cached and reused for the same input object reference.
+ */
 function sanitizeQuantities(raw: unknown): Record<string, number> {
   if (!raw || typeof raw !== 'object') return EMPTY_QUANTITIES;
 
@@ -107,6 +113,27 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   return normalized;
 }
 
+/**
+ * Provide tenant-scoped cart state and actions for the current user.
+ *
+ * The hook reads the cart bucket for the normalized tenant slug and exposes
+ * product identifiers, per-product quantities, derived totals, and action
+ * helpers that are bound to that tenant. The optional `_userId` parameter is
+ * accepted for compatibility and is ignored by the hook.
+ *
+ * @param tenantSlug - Tenant identifier that will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
+ * @param _userId - Present for API compatibility; this value is not used
+ * @returns An object containing:
+ *  - `productIds`: the ordered array of product IDs in the tenant's cart
+ *  - `totalItems`: the sum of quantities for all listed product IDs (defaults each missing quantity to 1)
+ *  - `quantitiesByProductId`: a sanitized map of product ID → quantity (only positive integer quantities are kept)
+ *  - `addProduct(productId, quantity?)`: add or update a product with an optional quantity
+ *  - `removeProduct(productId)`: remove a product from the cart
+ *  - `clearCart()`: remove all products for the current tenant
+ *  - `clearAllCartsForCurrentUser()`: clear all tenant carts for the current user
+ *  - `toggleProduct(productId, quantity?)`: add (with optional quantity) if not present, otherwise remove
+ *  - `isProductInCart(productId)`: returns `true` if the product ID is currently in the cart, `false` otherwise
+ */
 export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   void _userId;
 
