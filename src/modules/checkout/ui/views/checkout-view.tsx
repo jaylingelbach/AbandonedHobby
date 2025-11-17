@@ -217,9 +217,17 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   }, [breakdownItems, data]);
 
   const totalCents = useMemo(() => {
-    if (typeof data?.totalCents === 'number') return data.totalCents;
+    // If we have per-item shipping breakdowns, trust the client-calculated subtotal + shipping.
+    if (breakdownItems.length > 0) {
+      return subtotalCents + shippingCents;
+    }
+    // Otherwise, prefer server-computed total if present.
+    if (typeof data?.totalCents === 'number') {
+      return data.totalCents;
+    }
+    // Final fallback: client-calculated subtotal + shipping.
     return subtotalCents + shippingCents;
-  }, [data, subtotalCents, shippingCents]);
+  }, [breakdownItems, data, subtotalCents, shippingCents]);
 
   // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
