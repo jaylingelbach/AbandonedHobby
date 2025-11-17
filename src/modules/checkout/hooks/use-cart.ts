@@ -1,25 +1,29 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
+import {
+  type CartState,
+  useCartStore
+} from '@/modules/checkout/store/use-cart-store';
+import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 const DEFAULT_TENANT = '__global__';
 
 // Keep storage shape stable: strip any accidental "::user" suffix
 /**
- * Normalize a tenant slug by trimming whitespace, removing any "::" suffix and its trailing content, and defaulting to DEFAULT_TENANT when empty.
+ * Normalize a tenant slug by trimming whitespace, removing any "::..." suffix and its trailing content, and defaulting to DEFAULT_TENANT when empty.
  *
  * @param raw - Raw tenant slug which may include an optional "::..." suffix to denote user-scoped values
  * @returns The normalized tenant identifier; returns DEFAULT_TENANT when `raw` is empty or only whitespace
  */
-
 function normalizeTenantSlug(raw?: string | null): string {
   const s = (raw ?? '').trim();
   if (!s) return DEFAULT_TENANT;
   const i = s.indexOf('::');
   return i >= 0 ? s.slice(0, i) : s;
 }
+
 /**
  * Provides tenant-scoped cart state and actions for a specific tenant.
  *
@@ -30,42 +34,132 @@ function normalizeTenantSlug(raw?: string | null): string {
  * @param _userId - Accepted for convenience but ignored; the store is scoped by tenant only
  * @returns An object containing:
  *  - `productIds`: array of product IDs in the tenant's cart,
- *  - `totalItems`: number of items in `productIds`,
- *  - `addProduct(productId)`: adds a product to this tenant's cart,
+ *  - `totalItems`: total units across all products (respecting quantities),
+ *  - `addProduct(productId, quantity?)`: adds/sets quantity for a product,
  *  - `removeProduct(productId)`: removes a product from this tenant's cart,
  *  - `clearCart()`: clears this tenant's cart,
  *  - `clearAllCartsForCurrentUser()`: clears all carts for the current user,
- *  - `toggleProduct(productId)`: adds the product if absent or removes it if present,
+ *  - `toggleProduct(productId, quantity?)`: adds with quantity or removes,
  *  - `isProductInCart(productId)`: returns `true` if the product is in the cart, `false` otherwise
  */
+type TenantCartSlice = {
+  productIds: string[];
+  quantitiesByProductId: Record<string, number>;
+};
+
+const EMPTY_PRODUCT_IDS: string[] = [];
+const EMPTY_QUANTITIES: Record<string, number> = {};
+
+const EMPTY_SLICE: TenantCartSlice = {
+  productIds: EMPTY_PRODUCT_IDS,
+  quantitiesByProductId: EMPTY_QUANTITIES
+};
+
+const quantityCache = new WeakMap<
+  Record<string, unknown>,
+  Record<string, number>
+>();
+
+function sanitizeQuantities(raw: unknown): Record<string, number> {
+  if (!raw || typeof raw !== 'object') return EMPTY_QUANTITIES;
+
+  const map = raw as Record<string, unknown>;
+  const cached = quantityCache.get(map);
+  if (cached) return cached;
+
+  const entries = Object.entries(map);
+  if (entries.length === 0) {
+    quantityCache.set(map, EMPTY_QUANTITIES);
+    return EMPTY_QUANTITIES;
+  }
+
+  let needsClone = false;
+  for (const [, value] of entries) {
+    if (
+      typeof value !== 'number' ||
+      !Number.isFinite(value) ||
+      value <= 0 ||
+      !Number.isInteger(value)
+    ) {
+      needsClone = true;
+      break;
+    }
+  }
+
+  if (!needsClone) {
+    const typed = map as Record<string, number>;
+    quantityCache.set(map, typed);
+    return typed;
+  }
+
+  const safe: Record<string, number> = {};
+  let hasEntries = false;
+  for (const [key, value] of entries) {
+    if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) {
+      continue;
+    }
+    const normalized = Math.trunc(value);
+    hasEntries = true;
+    safe[key] = normalized;
+  }
+
+  const normalized = hasEntries ? safe : EMPTY_QUANTITIES;
+  quantityCache.set(map, normalized);
+  return normalized;
+}
 
 export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   void _userId;
+
   const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
-  // actions from store
-  const addProductRaw = useCartStore((s) => s.addProduct);
-  const removeProductRaw = useCartStore((s) => s.removeProduct);
-  const clearCartRaw = useCartStore((s) => s.clearCart);
-  const clearAllCartsForCurrentUser = useCartStore(
-    (s) => s.clearAllCartsForCurrentUser
-  );
+  const selectTenantSliceBase = useCallback(
+    (state: CartState): TenantCartSlice => {
+      const bucket = state.byUser[state.currentUserKey]?.[tenant];
+      if (!bucket) return EMPTY_SLICE;
 
-  // read current productIds for this tenant
-  const { productIds, quantitiesByProductId } = useCartStore(
-    useShallow((s) => {
-      const bucket = s.byUser[s.currentUserKey]?.[tenant];
+      const rawIds = Array.isArray(bucket.productIds)
+        ? bucket.productIds
+        : EMPTY_PRODUCT_IDS;
+
+      const safeQuantities = sanitizeQuantities(bucket.quantitiesByProductId);
+
+      if (rawIds.length === 0 && safeQuantities === EMPTY_QUANTITIES) {
+        return EMPTY_SLICE;
+      }
+
       return {
-        productIds: (bucket?.productIds ?? []) as string[],
-        quantitiesByProductId: (bucket?.quantitiesByProductId ?? {}) as Record<
-          string,
-          number
-        >
+        productIds: rawIds,
+        quantitiesByProductId: safeQuantities
       };
-    })
+    },
+    [tenant]
   );
 
-  // stable wrappers
+  const selectTenantSlice = useShallow(selectTenantSliceBase);
+
+  const { productIds, quantitiesByProductId } = useStore(
+    useCartStore,
+    selectTenantSlice
+  );
+
+  // logging: see exactly what useCart sees each render
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[useCart] snapshot', {
+      tenant,
+      productIds,
+      quantitiesByProductId
+    });
+  }
+
+  // ─── Actions from store (plain bound hook usage is fine) ────────────────
+  const addProductRaw = useCartStore((state) => state.addProduct);
+  const removeProductRaw = useCartStore((state) => state.removeProduct);
+  const clearCartRaw = useCartStore((state) => state.clearCart);
+  const clearAllCartsForCurrentUser = useCartStore(
+    (state) => state.clearAllCartsForCurrentUser
+  );
+
   const addProduct = useCallback(
     (productId: string, quantity?: number) =>
       addProductRaw(tenant, productId, quantity),
@@ -96,15 +190,12 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   );
 
   const totalItems = useMemo(() => {
-    // Sum units by product; default to 1 for legacy carts with no quantity map.
-    return productIds.reduce((sum, productId) => {
-      const q = quantitiesByProductId[productId];
-      const safe =
-        typeof q === 'number' && Number.isFinite(q) && q > 0
-          ? Math.trunc(q)
-          : 1;
-      return sum + safe;
-    }, 0);
+    let sum = 0;
+    for (const id of productIds) {
+      const q = quantitiesByProductId[id];
+      sum += typeof q === 'number' && Number.isFinite(q) && q > 0 ? q : 1;
+    }
+    return sum;
   }, [productIds, quantitiesByProductId]);
 
   return {
