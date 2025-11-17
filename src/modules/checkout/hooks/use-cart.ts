@@ -1,10 +1,8 @@
 'use client';
 
 import { useCallback, useMemo } from 'react';
-import {
-  type CartState,
-  useCartStore
-} from '@/modules/checkout/store/use-cart-store';
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+import type { CartState } from '../store/types';
 import { useStore } from 'zustand';
 import { useShallow } from 'zustand/react/shallow';
 

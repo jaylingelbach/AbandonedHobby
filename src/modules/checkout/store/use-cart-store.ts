@@ -3,6 +3,14 @@ import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { toIntCents } from '@/lib/money';
 import type { Quantity } from '@/lib/validation/quantity';
+import {
+  CartMessage,
+  CartState,
+  ShippingSnapshot,
+  TenantCart,
+  TenantMap,
+  UserMap
+} from './types';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -40,67 +48,12 @@ function deriveUserKey(userId?: string | null): string {
 
 const isAnonKey = (k: string) => k.startsWith(ANON_KEY_PREFIX);
 
-/** ── Types ─────────────────────────────────────────────────────────────── */
-type ShippingSnapshot = {
-  mode: ShippingMode; // 'free' | 'flat' | 'calculated'
-  /** Only used when mode === 'flat'. Stored as integer cents per unit. */
-  feeCentsPerUnit?: number;
-};
-
-interface TenantCart {
-  productIds: string[];
-  /** Per-product quantity (units), validated as Quantity. */
-  quantitiesByProductId?: Record<string, Quantity>;
-  /** Per-product shipping snapshot captured at add-to-cart time. */
-  shippingByProductId?: Record<string, ShippingSnapshot>;
-}
-type TenantMap = Record<string, TenantCart>; // tenantSlug -> TenantCart
-type UserMap = Record<string, TenantMap>; // userKey -> TenantMap
-
-export interface CartState {
-  byUser: UserMap;
-  currentUserKey: string;
-
-  /** Capture or update a product's shipping snapshot for a tenant. */
-  setProductShippingSnapshot: (
-    tenantSlug: string | null | undefined,
-    productId: string,
-    mode: ShippingMode,
-    feeCentsPerUnit?: number
-  ) => void;
-
-  setCurrentUserKey: (userId?: string | null) => void;
-
-  addProduct: (
-    tenantSlug: string | null | undefined,
-    productId: string,
-    quantity?: number
-  ) => void;
-  removeProduct: (
-    tenantSlug: string | null | undefined,
-    productId: string
-  ) => void;
-  clearCart: (tenantSlug: string | null | undefined) => void;
-  /** clear by `${tenant}::${userKey}` without switching current user */
-  clearCartForScope: (scopeKey: string) => void;
-  clearAllCartsForCurrentUser: () => void;
-  clearAllCartsEverywhere: () => void;
-  migrateAnonToUser: (tenantSlug: string, newUserId: string) => void;
-
-  __cleanupTenantKeys?: () => void;
-}
-
 /** ── Cross-tab sync ───────────────────────────────────────────────────── */
 const CHANNEL_NAME = 'cart';
 const bc: BroadcastChannel | null =
   typeof window !== 'undefined' && 'BroadcastChannel' in window
     ? new BroadcastChannel(CHANNEL_NAME)
     : null;
-
-type CartMessage =
-  | { type: 'CLEAR_CART'; userKey: string; tenantSlug: string }
-  | { type: 'CLEAR_ALL_FOR_USER'; userKey: string }
-  | { type: 'CLEAR_ALL_GLOBAL' };
 
 /** ── Helpers ───────────────────────────────────────────────────────────── */
 
@@ -193,15 +146,33 @@ export const useCartStore = create<CartState>()(
             const tenant = normalizeTenantSlug(msg.tenantSlug);
             const userBucket = byUser[msg.userKey];
             const existing = userBucket?.[tenant];
-            if (!existing?.productIds?.length && !existing?.shippingByProductId)
+
+            const hasNoProductIds =
+              !existing?.productIds || existing.productIds.length === 0;
+
+            const hasNoShipping =
+              !existing?.shippingByProductId ||
+              Object.keys(existing.shippingByProductId).length === 0;
+
+            const hasNoQuantities =
+              !existing?.quantitiesByProductId ||
+              Object.keys(existing.quantitiesByProductId).length === 0;
+
+            // Nothing meaningful to clear for this tenant/user
+            if (hasNoProductIds && hasNoShipping && hasNoQuantities) {
               return;
+            }
 
             set({
               byUser: {
                 ...byUser,
                 [msg.userKey]: {
                   ...userBucket,
-                  [tenant]: { productIds: [] }
+                  [tenant]: {
+                    productIds: [],
+                    shippingByProductId: {},
+                    quantitiesByProductId: {}
+                  }
                 }
               }
             });
@@ -273,10 +244,11 @@ export const useCartStore = create<CartState>()(
               ? currentIds
               : [...currentIds, productId];
 
-            const currentQuantities = existingCart.quantitiesByProductId ?? {};
+            const currentQuantities: Record<string, Quantity> =
+              existingCart.quantitiesByProductId ?? {};
             const existingQty = currentQuantities[productId];
 
-            const normalizedQuantity =
+            const normalizedQuantity: Quantity =
               typeof quantity === 'number' &&
               Number.isFinite(quantity) &&
               quantity > 0
@@ -287,7 +259,7 @@ export const useCartStore = create<CartState>()(
                   ? Math.trunc(existingQty)
                   : 1;
 
-            const nextQuantities: Record<string, number> = {
+            const nextQuantities: Record<string, Quantity> = {
               ...currentQuantities,
               [productId]: normalizedQuantity
             };
