@@ -1,25 +1,35 @@
 'use client';
 
-import { RichText } from '@payloadcms/richtext-lexical/react';
-import { useSuspenseQuery } from '@tanstack/react-query';
-import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
 import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
+import { useSuspenseQuery } from '@tanstack/react-query';
+import { CheckCheckIcon, LinkIcon, StarIcon } from 'lucide-react';
+import { RichText } from '@payloadcms/richtext-lexical/react';
 import { toast } from 'sonner';
 
-import StarRating from '@/components/star-rating';
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { formatCurrency, generateTenantURL } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
+
+// ─── Project Components ──────────────────────────────────────────────────────
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
+import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
+import ProductGallery from '../components/product-gallery';
+import QuantityPicker from '../components/quantity-picker';
+import ViewInOrdersButton from '../components/view-in-order-button';
+
+// ─── Project Hooks ───────────────────────────────────────────────────────────
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
 import { useUser } from '@/hooks/use-user';
-import { formatCurrency, generateTenantURL } from '@/lib/utils';
-import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
-import { useTRPC } from '@/trpc/client';
-import ProductGallery from '../components/product-gallery';
-import ViewInOrdersButton from '../components/view-in-order-button';
+
+// ─── Project Utilities (Local) ───────────────────────────────────────────────
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 
 const CartButton = dynamic(
@@ -67,6 +77,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   );
 
   const { user } = useUser();
+
+  const [quantity, setQuantity] = useState(1);
 
   const isSelf = !!(
     user?.tenants?.some((t) =>
@@ -308,6 +320,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       shippingFeeCentsPerUnit={
                         shippingFeeCentsPerUnit ?? undefined
                       }
+                      quantity={quantity}
                     />
                   ) : (
                     <Button
@@ -323,6 +336,16 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       {!inStock ? 'Unavailable' : 'Listed by you'}
                     </Button>
                   )}
+
+                  {/* Last case in ternary for untracked (digital) items, not yet used in app */}
+                  {canPurchase && (
+                    <QuantityPicker
+                      quantity={quantity}
+                      quantityAvailable={trackInventory ? stockQuantity : 999}
+                      onChange={setQuantity}
+                    />
+                  )}
+
                   <Button
                     className="size-12"
                     variant="elevated"

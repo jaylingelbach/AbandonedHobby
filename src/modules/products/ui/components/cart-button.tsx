@@ -10,6 +10,7 @@ import { Button } from '@/components/ui/button';
 import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import { ShippingMode } from '@/modules/orders/types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 interface Props {
   tenantSlug: string;
@@ -18,12 +19,14 @@ interface Props {
   orderId?: string;
   shippingMode?: 'free' | 'flat' | 'calculated';
   shippingFeeCentsPerUnit?: number;
+  quantity: number;
 }
 export const CartButton = ({
   tenantSlug,
   productId,
   shippingMode,
-  shippingFeeCentsPerUnit
+  shippingFeeCentsPerUnit,
+  quantity
 }: Props) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
@@ -45,6 +48,8 @@ export const CartButton = ({
 
     return { mode, fee };
   }, [shippingMode, shippingFeeCentsPerUnit]);
+
+  const effectiveQuantity = readQuantityOrDefault(quantity, 1);
 
   useEffect(() => {
     if (!session?.user?.id) return;
@@ -69,7 +74,6 @@ export const CartButton = ({
       variant="elevated"
       className={cn('flex-1 bg-pink-400', isInCart && 'bg-white')}
       onClick={() => {
-        // Write shipping snapshot before toggling
         useCartStore
           .getState()
           .setProductShippingSnapshot(
@@ -79,7 +83,7 @@ export const CartButton = ({
             normalized.fee
           );
 
-        cart.toggleProduct(productId);
+        cart.toggleProduct(productId, effectiveQuantity);
       }}
     >
       {isInCart ? 'Remove from cart' : 'Add to cart'}
