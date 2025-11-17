@@ -2,6 +2,10 @@ import { ShippingMode } from '@/modules/orders/types';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 import { toIntCents } from '@/lib/money';
+import {
+  readQuantityOrDefault,
+  type Quantity
+} from '@/lib/validation/quantity';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -48,6 +52,8 @@ type ShippingSnapshot = {
 
 interface TenantCart {
   productIds: string[];
+  /** Per-product quantity (units), validated as Quantity. */
+  quantitiesByProductId?: Record<string, Quantity>;
   /** Per-product shipping snapshot captured at add-to-cart time. */
   shippingByProductId?: Record<string, ShippingSnapshot>;
 }
@@ -70,7 +76,8 @@ export interface CartState {
 
   addProduct: (
     tenantSlug: string | null | undefined,
-    productId: string
+    productId: string,
+    quantity?: number
   ) => void;
   removeProduct: (
     tenantSlug: string | null | undefined,
@@ -231,17 +238,29 @@ export const useCartStore = create<CartState>()(
           set({ currentUserKey: nextKey });
         },
 
-        addProduct: (tenantSlug, productId) => {
+        addProduct: (tenantSlug, productId, quantity) => {
           const tenant = normalizeTenantSlug(tenantSlug);
           const userKey = get().currentUserKey;
 
           set((state) => {
             const userBucket = state.byUser[userKey] ?? {};
-            const current = userBucket[tenant]?.productIds ?? [];
-            if (current.includes(productId)) return state;
-
             const tenantCart: TenantCart = userBucket[tenant] ?? {
               productIds: []
+            };
+
+            const currentIds = tenantCart.productIds ?? [];
+            const alreadyInCart = currentIds.includes(productId);
+
+            const effectiveQuantity = readQuantityOrDefault(quantity, 1);
+
+            const nextIds = alreadyInCart
+              ? currentIds
+              : [...currentIds, productId];
+
+            const currentQuantities = tenantCart.quantitiesByProductId ?? {};
+            const nextQuantities: Record<string, Quantity> = {
+              ...currentQuantities,
+              [productId]: effectiveQuantity
             };
 
             return {
@@ -251,7 +270,8 @@ export const useCartStore = create<CartState>()(
                   ...userBucket,
                   [tenant]: {
                     ...tenantCart,
-                    productIds: [...current, productId]
+                    productIds: nextIds,
+                    quantitiesByProductId: nextQuantities
                   }
                 }
               }
@@ -268,11 +288,19 @@ export const useCartStore = create<CartState>()(
             const tenantCart: TenantCart = userBucket[tenant] ?? {
               productIds: []
             };
-            const current = tenantCart.productIds ?? [];
-            if (!current.includes(productId)) return state;
+
+            const currentIds = tenantCart.productIds ?? [];
+            if (!currentIds.includes(productId)) return state;
+
+            const nextIds = currentIds.filter((id) => id !== productId);
 
             const nextShip = { ...(tenantCart.shippingByProductId ?? {}) };
             if (productId in nextShip) delete nextShip[productId];
+
+            const nextQuantities = {
+              ...(tenantCart.quantitiesByProductId ?? {})
+            };
+            if (productId in nextQuantities) delete nextQuantities[productId];
 
             return {
               byUser: {
@@ -280,9 +308,12 @@ export const useCartStore = create<CartState>()(
                 [userKey]: {
                   ...userBucket,
                   [tenant]: {
-                    productIds: current.filter((id) => id !== productId),
+                    productIds: nextIds,
                     ...(Object.keys(nextShip).length > 0
                       ? { shippingByProductId: nextShip }
+                      : {}),
+                    ...(Object.keys(nextQuantities).length > 0
+                      ? { quantitiesByProductId: nextQuantities }
                       : {})
                   }
                 }

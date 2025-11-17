@@ -52,16 +52,23 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   );
 
   // read current productIds for this tenant
-  const productIds = useCartStore(
-    useShallow(
-      (s) =>
-        (s.byUser[s.currentUserKey]?.[tenant]?.productIds ?? []) as string[]
-    )
+  const { productIds, quantitiesByProductId } = useCartStore(
+    useShallow((s) => {
+      const bucket = s.byUser[s.currentUserKey]?.[tenant];
+      return {
+        productIds: (bucket?.productIds ?? []) as string[],
+        quantitiesByProductId: (bucket?.quantitiesByProductId ?? {}) as Record<
+          string,
+          number
+        >
+      };
+    })
   );
 
   // stable wrappers
   const addProduct = useCallback(
-    (productId: string) => addProductRaw(tenant, productId),
+    (productId: string, quantity?: number) =>
+      addProductRaw(tenant, productId, quantity),
     [tenant, addProductRaw]
   );
 
@@ -76,10 +83,10 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
   );
 
   const toggleProduct = useCallback(
-    (productId: string) =>
+    (productId: string, quantity?: number) =>
       productIds.includes(productId)
         ? removeProduct(productId)
-        : addProduct(productId),
+        : addProduct(productId, quantity),
     [productIds, removeProduct, addProduct]
   );
 
@@ -88,9 +95,21 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     [productIds]
   );
 
+  const totalItems = useMemo(() => {
+    // Sum units by product; default to 1 for legacy carts with no quantity map.
+    return productIds.reduce((sum, productId) => {
+      const q = quantitiesByProductId[productId];
+      const safe =
+        typeof q === 'number' && Number.isFinite(q) && q > 0
+          ? Math.trunc(q)
+          : 1;
+      return sum + safe;
+    }, 0);
+  }, [productIds, quantitiesByProductId]);
+
   return {
     productIds,
-    totalItems: productIds.length,
+    totalItems,
     addProduct,
     removeProduct,
     clearCart,
