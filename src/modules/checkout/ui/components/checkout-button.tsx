@@ -27,24 +27,25 @@ export const CheckoutButton = ({
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
   useEffect(() => {
-    const userId = session?.user?.id;
-    if (!userId) return;
-
+    const userId = session?.user?.id ?? null;
     const persistApi = useCartStore.persist;
 
     const run = () => {
       const state = useCartStore.getState();
 
+      if (!userId) {
+        // reset to anon scope on sign‑out
+        state.setCurrentUserKey(null);
+        return;
+      }
       if (state.currentUserKey.startsWith('anon:')) {
         state.migrateAnonToUser(tenantSlug, userId);
       } else {
-        state.setCurrentUserKey?.(userId);
+        state.setCurrentUserKey(userId);
       }
     };
 
-    const unsubscribe = persistApi?.onFinishHydration?.(() => {
-      run();
-    });
+    const unsubscribe = persistApi?.onFinishHydration?.(run);
 
     // If already hydrated when subscription completes, run immediately
     if (persistApi?.hasHydrated?.()) {
@@ -54,7 +55,7 @@ export const CheckoutButton = ({
     return () => {
       unsubscribe?.();
     };
-  }, [tenantSlug, session?.user?.id]); // 🔍 note: NO `session?.user` here
+  }, [tenantSlug, session?.user?.id]);
 
   const { totalItems } = useCart(tenantSlug, session?.user?.id);
 
