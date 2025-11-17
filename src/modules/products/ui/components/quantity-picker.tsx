@@ -13,6 +13,13 @@ interface Props {
 }
 
 const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
+  if (process.env.NODE_ENV === 'development') {
+    if (quantity < 1 || quantity > quantityAvailable) {
+      console.warn(
+        `QuantityPicker: quantity (${quantity}) is outside valid bounds [1, ${quantityAvailable}]`
+      );
+    }
+  }
   if (quantityAvailable <= 1) return null;
 
   const canIncrement = quantity + 1 <= quantityAvailable;
