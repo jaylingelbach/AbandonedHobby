@@ -27,7 +27,7 @@ const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
 
   const handleDecrement = () => {
     if (!canDecrement) return;
-    onChange(Math.max(1, quantity - 1));
+    onChange(quantity - 1);
   };
 
   const handleIncrement = () => {
