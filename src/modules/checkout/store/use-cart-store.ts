@@ -255,12 +255,14 @@ export const useCartStore = create<CartState>()(
             const normalizedQuantity: Quantity =
               typeof quantity === 'number' &&
               Number.isFinite(quantity) &&
-              quantity > 0
-                ? Math.trunc(quantity)
+              quantity > 0 &&
+              Number.isInteger(quantity)
+                ? quantity
                 : typeof existingQty === 'number' &&
                     Number.isFinite(existingQty) &&
-                    existingQty > 0
-                  ? Math.trunc(existingQty)
+                    existingQty > 0 &&
+                    Number.isInteger(existingQty)
+                  ? existingQty
                   : 1;
 
             const nextQuantities: Record<string, Quantity> = {
