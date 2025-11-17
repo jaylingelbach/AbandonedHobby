@@ -30,8 +30,10 @@ export const CheckoutItem = ({
   onRemove
 }: CheckoutItemProps) => {
   const unitPrice = typeof price === 'number' ? price : 0;
-  const lineTotal = unitPrice * (quantity || 1);
+  const lineTotal = unitPrice * quantity;
   const canDecrement = quantity > 1;
+  const maxQuantity = 99;
+  const canIncrement = quantity < maxQuantity;
 
   const handleDecrement = () => {
     if (!canDecrement) return;
@@ -39,6 +41,7 @@ export const CheckoutItem = ({
   };
 
   const handleIncrement = () => {
+    if (!canIncrement) return;
     onQuantityChange(quantity + 1);
   };
 

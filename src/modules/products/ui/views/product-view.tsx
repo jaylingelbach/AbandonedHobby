@@ -340,7 +340,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   {canPurchase && (
                     <QuantityPicker
                       quantity={quantity}
-                      quantityAvailable={trackInventory ? stockQuantity : 999}
+                      quantityAvailable={trackInventory ? stockQuantity : 99}
                       onChange={setQuantity}
                     />
                   )}
