@@ -41,6 +41,7 @@ import CheckoutBanner from './checkout-banner';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
 import { toProductWithShipping } from '../../utils/to-product-with-shipping';
+import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
 
 interface CheckoutViewProps {
   tenantSlug: string;
@@ -355,7 +356,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  const lines = useMemo(
+  const lines = useMemo<CheckoutLineInput[]>(
     () =>
       productIds.map((id) => ({
         productId: id,
