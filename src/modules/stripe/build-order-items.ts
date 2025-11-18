@@ -1,15 +1,20 @@
-import { daysForPolicy } from '@/lib/server/utils';
-import type { Product } from '@/payload-types';
-
-import {
-  type ExpandedLineItem,
-  requireStripeProductIdFromLine
-} from './guards';
-
-import { usdToCents } from '@/lib/money';
-import { parseQuantity, type Quantity } from '@/lib/validation/quantity';
-
+// ─── Type-only Imports ───────────────────────────────────────────────────────
 import type Stripe from 'stripe';
+import type { Product } from '@/payload-types';
+import { type ExpandedLineItem } from './guards';
+import { type Quantity } from '@/lib/validation/quantity';
+
+// ─── Money & Pricing Utilities ───────────────────────────────────────────────
+import { usdToCents } from '@/lib/money';
+
+// ─── Order Quantity & Validation ─────────────────────────────────────────────
+import { parseQuantity } from '@/lib/validation/quantity';
+
+// ─── Stripe Guards ───────────────────────────────────────────────────────────
+import { requireStripeProductIdFromLine } from './guards';
+
+// ─── General Server Utilities ────────────────────────────────────────────────
+import { daysForPolicy } from '@/lib/server/utils';
 
 /** RefundPolicy type from Product, excluding null. */
 type RefundPolicy = Exclude<Product['refundPolicy'], null>;
@@ -21,6 +26,7 @@ export type OrderItemOutput = {
   nameSnapshot: string;
   unitAmount: number; // cents
   quantity: Quantity;
+  g;
   amountSubtotal: number; // cents
   amountTax?: number; // cents
   amountTotal: number; // cents

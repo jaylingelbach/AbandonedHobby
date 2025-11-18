@@ -1,3 +1,8 @@
+// ─── Type-only Imports ───────────────────────────────────────────────────────
+import type { CollectionConfig, FieldAccess } from 'payload';
+import type { ShippingMode } from '@/modules/orders/types';
+
+// ─── Access Control Utilities ────────────────────────────────────────────────
 import { isSuperAdmin } from '@/lib/access';
 import {
   beforeChangeOrderShipment,
@@ -6,16 +11,16 @@ import {
   readOrdersAccess,
   updateOrdersAccess
 } from '@/lib/server/payload-utils/orders';
-
 import { afterChangeOrders } from '@/lib/server/payload-utils/order-afterChange';
-import { mirrorShipmentsArrayToSingle } from '@/lib/server/orders/mirror-shipments-to-single';
-import { lockAndCalculateAmounts } from '@/lib/server/orders/lock-and-calc-amounts';
 
-import type { CollectionConfig, FieldAccess } from 'payload';
+// ─── Order Logic / Calculations ──────────────────────────────────────────────
+import { lockAndCalculateAmounts } from '@/lib/server/orders/lock-and-calc-amounts';
 import { autoSetDeliveredAt } from '@/lib/server/orders/auto-delivered-at';
-import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
 import { computeLatestShippedAt } from '@/lib/server/orders/compute-latest-shipped-at';
-import type { ShippingMode } from '@/modules/orders/types';
+import { mirrorShipmentsArrayToSingle } from '@/lib/server/orders/mirror-shipments-to-single';
+import { mirrorSingleShipmentToArray } from '@/lib/server/orders/mirror-single-to-shipments';
+
+// ─── Utilities ────────────────────────────────────────────────────
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 const readIfSuperAdmin: FieldAccess = ({ req }) => {
