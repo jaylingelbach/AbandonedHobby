@@ -26,7 +26,6 @@ export type OrderItemOutput = {
   nameSnapshot: string;
   unitAmount: number; // cents
   quantity: Quantity;
-  g;
   amountSubtotal: number; // cents
   amountTax?: number; // cents
   amountTotal: number; // cents
