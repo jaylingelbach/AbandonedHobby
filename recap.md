@@ -5357,4 +5357,50 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 ### Product UI Components
 
 - src/modules/products/ui/components/cart-button.tsx, src/modules/products/ui/views/product-view.tsx
-  - Added quantity prop to CartButton and passed effectiveQuantity to toggleProduct; introduced local quantity state in ProductView with QuantityPicker rendering and wired quantity through to CartButton
+  - Added quantity prop to CartButton and passed effectiveQuantity to toggleProduct; introduced local quantity state in ProductView with QuantityPicker rendering and wired quantity through to CartButton.
+
+# Quantity checkout and stripe 11/18/25
+
+## Walkthrough
+
+- The PR makes checkout quantity-aware: adds a zod CheckoutLineInput type, updates the server purchase procedure to accept and normalize per-line quantities, adjusts inventory/price/shipping/Stripe handling for quantities, updates the UI to send lines, and updates a store method type to use Quantity.
+
+## New Features
+
+- Enhanced checkout to support quantity validation per product line
+- Added per-product purchase limit enforcement with detailed error messaging
+
+## Bug Fixes
+
+- Improved inventory validation to accurately check stock against requested quantities
+
+## Documentation
+
+- Updated checkout utility documentation for clarity
+
+## File changes
+
+### Validation & Types
+
+- src/lib/validation/seller-order-validation-types.ts
+  - Adds MAX_CHECKOUT_QUANTITY and exports a new CheckoutLineInput zod schema (productId, quantity) and its inferred TypeScript type.
+
+### Server: Checkout Procedure
+
+- src/modules/checkout/server/procedures.ts
+  - Replaces productIds input with lines: CheckoutLineInput[]; normalizes lines into quantityByProductId; validates per-line integer/positive quantities; enforces stock and maxPerOrder per product; updates subtotal, shipping, platform-fee, Stripe line items, and analytics to account for quantities.
+
+### Store Types
+
+- src/modules/checkout/store/types.ts
+  - Changes CartState.addProduct signature: quantity?: number → quantity?: Quantity.
+
+### UI: Checkout View
+
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Computes lines: CheckoutLineInput[] from product IDs and quantities; replaces mutation payloads to send { lines } at three call sites.
+
+### Server Utilities (doc/style)
+
+- src/modules/checkout/server/utils.ts
+  - Minor docstring and formatting edits (removed a sentence and a blank line); no behavior changes.
