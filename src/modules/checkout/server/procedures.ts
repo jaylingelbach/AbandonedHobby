@@ -25,6 +25,7 @@ import {
   computeFlatShippingCentsForCart,
   type ProductForShipping
 } from './utils';
+import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
 
 export const runtime = 'nodejs';
 
@@ -42,6 +43,7 @@ function parseProductShipping(product: unknown): ProductForShipping {
       issues: parsed.error.issues
     });
   }
+
   return {
     id: (product as { id: string }).id,
     shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
@@ -132,14 +134,49 @@ export const checkoutRouter = createTRPCRouter({
   purchase: protectedProcedure
     .input(
       z.object({
-        productIds: z
-          .array(z.string())
+        lines: z
+          .array(CheckoutLineInput)
           .min(1, 'At least one product is required')
       })
     )
     .mutation(async ({ ctx, input }) => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      /**
+       * Normalize incoming lines into a map of productId -> quantity.
+       * This:
+       * - trims product IDs,
+       * - ignores zero/negative quantities (should not happen thanks to Zod),
+       * - merges duplicate productIds by summing quantities.
+       */
+      const quantityByProductId = new Map<string, number>();
+      for (const line of input.lines) {
+        const productId = line.productId.trim();
+        if (!productId) continue;
+
+        const rawQuantity = line.quantity;
+        const safeQuantity =
+          typeof rawQuantity === 'number' &&
+          Number.isFinite(rawQuantity) &&
+          rawQuantity > 0
+            ? Math.trunc(rawQuantity)
+            : 0;
+
+        if (safeQuantity <= 0) continue;
+
+        const existing = quantityByProductId.get(productId) ?? 0;
+        quantityByProductId.set(productId, existing + safeQuantity);
+      }
+
+      if (quantityByProductId.size === 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'At least one product with a positive quantity is required.'
+        });
+      }
+
+      const productIds = Array.from(quantityByProductId.keys());
 
       /**
        * Extracts a tenant ID from a Tenant object or tenant ID string.
@@ -165,19 +202,18 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      const uniqueProductIds = Array.from(new Set(input.productIds));
       const productsRes = await ctx.db.find({
         collection: 'products',
         depth: 2,
         where: {
           and: [
-            { id: { in: uniqueProductIds } },
+            { id: { in: productIds } },
             { isArchived: { not_equals: true } }
           ]
         }
       });
 
-      if (productsRes.totalDocs !== uniqueProductIds.length) {
+      if (productsRes.totalDocs !== productIds.length) {
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: 'Product not found'
@@ -218,43 +254,83 @@ export const checkoutRouter = createTRPCRouter({
         });
       }
 
-      // Inventory precheck (quantity=1 per product)
+      // Inventory + per-order limits
       const getInventoryInfo = (product: (typeof products)[0]) => {
         const p = product as {
           trackInventory?: boolean;
           stockQuantity?: number;
+          maxPerOrder?: number;
         };
         return {
           trackInventory: Boolean(p.trackInventory),
           stockQuantity:
-            typeof p.stockQuantity === 'number' ? p.stockQuantity : 0
+            typeof p.stockQuantity === 'number' ? p.stockQuantity : 0,
+          maxPerOrder:
+            typeof p.maxPerOrder === 'number' && p.maxPerOrder > 0
+              ? p.maxPerOrder
+              : null
         };
       };
 
-      const soldOutNames: string[] = [];
+      const insufficientStock: string[] = [];
+      const exceededPerOrderLimit: string[] = [];
+
       for (const product of products) {
-        const { trackInventory, stockQuantity } = getInventoryInfo(product);
-        if (trackInventory && stockQuantity <= 0) {
-          soldOutNames.push(product.name ?? 'Item');
+        const productId = String(product.id);
+        const requestedQuantity = quantityByProductId.get(productId) ?? 0;
+        if (requestedQuantity <= 0) continue;
+
+        const { trackInventory, stockQuantity, maxPerOrder } =
+          getInventoryInfo(product);
+
+        if (trackInventory) {
+          if (stockQuantity <= 0) {
+            insufficientStock.push(product.name ?? 'Item');
+          } else if (requestedQuantity > stockQuantity) {
+            insufficientStock.push(product.name ?? 'Item');
+          }
+        }
+
+        if (maxPerOrder && requestedQuantity > maxPerOrder) {
+          exceededPerOrderLimit.push(
+            `${product.name ?? 'Item'} (max ${maxPerOrder})`
+          );
         }
       }
 
-      if (soldOutNames.length > 0) {
+      if (insufficientStock.length > 0) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: `These items are sold out: ${soldOutNames.join(', ')}`
+          message: `Not enough stock for: ${insufficientStock.join(', ')}`
         });
       }
 
-      // Stripe line items (product price only; shipping added separately)
+      if (exceededPerOrderLimit.length > 0) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `You can only purchase limited quantities for: ${exceededPerOrderLimit.join(', ')}`
+        });
+      }
+
+      // Stripe line items (use actual cart quantity, not stock)
       const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] =
         products.map((product: Product) => {
+          const productId = String(product.id);
+          const quantity = quantityByProductId.get(productId) ?? 0;
+
+          if (!Number.isInteger(quantity) || quantity <= 0) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'Invalid quantity for one of the products.'
+            });
+          }
+
           const unitAmountCents = usdToCents(
             product.price as unknown as string | number
           );
 
           return {
-            quantity: 1,
+            quantity,
             price_data: {
               unit_amount: unitAmountCents,
               tax_behavior: 'exclusive',
@@ -274,18 +350,24 @@ export const checkoutRouter = createTRPCRouter({
           };
         });
 
-      // Compute product subtotal & platform fee
-      const productSubtotalCents = products.reduce(
-        (accumulator, current) =>
-          accumulator + usdToCents(current.price as unknown as string | number),
-        0
-      );
+      // Compute product subtotal & platform fee (respect quantities)
+      const productSubtotalCents = products.reduce((accumulator, product) => {
+        const productId = String(product.id);
+        const quantity = quantityByProductId.get(productId) ?? 0;
+        if (!Number.isInteger(quantity) || quantity <= 0) return accumulator;
+
+        const unitAmountCents = usdToCents(
+          product.price as unknown as string | number
+        );
+        return accumulator + unitAmountCents * quantity;
+      }, 0);
+
       const platformFeeCents = Math.max(
         0,
         Math.round(productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
       );
 
-      // compute flat shipping (single checkout-level amount)
+      // compute flat shipping (single checkout-level amount; quantity-aware shipping is Phase 5)
       const productsForShipping: ProductForShipping[] =
         products.map(parseProductShipping);
 
@@ -347,7 +429,7 @@ export const checkoutRouter = createTRPCRouter({
         sellerStripeAccountId: truncateToStripeMetadata(
           String(sellerTenant.stripeAccountId)
         ),
-        productIds: truncateToStripeMetadata(input.productIds.join(',')),
+        productIds: truncateToStripeMetadata(productIds.join(',')),
         shippingCents: truncateToStripeMetadata(String(shippingCents)),
         ah_fee_basis: 'items-subtotal',
         ah_items_subtotal_cents: truncateToStripeMetadata(
@@ -495,12 +577,17 @@ export const checkoutRouter = createTRPCRouter({
 
         // Analytics (non-blocking)
         try {
+          const itemCount = Array.from(quantityByProductId.values()).reduce(
+            (sum, qty) => sum + qty,
+            0
+          );
+
           posthogServer?.capture({
             distinctId: user.id,
             event: 'checkoutStarted',
             properties: {
-              productIds: input.productIds,
-              itemCount: products.length,
+              productIds,
+              itemCount,
               productSubtotalCents,
               shippingCents,
               platformFeeCents,
