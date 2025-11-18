@@ -286,11 +286,8 @@ export const checkoutRouter = createTRPCRouter({
         if (trackInventory) {
           if (stockQuantity <= 0) {
             insufficientStock.push(product.name ?? 'Item');
-            continue;
-          }
-          if (requestedQuantity > stockQuantity) {
+          } else if (requestedQuantity > stockQuantity) {
             insufficientStock.push(product.name ?? 'Item');
-            continue;
           }
         }
 
