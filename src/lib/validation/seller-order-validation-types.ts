@@ -13,3 +13,10 @@ export const zIsoString = z.string().datetime();
 export const zNullableString = z.string().nullable().optional();
 
 export const zShippingMode = z.enum(['free', 'flat', 'calculated']);
+
+export const CheckoutLineInput = z.object({
+  productId: z.string().min(1),
+  quantity: zQuantityInt.max(99)
+});
+
+export type CheckoutLineInput = z.infer<typeof CheckoutLineInput>;

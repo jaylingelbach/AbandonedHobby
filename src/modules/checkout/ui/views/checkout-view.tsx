@@ -355,6 +355,15 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
+  const lines = useMemo(
+    () =>
+      productIds.map((id) => ({
+        productId: id,
+        quantity: readQuantityOrDefault(quantitiesByProductId[id])
+      })),
+    [productIds, quantitiesByProductId]
+  );
+
   // ----- Early-return UIs -----
 
   if (productIds.length > 0 && isLoading) {
@@ -363,7 +372,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {states.cancel && (
           <CheckoutBanner
             disabled={disableResume}
-            onReturnToCheckout={() => purchase.mutate({ productIds })}
+            onReturnToCheckout={() => purchase.mutate({ lines })}
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
               clearCart();
@@ -437,7 +446,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       {states.cancel && (
         <CheckoutBanner
           disabled={disableResume}
-          onReturnToCheckout={() => purchase.mutate({ productIds })}
+          onReturnToCheckout={() => purchase.mutate({ lines })}
           onDismiss={() => setStates({ cancel: false, success: false })}
           onClearCart={() => {
             clearCart();
@@ -499,7 +508,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             subtotalCents={subtotalCents}
             shippingCents={shippingCents}
             totalCents={totalCents}
-            onPurchaseAction={() => purchase.mutate({ productIds })}
+            onPurchaseAction={() => purchase.mutate({ lines })}
             isCanceled={states.cancel}
             disabled={isBusy}
             hasCalculatedShipping={hasCalculatedShipping}

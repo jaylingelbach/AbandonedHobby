@@ -44,7 +44,6 @@ export type ProductForShipping = {
   shippingMode?: 'free' | 'flat' | 'calculated' | null;
   shippingFlatFee?: number | null; // USD as number in your schema
 };
-
 /**
  * Computes a single Checkout-level fixed shipping amount for a cart.
  * Returns { shippingCents, hasCalculated }. If hasCalculated is true, you should
