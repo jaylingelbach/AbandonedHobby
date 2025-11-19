@@ -658,7 +658,26 @@
     pointer-events: none;
   }
 
+  /* Two-column layout: reason on the left, refund shipping on the right */
+  .ah-refund-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    column-gap: 16px;
+    align-items: flex-end;
+  }
+
+  /* Push the refund shipping field to the right edge */
+  .ah-refund-grid > .ah-field:last-child {
+    justify-self: end;
+  }
+
   /* === Generic toolbar & pager (GLOBAL, reused) ========================= */
+
+  .ah-pager__page {
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+
   .ah-toolbar {
     display: flex;
     flex-wrap: wrap;
@@ -879,11 +898,6 @@
   padding: 6px 10px;
   border-radius: 8px;
   font-weight: 700;
-}
-
-.ah-pager__page {
-  padding-left: 5px;
-  padding-right: 5px;
 }
 
 /* Status badges (GLOBAL) */

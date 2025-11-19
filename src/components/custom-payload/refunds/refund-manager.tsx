@@ -65,7 +65,7 @@ function dbgTable(
 /**
  * Renders the admin RefundManager UI for inspecting an order's refundable state and creating refunds.
  *
- * Displays per-line refund controls, shipping/restocking inputs, a live refund preview, and a create-refund action.
+ * Displays per-line refund controls and shipping inputs, a live refund preview, and a create-refund action.
  * Fetches order data and server-side refund state, auto-populates refundable shipping when available, enforces server-driven limits,
  * and submits refunds to the server (including support for shipping-only refunds and idempotency keys).
  *
@@ -114,9 +114,6 @@ export function RefundManager() {
   >('requested_by_customer');
   const [refundShippingDollars, setRefundShippingDollars] =
     useState<string>('');
-  const [restockingFeeDollars, setRestockingFeeDollars] =
-    useState<string>('0.00');
-
   const [hasEditedShipping, setHasEditedShipping] = useState(false);
 
   const isOrdersCollection = collectionSlug === 'orders';
@@ -407,25 +404,15 @@ export function RefundManager() {
     () => parseMoneyToCents(refundShippingDollars),
     [refundShippingDollars]
   );
-  const restockingFeeCentsValue = useMemo(
-    () => parseMoneyToCents(restockingFeeDollars),
-    [restockingFeeDollars]
-  );
 
   const previewCents = useMemo(
     () =>
       computePreviewCents(
         itemsSubtotalCents,
         partialAmountsTotalCents,
-        parseMoneyToCents(refundShippingDollars),
-        parseMoneyToCents(restockingFeeDollars)
+        parseMoneyToCents(refundShippingDollars)
       ),
-    [
-      itemsSubtotalCents,
-      partialAmountsTotalCents,
-      refundShippingDollars,
-      restockingFeeDollars
-    ]
+    [itemsSubtotalCents, partialAmountsTotalCents, refundShippingDollars]
   );
 
   const isFullyRefunded =
@@ -517,7 +504,6 @@ export function RefundManager() {
     });
 
     const shippingCents = refundShippingCentsValue;
-    const restockingCents = restockingFeeCentsValue;
 
     // Allow either line selections OR shipping-only (positive shippingCents)
     if (selections.length === 0 && shippingCents <= 0) {
@@ -555,7 +541,6 @@ export function RefundManager() {
         selections,
         options: {
           reason,
-          restockingFeeCents: restockingCents,
           refundShippingCents: shippingCents
         }
       });
@@ -568,8 +553,7 @@ export function RefundManager() {
       reason,
       selections: apiSelections,
       idempotencyKey,
-      refundShippingCents: shippingCents > 0 ? shippingCents : undefined,
-      restockingFeeCents: restockingCents > 0 ? restockingCents : undefined
+      refundShippingCents: shippingCents > 0 ? shippingCents : undefined
     };
 
     setIsLoading(true);
@@ -602,7 +586,6 @@ export function RefundManager() {
       setQuantitiesByItemId({});
       setPartialAmountByItemId({});
       setRefundShippingDollars('');
-      setRestockingFeeDollars('0.00');
       setHasEditedShipping(false);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Refund failed.');
@@ -912,7 +895,7 @@ export function RefundManager() {
           </div>
         </div>
 
-        <div className="ah-grid ah-grid-3 ah-refund-grid mt-3">
+        <div className="ah-grid ah-grid-2 ah-refund-grid mt-3">
           <label className="ah-field">
             <span className="ah-mini-label">Reason</span>
             <select
@@ -979,25 +962,6 @@ export function RefundManager() {
               </div>
             )}
           </label>
-
-          <label className="ah-field">
-            <span className="ah-mini-label">Restocking fee</span>
-            <div className="ah-money">
-              <span aria-hidden className="ah-money-prefix">
-                $
-              </span>
-              <input
-                type="text"
-                className="ah-input ah-money-input"
-                inputMode="decimal"
-                placeholder="0.00"
-                value={restockingFeeDollars}
-                onChange={(event) =>
-                  setRestockingFeeDollars(cleanMoneyInput(event.target.value))
-                }
-              />
-            </div>
-          </label>
         </div>
 
         <Separator className="my-3" />
@@ -1022,12 +986,6 @@ export function RefundManager() {
               <span className="ah-summary-label">+ Refund shipping: </span>
               <span className="ah-summary-value">
                 {formatCurrency(refundShippingCentsValue / 100, currency)}
-              </span>
-            </div>
-            <div className="ah-summary-row">
-              <span className="ah-summary-label">− Restocking fee: </span>
-              <span className="ah-summary-value">
-                {formatCurrency(restockingFeeCentsValue / 100, currency)}
               </span>
             </div>
             <div className="ah-summary-divider" />

@@ -122,21 +122,18 @@ export function computeItemsSubtotalCents(args: {
   }, 0);
 }
 
-/** itemsSubtotal + partials + shipping - restocking */
+/** itemsSubtotal + partials + shipping */
 export function computePreviewCents(
   itemsSubtotalCents: number,
   partialAmountsTotalCents: number,
-  refundShippingCents: number,
-  restockingFeeCents: number
+  refundShippingCents: number
 ): number {
-  return (
-    itemsSubtotalCents +
-    partialAmountsTotalCents +
-    Math.max(0, refundShippingCents) -
-    Math.max(0, restockingFeeCents)
-  );
+  const safeShipping =
+    Number.isFinite(refundShippingCents) && refundShippingCents > 0
+      ? refundShippingCents
+      : 0;
+  return itemsSubtotalCents + partialAmountsTotalCents + safeShipping;
 }
-
 /** Build LineSelection[]: amount overrides quantity per line. */
 export function buildSelections(args: {
   refundLines: RefundLine[];
