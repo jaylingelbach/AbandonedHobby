@@ -133,7 +133,6 @@ export function computePreviewCents(
       ? refundShippingCents
       : 0;
   return itemsSubtotalCents + partialAmountsTotalCents + safeShipping;
-  g;
 }
 /** Build LineSelection[]: amount overrides quantity per line. */
 export function buildSelections(args: {
