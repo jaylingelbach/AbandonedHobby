@@ -96,7 +96,8 @@ export function toOrderItemFromLine(
 
   const shippingSubtotalCents =
     shippingMode === 'flat' && typeof shippingFeeCentsPerUnit === 'number'
-      ? shippingFeeCentsPerUnit * quantity
+      ? // Overflow checked in Orders.ts beforeValidate hook
+        shippingFeeCentsPerUnit * quantity
       : undefined;
 
   return {

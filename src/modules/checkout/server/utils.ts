@@ -77,7 +77,12 @@ export function computeFlatShippingCentsForCart(
         allowNegative: false
       });
 
-      shippingCents += perUnitCents * quantity;
+      // overflow protection for large quantities, unlikely to happen in practice.
+      const lineShipping = perUnitCents * quantity;
+      if (!Number.isSafeInteger(lineShipping)) {
+        throw new Error('Shipping calculation exceeds safe integer range');
+      }
+      shippingCents += lineShipping;
     } else if (mode === 'calculated') {
       hasCalculated = true;
     }
