@@ -367,12 +367,14 @@ export const checkoutRouter = createTRPCRouter({
         Math.round(productSubtotalCents * DECIMAL_PLATFORM_PERCENTAGE)
       );
 
-      // compute flat shipping (single checkout-level amount; quantity-aware shipping is Phase 5)
+      // Compute flat shipping with quantity-aware calculation
       const productsForShipping: ProductForShipping[] =
         products.map(parseProductShipping);
 
-      const { shippingCents, hasCalculated } =
-        computeFlatShippingCentsForCart(productsForShipping);
+      const { shippingCents, hasCalculated } = computeFlatShippingCentsForCart(
+        productsForShipping,
+        quantityByProductId
+      );
 
       if (hasCalculated && shippingCents > 0) {
         throw new TRPCError({

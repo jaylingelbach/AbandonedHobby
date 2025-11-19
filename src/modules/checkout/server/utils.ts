@@ -1,4 +1,4 @@
-import { usdNumberToCents } from '@/lib/money';
+import { usdToCents } from '@/lib/money';
 import { getBestUrlFromMedia } from '@/lib/utils';
 import { STRIPE_METADATA_MAX_LENGTH } from '@/constants';
 
@@ -50,15 +50,34 @@ export type ProductForShipping = {
  * NOT add a fixed shipping option to the Session.
  */
 export function computeFlatShippingCentsForCart(
-  products: ProductForShipping[]
+  products: ProductForShipping[],
+  quantityByProductId?: Map<string, number>
 ): { shippingCents: number; hasCalculated: boolean } {
   let shippingCents = 0;
   let hasCalculated = false;
 
   for (const product of products) {
     const mode = product.shippingMode ?? 'free';
+
     if (mode === 'flat') {
-      shippingCents += usdNumberToCents(product.shippingFlatFee ?? 0);
+      let quantity: number;
+
+      if (quantityByProductId) {
+        const raw = quantityByProductId.get(product.id) ?? 0;
+        quantity = Number.isFinite(raw) && raw > 0 ? Math.trunc(raw) : 0;
+
+        // If the map says 0 or invalid, skip this product
+        if (quantity <= 0) continue;
+      } else {
+        // Preview / legacy behavior: one unit per product
+        quantity = 1;
+      }
+
+      const perUnitCents = usdToCents(product.shippingFlatFee ?? 0, {
+        allowNegative: false
+      });
+
+      shippingCents += perUnitCents * quantity;
     } else if (mode === 'calculated') {
       hasCalculated = true;
     }

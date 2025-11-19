@@ -126,14 +126,12 @@ export function computeItemsSubtotalCents(args: {
 export function computePreviewCents(
   itemsSubtotalCents: number,
   partialAmountsTotalCents: number,
-  refundShippingCents: number,
-  restockingFeeCents: number
+  refundShippingCents: number
 ): number {
   return (
     itemsSubtotalCents +
     partialAmountsTotalCents +
-    Math.max(0, refundShippingCents) -
-    Math.max(0, restockingFeeCents)
+    Math.max(0, refundShippingCents)
   );
 }
 

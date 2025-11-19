@@ -1,6 +1,7 @@
 import type { AdminViewServerProps, Where } from 'payload';
 import { buildSellerOrdersWhere } from '@/modules/orders/server/utils';
 import type { GetInput, SellerOrderRow } from '../types';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 /**
  * Determines whether a string represents a valid ISO date in `YYYY-MM-DD` form (optionally with time) and matches the parsed Date.
@@ -133,23 +134,33 @@ export async function getSellerOrdersData(
       carrier?: 'usps' | 'ups' | 'fedex' | 'other';
       trackingNumber?: string | null;
     } | null;
-    items?: unknown[] | null;
+    items?: { quantity?: number | null }[] | null;
   };
 
-  const items: SellerOrderRow[] = (result.docs as RawRow[]).map((doc) => ({
-    id: String(doc.id),
-    orderNumber:
-      typeof doc.orderNumber === 'string' ? doc.orderNumber : String(doc.id),
-    createdAtISO: doc.createdAt,
-    buyerEmail: doc.buyerEmail ?? null,
-    itemCount: Array.isArray(doc.items) ? doc.items.length : 0,
-    totalCents: typeof doc.total === 'number' ? doc.total : 0,
-    currency: doc.currency ?? 'USD',
-    status: (doc.fulfillmentStatus ??
-      'unfulfilled') as SellerOrderRow['status'],
-    carrier: doc.shipment?.carrier ?? undefined,
-    trackingNumber: doc.shipment?.trackingNumber?.trim() || undefined
-  }));
+  const items: SellerOrderRow[] = (result.docs as RawRow[]).map((doc) => {
+    const itemCount = Array.isArray(doc.items)
+      ? doc.items.reduce((sum, row) => {
+          const quantityRaw = (row as { quantity?: unknown }).quantity;
+          const quantity = readQuantityOrDefault(quantityRaw);
+          return sum + quantity;
+        }, 0)
+      : 0;
+
+    return {
+      id: String(doc.id),
+      orderNumber:
+        typeof doc.orderNumber === 'string' ? doc.orderNumber : String(doc.id),
+      createdAtISO: doc.createdAt,
+      buyerEmail: doc.buyerEmail ?? null,
+      itemCount,
+      totalCents: typeof doc.total === 'number' ? doc.total : 0,
+      currency: doc.currency ?? 'USD',
+      status: (doc.fulfillmentStatus ??
+        'unfulfilled') as SellerOrderRow['status'],
+      carrier: doc.shipment?.carrier ?? undefined,
+      trackingNumber: doc.shipment?.trackingNumber?.trim() || undefined
+    };
+  });
 
   return {
     items,

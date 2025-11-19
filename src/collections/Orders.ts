@@ -45,7 +45,7 @@ export const Orders: CollectionConfig = {
       mirrorSingleShipmentToArray,
       mirrorShipmentsArrayToSingle,
       lockAndCalculateAmounts,
-      async (args) => computeLatestShippedAt(args),
+      computeLatestShippedAt,
       autoSetDeliveredAt
     ],
     beforeValidate: [
