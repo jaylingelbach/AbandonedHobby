@@ -128,13 +128,13 @@ export function computePreviewCents(
   partialAmountsTotalCents: number,
   refundShippingCents: number
 ): number {
-  return (
-    itemsSubtotalCents +
-    partialAmountsTotalCents +
-    Math.max(0, refundShippingCents)
-  );
+  const safeShipping =
+    Number.isFinite(refundShippingCents) && refundShippingCents > 0
+      ? refundShippingCents
+      : 0;
+  return itemsSubtotalCents + partialAmountsTotalCents + safeShipping;
+  g;
 }
-
 /** Build LineSelection[]: amount overrides quantity per line. */
 export function buildSelections(args: {
   refundLines: RefundLine[];
