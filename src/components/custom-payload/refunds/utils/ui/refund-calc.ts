@@ -122,7 +122,7 @@ export function computeItemsSubtotalCents(args: {
   }, 0);
 }
 
-/** itemsSubtotal + partials + shipping - restocking */
+/** itemsSubtotal + partials + shipping */
 export function computePreviewCents(
   itemsSubtotalCents: number,
   partialAmountsTotalCents: number,

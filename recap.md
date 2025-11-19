@@ -5404,3 +5404,44 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/checkout/server/utils.ts
   - Minor docstring and formatting edits (removed a sentence and a blank line); no behavior changes.
+
+# Quantity shipping and refunds 11/19/25
+
+## Walkthrough
+
+- This PR integrates quantity-aware shipping calculations across checkout and order processing, removes the restocking fee feature from refunds, simplifies refund UI layouts, and establishes new order item output structures with embedded shipping metadata.
+
+## New Features
+
+- Shipping calculations now account for individual product quantities per order, enabling more accurate and dynamic shipping cost estimation.
+
+## Bug Fixes
+
+- Fixed item count calculations in seller orders to accurately sum product quantities instead of using array length.
+- Simplified refund management by removing the restocking fee feature from the refund process.
+
+## Style
+
+- Refined refund interface layout and pager component styling for improved presentation.
+
+## File changes
+
+### Refund Feature Removal & UI Simplification
+
+- src/app/(payload)/custom.scss, src/components/custom-payload/refunds/refund-manager.tsx, src/components/custom-payload/refunds/utils/ui/refund-calc.ts
+  - Removes restocking fee state and calculations; reduces refund grid from 3 to 2 columns; eliminates restocking fee from idempotency key and API payload; updates computePreviewCents signature to remove restockingFeeCents parameter.
+
+### Order Collection & Shipment Logic
+
+- src/collections/Orders.ts
+  - Replaces async wrapper with direct function reference in beforeChange pipeline (computeLatestShippedAt); reorganizes imports under "Order Logic / Calculations" section; adds type-only imports and shipment-mirroring functions.
+
+### Quantity-Aware Shipping Calculations
+
+- src/modules/checkout/server/procedures.ts, src/modules/checkout/server/utils.ts
+  - Extends computeFlatShippingCentsForCart to accept optional quantityByProductId map; updates shipping logic to compute quantity per product and apply per-unit fees; defaults to quantity = 1 for legacy behavior; updates import from usdNumberToCents to usdToCents.
+
+### Order Item Output Structure & Metadata
+
+- src/modules/stripe/build-order-items.ts, src/payload/views/seller-orders/seller-orders-utils.ts
+  - Introduces new public types (ShippingMode, OrderItemOutput) and functions (toOrderItemFromLine, buildOrderItems, earliestReturnsCutoffISO); updates seller-orders-utils.ts to compute itemCount by summing quantities instead of array length.
