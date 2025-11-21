@@ -1,9 +1,13 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import type { CartState, TenantCartSlice } from '../store/types';
 import { useShallow } from 'zustand/react/shallow';
+import {
+  CartLineForAnalytics,
+  trackCartUpdated
+} from '../analytics/cart-analytics';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -120,8 +124,6 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  *  - `isProductInCart(productId)`: returns `true` if the product ID is currently in the cart, `false` otherwise
  */
 export function useCart(tenantSlug?: string | null, _userId?: string | null) {
-  void _userId;
-
   const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
   const selectTenantSliceBase = useCallback(
@@ -147,7 +149,7 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     [tenant]
   );
 
-  // ✅ Idiomatic Zustand: bound store + useShallow wrapper
+  // Idiomatic Zustand: bound store + useShallow wrapper
   const { productIds, quantitiesByProductId } = useCartStore(
     useShallow(selectTenantSliceBase)
   );
@@ -197,6 +199,24 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     }
     return sum;
   }, [productIds, quantitiesByProductId]);
+
+  // ─── Analytics: cartUpdated on cart changes ────────────────────────────
+  useEffect(() => {
+    if (productIds.length === 0) return;
+    const lines: CartLineForAnalytics[] = productIds.map((productId) => ({
+      productId,
+      quantity: quantitiesByProductId[productId] ?? 1,
+      // Prices are not available here; leave undefined.
+      unitAmountCents: undefined
+    }));
+
+    trackCartUpdated({
+      tenantSlug: tenant,
+      userId: _userId ?? null,
+      lines,
+      currency: 'USD'
+    });
+  }, [tenant, _userId, productIds, quantitiesByProductId]);
 
   return {
     productIds,

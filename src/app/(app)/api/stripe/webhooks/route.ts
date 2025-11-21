@@ -1208,9 +1208,8 @@ export async function POST(req: Request) {
           0
         );
 
-        const quantityByProductIdObject = Object.fromEntries(
-          Array.from(quantityByProductId.entries())
-        );
+        const quantityByProductIdObject =
+          Object.fromEntries(quantityByProductId);
 
         // Analytics (best-effort)
         await captureAnalyticsEvent({
