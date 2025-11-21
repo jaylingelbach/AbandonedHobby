@@ -584,12 +584,17 @@ export const checkoutRouter = createTRPCRouter({
             0
           );
 
+          const quantityByProductIdObject = Object.fromEntries(
+            Array.from(quantityByProductId.entries())
+          );
+
           posthogServer?.capture({
             distinctId: user.id,
             event: 'checkoutStarted',
             properties: {
               productIds,
-              itemCount,
+              itemCount, // total quantity across all products
+              quantityByProductId: quantityByProductIdObject, // { [productId]: quantity }
               productSubtotalCents,
               shippingCents,
               platformFeeCents,

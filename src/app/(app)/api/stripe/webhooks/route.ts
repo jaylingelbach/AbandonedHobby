@@ -1203,6 +1203,15 @@ export async function POST(req: Request) {
           );
         }
 
+        const totalQuantity = Array.from(quantityByProductId.values()).reduce(
+          (sum, qty) => sum + qty,
+          0
+        );
+
+        const quantityByProductIdObject = Object.fromEntries(
+          Array.from(quantityByProductId.entries())
+        );
+
         // Analytics (best-effort)
         await captureAnalyticsEvent({
           event: 'purchaseCompleted',
@@ -1213,6 +1222,8 @@ export async function POST(req: Request) {
             currency: currencyCode,
             productIdsFromLines: productIds,
             tenantId: payoutTenantDocument.id,
+            itemCount: totalQuantity, // total units purchased
+            quantityByProductId: quantityByProductIdObject, // { [productId]: quantity }
             $insert_id: `purchase:${session.id}`
           },
           groups: payoutTenantDocument.id
