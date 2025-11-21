@@ -10,6 +10,7 @@ import type { Media, Product, Tenant, Review } from '@/payload-types';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 
 import type { Sort, Where } from 'payload';
+import type { ProductImage } from './types';
 
 /** Media doc shape we care about (URL + optional sizes). */
 type MediaDoc = Media & {
@@ -18,12 +19,6 @@ type MediaDoc = Media & {
     thumbnail?: { url?: string | null };
     medium?: { url?: string | null };
   };
-};
-
-/** Row in Products.images array. */
-type ProductImagesRow = {
-  image?: string | MediaDoc | null;
-  alt?: string | null;
 };
 
 /** Map images[] to clean gallery items, preferring the "medium" size. */
@@ -40,7 +35,7 @@ type ProductImagesRow = {
  * @returns An array of `{ url, alt? }` objects suitable for frontend galleries; returns an empty array if input is not a valid array or contains no usable images.
  */
 function mapGalleryFromImages(
-  images: ProductImagesRow[] | undefined
+  images: ProductImage | undefined
 ): Array<{ url: string; alt?: string }> {
   if (!Array.isArray(images)) return [];
   const out: Array<{ url: string; alt?: string }> = [];
@@ -183,9 +178,7 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
-      const gallery = mapGalleryFromImages(
-        (product.images ?? undefined) as ProductImagesRow[] | undefined
-      );
+      const gallery = product.images ?? undefined;
 
       const rawMode = product.shippingMode ?? 'free';
       const shippingMode: 'free' | 'flat' | 'calculated' =

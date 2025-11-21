@@ -71,7 +71,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     removeProduct,
     clearCart,
     addProduct
-  } = useCart(tenantSlug, session?.user?.id);
+  } = useCart(tenantSlug);
 
   // Build query options once for stable keys
   const productsQueryOptions = useMemo(
