@@ -682,6 +682,9 @@ export function RefundManager() {
             <div className="ah-refund-col ah-refund-col--qty ah-refund-head-cell text-right">
               Qty Purchased
             </div>
+            <div className="ah-refund-col ah-refund-col--ship ah-refund-head-cell text-right">
+              Shipping (per unit)
+            </div>
             <div className="ah-refund-col ah-refund-col--qty ah-refund-head-cell text-right">
               Return QTY
             </div>
@@ -821,6 +824,15 @@ export function RefundManager() {
                     {line.quantityPurchased}
                   </div>
 
+                  <div className="ah-refund-col ah-refund-col--ship text-right">
+                    {typeof line.shippingSharePerUnitCents === 'number' &&
+                    line.shippingSharePerUnitCents > 0
+                      ? formatCurrency(
+                          line.shippingSharePerUnitCents / 100,
+                          currency
+                        )
+                      : '—'}
+                  </div>
                   <div className="ah-refund-col ah-refund-col--qty">
                     <input
                       type="number"

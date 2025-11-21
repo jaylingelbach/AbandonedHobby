@@ -1,9 +1,14 @@
+import { ShippingMode } from '@/modules/orders/types';
+
 export type OrderItemLite = {
   id: string;
   nameSnapshot?: string;
   unitAmount?: number; // cents
   quantity?: number;
   amountTotal?: number; // cents
+  shippingMode?: ShippingMode | null;
+  shippingFeeCentsPerUnit?: number | null;
+  shippingSubtotalCents?: number | null;
 };
 
 export type OrderLite = {
@@ -25,7 +30,9 @@ export type RefundLine = {
   quantityPurchased: number;
   quantitySelected: number;
   amountTotal?: number; // cents
+  shippingSharePerUnitCents?: number; // per purchased unit
 };
+
 // API expects individual refund selections by either quantity or amount
 export type LineSelection =
   | { itemId: string; quantity: number; amountCents?: never }
