@@ -11,6 +11,10 @@ import {
 
 const DEFAULT_TENANT = '__global__';
 
+// Prefer a configurable default currency, with USD as a safe fallback.
+const DEFAULT_CURRENCY =
+  process.env.NEXT_PUBLIC_DEFAULT_CURRENCY?.toUpperCase() ?? 'USD';
+
 // Keep storage shape stable: strip any accidental "::user" suffix
 /**
  * Normalize a tenant slug by trimming whitespace, removing any "::..." suffix and its trailing content, and defaulting to DEFAULT_TENANT when empty.
@@ -107,11 +111,10 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  *
  * The hook reads the cart bucket for the normalized tenant slug and exposes
  * product identifiers, per-product quantities, derived totals, and action
- * helpers that are bound to that tenant. The optional `_userId` parameter is
- * accepted for compatibility and is ignored by the hook.
+ * helpers that are bound to that tenant.
  *
  * @param tenantSlug - Tenant identifier that will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
- * @param _userId - Present for API compatibility; this value is not used
+ * @param userId - Optional user id used for analytics; the cart store itself is scoped by tenant only
  * @returns An object containing:
  *  - `productIds`: the ordered array of product IDs in the tenant's cart
  *  - `totalItems`: the sum of quantities for all listed product IDs (defaults each missing quantity to 1)
@@ -123,7 +126,8 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  *  - `toggleProduct(productId, quantity?)`: add (with optional quantity) if not present, otherwise remove
  *  - `isProductInCart(productId)`: returns `true` if the product ID is currently in the cart, `false` otherwise
  */
-export function useCart(tenantSlug?: string | null, _userId?: string | null) {
+
+export function useCart(tenantSlug?: string | null) {
   const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
   const selectTenantSliceBase = useCallback(
@@ -200,9 +204,12 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     return sum;
   }, [productIds, quantitiesByProductId]);
 
-  // ─── Analytics: cartUpdated on cart changes ────────────────────────────
+  // ─── Analytics: cartUpdated on cart changes (debounced) ────────────────
+  const CART_ANALYTICS_DEBOUNCE_MS = 400;
+
   useEffect(() => {
     if (productIds.length === 0) return;
+
     const lines: CartLineForAnalytics[] = productIds.map((productId) => ({
       productId,
       quantity: quantitiesByProductId[productId] ?? 1,
@@ -210,13 +217,20 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
       unitAmountCents: undefined
     }));
 
-    trackCartUpdated({
-      tenantSlug: tenant,
-      userId: _userId ?? null,
-      lines,
-      currency: 'USD'
-    });
-  }, [tenant, _userId, productIds, quantitiesByProductId]);
+    const timeoutId = window.setTimeout(() => {
+      trackCartUpdated({
+        tenantSlug: tenant,
+        // userId is intentionally omitted: PostHog identity comes from AnalyticsIdentityBridge
+        lines,
+        currency: DEFAULT_CURRENCY
+      });
+    }, CART_ANALYTICS_DEBOUNCE_MS);
+
+    // Cancel if cart changes again quickly (debounce)
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [tenant, productIds, quantitiesByProductId]);
 
   return {
     productIds,

@@ -13,15 +13,15 @@ export interface CartLineForAnalytics {
  * - itemCount: total units in cart
  * - quantityByProductId: { [productId]: quantity }
  * - subtotalCents: sum(unitAmountCents * quantity) when provided
- * - tenantSlug / userId for grouping
+ * - tenantSlug for grouping
+ * - userid is managed by the analytics-identity-bridge.tsx file
  */
 export function trackCartUpdated(args: {
   tenantSlug?: string | null;
-  userId?: string | null;
   lines: CartLineForAnalytics[];
   currency?: string;
 }): void {
-  const { tenantSlug, userId, lines, currency } = args;
+  const { tenantSlug, lines, currency } = args;
 
   const quantityByProductId: Record<string, number> = {};
   let itemCount = 0;
@@ -62,7 +62,7 @@ export function trackCartUpdated(args: {
 
   track('cartUpdated', {
     tenantSlug: tenantSlug ?? undefined,
-    userId: userId ?? undefined,
+    // userId is intentionally omitted: PostHog identity comes from AnalyticsIdentityBridge
     itemCount,
     quantityByProductId,
     ...(hasPriceData && {
