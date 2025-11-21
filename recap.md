@@ -5493,3 +5493,40 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/checkout/ui/views/order-success-summary-view.tsx
   - Remove OrderSuccessSummaryView component that fetched and displayed order summaries with suspense queries and polling.
+
+# Display shipping per item in refund manager 11/21/25
+
+## Walkthrough
+
+- This PR extends the refunds UI to display per-unit shipping information. It adds a new shipping column to the refund table, introduces shipping-related type fields across the refund data model, and implements calculation logic to derive per-unit shipping amounts from flat rates or subtotals.
+
+## New Features
+
+- Added a "Shipping (per unit)" column to the refunds table for detailed per-line shipping cost visibility.
+
+## Improvements
+
+- Enhanced refund calculation logic to properly compute and display per-unit shipping amounts based on available shipping data.
+- Updated table layout and styling to accommodate the new shipping column with improved alignment and numeric formatting.
+
+## File changes
+
+### Refund table styling
+
+- src/app/(payload)/custom.scss
+  - Expanded grid layout from 5 to 6 columns; introduced .ah-refund-col--ship for the new shipping column; applied right alignment, tabular-nums numeric formatting, and white-space: nowrap to qty, shipping, amount, and unit columns.
+
+### Refund type definitions
+
+- src/components/custom-payload/refunds/types.ts
+  - Added optional shipping fields to OrderItemLite: shippingMode, shippingFeeCentsPerUnit, shippingSubtotalCents; added shippingSharePerUnitCents to RefundLine; imported ShippingMode type.
+
+### Refund manager UI
+
+- src/components/custom-payload/refunds/refund-manager.tsx
+  - Added "Shipping (per unit)" table header; renders per-line shipping via line.shippingSharePerUnitCents formatted as currency or as em dash if absent/zero.
+
+### Refund calculation logic
+
+- src/components/custom-payload/refunds/utils/ui/refund-calc.ts
+  - Added early return for empty item lists; tightened quantityPurchased to only accept positive numbers; introduced shippingSharePerUnitCents calculation with two strategies: use flat shippingFeeCentsPerUnit if available, else derive from shippingSubtotalCents divided by quantity.

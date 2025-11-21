@@ -21,6 +21,8 @@ export function getEffectiveRemainingCents(
 /** Build UI lines from the order safely. */
 export function buildRefundLines(order: OrderLite | null): RefundLine[] {
   const items = order?.items ?? [];
+  if (items.length === 0) return [];
+
   return items
     .filter(
       (
@@ -28,10 +30,12 @@ export function buildRefundLines(order: OrderLite | null): RefundLine[] {
       ): item is OrderItemLite & { id: NonNullable<OrderItemLite['id']> } =>
         Boolean(item?.id)
     )
-
     .map((item) => {
       const quantityPurchased =
-        typeof item.quantity === 'number' ? item.quantity : 1;
+        typeof item.quantity === 'number' && item.quantity > 0
+          ? item.quantity
+          : 1;
+
       const unitAmount =
         typeof item.unitAmount === 'number'
           ? item.unitAmount
@@ -39,13 +43,39 @@ export function buildRefundLines(order: OrderLite | null): RefundLine[] {
               (item.amountTotal ?? 0) / Math.max(quantityPurchased, 1)
             );
 
+      // --- Shipping per unit: trust the server snapshot -------------------
+      let shippingSharePerUnitCents: number | undefined;
+
+      // Preferred: explicit per-unit fee from flat shipping
+      if (
+        item.shippingMode === 'flat' &&
+        typeof item.shippingFeeCentsPerUnit === 'number' &&
+        Number.isFinite(item.shippingFeeCentsPerUnit) &&
+        item.shippingFeeCentsPerUnit > 0
+      ) {
+        shippingSharePerUnitCents = Math.trunc(item.shippingFeeCentsPerUnit);
+      }
+      // Fallback: derive per-unit from subtotal if present
+      else if (
+        typeof item.shippingSubtotalCents === 'number' &&
+        Number.isFinite(item.shippingSubtotalCents) &&
+        item.shippingSubtotalCents > 0 &&
+        quantityPurchased > 0
+      ) {
+        const perUnit = Math.round(
+          item.shippingSubtotalCents / quantityPurchased
+        );
+        shippingSharePerUnitCents = perUnit > 0 ? perUnit : undefined;
+      }
+
       return {
         itemId: String(item.id),
         name: item.nameSnapshot ?? 'Item',
         unitAmount,
         quantityPurchased,
         quantitySelected: 0,
-        amountTotal: item.amountTotal
+        amountTotal: item.amountTotal,
+        shippingSharePerUnitCents
       };
     });
 }

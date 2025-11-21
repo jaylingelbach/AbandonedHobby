@@ -491,12 +491,13 @@
     display: grid;
     align-items: center;
     column-gap: 12px;
-    grid-template-columns: 1fr 100px 120px 160px 120px;
+    /* name | qty purchased | shipping | return qty | partial | unit price */
+    grid-template-columns: 1fr 90px 120px 120px 160px 120px;
   }
   @media (max-width: 1200px) {
     .ah-refund-head,
     .ah-refund-row {
-      grid-template-columns: 1fr 90px 110px 140px 100px;
+      grid-template-columns: 1fr 80px 110px 100px 140px 100px;
     }
   }
   .ah-refund-head {
@@ -516,10 +517,15 @@
   .ah-refund-col {
     min-width: 0;
   }
+
   .ah-refund-col--qty,
+  .ah-refund-col--ship,
   .ah-refund-col--amount,
   .ah-refund-col--unit {
     justify-self: end;
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
   }
 
   .ah-item-title {
