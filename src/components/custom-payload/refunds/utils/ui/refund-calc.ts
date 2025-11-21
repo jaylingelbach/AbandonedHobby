@@ -174,7 +174,7 @@ export function buildSelections(args: {
 
 export type ApiSelection =
   | { type: 'quantity'; itemId: string; quantity: number }
-  | { type: 'amount'; itemId: string; amountCents: number }; // <-- note amountCents
+  | { type: 'amount'; itemId: string; amountCents: number };
 
 /** Map our internal union -> API's discriminated union */
 export function toApiSelections(selections: LineSelection[]): ApiSelection[] {

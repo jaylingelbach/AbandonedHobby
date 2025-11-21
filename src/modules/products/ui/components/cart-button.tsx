@@ -31,7 +31,7 @@ export const CartButton = ({
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
-  const cart = useCart(tenantSlug, session?.user?.id);
+  const cart = useCart(tenantSlug);
 
   const normalized = useMemo(() => {
     const mode: ShippingMode =

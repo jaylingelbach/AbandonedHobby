@@ -249,7 +249,14 @@ export interface Product {
    * System flag: Abandoned Hobby auto-manages this based on product type.
    */
   trackInventory?: boolean | null;
-  stockQuantity?: number | null;
+  /**
+   * How many units are currently available. Decreases automatically when buyers place orders; you can increase it when you restock.
+   */
+  stockQuantity: number;
+  /**
+   * Optional cap on units a single order can buy. Hidden from sellers for now.
+   */
+  maxPerOrder?: number | null;
   /**
    * Reorder to change the primary image
    */
@@ -1046,6 +1053,7 @@ export interface ProductsSelect<T extends boolean = true> {
   isPrivate?: T;
   trackInventory?: T;
   stockQuantity?: T;
+  maxPerOrder?: T;
   images?:
     | T
     | {

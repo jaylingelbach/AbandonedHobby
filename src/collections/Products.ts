@@ -207,36 +207,40 @@ export const Products: CollectionConfig = {
     {
       name: 'stockQuantity',
       type: 'number',
-      label: 'Quantity',
+      label: 'Quantity in stock',
       min: 0,
+      required: true,
       defaultValue: 1,
       admin: {
-        condition: (_: unknown, siblingData?: Record<string, unknown>) =>
-          Boolean(siblingData?.trackInventory ?? true)
+        description:
+          'How many units are currently available. Decreases automatically when buyers place orders; you can increase it when you restock.'
       },
-      validate: (
-        value: unknown,
-        {
-          siblingData,
-          originalDoc
-        }: {
-          siblingData?: Partial<{ trackInventory?: boolean }>;
-          originalDoc?: Partial<{ trackInventory?: boolean }>;
-        }
-      ) => {
-        const tracking =
-          typeof siblingData?.trackInventory === 'boolean'
-            ? siblingData.trackInventory
-            : typeof originalDoc?.trackInventory === 'boolean'
-              ? originalDoc.trackInventory
-              : true;
-
-        if (!tracking) return true;
-
+      validate: (value: unknown): true | string => {
         if (typeof value !== 'number') return 'Quantity is required';
-        if (!Number.isInteger(value) || value < 0)
-          return 'Must be an integer ≥ 0';
+        if (!Number.isInteger(value) || value < 0) {
+          return 'Quantity must be an integer ≥ 0';
+        }
+        return true;
+      }
+    },
 
+    {
+      name: 'maxPerOrder',
+      type: 'number',
+      label: 'Max per order',
+      admin: {
+        description:
+          'Optional cap on units a single order can buy. Hidden from sellers for now.',
+        condition: ({ user }) => isSuperAdmin(user)
+      },
+      validate: (value: unknown): true | string => {
+        if (value == null) return true; // optional
+        if (!Number.isInteger(value)) {
+          return 'Max per order must be a whole number.';
+        }
+        if ((value as number) <= 0) {
+          return 'Max per order must be greater than zero or empty.';
+        }
         return true;
       }
     },

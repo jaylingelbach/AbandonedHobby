@@ -8,17 +8,13 @@ export type CurrencyCode = string; // e.g. "USD"
 export type OrderItemCore = {
   id: string;
   productId?: string | null;
-
   nameSnapshot?: string | null;
-
   // amounts in cents
   unitAmount: number; // required for math
   quantity: Quantity; // required for math
-
   amountSubtotal?: number | null;
   amountTax?: number | null;
   amountTotal?: number | null;
-
   refundPolicy?: string | null;
   returnsAcceptedThrough?: string | null;
 };

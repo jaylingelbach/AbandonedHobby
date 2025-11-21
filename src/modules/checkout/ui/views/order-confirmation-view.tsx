@@ -127,7 +127,7 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
   const firstOrder = orders[0]; // may be undefined while webhook is pending
-  const { clearCart } = useCart(firstOrder?.tenantSlug, session?.user?.id);
+  const { clearCart } = useCart(firstOrder?.tenantSlug);
 
   // Derive stable primitives for deps
   const tenantSlug = firstOrder?.tenantSlug ?? null;

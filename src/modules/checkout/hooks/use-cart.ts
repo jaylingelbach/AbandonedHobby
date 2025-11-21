@@ -1,11 +1,19 @@
 'use client';
 
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import type { CartState, TenantCartSlice } from '../store/types';
 import { useShallow } from 'zustand/react/shallow';
+import {
+  CartLineForAnalytics,
+  trackCartUpdated
+} from '../analytics/cart-analytics';
 
 const DEFAULT_TENANT = '__global__';
+
+// Prefer a configurable default currency, with USD as a safe fallback.
+const DEFAULT_CURRENCY =
+  process.env.NEXT_PUBLIC_DEFAULT_CURRENCY?.toUpperCase() ?? 'USD';
 
 // Keep storage shape stable: strip any accidental "::user" suffix
 /**
@@ -103,11 +111,10 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  *
  * The hook reads the cart bucket for the normalized tenant slug and exposes
  * product identifiers, per-product quantities, derived totals, and action
- * helpers that are bound to that tenant. The optional `_userId` parameter is
- * accepted for compatibility and is ignored by the hook.
+ * helpers that are bound to that tenant.
  *
  * @param tenantSlug - Tenant identifier that will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
- * @param _userId - Present for API compatibility; this value is not used
+ * - (User identity for analytics is managed separately via AnalyticsIdentityBridge)
  * @returns An object containing:
  *  - `productIds`: the ordered array of product IDs in the tenant's cart
  *  - `totalItems`: the sum of quantities for all listed product IDs (defaults each missing quantity to 1)
@@ -119,9 +126,8 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  *  - `toggleProduct(productId, quantity?)`: add (with optional quantity) if not present, otherwise remove
  *  - `isProductInCart(productId)`: returns `true` if the product ID is currently in the cart, `false` otherwise
  */
-export function useCart(tenantSlug?: string | null, _userId?: string | null) {
-  void _userId;
 
+export function useCart(tenantSlug?: string | null) {
   const tenant = useMemo(() => normalizeTenantSlug(tenantSlug), [tenantSlug]);
 
   const selectTenantSliceBase = useCallback(
@@ -147,7 +153,7 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     [tenant]
   );
 
-  // ✅ Idiomatic Zustand: bound store + useShallow wrapper
+  // Idiomatic Zustand: bound store + useShallow wrapper
   const { productIds, quantitiesByProductId } = useCartStore(
     useShallow(selectTenantSliceBase)
   );
@@ -197,6 +203,34 @@ export function useCart(tenantSlug?: string | null, _userId?: string | null) {
     }
     return sum;
   }, [productIds, quantitiesByProductId]);
+
+  // ─── Analytics: cartUpdated on cart changes (debounced) ────────────────
+  const CART_ANALYTICS_DEBOUNCE_MS = 400;
+
+  useEffect(() => {
+    if (productIds.length === 0) return;
+
+    const lines: CartLineForAnalytics[] = productIds.map((productId) => ({
+      productId,
+      quantity: quantitiesByProductId[productId] ?? 1,
+      // Prices are not available here; leave undefined.
+      unitAmountCents: undefined
+    }));
+
+    const timeoutId = window.setTimeout(() => {
+      trackCartUpdated({
+        tenantSlug: tenant,
+        // userId is intentionally omitted: PostHog identity comes from AnalyticsIdentityBridge
+        lines,
+        currency: DEFAULT_CURRENCY
+      });
+    }, CART_ANALYTICS_DEBOUNCE_MS);
+
+    // Cancel if cart changes again quickly (debounce)
+    return () => {
+      window.clearTimeout(timeoutId);
+    };
+  }, [tenant, productIds, quantitiesByProductId]);
 
   return {
     productIds,

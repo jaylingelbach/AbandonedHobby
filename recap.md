@@ -5445,3 +5445,51 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/stripe/build-order-items.ts, src/payload/views/seller-orders/seller-orders-utils.ts
   - Introduces new public types (ShippingMode, OrderItemOutput) and functions (toOrderItemFromLine, buildOrderItems, earliestReturnsCutoffISO); updates seller-orders-utils.ts to compute itemCount by summing quantities instead of array length.
+
+# Add quantity to posthog events 11/21/25
+
+## Walkthrough
+
+- The PR enhances checkout analytics by introducing per-product quantity tracking via a new cart analytics module and adds an optional maximum order quantity limit per product. It simplifies product inventory validation, updates type definitions, removes the OrderSuccessSummaryView component, and propagates quantity metrics through the checkout and webhook flows.
+
+## New Features
+
+- Added "Max per order" limit control for products to restrict purchase quantities per transaction.
+- Enhanced cart tracking to capture detailed item counts and product quantities.
+
+## Improvements
+
+- Simplified inventory field labeling and validation for better clarity.
+- Optimized checkout analytics to capture comprehensive purchase data.
+
+## File changes
+
+### Stripe Webhook & Checkout Analytics
+
+- src/app/(app)/api/stripe/webhooks/route.ts, src/modules/checkout/server/procedures.ts
+  - Calculate totalQuantity by summing quantityByProductId values and convert Map to plain object; append itemCount and quantityByProductId to analytics event payload during checkout completion and webhook processing.
+
+### Cart Analytics Module
+
+- src/modules/checkout/analytics/cart-analytics.ts, src/modules/checkout/hooks/use-cart.ts
+  - New cart analytics utility with CartLineForAnalytics interface and trackCartUpdated function; adds useEffect in use-cart hook to track cart updates with productId, quantity, and price data when cart contents change.
+
+### Product Schema & Types
+
+- src/collections/Products.ts, src/payload-types.ts
+  - Update stockQuantity field: rename label to "Quantity in stock", require it, simplify validation logic; add new optional maxPerOrder field with admin-only visibility; update generated Product and ProductsSelect type definitions.
+
+### Order Domain Types
+
+- src/domain/orders/types.ts
+  - Remove optional amount snapshot fields (nameSnapshot, amountSubtotal, amountTax, amountTotal) from OrderItemCore type.
+
+### Refund Utilities
+
+- src/components/custom-payload/refunds/utils/ui/refund-calc.ts
+  - Remove inline comment from ApiSelection union type declaration.
+
+### Checkout UI
+
+- src/modules/checkout/ui/views/order-success-summary-view.tsx
+  - Remove OrderSuccessSummaryView component that fetched and displayed order summaries with suspense queries and polling.
