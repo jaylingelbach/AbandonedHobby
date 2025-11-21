@@ -26,12 +26,6 @@ type ProductImagesRow = {
   alt?: string | null;
 };
 
-interface ProductWithInventory extends Product {
-  trackInventory?: boolean;
-  stockQuantity?: number;
-  images?: ProductImagesRow[];
-}
-
 /** Map images[] to clean gallery items, preferring the "medium" size. */
 /**
  * Convert a product images array into a sanitized gallery of URL/alt pairs.
@@ -69,7 +63,7 @@ export const productsRouter = createTRPCRouter({
       const headers = await getHeaders();
       const session = await ctx.db.auth({ headers });
 
-      let product: ProductWithInventory;
+      let product: Product;
       try {
         product = (await ctx.db.findByID({
           collection: 'products',
@@ -77,7 +71,7 @@ export const productsRouter = createTRPCRouter({
           depth: 2,
           id: input.id,
           select: { content: false }
-        })) as ProductWithInventory;
+        })) as Product;
       } catch (error) {
         if (isNotFound(error)) {
           throw new TRPCError({
@@ -189,7 +183,9 @@ export const productsRouter = createTRPCRouter({
         }
       }
 
-      const gallery = mapGalleryFromImages(product.images);
+      const gallery = mapGalleryFromImages(
+        (product.images ?? undefined) as ProductImagesRow[] | undefined
+      );
 
       const rawMode = product.shippingMode ?? 'free';
       const shippingMode: 'free' | 'flat' | 'calculated' =
