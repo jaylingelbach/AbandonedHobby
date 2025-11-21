@@ -114,7 +114,7 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
  * helpers that are bound to that tenant.
  *
  * @param tenantSlug - Tenant identifier that will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
- * @param userId - Optional user id used for analytics; the cart store itself is scoped by tenant only
+ * - (User identity for analytics is managed separately via AnalyticsIdentityBridge)
  * @returns An object containing:
  *  - `productIds`: the ordered array of product IDs in the tenant's cart
  *  - `totalItems`: the sum of quantities for all listed product IDs (defaults each missing quantity to 1)
