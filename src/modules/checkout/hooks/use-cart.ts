@@ -1,13 +1,16 @@
 'use client';
 
 import { useCallback, useEffect, useMemo } from 'react';
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
-import type { CartState, TenantCartSlice } from '../store/types';
 import { useShallow } from 'zustand/react/shallow';
 import {
   CartLineForAnalytics,
   trackCartUpdated
 } from '../analytics/cart-analytics';
+
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+
+import type { CartState, TenantCartSlice } from '../store/types';
+import type { TenantCartSummary } from './types';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -105,12 +108,6 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   quantityCache.set(map, normalized);
   return normalized;
 }
-
-export type TenantCartSummary = {
-  tenantKey: string;
-  productIds: string[];
-  quantitiesByProductId: Record<string, number>;
-};
 
 /**
  * Returns a summary of all tenant carts for the current user.
