@@ -15,6 +15,7 @@ import { toast } from 'sonner';
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { formatCurrency, generateTenantURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import { Badge } from '@/components/ui/badge';
@@ -28,6 +29,7 @@ import ViewInOrdersButton from '../components/view-in-order-button';
 // ─── Project Hooks ───────────────────────────────────────────────────────────
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
 import { useUser } from '@/hooks/use-user';
+import { useCart } from '@/modules/checkout/hooks/use-cart';
 
 // ─── Project Utilities (Local) ───────────────────────────────────────────────
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
@@ -79,6 +81,14 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   const { user } = useUser();
 
   const [quantity, setQuantity] = useState(1);
+
+  // ─── Cart state for this tenant ───────────────────────────────────────────
+  const { quantitiesByProductId, addProduct, removeProduct, isProductInCart } =
+    useCart(tenantSlug);
+
+  const productIdStr = String(productId);
+  const quantityInCart = quantitiesByProductId[productIdStr];
+  const inCart = isProductInCart(productIdStr);
 
   const isSelf = !!(
     user?.tenants?.some((t) =>
@@ -192,7 +202,43 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   useProductViewed(productForUseProductViewed);
 
+  // When item is in the cart, keep local quantity in sync with cart.
+  // When it’s removed, reset to 1 for the “Add to cart” default.
+  useEffect(() => {
+    if (inCart) {
+      const safe = readQuantityOrDefault(quantityInCart);
+      setQuantity(safe);
+    } else {
+      setQuantity(1);
+    }
+  }, [inCart, quantityInCart]);
+
   const canPurchase = inStock && !isSelf;
+
+  const handleQuantityChange = (next: unknown) => {
+    const numeric =
+      typeof next === 'number' ? next : Number.parseInt(String(next), 10);
+
+    if (!Number.isFinite(numeric)) return;
+
+    // If already in cart, change the cart quantity (which updates navbar count)
+    if (inCart) {
+      if (numeric <= 0) {
+        // Clicking "-" at 1 should remove from cart
+        removeProduct(productIdStr);
+        return;
+      }
+
+      const safe = readQuantityOrDefault(numeric);
+      addProduct(productIdStr, safe);
+      return;
+    }
+
+    // Not in cart yet – just update the local selection that will be used
+    // the next time the user hits "Add to cart".
+    const safe = readQuantityOrDefault(numeric);
+    setQuantity(safe);
+  };
 
   return (
     <div className="px-4 lg:px-12 py-10">
@@ -305,49 +351,16 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
               {/* Add to cart + actions */}
               <div className="flex flex-col gap-4 p-6 border-b">
+                {/* Row 1: view in orders + share */}
                 <div className="flex flex-row items-center gap-2">
                   <ViewInOrdersButton
                     isPurchased={data.isPurchased}
                     tenantSlug={tenantSlug}
                     productId={productId}
                   />
-                  {canPurchase ? (
-                    <CartButton
-                      isPurchased={data.isPurchased}
-                      tenantSlug={tenantSlug}
-                      productId={productId}
-                      shippingMode={shippingMode}
-                      shippingFeeCentsPerUnit={
-                        shippingFeeCentsPerUnit ?? undefined
-                      }
-                      quantity={quantity}
-                    />
-                  ) : (
-                    <Button
-                      disabled
-                      aria-disabled="true"
-                      title={
-                        !inStock
-                          ? 'This item is unavailable'
-                          : "You can't purchase your own listing"
-                      }
-                      className="flex-1 cursor-not-allowed"
-                    >
-                      {!inStock ? 'Unavailable' : 'Listed by you'}
-                    </Button>
-                  )}
-
-                  {/* Last case in ternary for untracked (digital) items, not yet used in app */}
-                  {canPurchase && (
-                    <QuantityPicker
-                      quantity={quantity}
-                      quantityAvailable={trackInventory ? stockQuantity : 999}
-                      onChange={setQuantity}
-                    />
-                  )}
 
                   <Button
-                    className="size-12"
+                    className="size-12 ml-auto"
                     variant="elevated"
                     onClick={async () => {
                       try {
@@ -370,6 +383,45 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   >
                     {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
                   </Button>
+                </div>
+
+                {/* Row 2: add to cart + quantity picker */}
+                <div className="flex flex-row items-center gap-2">
+                  <div className="flex-1">
+                    {canPurchase ? (
+                      <CartButton
+                        isPurchased={data.isPurchased}
+                        tenantSlug={tenantSlug}
+                        productId={productId}
+                        shippingMode={shippingMode}
+                        shippingFeeCentsPerUnit={
+                          shippingFeeCentsPerUnit ?? undefined
+                        }
+                        quantity={quantity}
+                      />
+                    ) : (
+                      <Button
+                        disabled
+                        aria-disabled="true"
+                        title={
+                          !inStock
+                            ? 'This item is unavailable'
+                            : "You can't purchase your own listing"
+                        }
+                        className="w-full cursor-not-allowed"
+                      >
+                        {!inStock ? 'Unavailable' : 'Listed by you'}
+                      </Button>
+                    )}
+                  </div>
+
+                  {canPurchase && (
+                    <QuantityPicker
+                      quantity={quantity}
+                      quantityAvailable={trackInventory ? stockQuantity : 999}
+                      onChange={handleQuantityChange}
+                    />
+                  )}
                 </div>
 
                 <ChatButtonWithModal

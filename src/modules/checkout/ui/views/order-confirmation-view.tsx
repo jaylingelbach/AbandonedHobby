@@ -96,13 +96,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
-  // Session query (gated to client)
-  const sessionQueryOptions = trpc.auth.session.queryOptions();
-  const { data: session } = useQuery({
-    ...sessionQueryOptions,
-    enabled: mounted
-  });
-
   // Confirmation query (protected) — DO NOT run on SSR.
   const confirmationBaseOptions =
     trpc.orders.getConfirmationBySession.queryOptions(
