@@ -5530,3 +5530,38 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/components/custom-payload/refunds/utils/ui/refund-calc.ts
   - Added early return for empty item lists; tightened quantityPurchased to only accept positive numbers; introduced shippingSharePerUnitCents calculation with two strategies: use flat shippingFeeCentsPerUnit if available, else derive from shippingSubtotalCents divided by quantity.
+
+# Quantity picker updates cart store 11/24/25
+
+## Walkthrough
+
+- The PR removes client-side session data fetching from order confirmation to simplify data dependencies, integrates cart state management into the product view with quantity tracking and synchronization, and includes a formatting adjustment in the navbar component.
+
+## New Features
+
+- Added cart management directly on product pages—users can now adjust item quantities and add to cart from the product view.
+
+## Refactor
+
+- Streamlined order confirmation process for improved performance.
+
+## Style
+
+- Minor code formatting improvements.
+
+## File changes
+
+### Order confirmation simplification
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Removes sessionQuery and client-side session data fetch; the protected confirmation query remains gated by mounted status but no longer waits for intermediate session data.
+
+### Product view cart integration
+
+- src/modules/products/ui/views/product-view.tsx
+  - Adds useCart hook integration for per-tenant cart state; introduces quantity tracking with useEffect synchronization; adds handleQuantityChange to manage cart quantity updates and removal; restructures UI into two action rows with CartButton and QuantityPicker; updates imports and spacing layout.
+
+### Navbar formatting
+
+- src/modules/tenants/ui/components/navbar.tsx
+  - Removes empty line between Next.js Link and BackToRootLink imports.
