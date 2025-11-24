@@ -6,7 +6,6 @@ import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
-
 import BackToRootLink from '@/components/back-to-root-link';
 import { Button } from '@/components/ui/button';
 import { generateTenantURL } from '@/lib/utils';
