@@ -1,3 +1,4 @@
+import { z } from 'zod';
 import { usdToCents } from '@/lib/money';
 import { getBestUrlFromMedia } from '@/lib/utils';
 import { STRIPE_METADATA_MAX_LENGTH } from '@/constants';
@@ -103,4 +104,28 @@ export function truncateToStripeMetadata(raw: unknown): string {
   }
 
   return asString.slice(0, STRIPE_METADATA_MAX_LENGTH);
+}
+
+export const productShippingSchema = z.object({
+  shippingMode: z.enum(['free', 'flat', 'calculated']).nullable().optional(),
+  shippingFlatFee: z.number().nullable().optional()
+});
+
+export function parseProductShipping(product: unknown): ProductForShipping {
+  const parsed = productShippingSchema.safeParse(product);
+  if (!parsed.success) {
+    const productId = (product as { id?: string })?.id ?? 'unknown';
+    console.warn('[checkout] invalid/missing shipping fields', {
+      productId,
+      issues: parsed.error.issues
+    });
+  }
+
+  return {
+    id: (product as { id: string }).id,
+    shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
+    shippingFlatFee: parsed.success
+      ? (parsed.data.shippingFlatFee ?? null)
+      : null
+  };
 }
