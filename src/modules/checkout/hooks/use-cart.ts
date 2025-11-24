@@ -106,6 +106,46 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   return normalized;
 }
 
+export type TenantCartSummary = {
+  tenantKey: string;
+  productIds: string[];
+  quantitiesByProductId: Record<string, number>;
+};
+
+/**
+ * Returns a summary of all tenant carts for the current user.
+ *
+ * Each entry corresponds to one tenant bucket in the store:
+ *  - tenantKey: normalized tenant identifier (e.g. '__global__' or 'my-tenant')
+ *  - productIds: product IDs in that tenant's cart
+ *  - quantitiesByProductId: sanitized quantity map (only positive integers)
+ */
+export function useAllTenantCarts(): TenantCartSummary[] {
+  const { byUser, currentUserKey } = useCartStore((state) => ({
+    byUser: state.byUser,
+    currentUserKey: state.currentUserKey
+  }));
+  const tenantMap = byUser[currentUserKey] ?? [];
+  const summaries: TenantCartSummary[] = [];
+
+  for (const [tenantKey, cart] of Object.entries(tenantMap)) {
+    const productIds = Array.isArray(cart.productIds) ? cart.productIds : [];
+
+    if (productIds.length === 0) {
+      continue; // ignore empty carts
+    }
+
+    const quantities = sanitizeQuantities(cart.quantitiesByProductId);
+
+    summaries.push({
+      tenantKey,
+      productIds,
+      quantitiesByProductId: quantities
+    });
+  }
+  return summaries;
+}
+
 /**
  * Provide tenant-scoped cart state and actions for the current user.
  *
