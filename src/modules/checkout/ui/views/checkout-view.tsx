@@ -118,7 +118,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         'Some items in your cart were removed because they are no longer available.'
       );
 
-      //gi Refetch to show updated cart without requiring manual retry
+      // Refetch to show updated cart without requiring manual retry
       void refetch();
     } else {
       // Fallback if we didn’t get details for some reason
