@@ -5565,3 +5565,87 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/tenants/ui/components/navbar.tsx
   - Removes empty line between Next.js Link and BackToRootLink imports.
+
+# Multi tenant cart view 11/25/25
+
+## Walkthrough
+
+- This PR implements multi-tenant checkout support by introducing new hooks to aggregate carts across multiple tenants, fetching product data per tenant, computing per-tenant pricing and shipping, and refactoring the checkout UI to render and process checkout for each tenant independently with per-tenant scope tracking.
+
+## New Features
+
+- Multi-tenant checkout support enabling users to manage and checkout items from multiple shops in a single session
+- Per-shop item organization with individual pricing and shipping breakdowns
+
+## UI Updates
+
+- Updated checkout button label for improved clarity
+- Repositioned product share button to product details area
+- Enhanced checkout error messaging for better user guidance
+
+## File changes
+
+### Dependencies
+
+- package.json
+  - Bumps Next.js from 15.3.0 to 15.4.7 and updates eslint-config-next from ^15.3.0 to ^15.4.0
+
+### New Checkout Page
+
+- src/app/(app)/checkout/page.tsx
+  - Introduces async server component that renders CheckoutView, serving as the primary checkout page entry point
+
+### Type Definitions
+
+- src/modules/checkout/hooks/types.ts
+  - Adds TenantCartSummary type with tenantKey, productIds, and quantitiesByProductId fields for multi-tenant cart aggregation
+
+### Cart Hooks & Utilities
+
+- src/modules/checkout/hooks/use-cart.ts
+  - Adds useAllTenantCarts() hook and supporting helpers (buildTenantSummaries, normalizeTenantSlug, sanitizeQuantities) to derive and subscribe to per-tenant cart summaries for the current user
+
+### Multi-tenant Checkout Data
+
+- src/modules/checkout/hooks/use-multi-tenant-checkout-data.ts
+  - Introduces useMultiTenantCheckoutData hook with TenantCheckoutGroup and MultiTenantCheckoutData types; aggregates cart items, product data, and computed pricing/shipping per tenant with grand totals
+
+### Store Extraction
+
+- src/modules/checkout/store/use-cart-store.ts
+  - Refactors to move helper implementations to external utils module; no functional changes to store logic
+
+### Store Utilities
+
+- src/modules/checkout/store/utils.ts
+  - Adds collapseCompositeTenantKeys and normalizeShippingSnapshot helpers extracted from store file for tenant key normalization and shipping snapshot standardization
+
+### Server Utilities & Validation
+
+- src/modules/checkout/server/procedures.ts, src/modules/checkout/server/utils.ts
+  - Updates error message for single-seller validation; introduces productShippingSchema and parseProductShipping for extracting and validating product shipping metadata
+
+### Checkout UI Components
+
+- src/modules/checkout/ui/components/checkout-sidebar.tsx
+  - Updates checkout button label from "Checkout" to "Checkout for this shop only"
+
+### Multi-tenant Checkout Views
+
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Refactors to support multi-tenant checkout; replaces single-cart flow with useMultiTenantCheckoutData; introduces per-group checkout handling, scope tracking via localStorage, mounted guard, and renders TenantCheckoutSection per group
+
+### New Tenant Checkout Section
+
+- src/modules/checkout/ui/views/tenant-checkout-section.tsx
+  - Introduces new component rendering per-tenant checkout area with product list, quantity controls, sidebar with pricing, and per-tenant checkout action
+
+### Order Confirmation
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Swaps from per-tenant hook to global cart store with scope-aware clearing; adds hydration guards, localStorage scope retrieval, and idempotent cart reset logic
+
+### Product View
+
+- src/modules/products/ui/views/product-view.tsx
+  - Relocates share-URL button from first action row to second row alongside quantity/cart area; layout gap adjusted from 2 to 1

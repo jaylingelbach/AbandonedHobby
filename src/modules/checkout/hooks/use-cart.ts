@@ -1,13 +1,16 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
-import type { CartState, TenantCartSlice } from '../store/types';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   CartLineForAnalytics,
   trackCartUpdated
 } from '../analytics/cart-analytics';
+
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+
+import type { CartState, TenantCartSlice } from '../store/types';
+import type { TenantCartSummary } from './types';
 
 const DEFAULT_TENANT = '__global__';
 
@@ -104,6 +107,79 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   const normalized = Object.keys(safe).length > 0 ? safe : EMPTY_QUANTITIES;
   quantityCache.set(map, normalized);
   return normalized;
+}
+
+/**
+ * Builds an array of tenant-scoped cart summaries for the current user.
+ *
+ * Each summary contains the tenant key, the tenant's product id list, and a
+ * sanitized mapping of quantities by product id. Tenants with no product ids
+ * are omitted from the result.
+ *
+ * @param state - The current cart state containing the active user key and per-user tenant buckets
+ * @returns An array of TenantCartSummary objects for tenants that have one or more product ids; quantities are sanitized to valid positive integers
+ */
+function buildTenantSummaries(state: CartState): TenantCartSummary[] {
+  const currentUserKey = state.currentUserKey;
+  const byTenant = state.byUser[currentUserKey] ?? {};
+
+  const summaries: TenantCartSummary[] = [];
+
+  for (const [tenantKey, bucket] of Object.entries(byTenant)) {
+    const productIds = Array.isArray(bucket.productIds)
+      ? bucket.productIds
+      : EMPTY_PRODUCT_IDS;
+
+    const quantitiesByProductId = sanitizeQuantities(
+      bucket.quantitiesByProductId
+    );
+
+    if (productIds.length === 0) continue;
+
+    summaries.push({
+      tenantKey,
+      productIds,
+      quantitiesByProductId
+    });
+  }
+
+  return summaries;
+}
+
+/**
+ * Provide a live array of tenant-scoped cart summaries for the current user.
+ *
+ * @returns An array of TenantCartSummary objects representing each tenant's cart for the current user
+ */
+export function useAllTenantCarts(): TenantCartSummary[] {
+  const [summaries, setSummaries] = useState<TenantCartSummary[]>(() =>
+    buildTenantSummaries(useCartStore.getState())
+  );
+
+  useEffect(() => {
+    const unsubscribe = useCartStore.subscribe((state) => {
+      setSummaries((prev) => {
+        const next = buildTenantSummaries(state);
+        // Shallow compare to avoid unnecessary re-renders
+        if (
+          prev.length === next.length &&
+          prev.every(
+            (p, i) =>
+              next[i] &&
+              p.tenantKey === next[i].tenantKey &&
+              p.productIds === next[i].productIds &&
+              p.quantitiesByProductId === next[i].quantitiesByProductId
+          )
+        ) {
+          return prev;
+        }
+        return next;
+      });
+    });
+    return unsubscribe;
+  }, []);
+
+  return summaries;
 }
 
 /**

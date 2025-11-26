@@ -1,58 +1,48 @@
+// ─── Node.js Built-ins ───────────────────────────────────────────────────────
 import { randomUUID } from 'crypto';
 
+// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { TRPCError } from '@trpc/server';
 import Stripe from 'stripe';
 import { z } from 'zod';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
 import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { flushIfNeeded } from '@/lib/server/analytics';
 import { posthogServer } from '@/lib/server/posthog-server';
 import { asId } from '@/lib/server/utils';
-import { stripe } from '@/lib/stripe';
 import { generateTenantURL } from '@/lib/utils';
 import { usdToCents } from '@/lib/money';
-import { Media, Product, Tenant } from '@/payload-types';
+import { stripe } from '@/lib/stripe';
+import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
+
+// ─── tRPC Setup ──────────────────────────────────────────────────────────────
 import {
   baseProcedure,
   createTRPCRouter,
   protectedProcedure
 } from '@/trpc/init';
 
-import { CheckoutMetadata, ProductMetadata } from '../types';
-import { getPrimaryCardImageUrl, truncateToStripeMetadata } from './utils';
-import { buildIdempotencyKey } from '@/modules/stripe/idempotency';
-
-import {
-  computeFlatShippingCentsForCart,
-  type ProductForShipping
-} from './utils';
+// ─── Project Types ───────────────────────────────────────────────────────────
+import type { Media, Product, Tenant } from '@/payload-types';
+import type { CheckoutMetadata, ProductMetadata } from '../types';
+import type { ProductForShipping } from './utils';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
+
+// ─── Local Utility Functions ─────────────────────────────────────────────────
+import {
+  getPrimaryCardImageUrl,
+  parseProductShipping,
+  truncateToStripeMetadata,
+  computeFlatShippingCentsForCart
+} from './utils';
 
 export const runtime = 'nodejs';
 
-const productShippingSchema = z.object({
-  shippingMode: z.enum(['free', 'flat', 'calculated']).nullable().optional(),
-  shippingFlatFee: z.number().nullable().optional()
-});
-
-function parseProductShipping(product: unknown): ProductForShipping {
-  const parsed = productShippingSchema.safeParse(product);
-  if (!parsed.success) {
-    const productId = (product as { id?: string })?.id ?? 'unknown';
-    console.warn('[checkout] invalid/missing shipping fields', {
-      productId,
-      issues: parsed.error.issues
-    });
-  }
-
-  return {
-    id: (product as { id: string }).id,
-    shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
-    shippingFlatFee: parsed.success
-      ? (parsed.data.shippingFlatFee ?? null)
-      : null
-  };
-}
 const CHECKOUT_ATTEMPT_TTL_MS = 24 * 60 * 60 * 1000; // 24 hours
+
 export const checkoutRouter = createTRPCRouter({
   verify: protectedProcedure.mutation(async ({ ctx }) => {
     try {
@@ -230,7 +220,8 @@ export const checkoutRouter = createTRPCRouter({
       if (tenantIds.size !== 1) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'All items in the cart must belong to the same seller.'
+          message:
+            'This checkout is for one shop at a time. Please start checkout from a single shop.'
         });
       }
 

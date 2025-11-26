@@ -358,35 +358,10 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     tenantSlug={tenantSlug}
                     productId={productId}
                   />
-
-                  <Button
-                    className="size-12 ml-auto"
-                    variant="elevated"
-                    onClick={async () => {
-                      try {
-                        setIsCopied(true);
-                        await navigator.clipboard.writeText(
-                          window.location.href
-                        );
-                        toast.success('URL copied to clipboard');
-                        timeoutRef.current = setTimeout(
-                          () => setIsCopied(false),
-                          1000
-                        );
-                      } catch (error) {
-                        setIsCopied(false);
-                        toast.error('Failed to copy URL to clipboard');
-                        console.error(error);
-                      }
-                    }}
-                    disabled={isCopied}
-                  >
-                    {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
-                  </Button>
                 </div>
 
                 {/* Row 2: add to cart + quantity picker */}
-                <div className="flex flex-row items-center gap-2">
+                <div className="flex flex-row items-center gap-1">
                   <div className="flex-1">
                     {canPurchase ? (
                       <CartButton
@@ -422,6 +397,31 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       onChange={handleQuantityChange}
                     />
                   )}
+
+                  <Button
+                    className="size-12 ml-auto"
+                    variant="elevated"
+                    onClick={async () => {
+                      try {
+                        setIsCopied(true);
+                        await navigator.clipboard.writeText(
+                          window.location.href
+                        );
+                        toast.success('URL copied to clipboard');
+                        timeoutRef.current = setTimeout(
+                          () => setIsCopied(false),
+                          1000
+                        );
+                      } catch (error) {
+                        setIsCopied(false);
+                        toast.error('Failed to copy URL to clipboard');
+                        console.error(error);
+                      }
+                    }}
+                    disabled={isCopied}
+                  >
+                    {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
+                  </Button>
                 </div>
 
                 <ChatButtonWithModal

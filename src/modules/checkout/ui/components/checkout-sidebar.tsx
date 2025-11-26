@@ -77,7 +77,7 @@ export const CheckoutSidebar = ({
           size="lg"
           variant="elevated"
         >
-          Checkout
+          Checkout for this shop only
         </Button>
       </div>
 

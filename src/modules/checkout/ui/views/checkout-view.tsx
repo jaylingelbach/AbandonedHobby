@@ -1,50 +1,38 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
-import { track } from '@/lib/analytics';
-import {
-  buildSignInUrl,
-  generateTenantURL,
-  getPrimaryCardImageUrl,
-  getTenantNameSafe,
-  getTenantSlugSafe
-} from '@/lib/utils';
-import { calculateShippingAmount } from '../../utils/calculate-shipping-amount';
+import { buildSignInUrl } from '@/lib/utils';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { useTRPC } from '@/trpc/client';
 
-// ─── Project Types ───────────────────────────────────────────────────────────
-import type { Product } from '@/payload-types';
-import type {
-  CartItemForShipping,
-  SidebarShippingLine
-} from '@/modules/orders/types';
-
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
-import { useCart } from '../../hooks/use-cart';
 import { useCheckoutState } from '../../hooks/use-checkout-states';
 import { useCartStore } from '../../store/use-cart-store';
-import { buildScopeClient } from '@/modules/checkout/hooks/cart-scope';
 import { cartDebug } from '../../debug';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import CheckoutBanner from './checkout-banner';
-import CheckoutSidebar from '../components/checkout-sidebar';
-import { CheckoutItem } from '../components/checkout-item';
-import { toProductWithShipping } from '../../utils/to-product-with-shipping';
+import TenantCheckoutSection from './tenant-checkout-section';
+
+// ─── New multi-tenant hook/types ─────────────────────────────────────────────
+import {
+  TenantCheckoutGroup,
+  useMultiTenantCheckoutData
+} from '../../hooks/use-multi-tenant-checkout-data';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
 
 interface CheckoutViewProps {
-  tenantSlug: string;
+  tenantSlug?: string;
 }
 
 type TrpcErrorShape = { data?: { code?: string } };
@@ -58,52 +46,70 @@ function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
-  const queryClient = useQueryClient();
-
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
 
+  // Multi-tenant cart + products
   const {
-    productIds,
-    quantitiesByProductId,
-    removeProduct,
-    clearCart,
-    addProduct
-  } = useCart(tenantSlug);
+    data: multiData,
+    isLoading,
+    isFetching,
+    isError,
+    error,
+    refetch
+  } = useMultiTenantCheckoutData();
 
-  // Build query options once for stable keys
-  const productsQueryOptions = useMemo(
-    () => trpc.checkout.getProducts.queryOptions({ ids: productIds }),
-    [trpc.checkout.getProducts, productIds]
-  );
+  const groups = multiData?.groups ?? [];
+  const hasAnyItems = groups.length > 0;
 
-  // Load products in cart (localStorage-driven, so no SSR/hydration needed)
-  const { data, error, isLoading, isFetching, isError, refetch } = useQuery({
-    ...productsQueryOptions,
-    enabled: productIds.length > 0,
-    placeholderData: (previous) => previous,
-    retry: 1
-  });
+  // Track which seller + lines we last attempted checkout with
+  const lastCheckoutTenantRef = useRef<string | null>(null);
+  const lastCheckoutLinesRef = useRef<CheckoutLineInput[] | null>(null);
 
-  const libraryFilter = useMemo(
-    () => trpc.library.getMany.infiniteQueryFilter(),
-    [trpc.library.getMany]
-  );
+  // Helper: stash the scope we actually used for this checkout
+  const stashCheckoutScope = useCallback((tenantKeyRaw: string | null) => {
+    if (typeof window === 'undefined') return;
+
+    const tenantKey = (tenantKeyRaw ?? '').trim() || '__global__';
+    const userKey = useCartStore.getState().currentUserKey;
+    const scope = `${tenantKey}::${userKey}`;
+    console.log('[cart] stash checkout scope', {
+      tenantKey,
+      userKey,
+      scope
+    });
+
+    window.localStorage.setItem('ah_checkout_scope', scope);
+  }, []);
 
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
-        const scope = buildScopeClient(tenantSlug, session?.user?.id);
-        localStorage.setItem('ah_checkout_scope', scope);
-        cartDebug('redirecting to Stripe', {
-          tenantSlug,
-          userId: session?.user?.id ?? null,
-          stashedScope: scope,
-          currentProductIds: productIds
+        // Use the tenant we actually checked out for
+        const scopeTenant =
+          lastCheckoutTenantRef.current || tenantSlug || '__global__';
+
+        stashCheckoutScope(scopeTenant);
+
+        cartDebug('redirecting to Stripe (per-tenant checkout)', {
+          scopeTenant,
+          currentUserKey: useCartStore.getState().currentUserKey,
+          stashedScope:
+            typeof window !== 'undefined'
+              ? window.localStorage.getItem('ah_checkout_scope')
+              : null,
+          lastLines: lastCheckoutLinesRef.current
         });
+
         window.location.assign(payload.url);
       },
       onError: (err) => {
@@ -125,110 +131,38 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     })
   );
 
-  // Single flag for disabling “Return to checkout”
   const isBusy = purchase.isPending || isFetching;
-  const disableResume = productIds.length === 0 || isBusy;
+  const disableResume = !lastCheckoutLinesRef.current || isBusy;
 
-  // Stable docs array for downstream memos and maps
-  const docs = useMemo<Product[]>(
-    () => (Array.isArray(data?.docs) ? (data.docs as Product[]) : []),
-    [data]
-  );
-
-  // 1) Build display lines (keeps 'calculated', drops only 'free')
-  const itemizedShippingLines = useMemo<SidebarShippingLine[]>(
-    () =>
-      docs
-        .map((product) => {
-          const normalized = toProductWithShipping(product);
-          const shippingMode = normalized?.shippingMode ?? 'free';
-          const amountCents = normalized
-            ? calculateShippingAmount(normalized)
-            : 0;
-
-          return {
-            id: String(product.id),
-            label: typeof product.name === 'string' ? product.name : 'Item',
-            amountCents,
-            mode: shippingMode
-          };
-        })
-        .filter((line) => line.mode !== 'free'),
-    [docs]
-  );
-
-  const hasCalculatedShipping = useMemo(
-    () => itemizedShippingLines.some((line) => line.mode === 'calculated'),
-    [itemizedShippingLines]
-  );
-
-  // 2) Transform to CartItemForShipping[] (with per-item quantities)
-  const breakdownItems = useMemo<CartItemForShipping[]>(
-    () =>
-      itemizedShippingLines.map((line) => ({
-        id: line.id,
-        name: line.label,
-        quantity: quantitiesByProductId[line.id] ?? 1,
-        shippingMode: line.mode,
-        shippingFeeCentsPerUnit:
-          line.mode === 'flat' ? line.amountCents : undefined
-      })),
-    [itemizedShippingLines, quantitiesByProductId]
-  );
-
-  // Subtotal (cents) that respects per-item quantity
-  const subtotalCents = useMemo(() => {
-    if (docs.length === 0) {
-      // Fallback: older snapshot-style responses
-      if (typeof data?.subtotalCents === 'number') return data.subtotalCents;
-      if (typeof data?.totalCents === 'number') return data.totalCents;
-      const totalPriceDollars =
-        (data as { totalPrice?: number } | undefined)?.totalPrice ?? 0;
-      return Math.round(totalPriceDollars * 100);
+  // When user clicks "Checkout" for a specific seller
+  const handleCheckoutGroup = (group: TenantCheckoutGroup) => {
+    if (group.products.length === 0) {
+      toast.error('No products in this group to checkout');
+      return;
     }
 
-    return docs.reduce((sum, product) => {
-      const productIdStr = String(product.id);
-      const quantity = quantitiesByProductId[productIdStr] ?? 1;
+    const lines: CheckoutLineInput[] = group.products.map((product) => ({
+      productId: String(product.id),
+      quantity: readQuantityOrDefault(
+        group.quantitiesByProductId[String(product.id)]
+      )
+    }));
 
-      const priceDollars =
-        typeof product.price === 'number' && Number.isFinite(product.price)
-          ? product.price
-          : 0;
+    cartDebug('checkout group tenant selection', {
+      groupTenantKey: group.tenantKey,
+      groupTenantSlug: group.tenantSlug,
+      pageTenantSlug: tenantSlug
+    });
 
-      const priceCents = Math.round(priceDollars * 100);
-      return sum + priceCents * quantity;
-    }, 0);
-  }, [docs, quantitiesByProductId, data]);
+    const derivedTenant =
+      group.tenantKey ?? group.tenantSlug ?? tenantSlug ?? '__global__';
 
-  // Shipping total (cents), honoring quantity for flat-fee items
-  const shippingCents = useMemo(() => {
-    if (breakdownItems.length > 0) {
-      // For flat shipping, feePerUnit × quantity
-      return breakdownItems.reduce((sum, item) => {
-        if (item.shippingMode !== 'flat') return sum;
-        const perUnit = item.shippingFeeCentsPerUnit ?? 0;
-        return sum + perUnit * item.quantity;
-      }, 0);
-    }
+    lastCheckoutTenantRef.current = derivedTenant;
 
-    // Fallback to server-computed snapshot if present
-    if (typeof data?.shippingCents === 'number') return data.shippingCents;
-    return 0;
-  }, [breakdownItems, data]);
+    lastCheckoutLinesRef.current = lines;
 
-  const totalCents = useMemo(() => {
-    // If we have per-item shipping breakdowns, trust the client-calculated subtotal + shipping.
-    if (breakdownItems.length > 0) {
-      return subtotalCents + shippingCents;
-    }
-    // Otherwise, prefer server-computed total if present.
-    if (typeof data?.totalCents === 'number') {
-      return data.totalCents;
-    }
-    // Final fallback: client-calculated subtotal + shipping.
-    return subtotalCents + shippingCents;
-  }, [breakdownItems, data, subtotalCents, shippingCents]);
+    purchase.mutate({ lines });
+  };
 
   // Handle ?cancel=true (Stripe cancel_url)
   useEffect(() => {
@@ -246,8 +180,10 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }, [router, searchParams, setStates]);
 
-  // Clear cart if server says products are invalid
+  // Clear cart(s) if server says products are invalid
   useEffect(() => {
+    if (!error) return;
+
     const maybeTrpcError = error as unknown;
     const code =
       isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
@@ -255,97 +191,17 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         : undefined;
 
     if (code === 'NOT_FOUND') {
-      clearCart();
+      // TODO: backend should return { tenantSlug, missingProductIds }
+      // so we can clear only the affected tenant / products instead of nuking
+      // all carts for this user.
+      useCartStore.getState().clearAllCartsForCurrentUser();
       toast.warning('Invalid products found, your cart has been cleared');
     }
-  }, [error, clearCart]);
+  }, [error]);
 
-  // Success flow (after returning from success_url)
-  useEffect(() => {
-    if (!states.success) return;
-
-    setStates({ success: false, cancel: false });
-    clearCart();
-
-    queryClient.invalidateQueries(libraryFilter);
-    router.push('/orders');
-  }, [
-    states.success,
-    clearCart,
-    router,
-    setStates,
-    queryClient,
-    libraryFilter
-  ]);
-
-  // Session success handling (?success=true or ?session_id=...)
-  useEffect(() => {
-    const isSuccess =
-      searchParams.get('success') === 'true' ||
-      !!searchParams.get('session_id');
-    if (!isSuccess) return;
-
-    const scope =
-      typeof window !== 'undefined'
-        ? localStorage.getItem('ah_checkout_scope')
-        : null;
-
-    const run = () => {
-      if (scope) {
-        useCartStore.getState().clearCartForScope(scope);
-        localStorage.removeItem('ah_checkout_scope');
-      } else {
-        clearCart();
-      }
-
-      setStates({ success: false, cancel: false });
-
-      const url = new URL(window.location.href);
-      url.searchParams.delete('success');
-      url.searchParams.delete('session_id');
-      const queryString = url.searchParams.toString();
-      router.replace(
-        queryString ? `${url.pathname}?${queryString}` : url.pathname,
-        { scroll: false }
-      );
-
-      queryClient.invalidateQueries(libraryFilter);
-    };
-
-    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
-    if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsubscribe?.();
-  }, [searchParams, clearCart, router, setStates, queryClient, libraryFilter]);
-
-  // ---- Analytics: checkout_canceled on page load with cancel=true ----
-  const sentCancelEventRef = useRef(false);
-  useEffect(() => {
-    if (!states.cancel || sentCancelEventRef.current) return;
-
-    const itemCount = productIds.length;
-    const cartTotalCents =
-      typeof data?.totalCents === 'number'
-        ? data.totalCents
-        : Math.round(
-            ((data as { totalPrice?: number } | undefined)?.totalPrice ?? 0) *
-              100
-          );
-
-    const userType = session?.user ? 'auth' : 'guest';
-
-    track('checkout_canceled', {
-      tenantSlug,
-      itemCount,
-      cartTotalCents,
-      userType
-    });
-
-    sentCancelEventRef.current = true;
-  }, [states.cancel, data, productIds.length, tenantSlug, session?.user]);
-
-  // Migrate cart scope once user logs in
   useEffect(() => {
     if (!session?.user?.id) return;
+    if (!tenantSlug) return;
     const run = () => {
       if (session?.user?.id) {
         useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
@@ -356,27 +212,21 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  const lines = useMemo<CheckoutLineInput[]>(
-    () =>
-      productIds.map((id) => ({
-        productId: id,
-        quantity: readQuantityOrDefault(quantitiesByProductId[id])
-      })),
-    [productIds, quantitiesByProductId]
-  );
-
   // ----- Early-return UIs -----
 
-  if (productIds.length > 0 && isLoading) {
+  if (!mounted || isLoading) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
             disabled={disableResume}
-            onReturnToCheckout={() => purchase.mutate({ lines })}
+            onReturnToCheckout={() => {
+              if (!lastCheckoutLinesRef.current) return;
+              purchase.mutate({ lines: lastCheckoutLinesRef.current });
+            }}
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
-              clearCart();
+              useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
           />
@@ -389,7 +239,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  if (productIds.length > 0 && (isError || !data)) {
+  if (isError) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
@@ -397,7 +247,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
-              clearCart();
+              useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
           />
@@ -419,7 +269,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }
 
-  if (productIds.length === 0 || (data && data.totalDocs === 0)) {
+  if (!hasAnyItems) {
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
@@ -427,7 +277,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismiss={() => setStates({ cancel: false, success: false })}
             onClearCart={() => {
-              clearCart();
+              useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
           />
@@ -447,75 +297,27 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       {states.cancel && (
         <CheckoutBanner
           disabled={disableResume}
-          onReturnToCheckout={() => purchase.mutate({ lines })}
+          onReturnToCheckout={() => {
+            if (!lastCheckoutLinesRef.current) return;
+            purchase.mutate({ lines: lastCheckoutLinesRef.current });
+          }}
           onDismiss={() => setStates({ cancel: false, success: false })}
           onClearCart={() => {
-            clearCart();
+            useCartStore.getState().clearAllCartsForCurrentUser();
             setStates({ cancel: false, success: false });
           }}
         />
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-7 gap-4 lg:gap-16 mt-4">
-        {/* Items */}
-        <div className="lg:col-span-4">
-          <div className="border rounded-md overflow-hidden bg-white">
-            {docs.map((product, index) => {
-              const productIdStr = String(product.id);
-
-              const imageURL =
-                (product as { cardImageUrl?: string | null }).cardImageUrl ??
-                getPrimaryCardImageUrl(product);
-
-              const tenantSlugSafe = getTenantSlugSafe(product.tenant);
-              const tenantNameSafe =
-                getTenantNameSafe(product.tenant) ?? 'Shop';
-
-              const productURL = tenantSlugSafe
-                ? `${generateTenantURL(tenantSlugSafe)}/products/${product.id}`
-                : `/products/${product.id}`;
-
-              const tenantURL = tenantSlugSafe
-                ? `${generateTenantURL(tenantSlugSafe)}`
-                : '#';
-
-              const quantity = quantitiesByProductId[productIdStr] ?? 1;
-
-              return (
-                <CheckoutItem
-                  key={product.id}
-                  isLast={index === docs.length - 1}
-                  imageURL={imageURL ?? undefined}
-                  name={product.name}
-                  productURL={productURL}
-                  tenantURL={tenantURL}
-                  tenantName={tenantNameSafe}
-                  price={product.price}
-                  quantity={quantity}
-                  onQuantityChange={(next) => {
-                    const safe = readQuantityOrDefault(next);
-                    addProduct(productIdStr, safe);
-                  }}
-                  onRemove={() => removeProduct(productIdStr)}
-                />
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Sidebar */}
-        <div className="lg:col-span-3">
-          <CheckoutSidebar
-            subtotalCents={subtotalCents}
-            shippingCents={shippingCents}
-            totalCents={totalCents}
-            onPurchaseAction={() => purchase.mutate({ lines })}
-            isCanceled={states.cancel}
-            disabled={isBusy}
-            hasCalculatedShipping={hasCalculatedShipping}
-            breakdownItems={breakdownItems}
+      <div className="mt-4 space-y-6">
+        {groups.map((group) => (
+          <TenantCheckoutSection
+            key={group.tenantKey}
+            group={group}
+            isBusy={isBusy}
+            onCheckoutAction={handleCheckoutGroup}
           />
-        </div>
+        ))}
       </div>
     </div>
   );
