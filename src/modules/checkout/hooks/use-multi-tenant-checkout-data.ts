@@ -220,7 +220,7 @@ export function useMultiTenantCheckoutData(): {
     }
 
     return result;
-  }, [docs.length, hasAnyItems, tenantCarts, productsById]);
+  }, [docs, hasAnyItems, tenantCarts, productsById]);
 
   const grandSubtotalCents = useMemo(
     () => groups.reduce((sum, group) => sum + group.subtotalCents, 0),
