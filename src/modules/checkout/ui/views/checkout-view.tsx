@@ -191,6 +191,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         : undefined;
 
     if (code === 'NOT_FOUND') {
+      // TODO: backend should return { tenantSlug, missingProductIds }
+      // so we can clear only the affected tenant / products instead of nuking
+      // all carts for this user.
       useCartStore.getState().clearAllCartsForCurrentUser();
       toast.warning('Invalid products found, your cart has been cleared');
     }
