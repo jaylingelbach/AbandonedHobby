@@ -346,6 +346,69 @@ export const useCartStore = create<CartState>()(
           bc?.postMessage({ type: 'CLEAR_ALL_GLOBAL' });
         },
 
+        removeMissingProductsForCurrentUser: (missingProductIds) => {
+          if (missingProductIds.length === 0) return;
+
+          const { currentUserKey, byUser } = get();
+          if (!currentUserKey) return;
+
+          const userCarts = byUser[currentUserKey];
+          if (!userCarts) return;
+
+          const updatedUserCarts: Record<string, TenantCart> = {};
+
+          for (const [tenantKey, cart] of Object.entries(userCarts)) {
+            const remainingProductIds = cart.productIds.filter(
+              (id) => !missingProductIds.includes(id)
+            );
+
+            // If nothing changed, keep cart as-is
+            if (remainingProductIds.length === cart.productIds.length) {
+              updatedUserCarts[tenantKey] = cart;
+              continue;
+            }
+
+            // Filter out missing products from shipping + quantities
+            const updatedShippingByProductId: TenantCart['shippingByProductId'] =
+              {};
+            for (const [productId, value] of Object.entries(
+              cart.shippingByProductId ?? {}
+            )) {
+              if (!missingProductIds.includes(productId)) {
+                updatedShippingByProductId[productId] = value;
+              }
+            }
+
+            const updatedQuantitiesByProductId: TenantCart['quantitiesByProductId'] =
+              {};
+            for (const [productId, value] of Object.entries(
+              cart.quantitiesByProductId ?? {}
+            )) {
+              if (!missingProductIds.includes(productId)) {
+                updatedQuantitiesByProductId[productId] = value;
+              }
+            }
+
+            // If there are still items left for this tenant, keep the cart
+            if (remainingProductIds.length > 0) {
+              updatedUserCarts[tenantKey] = {
+                ...cart,
+                productIds: remainingProductIds,
+                shippingByProductId: updatedShippingByProductId,
+                quantitiesByProductId: updatedQuantitiesByProductId
+              };
+            }
+            // else: drop this tenant’s cart entirely for this user
+          }
+
+          set({
+            byUser: {
+              ...byUser,
+              [currentUserKey]: updatedUserCarts
+            }
+          });
+        },
+
         migrateAnonToUser: (tenantSlug, newUserId) => {
           const state = get();
           const anonKey = state.currentUserKey;

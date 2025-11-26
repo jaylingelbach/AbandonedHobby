@@ -30,12 +30,42 @@ import {
   useMultiTenantCheckoutData
 } from '../../hooks/use-multi-tenant-checkout-data';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
+import { TRPCClientError } from '@trpc/client';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
 }
 
 type TrpcErrorShape = { data?: { code?: string } };
+
+type MissingProductsPayload = {
+  reason?: string;
+  missingProductIds?: string[];
+};
+
+function parseMissingProductIdsFromError(error: unknown): string[] {
+  if (!(error instanceof TRPCClientError)) return [];
+
+  const rawMessage = error.message;
+  if (typeof rawMessage !== 'string') return [];
+
+  try {
+    const parsed = JSON.parse(rawMessage) as MissingProductsPayload;
+    if (
+      parsed &&
+      parsed.reason === 'MISSING_PRODUCTS' &&
+      Array.isArray(parsed.missingProductIds)
+    ) {
+      return parsed.missingProductIds.filter(
+        (id): id is string => typeof id === 'string' && id.trim().length > 0
+      );
+    }
+  } catch {
+    // message is not JSON – ignore
+  }
+
+  return [];
+}
 
 function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
   if (typeof value !== 'object' || value === null) return false;
@@ -66,6 +96,44 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     error,
     refetch
   } = useMultiTenantCheckoutData();
+
+  // Handle NOT_FOUND from checkout.getProducts – remove only missing items when possible
+  useEffect(() => {
+    if (!error) return;
+
+    const clientError = error instanceof TRPCClientError ? error : null;
+    if (!clientError) return;
+
+    const rawData = clientError.data;
+    let code: string | undefined;
+
+    if (
+      rawData &&
+      typeof rawData === 'object' &&
+      'code' in rawData &&
+      typeof (rawData as { code?: unknown }).code === 'string'
+    ) {
+      code = (rawData as { code?: string }).code;
+    }
+
+    if (code !== 'NOT_FOUND') return;
+
+    const missingProductIds = parseMissingProductIdsFromError(clientError);
+
+    if (missingProductIds.length > 0) {
+      useCartStore
+        .getState()
+        .removeMissingProductsForCurrentUser(missingProductIds);
+
+      toast.warning(
+        'Some items in your cart were removed because they are no longer available.'
+      );
+    } else {
+      // Fallback if we didn’t get details for some reason
+      useCartStore.getState().clearAllCartsForCurrentUser();
+      toast.warning('Invalid products found, your cart has been cleared.');
+    }
+  }, [error]);
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
@@ -179,25 +247,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       { scroll: false }
     );
   }, [router, searchParams, setStates]);
-
-  // Clear cart(s) if server says products are invalid
-  useEffect(() => {
-    if (!error) return;
-
-    const maybeTrpcError = error as unknown;
-    const code =
-      isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
-        ? maybeTrpcError.data.code
-        : undefined;
-
-    if (code === 'NOT_FOUND') {
-      // TODO: backend should return { tenantSlug, missingProductIds }
-      // so we can clear only the affected tenant / products instead of nuking
-      // all carts for this user.
-      useCartStore.getState().clearAllCartsForCurrentUser();
-      toast.warning('Invalid products found, your cart has been cleared');
-    }
-  }, [error]);
 
   useEffect(() => {
     if (!session?.user?.id) return;
