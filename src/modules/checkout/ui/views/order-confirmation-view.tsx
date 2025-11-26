@@ -11,10 +11,11 @@ import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { buildSignInUrl, formatCents, generateTenantURL } from '@/lib/utils';
+import { cartDebug } from '@/modules/checkout/debug';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks ───────────────────────────────────────────────────────────
-import { useCart } from '@/modules/checkout/hooks/use-cart';
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 interface Props {
   sessionId: string;
@@ -120,14 +121,11 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
   const firstOrder = orders[0]; // may be undefined while webhook is pending
-  const { clearCart } = useCart(firstOrder?.tenantSlug);
 
-  // Derive stable primitives for deps
   const tenantSlug = firstOrder?.tenantSlug ?? null;
   const status = firstOrder?.status ?? null;
   const hasAnyOrder = orders.length > 0;
 
-  // Optionally decide what statuses count as “paid”
   const isSettled = useMemo(
     () =>
       status === 'paid' ||
@@ -136,20 +134,46 @@ export default function OrderConfirmationView({ sessionId }: Props) {
       status === 'processing',
     [status]
   );
-
   // Prevent multiple clears if component re-renders
-  const clearedForTenantRef = useRef<string | null>(null);
-  useEffect(() => {
-    if (!tenantSlug) return;
-    if (clearedForTenantRef.current === tenantSlug) return;
+  const clearedRef = useRef(false);
 
-    // Clear when we have any order OR a settled status (pick either/both)
-    if (hasAnyOrder || isSettled) {
-      console.log('[cart] clearing on confirmation', { tenantSlug, status });
-      clearCart();
-      clearedForTenantRef.current = tenantSlug;
-    }
-  }, [tenantSlug, hasAnyOrder, isSettled, clearCart, status]);
+  useEffect(() => {
+    if (!mounted) return; // wait until we're on the client
+    if (clearedRef.current) return;
+
+    // Optional: wait until we have an order or a "settled" status
+    if (!hasAnyOrder && !isSettled) return;
+
+    if (typeof window === 'undefined') return;
+
+    const scope = window.localStorage.getItem('ah_checkout_scope');
+
+    cartDebug('success page: clearing cart for scope', {
+      scope,
+      byUserBefore: useCartStore.getState().byUser
+    });
+
+    const run = () => {
+      if (scope) {
+        useCartStore.getState().clearCartForScope(scope);
+        window.localStorage.removeItem('ah_checkout_scope');
+      } else {
+        // Fallback if scope is missing: clear all carts for this user
+        useCartStore.getState().clearAllCartsForCurrentUser();
+      }
+
+      cartDebug('success page: after clearing', {
+        scopeUsed: scope,
+        byUserAfter: useCartStore.getState().byUser
+      });
+
+      clearedRef.current = true;
+    };
+
+    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
+    if (useCartStore.persist?.hasHydrated?.()) run();
+    return () => unsubscribe?.();
+  }, [mounted, hasAnyOrder, isSettled]);
 
   // Not signed in (client-side)
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {

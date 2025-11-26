@@ -112,9 +112,17 @@ export const productShippingSchema = z.object({
 });
 
 export function parseProductShipping(product: unknown): ProductForShipping {
+  // Validate that product has a valid id
+  if (!product || typeof product !== 'object' || !('id' in product)) {
+    throw new Error('[checkout] Product missing id field');
+  }
+  const productId = (product as { id: unknown }).id;
+  if (typeof productId !== 'string' || productId.trim() === '') {
+    throw new Error('[checkout] Product id must be a non-empty string');
+  }
+
   const parsed = productShippingSchema.safeParse(product);
   if (!parsed.success) {
-    const productId = (product as { id?: string })?.id ?? 'unknown';
     console.warn('[checkout] invalid/missing shipping fields', {
       productId,
       issues: parsed.error.issues
@@ -122,7 +130,7 @@ export function parseProductShipping(product: unknown): ProductForShipping {
   }
 
   return {
-    id: (product as { id: string }).id,
+    id: productId,
     shippingMode: parsed.success ? (parsed.data.shippingMode ?? null) : null,
     shippingFlatFee: parsed.success
       ? (parsed.data.shippingFlatFee ?? null)

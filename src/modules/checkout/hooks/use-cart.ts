@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useShallow } from 'zustand/react/shallow';
 import {
   CartLineForAnalytics,
@@ -109,37 +109,51 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   return normalized;
 }
 
-/**
- * Returns a summary of all tenant carts for the current user.
- *
- * Each entry corresponds to one tenant bucket in the store:
- *  - tenantKey: normalized tenant identifier (e.g. '__global__' or 'my-tenant')
- *  - productIds: product IDs in that tenant's cart
- *  - quantitiesByProductId: sanitized quantity map (only positive integers)
- */
-export function useAllTenantCarts(): TenantCartSummary[] {
-  const { byUser, currentUserKey } = useCartStore((state) => ({
-    byUser: state.byUser,
-    currentUserKey: state.currentUserKey
-  }));
-  const tenantMap = byUser[currentUserKey] ?? [];
+function buildTenantSummaries(state: CartState): TenantCartSummary[] {
+  const currentUserKey = state.currentUserKey;
+  const byTenant = state.byUser[currentUserKey] ?? {};
+
   const summaries: TenantCartSummary[] = [];
 
-  for (const [tenantKey, cart] of Object.entries(tenantMap)) {
-    const productIds = Array.isArray(cart.productIds) ? cart.productIds : [];
+  for (const [tenantKey, bucket] of Object.entries(byTenant)) {
+    const productIds = Array.isArray(bucket.productIds)
+      ? bucket.productIds
+      : EMPTY_PRODUCT_IDS;
 
-    if (productIds.length === 0) {
-      continue; // ignore empty carts
-    }
+    const quantitiesByProductId = sanitizeQuantities(
+      bucket.quantitiesByProductId
+    );
 
-    const quantities = sanitizeQuantities(cart.quantitiesByProductId);
+    if (productIds.length === 0) continue;
 
     summaries.push({
       tenantKey,
       productIds,
-      quantitiesByProductId: quantities
+      quantitiesByProductId
     });
   }
+
+  return summaries;
+}
+
+/**
+ * Read all tenant carts for the current user from the Zustand store.
+ *
+ * We subscribe manually instead of using the Zustand React hook, so we
+ * avoid useSyncExternalStore / getServerSnapshot quirks in Next 15.
+ */
+export function useAllTenantCarts(): TenantCartSummary[] {
+  const [summaries, setSummaries] = useState<TenantCartSummary[]>(() =>
+    buildTenantSummaries(useCartStore.getState())
+  );
+
+  useEffect(() => {
+    const unsubscribe = useCartStore.subscribe((state) => {
+      setSummaries(buildTenantSummaries(state));
+    });
+    return unsubscribe;
+  }, []);
+
   return summaries;
 }
 
