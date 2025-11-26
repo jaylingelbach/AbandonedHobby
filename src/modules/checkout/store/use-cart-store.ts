@@ -392,10 +392,13 @@ export const useCartStore = create<CartState>()(
             // If there are still items left for this tenant, keep the cart
             if (remainingProductIds.length > 0) {
               updatedUserCarts[tenantKey] = {
-                ...cart,
                 productIds: remainingProductIds,
-                shippingByProductId: updatedShippingByProductId,
-                quantitiesByProductId: updatedQuantitiesByProductId
+                ...(Object.keys(updatedShippingByProductId).length > 0
+                  ? { shippingByProductId: updatedShippingByProductId }
+                  : {}),
+                ...(Object.keys(updatedQuantitiesByProductId).length > 0
+                  ? { quantitiesByProductId: updatedQuantitiesByProductId }
+                  : {})
               };
             }
             // else: drop this tenant’s cart entirely for this user
