@@ -149,7 +149,23 @@ export function useAllTenantCarts(): TenantCartSummary[] {
 
   useEffect(() => {
     const unsubscribe = useCartStore.subscribe((state) => {
-      setSummaries(buildTenantSummaries(state));
+      setSummaries((prev) => {
+        const next = buildTenantSummaries(state);
+        // Shallow compare to avoid unnecessary re-renders
+        if (
+          prev.length === next.length &&
+          prev.every(
+            (p, i) =>
+              next[i] &&
+              p.tenantKey === next[i].tenantKey &&
+              p.productIds === next[i].productIds &&
+              p.quantitiesByProductId === next[i].quantitiesByProductId
+          )
+        ) {
+          return prev;
+        }
+g        return next;
+      });
     });
     return unsubscribe;
   }, []);
