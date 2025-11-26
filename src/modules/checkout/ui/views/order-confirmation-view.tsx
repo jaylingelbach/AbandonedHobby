@@ -142,8 +142,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
     // Optional: wait until we have an order or a "settled" status
     if (!hasAnyOrder && !isSettled) return;
 
-    if (typeof window === 'undefined') return;
-
     const scope = window.localStorage.getItem('ah_checkout_scope');
 
     cartDebug('success page: clearing cart for scope', {

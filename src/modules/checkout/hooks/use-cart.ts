@@ -164,7 +164,7 @@ export function useAllTenantCarts(): TenantCartSummary[] {
         ) {
           return prev;
         }
-g        return next;
+        return next;
       });
     });
     return unsubscribe;
