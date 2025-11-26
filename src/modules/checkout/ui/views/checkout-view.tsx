@@ -38,30 +38,19 @@ interface CheckoutViewProps {
 
 type TrpcErrorShape = { data?: { code?: string } };
 
-type MissingProductsPayload = {
-  reason?: string;
-  missingProductIds?: string[];
-};
-
-function parseMissingProductIdsFromError(error: unknown): string[] {
+function getMissingProductIdsFromError(error: unknown): string[] {
   if (!(error instanceof TRPCClientError)) return [];
 
-  const rawMessage = error.message;
-  if (typeof rawMessage !== 'string') return [];
+  const data = error.data as unknown;
+  if (!data || typeof data !== 'object') return [];
 
-  try {
-    const parsed = JSON.parse(rawMessage) as MissingProductsPayload;
-    if (
-      parsed &&
-      parsed.reason === 'MISSING_PRODUCTS' &&
-      Array.isArray(parsed.missingProductIds)
-    ) {
-      return parsed.missingProductIds.filter(
-        (id): id is string => typeof id === 'string' && id.trim().length > 0
-      );
-    }
-  } catch {
-    // message is not JSON – ignore
+  const missingProductIds = (data as { missingProductIds?: unknown })
+    .missingProductIds;
+
+  if (Array.isArray(missingProductIds)) {
+    return missingProductIds.filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0
+    );
   }
 
   return [];
@@ -118,7 +107,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     if (code !== 'NOT_FOUND') return;
 
-    const missingProductIds = parseMissingProductIdsFromError(clientError);
+    const missingProductIds = getMissingProductIdsFromError(clientError);
 
     if (missingProductIds.length > 0) {
       useCartStore
