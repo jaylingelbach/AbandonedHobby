@@ -87,8 +87,13 @@ function computeFallbackAmounts(order: {
 /**
  * Renders the order confirmation page for a checkout session.
  *
- * IMPORTANT: Protected tRPC queries are gated behind `mounted` so nothing runs during SSR,
- * avoiding "Must be logged in." errors when cookies/sessions aren't available server-side.
+ * Shows a finalizing shell while confirmation is pending, renders a sign-in prompt if the
+ * request is unauthorized, and displays one or more receipt cards when confirmation succeeds.
+ * After a successful confirmation, clears the client-side cart once (scope-aware) after client
+ * hydration so server-only protected queries do not run during SSR.
+ *
+ * @param sessionId - The checkout session identifier used to fetch confirmation data
+ * @returns The order confirmation view element
  */
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();

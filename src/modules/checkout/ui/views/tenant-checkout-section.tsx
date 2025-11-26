@@ -25,14 +25,11 @@ export interface TenantCheckoutSectionProps {
 }
 
 /**
- * Per-tenant checkout section, similar to Etsy's "Check out for this shop only".
+ * Render a per-tenant checkout section that shows the seller header, their cart items, and a checkout summary.
  *
- * Renders:
- *  - The seller header (name + link)
- *  - Their products in the cart
- *  - A sidebar summary with a "Checkout for this shop" button
+ * Displays the seller name (linked when a tenant URL is available), a list of products with quantity controls and remove actions that update the tenant-scoped cart, and a sidebar with subtotal, shipping, total, and a checkout action. Payment processing is not performed by this component.
  *
- * No Stripe calls happen in here; those are handled by the parent view.
+ * @returns The tenant-specific checkout UI as JSX elements
  */
 export function TenantCheckoutSection({
   group,
