@@ -5649,3 +5649,40 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/products/ui/views/product-view.tsx
   - Relocates share-URL button from first action row to second row alongside quantity/cart area; layout gap adjusted from 2 to 1
+
+# Clear only invalid cart items 11/26/25
+
+## Walkthrough
+
+- Introduces comprehensive missing-product error handling for checkout: adds CheckoutProductsNotFoundError class, enriches getProducts NOT_FOUND errors with missingProductIds, creates TRPC errorFormatter to propagate this data, adds store action to remove missing products from cart, and updates checkout UI to parse and apply targeted product removal.
+
+## Bug Fixes
+
+- Improved checkout experience when products become unavailable—the system now intelligently identifies which specific items are no longer in stock and removes only those from your cart, rather than clearing the entire cart.
+- Enhanced error messages to clearly communicate which products are affected during checkout.
+
+## File changes
+
+### Error Definition & Enrichment
+
+- src/modules/checkout/server/errors.ts, src/modules/checkout/server/procedures.ts
+  - Adds CheckoutProductsNotFoundError class with missingProductIds property.
+  - Updates getProducts to detect missing product IDs by comparing requested vs. retrieved docs, then throws NOT_FOUND error with enriched cause object containing missingProductIds array and 'MISSING_PRODUCTS' reason.
+
+### Cart Store & State Management
+
+- src/modules/checkout/store/types.ts, src/modules/checkout/store/use-cart-store.ts
+  - Declares new removeMissingProductsForCurrentUser(missingProductIds: string[]) method in CartState type.
+  - Implements the method to iterate current user's per-tenant carts, filter out missing product IDs from productIds, shippingByProductId, and quantitiesByProductId, and drop carts with no remaining items.
+
+### UI Error Handling
+
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Adds parseMissingProductIdsFromError() helper to extract missingProductIds from TRPC error message when payload indicates MISSING_PRODUCTS.
+  - Implements NOT_FOUND error handling: calls removeMissingProductsForCurrentUser() with extracted IDs, or clears all carts and shows warning if parsing fails.
+
+### TRPC Error Formatting
+
+- src/trpc/init.ts
+  - Imports CheckoutProductsNotFoundError and adds errorFormatter to TRPC context creation.
+  - Formatter detects when error.cause is CheckoutProductsNotFoundError, then augments TRPC response data with missingProductIds; otherwise returns original shape.

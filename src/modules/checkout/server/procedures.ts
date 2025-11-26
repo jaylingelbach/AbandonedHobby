@@ -38,6 +38,7 @@ import {
   truncateToStripeMetadata,
   computeFlatShippingCentsForCart
 } from './utils';
+import { CheckoutProductsNotFoundError } from './errors';
 
 export const runtime = 'nodejs';
 
@@ -665,10 +666,7 @@ export const checkoutRouter = createTRPCRouter({
         throw new TRPCError({
           code: 'NOT_FOUND',
           message: `Products not found: ${missingProductIds.join(', ')}`,
-          cause: {
-            reason: 'MISSING_PRODUCTS',
-            missingProductIds
-          }
+          cause: new CheckoutProductsNotFoundError(missingProductIds)
         });
       }
 
