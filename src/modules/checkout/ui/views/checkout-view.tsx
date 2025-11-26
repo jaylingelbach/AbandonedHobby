@@ -118,14 +118,14 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         'Some items in your cart were removed because they are no longer available.'
       );
 
-      // Refetch to show updated cart without requiring manual retry
+      //gi Refetch to show updated cart without requiring manual retry
       void refetch();
     } else {
       // Fallback if we didn’t get details for some reason
       useCartStore.getState().clearAllCartsForCurrentUser();
       toast.warning('Invalid products found, your cart has been cleared.');
     }
-  }, [error]);
+  }, [error, refetch]);
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
