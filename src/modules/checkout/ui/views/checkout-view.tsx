@@ -30,6 +30,7 @@ import {
   useMultiTenantCheckoutData
 } from '../../hooks/use-multi-tenant-checkout-data';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
+import { TRPCClientError } from '@trpc/client';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
@@ -37,6 +38,36 @@ interface CheckoutViewProps {
 
 type TrpcErrorShape = { data?: { code?: string } };
 
+/**
+ * Extracts valid missing product IDs from a TRPCClientError error payload.
+ *
+ * @param error - The value to inspect; typically an error thrown by a tRPC call.
+ * @returns An array of non-empty `string` product IDs found under `missingProductIds` in the error payload, or an empty array if none are present or the input is not a `TRPCClientError`.
+ */
+function getMissingProductIdsFromError(error: unknown): string[] {
+  if (!(error instanceof TRPCClientError)) return [];
+
+  const data = error.data as unknown;
+  if (!data || typeof data !== 'object') return [];
+
+  const missingProductIds = (data as { missingProductIds?: unknown })
+    .missingProductIds;
+
+  if (Array.isArray(missingProductIds)) {
+    return missingProductIds.filter(
+      (id): id is string => typeof id === 'string' && id.trim().length > 0
+    );
+  }
+
+  return [];
+}
+
+/**
+ * Determines whether a value matches the expected TRPC error object shape.
+ *
+ * @param value - The value to test for the TRPC error shape
+ * @returns `true` if `value` is an object and either has no `data` property or its `data` is `undefined`, `null`, or an object; `false` otherwise.
+ */
 function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
   if (typeof value !== 'object' || value === null) return false;
   if (!('data' in value)) return true; // allow absence of data
@@ -66,6 +97,47 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     error,
     refetch
   } = useMultiTenantCheckoutData();
+
+  // Handle NOT_FOUND from checkout.getProducts – remove only missing items when possible
+  useEffect(() => {
+    if (!error) return;
+
+    const clientError = error instanceof TRPCClientError ? error : null;
+    if (!clientError) return;
+
+    const rawData = clientError.data;
+    let code: string | undefined;
+
+    if (
+      rawData &&
+      typeof rawData === 'object' &&
+      'code' in rawData &&
+      typeof (rawData as { code?: unknown }).code === 'string'
+    ) {
+      code = (rawData as { code?: string }).code;
+    }
+
+    if (code !== 'NOT_FOUND') return;
+
+    const missingProductIds = getMissingProductIdsFromError(clientError);
+
+    if (missingProductIds.length > 0) {
+      useCartStore
+        .getState()
+        .removeMissingProductsForCurrentUser(missingProductIds);
+
+      toast.warning(
+        'Some items in your cart were removed because they are no longer available.'
+      );
+
+      // Refetch to show updated cart without requiring manual retry
+      void refetch();
+    } else {
+      // Fallback if we didn’t get details for some reason
+      useCartStore.getState().clearAllCartsForCurrentUser();
+      toast.warning('Invalid products found, your cart has been cleared.');
+    }
+  }, [error, refetch]);
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
@@ -179,25 +251,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       { scroll: false }
     );
   }, [router, searchParams, setStates]);
-
-  // Clear cart(s) if server says products are invalid
-  useEffect(() => {
-    if (!error) return;
-
-    const maybeTrpcError = error as unknown;
-    const code =
-      isTrpcErrorShape(maybeTrpcError) && maybeTrpcError.data?.code
-        ? maybeTrpcError.data.code
-        : undefined;
-
-    if (code === 'NOT_FOUND') {
-      // TODO: backend should return { tenantSlug, missingProductIds }
-      // so we can clear only the affected tenant / products instead of nuking
-      // all carts for this user.
-      useCartStore.getState().clearAllCartsForCurrentUser();
-      toast.warning('Invalid products found, your cart has been cleared');
-    }
-  }, [error]);
 
   useEffect(() => {
     if (!session?.user?.id) return;

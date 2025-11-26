@@ -19,6 +19,8 @@ export interface CartState {
   byUser: UserMap;
   currentUserKey: string;
 
+  removeMissingProductsForCurrentUser: (missingProductIds: string[]) => void;
+
   /** Capture or update a product's shipping snapshot for a tenant. */
   setProductShippingSnapshot: (
     tenantSlug: string | null | undefined,
