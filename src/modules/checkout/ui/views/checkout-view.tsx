@@ -1,17 +1,16 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
-import { track } from '@/lib/analytics';
 import { buildSignInUrl } from '@/lib/utils';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { useTRPC } from '@/trpc/client';
@@ -70,12 +69,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
-
-  // Library invalidation still works the same
-  const libraryFilter = useMemo(
-    () => trpc.library.getMany.infiniteQueryFilter(),
-    [trpc.library.getMany]
-  );
 
   // Track which seller + lines we last attempted checkout with
   const lastCheckoutTenantRef = useRef<string | null>(null);
@@ -164,7 +157,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     const derivedTenant =
       group.tenantKey ?? group.tenantSlug ?? tenantSlug ?? '__global__';
 
-    lastCheckoutTenantRef.current = derivedTenant;
     lastCheckoutTenantRef.current = derivedTenant;
 
     lastCheckoutLinesRef.current = lines;
