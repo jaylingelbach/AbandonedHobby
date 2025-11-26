@@ -121,8 +121,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
   const firstOrder = orders[0]; // may be undefined while webhook is pending
-
-  const tenantSlug = firstOrder?.tenantSlug ?? null;
   const status = firstOrder?.status ?? null;
   const hasAnyOrder = orders.length > 0;
 
