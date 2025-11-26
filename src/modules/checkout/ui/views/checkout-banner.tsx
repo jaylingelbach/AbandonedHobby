@@ -25,7 +25,7 @@ export default function CheckoutBanner({
             type="button"
             aria-label="Dismiss"
             onClick={onDismiss}
-            className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md border-2 border-black bg-white p-1 shadow-[3px_3px_0_0_#000] hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-none"
+            className="absolute right-2 top-2 inline-flex items-center justify-center rounded-md border-2 border-black bg-white p-1 shadow-[3px_3px_0_0_#000] hover:translate-x hover:translate-y hover:shadow-none"
           >
             <X className="h-4 w-4" />
           </button>
@@ -34,7 +34,7 @@ export default function CheckoutBanner({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-start gap-3">
             <AlertTriangle
-              className="mt-0.5 h-5 w-5 flex-shrink-0"
+              className="mt-0.5 h-5 w-5 shrink-0"
               aria-hidden="true"
             />
             <div>
