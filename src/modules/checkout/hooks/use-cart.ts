@@ -109,6 +109,16 @@ function sanitizeQuantities(raw: unknown): Record<string, number> {
   return normalized;
 }
 
+/**
+ * Builds an array of tenant-scoped cart summaries for the current user.
+ *
+ * Each summary contains the tenant key, the tenant's product id list, and a
+ * sanitized mapping of quantities by product id. Tenants with no product ids
+ * are omitted from the result.
+ *
+ * @param state - The current cart state containing the active user key and per-user tenant buckets
+ * @returns An array of TenantCartSummary objects for tenants that have one or more product ids; quantities are sanitized to valid positive integers
+ */
 function buildTenantSummaries(state: CartState): TenantCartSummary[] {
   const currentUserKey = state.currentUserKey;
   const byTenant = state.byUser[currentUserKey] ?? {};
@@ -137,10 +147,9 @@ function buildTenantSummaries(state: CartState): TenantCartSummary[] {
 }
 
 /**
- * Read all tenant carts for the current user from the Zustand store.
+ * Provide a live array of tenant-scoped cart summaries for the current user.
  *
- * We subscribe manually instead of using the Zustand React hook, so we
- * avoid useSyncExternalStore / getServerSnapshot quirks in Next 15.
+ * @returns An array of TenantCartSummary objects representing each tenant's cart for the current user
  */
 export function useAllTenantCarts(): TenantCartSummary[] {
   const [summaries, setSummaries] = useState<TenantCartSummary[]>(() =>

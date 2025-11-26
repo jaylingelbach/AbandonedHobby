@@ -54,7 +54,13 @@ export function collapseCompositeTenantKeys(byUser: UserMap): UserMap {
   return out;
 }
 
-/** Normalize and clamp a snapshot. */
+/**
+ * Normalize a shipping mode and optional fee into a ShippingSnapshot suitable for storage.
+ *
+ * @param mode - Requested shipping mode; values other than `'flat'`, `'calculated'`, or `'free'` are normalized to `'free'`.
+ * @param feeCentsPerUnit - Optional fee per unit (numeric). When the resulting mode is `'flat'`, this value is converted to integer cents and included in the snapshot.
+ * @returns A ShippingSnapshot with `mode` set to `'flat'`, `'calculated'`, or `'free'`. When `mode` is `'flat'`, the snapshot includes `feeCentsPerUnit` expressed as integer cents.
+ */
 export function normalizeShippingSnapshot(
   mode: ShippingMode,
   feeCentsPerUnit?: number

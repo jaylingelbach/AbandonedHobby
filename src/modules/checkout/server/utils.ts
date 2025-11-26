@@ -92,6 +92,12 @@ export function computeFlatShippingCentsForCart(
   return { shippingCents, hasCalculated };
 }
 
+/**
+ * Convert a value to a string suitable for Stripe metadata and enforce the length limit.
+ *
+ * @param raw - The value to convert. If `null` or `undefined`, an empty string is produced; if a string, it is trimmed; otherwise `String(raw)` is used.
+ * @returns The resulting string truncated to STRIPE_METADATA_MAX_LENGTH characters if necessary.
+ */
 export function truncateToStripeMetadata(raw: unknown): string {
   if (raw === null || raw === undefined) {
     return '';
@@ -111,6 +117,14 @@ export const productShippingSchema = z.object({
   shippingFlatFee: z.number().nullable().optional()
 });
 
+/**
+ * Parse and validate shipping-related fields from a product object.
+ *
+ * @param product - The product to parse; must be an object with a non-empty string `id`. May include optional `shippingMode` and `shippingFlatFee` fields.
+ * @returns The product's shipping data: `id`, `shippingMode` (one of `"free"`, `"flat"`, `"calculated"` or `null`), and `shippingFlatFee` (number in USD or `null`).
+ * @throws Error if the product is missing an `id` property.
+ * @throws Error if the product `id` is not a non-empty string.
+ */
 export function parseProductShipping(product: unknown): ProductForShipping {
   // Validate that product has a valid id
   if (!product || typeof product !== 'object' || !('id' in product)) {

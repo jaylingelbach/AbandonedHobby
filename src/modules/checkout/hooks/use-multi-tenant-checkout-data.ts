@@ -45,9 +45,16 @@ export interface MultiTenantCheckoutData {
 }
 
 /**
- * Load all cart items for the current user across all tenants,
- * fetch their product data, and group them by tenant with
- * per-tenant totals and shipping breakdowns.
+ * Assemble checkout data for all tenant carts, producing per-tenant groups,
+ * shipping breakdowns, and grand totals.
+ *
+ * @returns An object containing:
+ *  - `data`: `MultiTenantCheckoutData` with `groups`, `grandSubtotalCents`, `grandShippingCents`, and `grandTotalCents`, or `null` when no cart items exist.
+ *  - `isLoading`: `true` while product data is initially loading, `false` otherwise.
+ *  - `isFetching`: `true` while a background refetch is in progress, `false` otherwise.
+ *  - `isError`: `true` if the product query failed, `false` otherwise.
+ *  - `error`: The error returned by the product query, if any.
+ *  - `refetch`: A function to re-run the product query.
  */
 export function useMultiTenantCheckoutData(): {
   data: MultiTenantCheckoutData | null;
