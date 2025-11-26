@@ -117,6 +117,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       toast.warning(
         'Some items in your cart were removed because they are no longer available.'
       );
+
+      // Refetch to show updated cart without requiring manual retry
+      void refetch();
     } else {
       // Fallback if we didn’t get details for some reason
       useCartStore.getState().clearAllCartsForCurrentUser();
