@@ -124,7 +124,7 @@ export const Navbar = () => {
                     aria-live="polite"
                     aria-label={`${unreadCount} unread messages`}
                     className={cn(
-                      'absolute -top-1 -right-1 flex h-5 min-w-[1.25rem] items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white',
+                      'absolute -top-1 -right-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-600 px-1 text-xs font-semibold text-white',
                       unreadCount > 9 ? 'text-[0.55rem]' : ''
                     )}
                   >
