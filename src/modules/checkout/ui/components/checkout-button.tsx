@@ -5,11 +5,11 @@ import Link from 'next/link';
 import { ShoppingCartIcon } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 
-import { cn, generateTenantURL } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 import { Button } from '@/components/ui/button';
 
-import { useCart } from '@/modules/checkout/hooks/use-cart';
+import { useCartBadgeCount } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 interface CheckoutButtonProps {
@@ -25,6 +25,7 @@ export const CheckoutButton = ({
 }: CheckoutButtonProps) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
+  const badgeCount = useCartBadgeCount();
 
   useEffect(() => {
     const userId = session?.user?.id ?? null;
@@ -57,17 +58,15 @@ export const CheckoutButton = ({
     };
   }, [tenantSlug, session?.user?.id]);
 
-  const { totalItems } = useCart(tenantSlug);
-
-  if (hideIfEmpty && totalItems === 0) return null;
+  if (hideIfEmpty && badgeCount === 0) return null;
 
   return (
     <Button asChild variant="elevated" className={cn('bg-white', className)}>
       <Link
-        href={`${generateTenantURL(tenantSlug)}/checkout`}
-        aria-label={`Open checkout${totalItems ? `, ${totalItems} item${totalItems === 1 ? '' : 's'}` : ''}`}
+        href={'/checkout'}
+        aria-label={`Open checkout${badgeCount ? `, ${badgeCount} item${badgeCount === 1 ? '' : 's'}` : ''}`}
       >
-        <ShoppingCartIcon /> {totalItems > 0 ? totalItems : ''}
+        <ShoppingCartIcon /> {badgeCount > 0 ? badgeCount : ''}
       </Link>
     </Button>
   );
