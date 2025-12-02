@@ -99,15 +99,14 @@ export function selectGlobalCartItemCount(state: CartState): number {
 
   let total = 0;
   for (const cart of Object.values(bucket)) {
-    const productIds = cart.productIds ?? [];
+    const productIds = Array.isArray(cart.productIds) ? cart.productIds : [];
     const quantities = cart.quantitiesByProductId ?? {};
 
     for (const productId of productIds) {
       const q = quantities[productId];
       const isSafe = isFiniteNumber(q);
-      if (isSafe) {
-        total += q;
-      }
+      // Default to 1 to match useCart.totalItems behavior
+      total += isSafe ? q : 1;
     }
   }
   return total;
