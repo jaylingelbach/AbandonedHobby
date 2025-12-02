@@ -1,7 +1,7 @@
 // Legacy, now redirects to checkout
 import { redirect } from 'next/navigation';
 
-const Page = async () => {
+const Page = () => {
   redirect('/checkout');
 };
 
