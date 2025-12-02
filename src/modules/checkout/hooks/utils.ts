@@ -91,6 +91,13 @@ export function buildTenantSummaries(state: CartState): TenantCartSummary[] {
   return summaries;
 }
 
+/**
+ * Compute the total number of items across all tenant carts for the current user.
+ *
+ * Counts each product in every tenant cart; when a product's quantity is missing or not a finite number, it is counted as 1.
+ *
+ * @returns The total item count across all tenants for the current user.
+ */
 export function selectGlobalCartItemCount(state: CartState): number {
   // get current user
   const currentUserKey = state.currentUserKey;
