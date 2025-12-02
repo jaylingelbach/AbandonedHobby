@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { generateTenantURL } from '@/lib/utils';
 import { HomeIcon } from 'lucide-react';
 interface Props {
-  slug: string;
+  slug?: string;
 }
 
 export const Navbar = ({ slug }: Props) => {
@@ -15,9 +15,15 @@ export const Navbar = ({ slug }: Props) => {
           <HomeIcon />
         </Link>
         <p className="text-xl">Checkout</p>
-        <Button asChild variant="elevated">
-          <Link href={generateTenantURL(slug)}>Continue Shopping</Link>
-        </Button>
+        {slug ? (
+          <Button asChild variant="elevated">
+            <Link href={generateTenantURL(slug)}>Continue Shopping</Link>
+          </Button>
+        ) : (
+          <Button asChild variant="elevated">
+            <Link href="/">Continue Shopping</Link>
+          </Button>
+        )}
       </div>
     </nav>
   );
