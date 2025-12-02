@@ -6,7 +6,7 @@ interface LayoutProps {
   params: Promise<{ slug: string }>;
 }
 
-export default async function Layout({ children, params }: LayoutProps) {
+export default async function Layout({ children }: LayoutProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 
   return (

@@ -1,4 +1,5 @@
 import CheckoutView from '@/modules/checkout/ui/views/checkout-view';
+import { Suspense } from 'react';
 
 /**
  * Server page that renders the checkout view for a Stripe session and hydrates prefetched order confirmation data.
@@ -6,5 +7,9 @@ import CheckoutView from '@/modules/checkout/ui/views/checkout-view';
  */
 
 export default function Page() {
-  return <CheckoutView />;
+  return (
+    <Suspense>
+      <CheckoutView />
+    </Suspense>
+  );
 }
