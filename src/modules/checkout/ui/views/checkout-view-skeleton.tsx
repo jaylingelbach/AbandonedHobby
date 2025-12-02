@@ -1,7 +1,7 @@
 export const CheckoutViewSkeleton = () => {
   return (
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
-      {/* Optional: placeholder for CheckoutBanner */}
+      {/* Placeholder for CheckoutBanner */}
       <div className="mb-4">
         <div className="border border-dashed border-black/40 bg-white rounded-lg p-4 animate-pulse">
           <div className="h-4 w-40 bg-muted rounded" />

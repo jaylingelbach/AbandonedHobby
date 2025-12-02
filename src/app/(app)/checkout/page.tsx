@@ -1,5 +1,6 @@
 import CheckoutView from '@/modules/checkout/ui/views/checkout-view';
-import CheckoutViewSkeleton from '@/modules/checkout/ui/views/checkout-view-skeleton';
+import { CheckoutViewSkeleton } from '@/modules/checkout/ui/views/checkout-view-skeleton';
+
 import { Suspense } from 'react';
 
 /**
