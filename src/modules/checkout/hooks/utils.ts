@@ -43,15 +43,9 @@ export function sanitizeQuantities(raw: unknown): Record<string, number> {
     safe[key] = value;
   }
 
-  if (!hasInvalid && Object.keys(safe).length === entries.length) {
-    const typed = map as Record<string, number>;
-    quantityCache.set(map, typed);
-    return typed;
-  }
-
-  const normalized = Object.keys(safe).length > 0 ? safe : EMPTY_QUANTITIES;
-  quantityCache.set(map, normalized);
-  return normalized;
+  const result = Object.keys(safe).length > 0 ? safe : EMPTY_QUANTITIES;
+  quantityCache.set(map, result);
+  return result;
 }
 
 /**
