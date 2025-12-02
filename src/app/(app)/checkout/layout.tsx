@@ -5,6 +5,11 @@ interface LayoutProps {
   children: React.ReactNode;
 }
 
+/**
+ * Renders the application layout with a top navigation bar, a centered content area for `children`, and a footer.
+ *
+ * @returns The root JSX element containing the layout structure (Navbar, centered children container, and Footer).
+ */
 export default async function Layout({ children }: LayoutProps) {
   const appUrl = process.env.NEXT_PUBLIC_APP_URL;
 

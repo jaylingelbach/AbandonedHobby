@@ -11,6 +11,15 @@ type CheckoutBannerProps = {
   disabled?: boolean;
 };
 
+/**
+ * Displays a banner indicating that checkout was canceled and provides actions to resume checkout, clear the cart, or dismiss the banner.
+ *
+ * @param onReturnToCheckoutAction - Callback invoked when the user chooses to resume checkout.
+ * @param onClearCartAction - Callback invoked when the user chooses to clear the cart.
+ * @param onDismissAction - Callback invoked when the user dismisses the banner.
+ * @param disabled - When `true`, disables the primary "Return to checkout" action and shows a loading indicator (defaults to `false`).
+ * @returns The checkout banner JSX element.
+ */
 export default function CheckoutBanner({
   onReturnToCheckoutAction,
   onClearCartAction,

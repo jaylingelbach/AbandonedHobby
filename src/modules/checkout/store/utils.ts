@@ -90,6 +90,13 @@ export function normalizeTenantSlug(raw?: string | null): string {
 const DEVICE_ID_KEY = 'ah_device_id';
 const ANON_KEY_PREFIX = 'anon:';
 
+/**
+ * Obtain a stable device identifier for the current execution context.
+ *
+ * On browsers, returns an identifier persisted in localStorage under DEVICE_ID_KEY, creating and storing one if missing (preferring crypto.randomUUID when available). On non-browser environments returns 'server'. If generation or storage fails, returns a timestamp-based best-effort fallback ID.
+ *
+ * @returns The device identifier: the stored or newly generated ID, `'server'` when not running in a browser, or a timestamp-based fallback if generation/storage fails.
+ */
 function getOrCreateDeviceId(): string {
   if (typeof window === 'undefined') return 'server';
   try {
@@ -107,6 +114,14 @@ function getOrCreateDeviceId(): string {
   }
 }
 
+/**
+ * Derives a stable user key from an optional user ID.
+ *
+ * If `userId` is empty or only whitespace, an anonymous per-device key is returned, prefixed with `anon:`.
+ *
+ * @param userId - The raw user identifier; may be `undefined`, `null`, or contain surrounding whitespace.
+ * @returns The trimmed `userId` when non-empty, otherwise an anonymous key in the form `anon:<deviceId>`.
+ */
 export function deriveUserKey(userId?: string | null): string {
   const id = (userId ?? '').trim();
   return id.length > 0 ? id : `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;

@@ -67,24 +67,22 @@ export function useAllTenantCarts(): TenantCartSummary[] {
 }
 
 /**
- * Provide tenant-scoped cart state and actions for the current user.
+ * Exposes tenant-scoped cart state and tenant-bound action helpers for the current user.
  *
- * The hook reads the cart bucket for the normalized tenant slug and exposes
- * product identifiers, per-product quantities, derived totals, and action
- * helpers that are bound to that tenant.
+ * The hook selects the cart bucket for the normalized tenant slug and provides the ordered
+ * product IDs, a sanitized quantities map, derived totals, and action functions scoped to that tenant.
  *
- * @param tenantSlug - Tenant identifier that will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
- * - (User identity for analytics is managed separately via AnalyticsIdentityBridge)
- * @returns An object containing:
+ * @param tenantSlug - Optional tenant identifier; will be normalized (trimmed, `::...` suffix removed, and defaulted when empty) to select the tenant-scoped cart
+ * @returns An object with:
  *  - `productIds`: the ordered array of product IDs in the tenant's cart
- *  - `totalItems`: the sum of quantities for all listed product IDs (defaults each missing quantity to 1)
- *  - `quantitiesByProductId`: a sanitized map of product ID → quantity (only positive integer quantities are kept)
- *  - `addProduct(productId, quantity?)`: add or update a product with an optional quantity
- *  - `removeProduct(productId)`: remove a product from the cart
- *  - `clearCart()`: remove all products for the current tenant
+ *  - `totalItems`: the sum of quantities for all listed product IDs (missing quantities default to 1)
+ *  - `quantitiesByProductId`: sanitized map of product ID → positive integer quantity
+ *  - `addProduct(productId, quantity?)`: add or update a product with an optional quantity (scoped to the selected tenant)
+ *  - `removeProduct(productId)`: remove a product from the selected tenant's cart
+ *  - `clearCart()`: remove all products for the selected tenant
  *  - `clearAllCartsForCurrentUser()`: clear all tenant carts for the current user
- *  - `toggleProduct(productId, quantity?)`: add (with optional quantity) if not present, otherwise remove
- *  - `isProductInCart(productId)`: returns `true` if the product ID is currently in the cart, `false` otherwise
+ *  - `toggleProduct(productId, quantity?)`: add (with optional quantity) if not present, otherwise remove (scoped to the selected tenant)
+ *  - `isProductInCart(productId)`: `true` if the product ID is currently in the selected tenant's cart, `false` otherwise
  */
 
 export function useCart(tenantSlug?: string | null) {
@@ -207,6 +205,11 @@ export function useCart(tenantSlug?: string | null) {
 
 export default useCart;
 
+/**
+ * Exposes the current total item count across all tenant-scoped carts for the active user.
+ *
+ * @returns The sum of quantities for every product in every tenant cart for the current user
+ */
 export function useCartBadgeCount(): number {
   return useCartStore(selectGlobalCartItemCount);
 }

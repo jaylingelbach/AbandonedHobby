@@ -4,8 +4,9 @@ import { CheckoutViewSkeleton } from '@/modules/checkout/ui/views/checkout-view-
 import { Suspense } from 'react';
 
 /**
- * Server page that renders the checkout view for a Global checkout session.
- * @returns The `CheckoutView` component wrapped in a `Suspense`.
+ * Render the checkout view for a Global checkout session.
+ *
+ * @returns A React element tree containing `CheckoutView` wrapped in `Suspense` with `CheckoutViewSkeleton` as the fallback.
  */
 
 export default function Page() {
