@@ -273,12 +273,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {states.cancel && (
           <CheckoutBanner
             disabled={disableResume}
-            onReturnToCheckout={() => {
+            onReturnToCheckoutAction={() => {
               if (!lastCheckoutLinesRef.current) return;
               purchase.mutate({ lines: lastCheckoutLinesRef.current });
             }}
-            onDismiss={() => setStates({ cancel: false, success: false })}
-            onClearCart={() => {
+            onDismissAction={() => setStates({ cancel: false, success: false })}
+            onClearCartAction={() => {
               useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
@@ -298,8 +298,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {states.cancel && (
           <CheckoutBanner
             disabled
-            onDismiss={() => setStates({ cancel: false, success: false })}
-            onClearCart={() => {
+            onDismissAction={() => setStates({ cancel: false, success: false })}
+            onClearCartAction={() => {
               useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
@@ -328,8 +328,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         {states.cancel && (
           <CheckoutBanner
             disabled
-            onDismiss={() => setStates({ cancel: false, success: false })}
-            onClearCart={() => {
+            onDismissAction={() => setStates({ cancel: false, success: false })}
+            onClearCartAction={() => {
               useCartStore.getState().clearAllCartsForCurrentUser();
               setStates({ cancel: false, success: false });
             }}
@@ -350,12 +350,12 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       {states.cancel && (
         <CheckoutBanner
           disabled={disableResume}
-          onReturnToCheckout={() => {
+          onReturnToCheckoutAction={() => {
             if (!lastCheckoutLinesRef.current) return;
             purchase.mutate({ lines: lastCheckoutLinesRef.current });
           }}
-          onDismiss={() => setStates({ cancel: false, success: false })}
-          onClearCart={() => {
+          onDismissAction={() => setStates({ cancel: false, success: false })}
+          onClearCartAction={() => {
             useCartStore.getState().clearAllCartsForCurrentUser();
             setStates({ cancel: false, success: false });
           }}
