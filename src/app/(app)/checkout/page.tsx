@@ -1,4 +1,5 @@
 import CheckoutView from '@/modules/checkout/ui/views/checkout-view';
+import CheckoutViewSkeleton from '@/modules/checkout/ui/views/checkout-view-skeleton';
 import { Suspense } from 'react';
 
 /**
@@ -8,7 +9,7 @@ import { Suspense } from 'react';
 
 export default function Page() {
   return (
-    <Suspense>
+    <Suspense fallback={<CheckoutViewSkeleton />}>
       <CheckoutView />
     </Suspense>
   );
