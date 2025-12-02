@@ -27,14 +27,9 @@ export const Navbar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
 
-  // only run queries in
-  const isClient = typeof window !== 'undefined';
-
   // Gate the session query to client only
   const session = useQuery({
     ...trpc.auth.session.queryOptions(),
-    enabled: isClient,
-    // optional hardening:
     retry: 0,
     staleTime: 30_000
   });
@@ -50,10 +45,10 @@ export const Navbar = () => {
     pathname === href ||
     (href !== '/' && pathname.startsWith(`${href}/`));
 
-  // Gate unreadCount to client AND only when authenticated
+  // Gate unreadCount only when authenticated
   const notificationsQuery = useQuery({
     ...trpc.notifications.unreadCount.queryOptions(),
-    enabled: isClient && isAuthed,
+    enabled: isAuthed,
     retry: 0,
     staleTime: 30_000
   });
