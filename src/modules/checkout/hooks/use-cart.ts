@@ -11,45 +11,16 @@ import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 import type { CartState, TenantCartSlice } from '../store/types';
 import type { TenantCartSummary } from './types';
-
-const DEFAULT_TENANT = '__global__';
+import { normalizeTenantSlug } from '../store/utils';
+import {
+  buildTenantSummaries,
+  sanitizeQuantities,
+  selectGlobalCartItemCount
+} from './utils';
 
 // Prefer a configurable default currency, with USD as a safe fallback.
 const DEFAULT_CURRENCY =
   process.env.NEXT_PUBLIC_DEFAULT_CURRENCY?.toUpperCase() ?? 'USD';
-
-// Keep storage shape stable: strip any accidental "::user" suffix
-/**
- * Normalize a tenant slug by trimming whitespace, removing any "::..." suffix and its trailing content, and defaulting to DEFAULT_TENANT when empty.
- *
- * @param raw - Raw tenant slug which may include an optional "::..." suffix to denote user-scoped values
- * @returns The normalized tenant identifier; returns DEFAULT_TENANT when `raw` is empty or only whitespace
- */
-function normalizeTenantSlug(raw?: string | null): string {
-  const s = (raw ?? '').trim();
-  if (!s) return DEFAULT_TENANT;
-  const i = s.indexOf('::');
-  return i >= 0 ? s.slice(0, i) : s;
-}
-
-/**
- * Provides tenant-scoped cart state and actions for a specific tenant.
- *
- * The hook normalizes the provided tenant slug and returns the cart's product IDs,
- * derived totals, and stable action wrappers bound to that tenant.
- *
- * @param tenantSlug - Tenant identifier; will be normalized (trimmed, empty -> DEFAULT_TENANT, and any `::...` suffix removed)
- * @param _userId - Accepted for convenience but ignored; the store is scoped by tenant only
- * @returns An object containing:
- *  - `productIds`: array of product IDs in the tenant's cart,
- *  - `totalItems`: total units across all products (respecting quantities),
- *  - `addProduct(productId, quantity?)`: adds/sets quantity for a product,
- *  - `removeProduct(productId)`: removes a product from this tenant's cart,
- *  - `clearCart()`: clears this tenant's cart,
- *  - `clearAllCartsForCurrentUser()`: clears all carts for the current user,
- *  - `toggleProduct(productId, quantity?)`: adds with quantity or removes,
- *  - `isProductInCart(productId)`: returns `true` if the product is in the cart, `false` otherwise
- */
 
 const EMPTY_PRODUCT_IDS: string[] = [];
 const EMPTY_QUANTITIES: Record<string, number> = {};
@@ -58,93 +29,6 @@ const EMPTY_SLICE: TenantCartSlice = {
   productIds: EMPTY_PRODUCT_IDS,
   quantitiesByProductId: EMPTY_QUANTITIES
 };
-
-const quantityCache = new WeakMap<
-  Record<string, unknown>,
-  Record<string, number>
->();
-
-/**
- * Normalize and sanitize a raw quantities map into a mapping of product IDs to positive integer quantities.
- *
- * @param raw - A raw value (typically an object) mapping product IDs to quantities; any non-object value is treated as empty.
- * @returns A `Record<string, number>` containing only entries whose values are finite integers greater than zero. If no valid entries exist, an empty mapping is returned. The result may be cached and reused for the same input object reference.
- */
-function sanitizeQuantities(raw: unknown): Record<string, number> {
-  if (!raw || typeof raw !== 'object') return EMPTY_QUANTITIES;
-
-  const map = raw as Record<string, unknown>;
-  const cached = quantityCache.get(map);
-  if (cached) return cached;
-
-  const entries = Object.entries(map);
-  if (entries.length === 0) {
-    quantityCache.set(map, EMPTY_QUANTITIES);
-    return EMPTY_QUANTITIES;
-  }
-
-  const safe: Record<string, number> = {};
-  let hasInvalid = false;
-  for (const [key, value] of entries) {
-    if (
-      typeof value !== 'number' ||
-      !Number.isFinite(value) ||
-      value <= 0 ||
-      !Number.isInteger(value)
-    ) {
-      hasInvalid = true;
-      continue;
-    }
-    safe[key] = value;
-  }
-
-  if (!hasInvalid && Object.keys(safe).length === entries.length) {
-    const typed = map as Record<string, number>;
-    quantityCache.set(map, typed);
-    return typed;
-  }
-
-  const normalized = Object.keys(safe).length > 0 ? safe : EMPTY_QUANTITIES;
-  quantityCache.set(map, normalized);
-  return normalized;
-}
-
-/**
- * Builds an array of tenant-scoped cart summaries for the current user.
- *
- * Each summary contains the tenant key, the tenant's product id list, and a
- * sanitized mapping of quantities by product id. Tenants with no product ids
- * are omitted from the result.
- *
- * @param state - The current cart state containing the active user key and per-user tenant buckets
- * @returns An array of TenantCartSummary objects for tenants that have one or more product ids; quantities are sanitized to valid positive integers
- */
-function buildTenantSummaries(state: CartState): TenantCartSummary[] {
-  const currentUserKey = state.currentUserKey;
-  const byTenant = state.byUser[currentUserKey] ?? {};
-
-  const summaries: TenantCartSummary[] = [];
-
-  for (const [tenantKey, bucket] of Object.entries(byTenant)) {
-    const productIds = Array.isArray(bucket.productIds)
-      ? bucket.productIds
-      : EMPTY_PRODUCT_IDS;
-
-    const quantitiesByProductId = sanitizeQuantities(
-      bucket.quantitiesByProductId
-    );
-
-    if (productIds.length === 0) continue;
-
-    summaries.push({
-      tenantKey,
-      productIds,
-      quantitiesByProductId
-    });
-  }
-
-  return summaries;
-}
 
 /**
  * Provide a live array of tenant-scoped cart summaries for the current user.
@@ -322,3 +206,7 @@ export function useCart(tenantSlug?: string | null) {
 }
 
 export default useCart;
+
+export function useCartBadgeCount(): number {
+  return useCartStore(selectGlobalCartItemCount);
+}
