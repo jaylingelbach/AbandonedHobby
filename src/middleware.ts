@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { POSTHOG } from '@/lib/posthog/config'; // sanitized proxyPath/ui/api hosts
 
 const DEVICE_ID_COOKIE = 'ah_device_id';
+const CART_SESSION_COOKIE = 'ah_cart_session';
 
 /**
  * Normalize a raw root domain or URL into a canonical hostname string.
@@ -69,6 +70,39 @@ function ensureDeviceIdCookie(
   });
 }
 
+/**
+ * Ensures an anonymous cart session cookie exists on the response, creating one if absent.
+ *
+ * If a cart session cookie already exists on the request, this function does nothing. When creating a new
+ * cookie it sets a persistent identifier with a one-year max age and applies typical cookie
+ * attributes (Path '/', SameSite 'lax', HttpOnly false, Secure in production). If `cookieDomain`
+ * is provided, the cookie's Domain attribute will be set to that value.
+ *
+ * @param cookieDomain - Optional domain to apply to the cookie (e.g., ".example.com"); if omitted the cookie will not include a Domain attribute.
+ */
+function ensureCartSessionCookie(
+  req: NextRequest,
+  res: NextResponse,
+  cookieDomain?: string
+): void {
+  const existing = req.cookies.get(CART_SESSION_COOKIE)?.value;
+  if (existing) return;
+
+  const id =
+    (globalThis.crypto && 'randomUUID' in crypto && crypto.randomUUID()) ||
+    `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+  const isProd = process.env.NODE_ENV === 'production';
+  res.cookies.set(CART_SESSION_COOKIE, id, {
+    path: '/',
+    sameSite: 'lax',
+    httpOnly: true,
+    secure: isProd,
+    maxAge: 60 * 60 * 24 * 365, // 1 year
+    ...(cookieDomain ? { domain: cookieDomain } : {})
+  });
+}
+
 /** Match:
  *  - "/<proxyPath>" or "/<proxyPath>/…"
  *  - "/tenants/<slug>/<proxyPath>" or "/tenants/<slug>/<proxyPath>/…"
@@ -88,7 +122,7 @@ export const config = {
 };
 
 /**
- * Middleware that scopes requests to tenant subdomains, ensures an anonymous device ID cookie,
+ * Middleware that scopes requests to tenant subdomains, ensures an anonymous device ID cookie, and also ensures a cart session cookie,
  * and rewrites tenant subdomain requests to the corresponding `/tenants/<slug>/...` path when applicable.
  *
  * This middleware:
@@ -144,6 +178,7 @@ export default function middleware(req: NextRequest): NextResponse {
     const res = NextResponse.next();
     const cookieDomainPH = computeCookieDomain(hostname, rootDomain); //  unified
     ensureDeviceIdCookie(req, res, cookieDomainPH);
+    ensureCartSessionCookie(req, res, cookieDomainPH);
     return res;
   }
 
@@ -154,6 +189,7 @@ export default function middleware(req: NextRequest): NextResponse {
     }
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res);
+    ensureCartSessionCookie(req, res);
     return res;
   }
 
@@ -165,6 +201,7 @@ export default function middleware(req: NextRequest): NextResponse {
   if (isApex || isForeignHost) {
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res, sharedCookieDomain); // undefined for foreign, .root for apex
+    ensureCartSessionCookie(req, res, sharedCookieDomain);
     return res;
   }
 
@@ -175,6 +212,7 @@ export default function middleware(req: NextRequest): NextResponse {
   if (WHITELIST.includes(tenantSlug) || !/^[a-z0-9-]+$/.test(tenantSlug)) {
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res, sharedCookieDomain);
+    ensureCartSessionCookie(req, res, sharedCookieDomain);
     return res;
   }
 
@@ -186,6 +224,7 @@ export default function middleware(req: NextRequest): NextResponse {
     );
     const res = NextResponse.rewrite(destination);
     ensureDeviceIdCookie(req, res, sharedCookieDomain);
+    ensureCartSessionCookie(req, res, sharedCookieDomain);
     return res;
   } catch (err) {
     console.error(
@@ -194,6 +233,7 @@ export default function middleware(req: NextRequest): NextResponse {
     );
     const res = NextResponse.next();
     ensureDeviceIdCookie(req, res, sharedCookieDomain);
+    ensureCartSessionCookie(req, res, sharedCookieDomain);
     return res;
   }
 }
