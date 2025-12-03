@@ -5808,6 +5808,19 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - A new ensureCartSessionCookie function was added to middleware to create and set a persistent cart session cookie with one-year expiration when absent. The middleware now invokes this function alongside device ID cookie operations across relevant code paths.
 
+## New Features
+
+- Public Cart collection added, enabling cart data to be exposed and used in the frontend.
+- Persistent cart session cookie created to keep carts across visits (1-year persistence, secure defaults).
+
+## Documentation
+
+- Updated docs describing cart session behavior and how it interacts with device/session cookies.
+
+## Chores
+
+- Ensured session cookie is set reliably alongside existing device cookies.
+
 ## File changes
 
 ### Cart Session Cookie Handler
