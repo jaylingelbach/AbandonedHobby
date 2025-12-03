@@ -27,7 +27,6 @@ export const Navbar = () => {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const trpc = useTRPC();
 
-  // Gate the session query to client only
   const session = useQuery({
     ...trpc.auth.session.queryOptions(),
     retry: 0,
