@@ -5744,6 +5744,29 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 - src/modules/tenants/ui/components/navbar.tsx, src/modules/home/ui/components/navbar.tsx
   - Minor Tailwind class adjustments (tenant avatar sizing; unread badge min-width) and removal of client-only gating for a session query.
 
-#
+# Checkout button in global nav 12/03/25
 
-g
+## Walkthrough
+
+- The changes make tenantSlug optional in the CheckoutButton component and add conditional logic to handle anon-to-user migration based on its presence. The CheckoutButton is then integrated into both authenticated and unauthenticated navbar flows with appropriate layout adjustments.
+
+## New Features
+
+- Checkout button now accessible directly from the main navigation for both authenticated and non-authenticated users
+- Enhanced checkout experience for non-authenticated users with improved flow handling
+- Navigation layout refinements for better accessibility
+
+## File changes
+
+### Checkout Button Props & Migration Logic
+
+- src/modules/checkout/ui/components/checkout-button.tsx
+  - Made tenantSlug optional in CheckoutButtonProps interface. Added runtime conditional guard: when user is anonymous and tenantSlug is provided, calls migrateAnonToUser(tenantSlug, userId); otherwise falls back to setCurrentUserKey(userId).
+  - Added tenantSlug as a dependency in effect logic.
+
+### Navbar CheckoutButton Integration
+
+- src/modules/home/ui/components/navbar.tsx
+  - Added import for CheckoutButton.
+  - Rendered CheckoutButton in authenticated navbar after right-side header buttons. Added CheckoutButton with right margin in unauthenticated navbar branch.
+  - Added items-center class to parent container for alignment.
