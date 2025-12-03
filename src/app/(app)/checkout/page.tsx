@@ -10,15 +10,19 @@ import { Suspense } from 'react';
  */
 
 interface Props {
-  searchParams?: { cancel?: string };
+  searchParams?: Promise<{ cancel?: string }>;
 }
 
-export default function Page({ searchParams }: Props) {
-  const wasCancelled = searchParams?.cancel === 'true';
+export default async function Page({ searchParams }: Props) {
+  const resolvedSearchParams = searchParams ? await searchParams : undefined;
+  const wasCancelled = resolvedSearchParams?.cancel === 'true';
   return (
     <>
       {wasCancelled && (
-        <div className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-4 py-3 text-sm">
+        <div
+          className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-4 py-3 text-sm"
+          role="alert"
+        >
           You cancelled checkout. No charges were made.
         </div>
       )}
