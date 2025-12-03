@@ -5743,3 +5743,7 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/modules/tenants/ui/components/navbar.tsx, src/modules/home/ui/components/navbar.tsx
   - Minor Tailwind class adjustments (tenant avatar sizing; unread badge min-width) and removal of client-only gating for a session query.
+
+#
+
+g
