@@ -167,7 +167,6 @@ export interface Cart {
       }[]
     | null;
   currency?: 'USD' | null;
-  lastIp?: string | null;
   source?: string | null;
   updatedAt: string;
   createdAt: string;
@@ -874,7 +873,6 @@ export interface CartsSelect<T extends boolean = true> {
         id?: T;
       };
   currency?: T;
-  lastIp?: T;
   source?: T;
   updatedAt?: T;
   createdAt?: T;

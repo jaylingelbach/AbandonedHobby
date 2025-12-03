@@ -8,9 +8,17 @@ export const Cart: CollectionConfig = {
     hidden: ({ user }) => !isSuperAdmin(user)
   },
   access: {
-    read: ({ req: { user } }) => isSuperAdmin(user),
-    create: ({ req: { user } }) => isSuperAdmin(user),
-    update: ({ req: { user } }) => isSuperAdmin(user),
+    read: ({ req: { user } }) => {
+      if (isSuperAdmin(user)) return true;
+      if (!user) return false;
+      return { buyer: { equals: user.id } };
+    },
+    create: ({ req: { user } }) => Boolean(user),
+    update: ({ req: { user } }) => {
+      if (isSuperAdmin(user)) return true;
+      if (!user) return false;
+      return { buyer: { equals: user.id } };
+    },
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
   fields: [
@@ -40,7 +48,8 @@ export const Cart: CollectionConfig = {
       type: 'select',
       options: ['active', 'converted', 'abandoned', 'archived'],
       required: true,
-      defaultValue: 'active'
+      defaultValue: 'active',
+      index: true
     },
     {
       name: 'itemCount',
@@ -75,7 +84,8 @@ export const Cart: CollectionConfig = {
           name: 'quantity',
           type: 'number',
           required: true,
-          defaultValue: 1
+          defaultValue: 1,
+          min: 1
         },
         {
           name: 'addedAt',
@@ -100,10 +110,6 @@ export const Cart: CollectionConfig = {
       type: 'select',
       options: ['USD'],
       defaultValue: 'USD'
-    },
-    {
-      name: 'lastIp',
-      type: 'text'
     },
     {
       name: 'source',
