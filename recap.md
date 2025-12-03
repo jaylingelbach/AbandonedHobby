@@ -5770,3 +5770,34 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
   - Added import for CheckoutButton.
   - Rendered CheckoutButton in authenticated navbar after right-side header buttons. Added CheckoutButton with right margin in unauthenticated navbar branch.
   - Added items-center class to parent container for alignment.
+
+# Cart - Payload Collection 12/03/25
+
+## Walkthrough
+
+- This pull request introduces a new Cart collection to the Payload CMS system. A Cart collection configuration is defined with schema including buyer relationships, item arrays, status tracking, and currency support. The collection is registered in the payload configuration, and auto-generated type definitions are updated to include Cart, User, Tenant, Media, and Tag interfaces with corresponding select types and payload structures.
+
+## New Features
+
+- Shopping cart system now available with support for managing items, tracking quantities and pricing, storing buyer information, and managing shipping details
+- Cart status tracking and multi-seller support enabled
+
+## File changes
+
+### Cart Collection Configuration
+
+- src/collections/Cart.ts
+  - New file defining Cart collection with schema fields for buyer (user relationship), items (array of products with snapshots), status, itemCount, currency, and access control requiring super admin for CRUD operations.
+
+### Type Definitions & Payload Types
+
+- src/payload-types.ts
+  - Added Cart, User, Tenant, Media, and Tag public interfaces. Replaced previous Conversation interface with Media (expanded metadata).
+  - Replaced Category with Cart.
+  - Updated Tenant shape with store/branding/stripe fields. Added CartsSelect generic type for field selection
+  - Updated PayloadLockedDocument to include carts relation and collectionsSelect mapping.
+
+### Payload Configuration
+
+- src/payload.config.ts
+- Imported Cart collection and added it to the public collections array.
