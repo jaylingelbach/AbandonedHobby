@@ -9,10 +9,23 @@ import { Suspense } from 'react';
  * @returns A React element tree containing `CheckoutView` wrapped in `Suspense` with `CheckoutViewSkeleton` as the fallback.
  */
 
-export default function Page() {
+interface Props {
+  searchParams?: { cancel?: string };
+}
+
+export default function Page({ searchParams }: Props) {
+  const wasCancelled = searchParams?.cancel === 'true';
   return (
-    <Suspense fallback={<CheckoutViewSkeleton />}>
-      <CheckoutView />
-    </Suspense>
+    <>
+      {wasCancelled && (
+        <div className="mb-4 rounded-md border border-orange-300 bg-orange-50 px-4 py-3 text-sm">
+          You cancelled checkout. No charges were made.
+        </div>
+      )}
+
+      <Suspense fallback={<CheckoutViewSkeleton />}>
+        <CheckoutView />
+      </Suspense>
+    </>
   );
 }
