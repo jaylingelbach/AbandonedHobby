@@ -75,7 +75,7 @@ function ensureDeviceIdCookie(
  *
  * If a cart session cookie already exists on the request, this function does nothing. When creating a new
  * cookie it sets a persistent identifier with a one-year max age and applies typical cookie
- * attributes (Path '/', SameSite 'lax', HttpOnly false, Secure in production). If `cookieDomain`
+ * attributes (Path '/', SameSite 'lax', HttpOnly true, Secure in production). If `cookieDomain`
  * is provided, the cookie's Domain attribute will be set to that value.
  *
  * @param cookieDomain - Optional domain to apply to the cookie (e.g., ".example.com"); if omitted the cookie will not include a Domain attribute.
@@ -126,14 +126,15 @@ export const config = {
  * and rewrites tenant subdomain requests to the corresponding `/tenants/<slug>/...` path when applicable.
  *
  * This middleware:
- * - Gates PostHog proxy paths (allowing only GET and specific POST ingest endpoints) while still setting the device cookie.
+ * - Gates PostHog proxy paths (allowing only GET and specific POST ingest endpoints) while still setting the device and cart session cookies.
  * - If no root domain is configured, sets the device cookie and continues.
  * - Leaves apex and foreign hosts unrewritten but sets an appropriately scoped or absent cookie.
  * - For valid tenant subdomains, rewrites the request to `/tenants/<slug><originalPath><query>` and sets a shared cookie.
  * - Falls back to a pass-through response and still sets the cookie on rewrite errors.
  *
  * @param req - The incoming NextRequest
- * @returns A NextResponse with the device ID cookie applied; the response may be a rewrite to a tenant path, a pass-through NextResponse, or an error response for disallowed proxy requests.
+ * @returns A NextResponse with the device ID and cart session cookies applied; the response may be a rewrite to a tenant path,
+ * a pass-through NextResponse, or an error response for disallowed proxy requests.
  */
 
 export default function middleware(req: NextRequest): NextResponse {
