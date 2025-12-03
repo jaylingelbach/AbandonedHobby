@@ -10,6 +10,7 @@ import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
 import { NavbarSidebar } from './navbar-sidebar';
+import CheckoutButton from '@/modules/checkout/ui/components/checkout-button';
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
@@ -127,7 +128,7 @@ export const Navbar = () => {
                 )}
               </Link>
             </Button>
-
+            <CheckoutButton />
             <Button
               asChild
               variant="secondary"
@@ -138,7 +139,8 @@ export const Navbar = () => {
           </div>
         </div>
       ) : (
-        <div className="hidden lg:flex">
+        <div className="hidden lg:flex items-center">
+          <CheckoutButton className="mr-4" />
           <Button
             asChild
             variant="secondary"

@@ -15,7 +15,7 @@ import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 interface CheckoutButtonProps {
   className?: string;
   hideIfEmpty?: boolean;
-  tenantSlug: string;
+  tenantSlug?: string;
 }
 
 export const CheckoutButton = ({
@@ -40,7 +40,12 @@ export const CheckoutButton = ({
         return;
       }
       if (state.currentUserKey.startsWith('anon:')) {
-        state.migrateAnonToUser(tenantSlug, userId);
+        if (tenantSlug) {
+          state.migrateAnonToUser(tenantSlug, userId);
+        } else {
+          // No migration possible without tenantSlug, but still update to user scope
+          state.setCurrentUserKey(userId);
+        }
       } else {
         state.setCurrentUserKey(userId);
       }
