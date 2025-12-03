@@ -43,7 +43,6 @@ export const CheckoutButton = ({
         if (tenantSlug) {
           state.migrateAnonToUser(tenantSlug, userId);
         } else {
-          // No migration possible without tenantSlug, but still update to user scope
           state.setCurrentUserKey(userId);
         }
       } else {
