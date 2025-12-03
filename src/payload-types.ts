@@ -67,6 +67,7 @@ export interface Config {
   };
   blocks: {};
   collections: {
+    carts: Cart;
     categories: Category;
     conversations: Conversation;
     media: Media;
@@ -91,6 +92,7 @@ export interface Config {
     };
   };
   collectionsSelect: {
+    carts: CartsSelect<false> | CartsSelect<true>;
     categories: CategoriesSelect<false> | CategoriesSelect<true>;
     conversations: ConversationsSelect<false> | ConversationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
@@ -143,34 +145,167 @@ export interface UserAuthOperations {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "categories".
+ * via the `definition` "carts".
  */
-export interface Category {
+export interface Cart {
   id: string;
-  name: string;
-  slug?: string | null;
-  color?: string | null;
-  parent?: (string | null) | Category;
-  subcategories?: {
-    docs?: (string | Category)[];
-    hasNextPage?: boolean;
-    totalDocs?: number;
-  };
+  buyer?: (string | null) | User;
+  guestSessionId?: string | null;
+  sellerTenant: string | Tenant;
+  status: 'active' | 'converted' | 'abandoned' | 'archived';
+  itemCount: number;
+  items?:
+    | {
+        product: string | Product;
+        nameSnapshot: string;
+        unitAmountCents: number;
+        quantity: number;
+        addedAt?: string | null;
+        imageSnapshot?: (string | null) | Media;
+        shippingModeSnapshot?: ('free' | 'flat' | 'calculated') | null;
+        id?: string | null;
+      }[]
+    | null;
+  currency?: 'USD' | null;
+  lastIp?: string | null;
+  source?: string | null;
   updatedAt: string;
   createdAt: string;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "conversations".
+ * via the `definition` "users".
  */
-export interface Conversation {
+export interface User {
   id: string;
-  product: string | Product;
-  buyer: string | User;
-  seller: string | User;
-  roomId: string;
+  firstName: string;
+  lastName: string;
+  username: string;
+  welcomeEmailSent: boolean;
+  roles?: ('super-admin' | 'user')[] | null;
+  tenants?:
+    | {
+        tenant: string | Tenant;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * UI preferences (e.g., dismissed banners)
+   */
+  uiState?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
   updatedAt: string;
   createdAt: string;
+  email: string;
+  resetPasswordToken?: string | null;
+  resetPasswordExpiration?: string | null;
+  salt?: string | null;
+  hash?: string | null;
+  _verified?: boolean | null;
+  _verificationToken?: string | null;
+  loginAttempts?: number | null;
+  lockUntil?: string | null;
+  sessions?:
+    | {
+        id: string;
+        createdAt?: string | null;
+        expiresAt: string;
+      }[]
+    | null;
+  password?: string | null;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tenants".
+ */
+export interface Tenant {
+  id: string;
+  /**
+   * This is the name of the store (e.g. Jay's store), if you would like to update this please contact us.
+   */
+  name: string;
+  /**
+   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
+   */
+  slug: string;
+  image?: (string | null) | Media;
+  /**
+   * Hero/cover image shown at the top of your shop and product pages.
+   */
+  cover?: (string | null) | Media;
+  /**
+   * Stripe Account ID associated with your shop
+   */
+  stripeAccountId: string;
+  /**
+   * You can not sell products until you have submitted your Stripe details.
+   */
+  stripeDetailsSubmitted?: boolean | null;
+  /**
+   * Primary owner/admin for this shop
+   */
+  primaryContact: string | User;
+  /**
+   * Where operational emails (sales, alerts) are sent
+   */
+  notificationEmail: string;
+  /**
+   * Greeting/display name for notifications
+   */
+  notificationName?: string | null;
+  /**
+   * Auto-managed count of products.
+   */
+  productCount?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "media".
+ */
+export interface Media {
+  id: string;
+  alt?: string | null;
+  tenant: string | Tenant;
+  uploadedBy?: (string | null) | User;
+  prefix?: string | null;
+  updatedAt: string;
+  createdAt: string;
+  url?: string | null;
+  thumbnailURL?: string | null;
+  filename?: string | null;
+  mimeType?: string | null;
+  filesize?: number | null;
+  width?: number | null;
+  height?: number | null;
+  focalX?: number | null;
+  focalY?: number | null;
+  sizes?: {
+    thumbnail?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+    medium?: {
+      url?: string | null;
+      width?: number | null;
+      height?: number | null;
+      mimeType?: string | null;
+      filesize?: number | null;
+      filename?: string | null;
+    };
+  };
 }
 /**
  * List a product for sale
@@ -272,138 +407,21 @@ export interface Product {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "tenants".
+ * via the `definition` "categories".
  */
-export interface Tenant {
+export interface Category {
   id: string;
-  /**
-   * This is the name of the store (e.g. Jay's store), if you would like to update this please contact us.
-   */
   name: string;
-  /**
-   * This is the subdomain of the store (e.g. [username].abandonedhobby.com), if you would like to update this please contact us.
-   */
-  slug: string;
-  image?: (string | null) | Media;
-  /**
-   * Hero/cover image shown at the top of your shop and product pages.
-   */
-  cover?: (string | null) | Media;
-  /**
-   * Stripe Account ID associated with your shop
-   */
-  stripeAccountId: string;
-  /**
-   * You can not sell products until you have submitted your Stripe details.
-   */
-  stripeDetailsSubmitted?: boolean | null;
-  /**
-   * Primary owner/admin for this shop
-   */
-  primaryContact: string | User;
-  /**
-   * Where operational emails (sales, alerts) are sent
-   */
-  notificationEmail: string;
-  /**
-   * Greeting/display name for notifications
-   */
-  notificationName?: string | null;
-  /**
-   * Auto-managed count of products.
-   */
-  productCount?: number | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: string;
-  alt?: string | null;
-  tenant: string | Tenant;
-  uploadedBy?: (string | null) | User;
-  prefix?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-  sizes?: {
-    thumbnail?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
-    medium?: {
-      url?: string | null;
-      width?: number | null;
-      height?: number | null;
-      mimeType?: string | null;
-      filesize?: number | null;
-      filename?: string | null;
-    };
+  slug?: string | null;
+  color?: string | null;
+  parent?: (string | null) | Category;
+  subcategories?: {
+    docs?: (string | Category)[];
+    hasNextPage?: boolean;
+    totalDocs?: number;
   };
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "users".
- */
-export interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  username: string;
-  welcomeEmailSent: boolean;
-  roles?: ('super-admin' | 'user')[] | null;
-  tenants?:
-    | {
-        tenant: string | Tenant;
-        id?: string | null;
-      }[]
-    | null;
-  /**
-   * UI preferences (e.g., dismissed banners)
-   */
-  uiState?:
-    | {
-        [k: string]: unknown;
-      }
-    | unknown[]
-    | string
-    | number
-    | boolean
-    | null;
   updatedAt: string;
   createdAt: string;
-  email: string;
-  resetPasswordToken?: string | null;
-  resetPasswordExpiration?: string | null;
-  salt?: string | null;
-  hash?: string | null;
-  _verified?: boolean | null;
-  _verificationToken?: string | null;
-  loginAttempts?: number | null;
-  lockUntil?: string | null;
-  sessions?:
-    | {
-        id: string;
-        createdAt?: string | null;
-        expiresAt: string;
-      }[]
-    | null;
-  password?: string | null;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
@@ -413,6 +431,19 @@ export interface Tag {
   id: string;
   name: string;
   products?: (string | Product)[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "conversations".
+ */
+export interface Conversation {
+  id: string;
+  product: string | Product;
+  buyer: string | User;
+  seller: string | User;
+  roomId: string;
   updatedAt: string;
   createdAt: string;
 }
@@ -719,6 +750,10 @@ export interface PayloadLockedDocument {
   id: string;
   document?:
     | ({
+        relationTo: 'carts';
+        value: string | Cart;
+      } | null)
+    | ({
         relationTo: 'categories';
         value: string | Category;
       } | null)
@@ -815,6 +850,34 @@ export interface PayloadMigration {
   batch?: number | null;
   updatedAt: string;
   createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "carts_select".
+ */
+export interface CartsSelect<T extends boolean = true> {
+  buyer?: T;
+  guestSessionId?: T;
+  sellerTenant?: T;
+  status?: T;
+  itemCount?: T;
+  items?:
+    | T
+    | {
+        product?: T;
+        nameSnapshot?: T;
+        unitAmountCents?: T;
+        quantity?: T;
+        addedAt?: T;
+        imageSnapshot?: T;
+        shippingModeSnapshot?: T;
+        id?: T;
+      };
+  currency?: T;
+  lastIp?: T;
+  source?: T;
+  updatedAt?: T;
+  createdAt?: T;
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
