@@ -5686,3 +5686,60 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 - src/trpc/init.ts
   - Imports CheckoutProductsNotFoundError and adds errorFormatter to TRPC context creation.
   - Formatter detects when error.cause is CheckoutProductsNotFoundError, then augments TRPC response data with missingProductIds; otherwise returns original shape.
+
+# Global cart count and refactor checkout route 12/02/25
+
+## Walkthrough
+
+- Removes tenant-scoped checkout pages and success/loading components, centralizes checkout to a global /checkout route, extracts and adds cart/tenant utilities, updates cart hooks/store to use those utilities, and renames several checkout UI props and layout compositions.
+
+## New Features
+
+- Home link added to checkout navbar; checkout navigation unified to a single checkout URL.
+- Global cart badge count introduced to show total items.
+
+## Bug Fixes
+
+- Avatar sizing inconsistency resolved.
+- Checkout routing made more consistent.
+
+## Style
+
+- Checkout banner hover effects simplified and layout/wrapping updated.
+- Unread/notification badge sizing adjusted.
+
+## Chores
+
+- Cart/tenant normalization and anonymous-key handling improved for more consistent behavior.
+
+## File changes
+
+### Tenant-scoped checkout removed
+
+- src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/layout.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/success/loading.tsx, src/app/(app)/(tenants)/tenants/[slug]/(checkout)/checkout/success/page.tsx
+  - Deleted tenant-specific checkout page, layout, and success/loading components; tenant slug is no longer used in these routes.
+
+### Global checkout pages & layout changes
+
+- src/app/(app)/checkout/page.tsx, src/app/(app)/checkout/layout.tsx, src/app/(app)/checkout/success/loading.tsx
+  - Server-side hydrated checkout page replaced by client-side Suspense-wrapped CheckoutView; layout now composes Navbar + centered content + Footer; minor Tailwind classname tweak in success loading.
+
+### Cart hooks & new utilities
+
+- src/modules/checkout/hooks/utils.ts, src/modules/checkout/hooks/use-cart.ts
+  - Adds sanitizeQuantities, buildTenantSummaries, selectGlobalCartItemCount; use-cart now imports these utilities and exposes useCartBadgeCount while delegating tenant-summary and quantity sanitization.
+
+### Store utils and refactor
+
+- src/modules/checkout/store/utils.ts, src/modules/checkout/store/use-cart-store.ts
+  - Adds normalizeTenantSlug and deriveUserKey (with device-id persistence via localStorage); use-cart-store switched to use these utilities instead of prior inline implementations.
+
+### Checkout UI updates
+
+- src/modules/checkout/ui/components/checkout-button.tsx, src/modules/checkout/ui/components/navbar.tsx, src/modules/checkout/ui/views/checkout-banner.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+  - CheckoutButton now uses global badge count and static /checkout; Navbar adds Home link and accepts optional slug?; CheckoutBanner and CheckoutView rename callback props (append Action) and adjust minor styling/handlers.
+
+### Other UI tweaks
+
+- src/modules/tenants/ui/components/navbar.tsx, src/modules/home/ui/components/navbar.tsx
+  - Minor Tailwind class adjustments (tenant avatar sizing; unread badge min-width) and removal of client-only gating for a session query.

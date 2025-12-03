@@ -70,3 +70,59 @@ export function normalizeShippingSnapshot(
   const fee = m === 'flat' ? toIntCents(feeCentsPerUnit ?? 0) : undefined;
   return { mode: m, ...(fee !== undefined ? { feeCentsPerUnit: fee } : {}) };
 }
+
+const DEFAULT_TENANT = '__global__';
+
+/**
+ * Normalize a tenant slug by trimming whitespace, removing any "::..." suffix and its trailing content, and defaulting to DEFAULT_TENANT when empty.
+ *
+ * @param raw - Raw tenant slug which may include an optional "::..." suffix to denote user-scoped values
+ * @returns The normalized tenant identifier; returns DEFAULT_TENANT when `raw` is empty or only whitespace
+ */
+
+export function normalizeTenantSlug(raw?: string | null): string {
+  const s = (raw ?? '').trim();
+  if (!s) return DEFAULT_TENANT;
+  const i = s.indexOf('::');
+  return i >= 0 ? s.slice(0, i) : s;
+}
+
+const DEVICE_ID_KEY = 'ah_device_id';
+const ANON_KEY_PREFIX = 'anon:';
+
+/**
+ * Obtain a stable device identifier for the current execution context.
+ *
+ * On browsers, returns an identifier persisted in localStorage under DEVICE_ID_KEY, creating and storing one if missing (preferring crypto.randomUUID when available). On non-browser environments returns 'server'. If generation or storage fails, returns a timestamp-based best-effort fallback ID.
+ *
+ * @returns The device identifier: the stored or newly generated ID, `'server'` when not running in a browser, or a timestamp-based fallback if generation/storage fails.
+ */
+function getOrCreateDeviceId(): string {
+  if (typeof window === 'undefined') return 'server';
+  try {
+    const existing = localStorage.getItem(DEVICE_ID_KEY);
+    if (existing) return existing;
+    const generated =
+      (typeof crypto !== 'undefined' &&
+        'randomUUID' in crypto &&
+        crypto.randomUUID()) ||
+      `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    localStorage.setItem(DEVICE_ID_KEY, generated);
+    return generated;
+  } catch {
+    return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+  }
+}
+
+/**
+ * Derives a stable user key from an optional user ID.
+ *
+ * If `userId` is empty or only whitespace, an anonymous per-device key is returned, prefixed with `anon:`.
+ *
+ * @param userId - The raw user identifier; may be `undefined`, `null`, or contain surrounding whitespace.
+ * @returns The trimmed `userId` when non-empty, otherwise an anonymous key in the form `anon:<deviceId>`.
+ */
+export function deriveUserKey(userId?: string | null): string {
+  const id = (userId ?? '').trim();
+  return id.length > 0 ? id : `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
+}

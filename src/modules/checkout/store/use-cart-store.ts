@@ -4,42 +4,12 @@ import type { Quantity } from '@/lib/validation/quantity';
 import { CartMessage, CartState, TenantCart, UserMap } from './types';
 import {
   collapseCompositeTenantKeys,
-  normalizeShippingSnapshot
+  deriveUserKey,
+  normalizeShippingSnapshot,
+  normalizeTenantSlug
 } from './utils';
 
-const DEFAULT_TENANT = '__global__';
-
-function normalizeTenantSlug(raw?: string | null): string {
-  const s = (raw ?? '').trim();
-  if (!s) return DEFAULT_TENANT;
-  const i = s.indexOf('::');
-  return i >= 0 ? s.slice(0, i) : s;
-}
-
 const ANON_KEY_PREFIX = 'anon:';
-const DEVICE_ID_KEY = 'ah_device_id';
-
-function getOrCreateDeviceId(): string {
-  if (typeof window === 'undefined') return 'server';
-  try {
-    const existing = localStorage.getItem(DEVICE_ID_KEY);
-    if (existing) return existing;
-    const generated =
-      (typeof crypto !== 'undefined' &&
-        'randomUUID' in crypto &&
-        crypto.randomUUID()) ||
-      `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-    localStorage.setItem(DEVICE_ID_KEY, generated);
-    return generated;
-  } catch {
-    return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
-  }
-}
-
-function deriveUserKey(userId?: string | null): string {
-  const id = (userId ?? '').trim();
-  return id.length > 0 ? id : `${ANON_KEY_PREFIX}${getOrCreateDeviceId()}`;
-}
 
 const isAnonKey = (k: string) => k.startsWith(ANON_KEY_PREFIX);
 

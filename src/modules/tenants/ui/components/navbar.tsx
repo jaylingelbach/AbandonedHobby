@@ -56,7 +56,7 @@ export const Navbar = ({ slug }: Props) => {
                 width={32}
                 height={32}
                 alt={slug}
-                className="rounded-full border shrink-0 size-[32px]"
+                className="rounded-full border shrink-0 size-8"
                 sizes="(min-width: 1024px) 25vw, (min-width: 768px) 33vw, 50vw"
               />
             )}
