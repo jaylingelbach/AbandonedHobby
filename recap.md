@@ -5801,3 +5801,16 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/payload.config.ts
 - Imported Cart collection and added it to the public collections array.
+
+# Cart session cookie 1203/25
+
+## Walkthrough
+
+- A new ensureCartSessionCookie function was added to middleware to create and set a persistent cart session cookie with one-year expiration when absent. The middleware now invokes this function alongside device ID cookie operations across relevant code paths.
+
+## File changes
+
+### Cart Session Cookie Handler
+
+- src/middleware.ts
+  - Added CART_SESSION_COOKIE constant; introduced ensureCartSessionCookie(req, res, cookieDomain?) function to create and persist cart session cookies with 1-year max age, Path=/, SameSite=lax, HttpOnly=true, and conditional Secure/Domain attributes; integrated function calls into middleware paths where device ID cookies are set; updated docstrings to document new cookie behavior and domain scoping interactions.
