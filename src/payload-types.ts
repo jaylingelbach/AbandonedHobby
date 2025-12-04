@@ -153,7 +153,7 @@ export interface Cart {
   guestSessionId?: string | null;
   sellerTenant: string | Tenant;
   status: 'active' | 'converted' | 'abandoned' | 'archived';
-  itemCount: number;
+  itemCount?: number | null;
   items?:
     | {
         product: string | Product;

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { POSTHOG } from '@/lib/posthog/config'; // sanitized proxyPath/ui/api hosts
-
-const DEVICE_ID_COOKIE = 'ah_device_id';
-const CART_SESSION_COOKIE = 'ah_cart_session';
+import { CART_SESSION_COOKIE, DEVICE_ID_COOKIE } from './constants';
 
 /**
  * Normalize a raw root domain or URL into a canonical hostname string.

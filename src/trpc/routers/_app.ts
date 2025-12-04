@@ -14,9 +14,11 @@ import { usersRouter } from '@/modules/users/server/procedures';
 
 import { createTRPCRouter } from '../init';
 import { refundsRouter } from '@/modules/refunds/procedures';
+import { cartRouter } from '@/modules/cart/server/procedures';
 
 export const appRouter = createTRPCRouter({
   auth: authRouter,
+  cart: cartRouter,
   categories: categoriesRouter,
   checkout: checkoutRouter,
   conversations: conversationsRouter,

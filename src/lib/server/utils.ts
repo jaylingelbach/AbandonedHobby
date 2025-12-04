@@ -55,7 +55,13 @@ export function toRelationship<T extends { id: string }>(
   return undefined;
 }
 
-/** Normalize a relationship ref to a string id; throws TRPC BAD_REQUEST if missing/invalid. */
+/**
+ * Normalize a relationship reference into its string id.
+ *
+ * @param ref - A string id or an object with a string `id` property
+ * @returns The extracted string id
+ * @throws TRPCError with code `BAD_REQUEST` if `ref` is not a string nor an object containing a string `id`
+ */
 export function asId(ref: IdRef): string {
   if (typeof ref === 'string') return ref;
   if (ref && typeof ref === 'object' && typeof ref.id === 'string')
@@ -65,6 +71,19 @@ export function asId(ref: IdRef): string {
     code: 'BAD_REQUEST',
     message: 'Missing or invalid tenant reference.'
   });
+}
+
+/**
+ * Normalizes a relationship reference into its string id when available.
+ *
+ * @param ref - A relationship reference: a string id, an object with an `id` string, or null/undefined.
+ * @returns The id string if `ref` is a string or an object with a string `id`, otherwise `null`.
+ */
+export function softRelId(ref: IdRef | null | undefined): string | null {
+  if (typeof ref === 'string') return ref;
+  if (ref && typeof ref === 'object' && typeof ref.id === 'string')
+    return ref.id;
+  return null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
