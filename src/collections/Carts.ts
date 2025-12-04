@@ -51,9 +51,7 @@ export const Cart: CollectionConfig = {
         const hasGuest = Boolean(effectiveGuest);
 
         if (!hasBuyer && !hasGuest) {
-          throw new Error(
-            'Cart must have either a buyer or a guestSessionId.'
-          );
+          throw new Error('Cart must have either a buyer or a guestSessionId.');
         }
 
         if (hasBuyer && hasGuest) {
@@ -65,7 +63,6 @@ export const Cart: CollectionConfig = {
         return data;
       }
     ]
-  },
   },
   fields: [
     {
