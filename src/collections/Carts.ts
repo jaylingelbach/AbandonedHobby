@@ -25,11 +25,14 @@ export const Cart: CollectionConfig = {
     beforeChange: [
       ({ data, originalDoc }) => {
         // Prefer the new items if provided, else fall back to original
-        const items = Array.isArray(data.items)
-          ? data.items
-          : Array.isArray(originalDoc?.items)
-            ? originalDoc.items
-            : [];
+        const items =
+          'items' in (data ?? {})
+            ? Array.isArray(data.items)
+              ? data.items
+              : []
+            : Array.isArray(originalDoc?.items)
+              ? originalDoc.items
+              : [];
 
         return {
           ...data,
