@@ -2,6 +2,18 @@ import { softRelId } from '@/lib/server/utils';
 import type { CartDTO, CartItemDTO } from './types';
 import { Cart } from '@/payload-types';
 
+/**
+ * Constructs a CartDTO representation from a Cart document for the specified tenant.
+ *
+ * Invalid cart items (missing product id or missing/invalid name, quantity, or unit amount)
+ * are omitted from the result; currency is set to `USD`.
+ *
+ * @param cartDoc - Source cart document containing items and cart id
+ * @param tenantId - Tenant identifier to include in the DTO
+ * @param tenantSlug - Tenant slug to include in the DTO
+ * @returns A CartDTO containing cartId, tenant context, currency (`USD`), distinct item count,
+ *          item list, totalApproxCents (sum of line subtotals), and totalQuantity
+ */
 export function buildCartDTO(
   cartDoc: Cart,
   tenantId: string,
