@@ -110,7 +110,7 @@ export const Cart: CollectionConfig = {
       // 2) Admin UI behavior
       admin: {
         // Only show the field in the admin UI for super admins
-        condition: ({ user }) => isSuperAdmin(user),
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user),
         // The hook is the source of truth
         readOnly: true
       }

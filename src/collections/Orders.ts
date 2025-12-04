@@ -496,7 +496,7 @@ export const Orders: CollectionConfig = {
       admin: {
         description:
           'Advanced: multi-shipment history. The most recent entry mirrors into the main `shipment`.',
-        condition: ({ user }) => isSuperAdmin(user)
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
       },
       fields: [
         {
