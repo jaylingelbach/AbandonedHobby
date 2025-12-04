@@ -1,5 +1,5 @@
 import { CART_SESSION_COOKIE } from '@/constants';
-import { CartIdentity } from '@/modules/cart/server/types';
+import type { CartIdentity } from '@/modules/cart/server/types';
 
 function readCartSessionIdFromHeaders(headers: Headers): string | null {
   const cookieHeader = headers.get('cookie');

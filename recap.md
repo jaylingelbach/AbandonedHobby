@@ -5802,7 +5802,7 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 - src/payload.config.ts
 - Imported Cart collection and added it to the public collections array.
 
-# Cart session cookie 1203/25
+# Cart - session cookie 12/03/25
 
 ## Walkthrough
 
@@ -5827,3 +5827,51 @@ package.json Updated @radix-ui/react-separator (^1.1.3 → ^1.1.8) and @radix-ui
 
 - src/middleware.ts
   - Added CART_SESSION_COOKIE constant; introduced ensureCartSessionCookie(req, res, cookieDomain?) function to create and persist cart session cookies with 1-year max age, Path=/, SameSite=lax, HttpOnly=true, and conditional Secure/Domain attributes; integrated function calls into middleware paths where device ID cookies are set; updated docstrings to document new cookie behavior and domain scoping interactions.
+
+# Cart - tRPC get 12/04/25
+
+## Walkthrough
+
+- This PR introduces cart retrieval infrastructure by adding TRPC procedures for fetching active carts, defining cart DTOs and identity types, adding cookie constants, implementing identity resolution logic, updating the Cart collection with validation hooks, and integrating a new cart router into the app's TRPC API surface.
+
+## New Features
+
+- Added cart service API with active cart retrieval functionality
+- Introduced guest session support enabling cart tracking for non-authenticated users
+
+## Improvements
+
+- Enhanced cart validation to enforce proper data consistency between buyer and session identifiers
+
+## File changes
+
+### Test & Integration
+
+- src/app/(app)/api/dev/test/page.tsx, src/trpc/routers/\_app.ts
+  - New client-side test page invoking trpc.cart.getActive; cart router wired into main TRPC app router.
+
+### Cart Collection & Validation
+
+src/collections/Carts.ts, src/payload.config.ts
+
+- Cart collection gains lifecycle hooks for computing itemCount and enforcing buyer/guestSessionId mutual exclusivity; itemCount made optional; import path updated in payload config.
+
+### Constants & Cookie Management
+
+- src/constants.ts, src/middleware.ts
+  - New constants CART_SESSION_COOKIE and DEVICE_ID_COOKIE added; middleware refactored to import these constants instead of defining them locally.
+
+### Server Utilities
+
+- src/lib/server/utils.ts
+  - New utility function softRelId added for soft resolution of ID references, returning null instead of throwing on invalid input.
+
+### Cart TRPC Module
+
+- src/modules/cart/server/procedures.ts, src/modules/cart/server/types.ts, src/modules/cart/server/utils.ts
+  - New TRPC cart router with getActive procedure; cart DTOs (CartDTO, CartItemDTO) and identity types (CartIdentity) defined; buildCartDTO utility constructs cart responses from collection documents.
+
+### Cart Identity Resolution
+
+- src/modules/checkout/server/cart-service/identity.ts
+  - New module exports getCartIdentity to resolve authenticated user or guest session from request context and headers.
