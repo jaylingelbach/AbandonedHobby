@@ -99,7 +99,21 @@ export const Cart: CollectionConfig = {
       type: 'number',
       required: false,
       min: 0,
-      defaultValue: 0
+      defaultValue: 0,
+      // 1) Field-level access: only super admins can read/write this field at all
+      access: {
+        read: ({ req: { user } }) => isSuperAdmin(user),
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      },
+
+      // 2) Admin UI behavior
+      admin: {
+        // Only show the field in the admin UI for super admins
+        condition: ({ user }) => isSuperAdmin(user),
+        // The hook is the source of truth
+        readOnly: true
+      }
     },
     {
       name: 'items',
