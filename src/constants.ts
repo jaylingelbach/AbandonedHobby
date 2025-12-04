@@ -12,3 +12,6 @@ export const carrierLabels: Record<Carrier, string> = {
 };
 
 export const STRIPE_METADATA_MAX_LENGTH = 500 as const;
+
+export const CART_SESSION_COOKIE = 'ah_cart_session';
+export const DEVICE_ID_COOKIE = 'ah_device_id';

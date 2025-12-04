@@ -21,6 +21,52 @@ export const Cart: CollectionConfig = {
     },
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
+  hooks: {
+    beforeChange: [
+      ({ data, originalDoc }) => {
+        // Prefer the new items if provided, else fall back to original
+        const items = Array.isArray(data.items)
+          ? data.items
+          : Array.isArray(originalDoc?.items)
+            ? originalDoc.items
+            : [];
+
+        return {
+          ...data,
+          itemCount: items.length
+        };
+      }
+    ],
+    beforeValidate: [
+      ({ data, originalDoc }) => {
+        // Use "effective" values: provided in this operation, or from existing doc on update
+        const effectiveBuyer =
+          data?.buyer !== undefined ? data.buyer : originalDoc?.buyer;
+        const effectiveGuest =
+          data?.guestSessionId !== undefined
+            ? data.guestSessionId
+            : originalDoc?.guestSessionId;
+
+        const hasBuyer = Boolean(effectiveBuyer);
+        const hasGuest = Boolean(effectiveGuest);
+
+        if (!hasBuyer && !hasGuest) {
+          throw new Error(
+            'Cart must have either a buyer or a guestSessionId.'
+          );
+        }
+
+        if (hasBuyer && hasGuest) {
+          throw new Error(
+            'Cart cannot have both a buyer and a guestSessionId at the same time.'
+          );
+        }
+
+        return data;
+      }
+    ]
+  },
+  },
   fields: [
     {
       name: 'buyer',
@@ -54,9 +100,9 @@ export const Cart: CollectionConfig = {
     {
       name: 'itemCount',
       type: 'number',
-      defaultValue: 0,
+      required: false,
       min: 0,
-      required: true
+      defaultValue: 0
     },
     {
       name: 'items',

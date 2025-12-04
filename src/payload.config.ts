@@ -28,7 +28,7 @@ import { PendingCheckoutAttempts } from './collections/PendingCheckoutAttempts';
 import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
-import { Cart } from './collections/Cart';
+import { Cart } from './collections/Carts';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);

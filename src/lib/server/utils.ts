@@ -67,6 +67,13 @@ export function asId(ref: IdRef): string {
   });
 }
 
+export function softRelId(ref: IdRef | null | undefined): string | null {
+  if (typeof ref === 'string') return ref;
+  if (ref && typeof ref === 'object' && typeof ref.id === 'string')
+    return ref.id;
+  return null;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // Category utilities
 // ─────────────────────────────────────────────────────────────────────────────
