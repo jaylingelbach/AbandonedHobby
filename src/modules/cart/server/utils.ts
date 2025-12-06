@@ -197,19 +197,6 @@ export async function getOrCreateActiveCart(
   return cart;
 }
 
-/**
- * ### d) “Ensure product belongs to this tenant”
- * We don’t want someone to accidentally add a product from tenant A into the cart for tenant B.
- * Mental steps:
- * 1. Given `productId` and `tenantId`:
- * 2. Load the product by id.
- * 3. If not found → TRPC `NOT_FOUND` error.
- * 4. Check `product.tenant` relationship:
- * - Extract productTenantId (with your relationship helpers).
- * - If `productTenantId !== tenantId` → TRPC `BAD_REQUEST` error (“Product does not belong to this tenant”).
- * This enforces the multi-tenant rule on the server instead of trusting the client.
- */
-
 export async function loadProductForTenant(
   ctx: Context,
   productId: string,
@@ -246,7 +233,7 @@ export async function loadProductForTenant(
   return productDoc;
 }
 
-export function addItemsByProductId(
+export function adjustItemsByProductId(
   items: CartItem[],
   productId: string,
   deltaQuantity: number,
@@ -273,7 +260,6 @@ export function addItemsByProductId(
       return [...items.slice(0, index), updated, ...items.slice(index + 1)];
     }
   }
-
   // didn't find the line
   if (deltaQuantity <= 0) {
     return items;
@@ -296,6 +282,51 @@ export function addItemsByProductId(
     shippingModeSnapshot: shippingModeSnapshot
   };
   return [...items, newLine];
+}
+
+export function setQuantityForProduct(
+  items: CartItem[],
+  productId: string,
+  nextQuantity: number,
+  snapshots: CartItemSnapshots
+): CartItem[] {
+  const {
+    nameSnapshot,
+    unitAmountCentsSnapshot,
+    imageSnapshot,
+    shippingModeSnapshot
+  } = snapshots;
+  // find index
+  const index = items.findIndex(
+    (line) => softRelId(line.product) === productId
+  );
+  if (index !== -1) {
+    const existing = items[index];
+    // findIndex returns -1 if false so to satisfy TS check
+    if (existing) {
+      if (nextQuantity <= 0)
+        return [...items.slice(0, index), ...items.slice(index + 1)];
+      const updated: CartItem = {
+        ...existing,
+        quantity: nextQuantity
+      };
+      return [...items.slice(0, index), updated, ...items.slice(index + 1)];
+    }
+  }
+  if (nextQuantity <= 0) return items;
+  if (index === -1 && nextQuantity > 0) {
+    const newLine: CartItem = {
+      product: productId,
+      nameSnapshot,
+      unitAmountCents: unitAmountCentsSnapshot,
+      quantity: nextQuantity,
+      addedAt: new Date().toISOString(),
+      imageSnapshot,
+      shippingModeSnapshot
+    };
+    return [...items, newLine];
+  }
+  return items;
 }
 
 export function createEmptyCart(tenantSlug: string): CartDTO {
