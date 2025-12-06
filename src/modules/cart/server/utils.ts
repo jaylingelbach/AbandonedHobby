@@ -1,6 +1,16 @@
 import { softRelId } from '@/lib/server/utils';
-import type { CartDTO, CartItemDTO } from './types';
-import { Cart } from '@/payload-types';
+import type {
+  CartDTO,
+  CartIdentity,
+  CartItemDTO,
+  CartItem,
+  CartItemSnapshots
+} from './types';
+import type { Cart, Product, Tenant } from '@/payload-types';
+import { Context } from '@/trpc/init';
+import { TRPCError } from '@trpc/server';
+import { relId } from '@/lib/relationshipHelpers';
+import { usdToCents } from '@/lib/money';
 
 /**
  * Constructs a CartDTO representation from a Cart document for the specified tenant.
@@ -79,4 +89,224 @@ export function buildCartDTO(
     totalQuantity
   };
   return cart;
+}
+
+export async function resolveTenantIdOrThrow(
+  ctx: Context,
+  tenantSlug: string
+): Promise<string> {
+  const tenantRes = await ctx.db.find({
+    collection: 'tenants',
+    limit: 1,
+    where: { slug: { equals: tenantSlug } }
+  });
+
+  const tenantDoc = tenantRes.docs[0];
+
+  if (!tenantDoc) {
+    // this is a tenant problem, not a cart problem
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Tenant not found for the provided slug'
+    });
+  }
+
+  const tenantId = tenantDoc.id;
+  return tenantId;
+}
+
+export async function findActiveCart(
+  ctx: Context,
+  identity: CartIdentity,
+  tenantId: string
+): Promise<Cart | undefined> {
+  if (identity.kind === 'user') {
+    const cartRes = await ctx.db.find({
+      collection: 'carts',
+      limit: 1,
+      where: {
+        and: [
+          { buyer: { equals: identity.userId } },
+          { sellerTenant: { equals: tenantId } },
+          { status: { equals: 'active' } }
+        ]
+      }
+    });
+    const doc = cartRes.docs[0];
+    return doc;
+  }
+  if (identity.kind === 'guest') {
+    const cartRes = await ctx.db.find({
+      collection: 'carts',
+      limit: 1,
+      overrideAccess: true,
+      where: {
+        and: [
+          { guestSessionId: { equals: identity.guestSessionId } },
+          { sellerTenant: { equals: tenantId } },
+          { status: { equals: 'active' } }
+        ]
+      }
+    });
+    const doc = cartRes.docs[0];
+
+    return doc;
+  }
+  return undefined; // fallback, should never really happen
+}
+
+export async function getOrCreateActiveCart(
+  ctx: Context,
+  identity: CartIdentity,
+  tenantId: string
+): Promise<Cart> {
+  const cart = await findActiveCart(ctx, identity, tenantId);
+  if (!cart) {
+    if (identity.kind === 'user') {
+      const userCart = await ctx.db.create({
+        collection: 'carts',
+        data: {
+          buyer: identity.userId,
+          sellerTenant: tenantId,
+          status: 'active',
+          items: []
+        }
+      });
+      return userCart;
+    }
+
+    if (identity.kind === 'guest') {
+      const guestCart = await ctx.db.create({
+        collection: 'carts',
+        overrideAccess: true,
+        data: {
+          guestSessionId: identity.guestSessionId,
+          sellerTenant: tenantId,
+          status: 'active',
+          items: []
+        }
+      });
+      return guestCart;
+    }
+
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Invalid cart identity kind'
+    });
+  }
+  return cart;
+}
+
+/**
+ * ### d) “Ensure product belongs to this tenant”
+ * We don’t want someone to accidentally add a product from tenant A into the cart for tenant B.
+ * Mental steps:
+ * 1. Given `productId` and `tenantId`:
+ * 2. Load the product by id.
+ * 3. If not found → TRPC `NOT_FOUND` error.
+ * 4. Check `product.tenant` relationship:
+ * - Extract productTenantId (with your relationship helpers).
+ * - If `productTenantId !== tenantId` → TRPC `BAD_REQUEST` error (“Product does not belong to this tenant”).
+ * This enforces the multi-tenant rule on the server instead of trusting the client.
+ */
+
+export async function loadProductForTenant(
+  ctx: Context,
+  productId: string,
+  tenantId: string,
+  tenantSlug: string
+): Promise<Product> {
+  const productRes = await ctx.db.find({
+    collection: 'products',
+    depth: 0,
+    limit: 1,
+    where: { id: { equals: productId } }
+  });
+  const productDoc = productRes.docs[0];
+  if (!productDoc) {
+    throw new TRPCError({
+      code: 'NOT_FOUND',
+      message: 'Product not found'
+    });
+  }
+  const productTenantId = relId<Tenant>(productDoc.tenant);
+
+  if (!productTenantId) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'Product is missing tenant'
+    });
+  }
+  if (productTenantId !== tenantId) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: `Product does not belong to ${tenantSlug}`
+    });
+  }
+  return productDoc;
+}
+
+export function addItemsByProductId(
+  items: CartItem[],
+  productId: string,
+  deltaQuantity: number,
+  snapshots: CartItemSnapshots
+): CartItem[] {
+  if (deltaQuantity === 0) return items;
+  // find index
+  const index = items.findIndex(
+    (line) => softRelId(line.product) === productId
+  );
+  if (index !== -1) {
+    const existing = items[index];
+    // findIndex returns -1 if false so to satisfy TS check
+    if (existing) {
+      const newQuantity = existing.quantity + deltaQuantity;
+      // remove line if less than 0
+      if (newQuantity <= 0) {
+        return [...items.slice(0, index), ...items.slice(index + 1)];
+      }
+      const updated: CartItem = {
+        ...existing,
+        quantity: newQuantity
+      };
+      return [...items.slice(0, index), updated, ...items.slice(index + 1)];
+    }
+  }
+
+  // didn't find the line
+  if (deltaQuantity <= 0) {
+    return items;
+  }
+
+  const {
+    nameSnapshot,
+    unitAmountCentsSnapshot,
+    imageSnapshot,
+    shippingModeSnapshot
+  } = snapshots;
+
+  const newLine: CartItem = {
+    product: productId,
+    nameSnapshot: nameSnapshot,
+    unitAmountCents: unitAmountCentsSnapshot,
+    imageSnapshot: imageSnapshot,
+    quantity: deltaQuantity,
+    addedAt: new Date().toISOString(),
+    shippingModeSnapshot: shippingModeSnapshot
+  };
+  return [...items, newLine];
+}
+
+export function createEmptyCart(tenantSlug: string): CartDTO {
+  return {
+    cartId: null,
+    tenantSlug,
+    tenantId: null,
+    items: [],
+    distinctItemCount: 0,
+    totalQuantity: 0,
+    totalApproxCents: 0,
+    currency: 'USD'
+  };
 }

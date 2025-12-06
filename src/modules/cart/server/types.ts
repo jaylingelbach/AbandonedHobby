@@ -1,3 +1,6 @@
+import { ShippingMode } from '@/modules/orders/types';
+import { Media, Product } from '@/payload-types';
+
 // union for identity helper return
 export type CartIdentity =
   | { kind: 'user'; userId: string; guestSessionId: string | null }
@@ -42,7 +45,6 @@ export type CartDTO = {
 
   /**
    * Sum of all quantities across items.
-   * This is usually what you want for the navbar badge.
    */
   totalQuantity: number;
 
@@ -54,4 +56,21 @@ export type CartDTO = {
 
   /** The items themselves */
   items: CartItemDTO[];
+};
+
+export type CartItem = {
+  product: string | Product;
+  nameSnapshot: string;
+  unitAmountCents: number;
+  quantity: number;
+  addedAt?: string | null;
+  imageSnapshot?: string | null | Media;
+  shippingModeSnapshot?: ShippingMode | null;
+};
+
+export type CartItemSnapshots = {
+  nameSnapshot: string;
+  unitAmountCentsSnapshot: number;
+  imageSnapshot?: Media | string | null;
+  shippingModeSnapshot?: ShippingMode | null;
 };
