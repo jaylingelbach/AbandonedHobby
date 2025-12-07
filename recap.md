@@ -5912,3 +5912,25 @@ src/collections/Carts.ts, src/payload.config.ts
 - src/app/(app)/api/dev/test/page.tsx, src/app/(app)/api/dev/test/line-helpers.ts
   - Created test utilities in line-helpers.ts with CartItem helpers and test scenarios.
   - Integrated runCartHelperTests into page.tsx to execute on mount alongside TRPC fetch, logging results and updating UI message.
+
+# Cart - React Query hook write 12/07/25
+
+## Walkthrough
+
+- The PR expands the cart hook to support mutations alongside data queries. It replaces a simple query with a composed query setup, adds a query client for cache management, and introduces four mutation handlers (adjust quantity, set quantity, remove item, clear cart) that synchronize the cached cart state after operations.
+
+## New Features
+
+- Expanded cart management with multiple quantity adjustment methods (increment, decrement, set quantity), item removal, and cart clearing functions.
+
+## Improvements
+
+- Enhanced error handling and logging for all cart operations.
+- Improved cart data synchronization to ensure consistent state across transactions.
+
+## File changes
+
+### Cart Hook Mutation Support
+
+- src/modules/cart/hooks/use-server-cart.ts
+  - Refactored to compose getActiveOptions for query setup; added useQueryClient for cache management; introduced four mutation handlers with error logging; exposed convenience functions (adjustQuantityByDelta, incrementItem, decrementItem, setQuantity, removeItem, clearCart); exposed mutation objects and per-mutation state flags; retained existing query metadata.
