@@ -114,7 +114,7 @@ export function useServerCart(tenantSlug: string) {
     error: query.error,
     refetch: query.refetch,
     isFetching: query.isFetching,
-    // for UI use with tenantSlug baked in.gi
+    // for UI use with tenantSlug baked in.
     adjustQuantityByDelta: (productId: string, delta: number) =>
       adjustQuantityMutation.mutate({ tenantSlug, productId, delta }),
     incrementItem: (productId: string) =>
