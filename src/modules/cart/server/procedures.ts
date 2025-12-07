@@ -46,6 +46,12 @@ export const cartRouter = createTRPCRouter({
       const tenantId = await resolveTenantIdOrThrow(ctx, input.tenantSlug);
       const identity = await getCartIdentity(ctx);
       if (!identity) return emptyCart;
+
+      // If delta is negative and no cart exists, it's a no-op
+      if (input.delta < 0) {
+        const existingCart = await findActiveCart(ctx, identity, tenantId);
+        if (!existingCart) return emptyCart;
+      }
       const cart = await getOrCreateActiveCart(ctx, identity, tenantId);
       const product = await loadProductForTenant(
         ctx,
