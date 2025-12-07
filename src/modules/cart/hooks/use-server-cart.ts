@@ -10,43 +10,100 @@ export function useServerCart(tenantSlug: string) {
   // 2) Use them for the main query
   const query = useQuery(getActiveOptions);
 
+  const baseAdjustQuantityByDelta =
+    trpc.cart.adjustQuantityByDelta.mutationOptions();
+
+  const baseSetQuantityMutation = trpc.cart.setQuantity.mutationOptions();
+
+  const baseRemoveItemMutation = trpc.cart.removeItem.mutationOptions();
+
+  const baseClearCartMutation = trpc.cart.clearCart.mutationOptions();
+
   // 3) Mutation that invalidates the same queryKey
   const adjustQuantityMutation = useMutation({
-    ...trpc.cart.adjustQuantityByDelta.mutationOptions(),
-    onSuccess: (data) => {
+    ...baseAdjustQuantityByDelta,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      baseAdjustQuantityByDelta.onSuccess?.(
+        data,
+        variables,
+        onMutateResult,
+        context
+      );
       queryClient.setQueryData(getActiveOptions.queryKey, data);
     },
-    onError: (error) => {
-      console.error(`Error adjusting quantity  by delta: ${error}`);
-    }
-  });
-  const setQuantityMutation = useMutation({
-    ...trpc.cart.setQuantity.mutationOptions(),
-    onSuccess: (data) => {
-      queryClient.setQueryData(getActiveOptions.queryKey, data);
-    },
-    onError: (error) => {
-      console.error(`Error setting quantity: ${error}`);
+    onError: (error, variables, onMutateResult, context) => {
+      baseAdjustQuantityByDelta.onError?.(
+        error,
+        variables,
+        onMutateResult,
+        context
+      );
+      console.error('Error adjusting quantity by delta:', error);
     }
   });
 
-  const removeItemMutation = useMutation({
-    ...trpc.cart.removeItem.mutationOptions(),
-    onSuccess: (data) => {
+  const setQuantityMutation = useMutation({
+    ...baseSetQuantityMutation,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      baseSetQuantityMutation.onSuccess?.(
+        data,
+        variables,
+        onMutateResult,
+        context
+      );
       queryClient.setQueryData(getActiveOptions.queryKey, data);
     },
-    onError: (error) => {
-      console.error(`Error removing item: ${error}`);
+    onError: (error, variables, onMutateResult, context) => {
+      baseSetQuantityMutation.onError?.(
+        error,
+        variables,
+        onMutateResult,
+        context
+      );
+      console.error('Error setting quantity: ', error);
+    }
+  });
+  const removeItemMutation = useMutation({
+    ...baseRemoveItemMutation,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      baseRemoveItemMutation.onSuccess?.(
+        data,
+        variables,
+        onMutateResult,
+        context
+      );
+      queryClient.setQueryData(getActiveOptions.queryKey, data);
+    },
+    onError: (error, variables, onMutateResult, context) => {
+      baseRemoveItemMutation.onError?.(
+        error,
+        variables,
+        onMutateResult,
+        context
+      );
+      console.error('Error removing item: ', error);
     }
   });
 
   const clearCartMutation = useMutation({
-    ...trpc.cart.clearCart.mutationOptions(),
-    onSuccess: (data) => {
+    ...baseClearCartMutation,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      baseClearCartMutation.onSuccess?.(
+        data,
+        variables,
+        onMutateResult,
+        context
+      );
       queryClient.setQueryData(getActiveOptions.queryKey, data);
     },
-    onError: (error) => {
-      console.error(`Error clearning the cart: ${error}`);
+    onError: (error, variables, onMutateResult, context) => {
+      baseClearCartMutation.onError?.(
+        error,
+        variables,
+        onMutateResult,
+        context
+      );
+      console.error('Error clearning the cart: ', error);
     }
   });
   const cart = query.data;
