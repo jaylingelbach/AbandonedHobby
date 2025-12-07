@@ -10,7 +10,6 @@ import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { relId } from '@/lib/relationshipHelpers';
-import { usdToCents } from '@/lib/money';
 
 /**
  * Constructs a CartDTO representation from a Cart document for the specified tenant.
@@ -327,6 +326,19 @@ export function setQuantityForProduct(
     return [...items, newLine];
   }
   return items;
+}
+
+export function removeProduct(
+  items: CartItem[],
+  productId: string
+): CartItem[] {
+  const index = items.findIndex(
+    (line) => softRelId(line.product) === productId
+  );
+  if (index === -1) {
+    return items;
+  }
+  return [...items.slice(0, index), ...items.slice(index + 1)];
 }
 
 export function createEmptyCart(tenantSlug: string): CartDTO {
