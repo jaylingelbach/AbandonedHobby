@@ -69,6 +69,7 @@ export const cartRouter = createTRPCRouter({
       );
       const updatedCart = await ctx.db.update({
         collection: 'carts',
+        overrideAccess: true,
         id: cart.id,
         data: {
           items: nextItems
@@ -151,6 +152,7 @@ export const cartRouter = createTRPCRouter({
       // 6) Persist the new items on the cart
       const updatedCart = await ctx.db.update({
         collection: 'carts',
+        overrideAccess: true,
         id: cart.id,
         data: {
           items: nextItems
