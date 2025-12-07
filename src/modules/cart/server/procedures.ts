@@ -38,7 +38,7 @@ export const cartRouter = createTRPCRouter({
       z.object({
         tenantSlug: z.string().min(1),
         productId: z.string().min(1),
-        delta: z.number()
+        delta: z.number().int()
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -57,7 +57,7 @@ export const cartRouter = createTRPCRouter({
       const snapshots: CartItemSnapshots = {
         nameSnapshot: product.name,
         unitAmountCentsSnapshot: usdToCents(product.price),
-        imageSnapshot: product.images?.[0]?.image,
+        imageSnapshot: product.images?.[0]?.image ?? null,
         shippingModeSnapshot: product.shippingMode
       };
 
