@@ -5875,3 +5875,40 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/modules/checkout/server/cart-service/identity.ts
   - New module exports getCartIdentity to resolve authenticated user or guest session from request context and headers.
+
+# Cart - tRPC mutations 12/06/25
+
+## Walkthrough
+
+- This pull request introduces cart management utilities and new TRPC procedures for manipulating cart items. It adds a helper module with functions to adjust, set, and remove cart items by product ID; extends the cart system with new types (CartItem, CartItemSnapshots, ShippingMode); provides utility functions for cart lifecycle management (resolveTenantIdOrThrow, getOrCreateActiveCart, loadProductForTenant); and introduces four new TRPC mutations (adjustQuantityByDelta, setQuantity, removeItem, clearCart) alongside a refactored getActive query and test harness.
+
+## New Features
+
+- Introduced new cart operations for enhanced item management: adjust quantities by delta, set exact quantities, remove individual items, and clear the entire cart.
+- Added product snapshot support to preserve item details (name, price, image, shipping) during cart operations.
+
+## File changes
+
+### Type definitions and data model
+
+- src/modules/cart/server/types.ts, src/app/(app)/api/dev/test/line-helpers.ts
+  - Added CartItem and CartItemSnapshots types; introduced ShippingMode and IdRef type aliases for cart snapshot and product reference support.
+
+### Cart utility functions
+
+- src/modules/cart/server/utils.ts
+  - Added eight utilities: resolveTenantIdOrThrow, findActiveCart, getOrCreateActiveCart, loadProductForTenant for cart lifecycle; adjustItemsByProductId, setQuantityForProduct, removeProduct for item mutation; createEmptyCart for initialization.
+  - Enhanced buildCartDTO with documentation.
+
+### TRPC cart procedures
+
+- src/modules/cart/server/procedures.ts
+  - Refactored getActive to use utility functions and return empty cart on missing identity.
+  - Added four new mutations: adjustQuantityByDelta (delta-based quantity change), setQuantity (absolute quantity), removeItem (remove single product), clearCart (empty cart).
+  - Each integrates product snapshots and item mutation helpers.
+
+### Test harness
+
+- src/app/(app)/api/dev/test/page.tsx, src/app/(app)/api/dev/test/line-helpers.ts
+  - Created test utilities in line-helpers.ts with CartItem helpers and test scenarios.
+  - Integrated runCartHelperTests into page.tsx to execute on mount alongside TRPC fetch, logging results and updating UI message.
