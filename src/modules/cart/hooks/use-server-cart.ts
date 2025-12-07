@@ -103,7 +103,7 @@ export function useServerCart(tenantSlug: string) {
         onMutateResult,
         context
       );
-      console.error('Error clearning the cart: ', error);
+      console.error('Error clearing the cart: ', error);
     }
   });
   const cart = query.data;
