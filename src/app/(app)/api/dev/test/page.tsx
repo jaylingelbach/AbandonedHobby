@@ -12,6 +12,12 @@ import {
   removeProduct
 } from './line-helpers';
 
+/**
+ * Executes a suite of console-based sanity tests for cart item helper functions.
+ *
+ * Runs scenarios that adjust quantities by delta, set absolute quantities, remove products,
+ * and logs each intermediate result plus a final sanity check that original input arrays were not mutated.
+ */
 function runCartHelperTests() {
   // Small helper to build a CartItem quickly
   const makeItem = (productId: string, quantity: number): CartItem => ({
