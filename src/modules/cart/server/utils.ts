@@ -90,6 +90,13 @@ export function buildCartDTO(
   return cart;
 }
 
+/**
+ * Resolve the tenant's id for a given tenant slug.
+ *
+ * @param tenantSlug - The tenant's slug to look up.
+ * @returns The matching tenant's id.
+ * @throws TRPCError with code `NOT_FOUND` when no tenant exists for the provided slug.
+ */
 export async function resolveTenantIdOrThrow(
   ctx: Context,
   tenantSlug: string
@@ -114,6 +121,13 @@ export async function resolveTenantIdOrThrow(
   return tenantId;
 }
 
+/**
+ * Locate an active cart for the given identity within the specified tenant.
+ *
+ * @param identity - The buyer identity; when `kind` is `'user'` looks up carts by `userId`, when `'guest'` looks up carts by `guestSessionId`
+ * @param tenantId - The tenant id to scope the cart search
+ * @returns `Cart` if an active cart exists for the identity and tenant, `undefined` otherwise
+ */
 export async function findActiveCart(
   ctx: Context,
   identity: CartIdentity,
@@ -154,6 +168,14 @@ export async function findActiveCart(
   return undefined; // fallback, should never really happen
 }
 
+/**
+ * Retrieve an active cart for the given identity and tenant, creating a new active cart if none exists.
+ *
+ * @param identity - The cart identity (user or guest) used to find or create the cart
+ * @param tenantId - The seller tenant's ID the cart belongs to
+ * @returns The active `Cart` document for the identity within the specified tenant
+ * @throws TRPCError If `identity.kind` is neither `'user'` nor `'guest'` (BAD_REQUEST)
+ */
 export async function getOrCreateActiveCart(
   ctx: Context,
   identity: CartIdentity,
@@ -196,6 +218,19 @@ export async function getOrCreateActiveCart(
   return cart;
 }
 
+/**
+ * Load a product by ID and verify it belongs to the specified tenant.
+ *
+ * Throws a TRPCError when the product is not found, when the product record has no tenant, or when the product's tenant does not match the provided tenant.
+ *
+ * @param productId - The ID of the product to load
+ * @param tenantId - The expected tenant ID that must own the product
+ * @param tenantSlug - The tenant slug used for error messaging when tenant mismatch occurs
+ * @returns The product document
+ * @throws TRPCError with code `NOT_FOUND` if no product with `productId` exists
+ * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if the product is missing tenant information
+ * @throws TRPCError with code `BAD_REQUEST` if the product's tenant does not match `tenantId`
+ */
 export async function loadProductForTenant(
   ctx: Context,
   productId: string,
@@ -232,6 +267,15 @@ export async function loadProductForTenant(
   return productDoc;
 }
 
+/**
+ * Adjusts the quantity of a cart line for the specified product, removing the line if quantity becomes <= 0 or appending a new line when increasing quantity for a missing product.
+ *
+ * @param items - Current list of cart items
+ * @param productId - Product identifier used to locate the line to adjust
+ * @param deltaQuantity - Quantity increment (positive to add, negative to subtract); no-op when zero
+ * @param snapshots - Snapshot values used when creating a new line: `nameSnapshot`, `unitAmountCentsSnapshot`, `imageSnapshot`, and `shippingModeSnapshot`
+ * @returns The updated array of `CartItem` reflecting the applied change
+ */
 export function adjustItemsByProductId(
   items: CartItem[],
   productId: string,
@@ -283,6 +327,17 @@ export function adjustItemsByProductId(
   return [...items, newLine];
 }
 
+/**
+ * Set the quantity for a product line in a cart, adding, updating, or removing the line as appropriate.
+ *
+ * If a line for `productId` exists its quantity is updated; if the new quantity is less than or equal to zero the line is removed; if the quantity is unchanged the items array is returned unmodified. If no line exists and `nextQuantity` is greater than zero a new line is appended using values from `snapshots`.
+ *
+ * @param items - Current array of cart line items
+ * @param productId - Product identifier to target
+ * @param nextQuantity - Desired quantity for the product line
+ * @param snapshots - Snapshot values (name, unit amount, image, shipping mode) used when creating a new line
+ * @returns The updated array of cart items after applying the quantity change
+ */
 export function setQuantityForProduct(
   items: CartItem[],
   productId: string,
@@ -336,6 +391,13 @@ export function setQuantityForProduct(
   return [...items, newLine];
 }
 
+/**
+ * Remove the first cart line whose product matches the given product ID.
+ *
+ * @param items - The array of cart line items
+ * @param productId - The product ID to remove from the cart
+ * @returns A new array with the first matching line removed; the original `items` array if no match is found
+ */
 export function removeProduct(
   items: CartItem[],
   productId: string
@@ -349,6 +411,12 @@ export function removeProduct(
   return [...items.slice(0, index), ...items.slice(index + 1)];
 }
 
+/**
+ * Create a minimal empty CartDTO for the given tenant slug.
+ *
+ * @param tenantSlug - The tenant's slug to set on the returned CartDTO
+ * @returns A CartDTO with `cartId` and `tenantId` set to `null`, empty `items`, zeroed counts and totals, `currency` set to `'USD'`, and `tenantSlug` set to the provided value
+ */
 export function createEmptyCart(tenantSlug: string): CartDTO {
   return {
     cartId: null,
