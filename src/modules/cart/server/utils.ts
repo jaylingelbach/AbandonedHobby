@@ -295,37 +295,45 @@ export function setQuantityForProduct(
     imageSnapshot,
     shippingModeSnapshot
   } = snapshots;
-  // find index
+
   const index = items.findIndex(
     (line) => softRelId(line.product) === productId
   );
+
   if (index !== -1) {
     const existing = items[index];
-    // findIndex returns -1 if false so to satisfy TS check
-    if (existing) {
-      if (nextQuantity <= 0)
-        return [...items.slice(0, index), ...items.slice(index + 1)];
-      const updated: CartItem = {
-        ...existing,
-        quantity: nextQuantity
-      };
-      return [...items.slice(0, index), updated, ...items.slice(index + 1)];
+    if (!existing) return items;
+
+    // if we’re setting to the same quantity, it’s a no-op
+    if (existing.quantity === nextQuantity) {
+      return items; // same reference → “nothing changed”
     }
-  }
-  if (nextQuantity <= 0) return items;
-  if (index === -1 && nextQuantity > 0) {
-    const newLine: CartItem = {
-      product: productId,
-      nameSnapshot,
-      unitAmountCents: unitAmountCentsSnapshot,
-      quantity: nextQuantity,
-      addedAt: new Date().toISOString(),
-      imageSnapshot,
-      shippingModeSnapshot
+
+    if (nextQuantity <= 0) {
+      // remove line
+      return [...items.slice(0, index), ...items.slice(index + 1)];
+    }
+
+    const updated: CartItem = {
+      ...existing,
+      quantity: nextQuantity
     };
-    return [...items, newLine];
+    return [...items.slice(0, index), updated, ...items.slice(index + 1)];
   }
-  return items;
+
+  // Not found
+  if (nextQuantity <= 0) return items;
+
+  const newLine: CartItem = {
+    product: productId,
+    nameSnapshot,
+    unitAmountCents: unitAmountCentsSnapshot,
+    quantity: nextQuantity,
+    addedAt: new Date().toISOString(),
+    imageSnapshot,
+    shippingModeSnapshot
+  };
+  return [...items, newLine];
 }
 
 export function removeProduct(

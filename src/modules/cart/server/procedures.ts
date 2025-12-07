@@ -149,7 +149,12 @@ export const cartRouter = createTRPCRouter({
         snapshots
       );
 
-      // 6) Persist the new items on the cart
+      // 6) If nothing changed, avoid a no-op write
+      if (nextItems === cart.items) {
+        return buildCartDTO(cart, tenantId, input.tenantSlug);
+      }
+
+      // 7) Persist the new items on the cart
       const updatedCart = await ctx.db.update({
         collection: 'carts',
         overrideAccess: true,
@@ -159,7 +164,7 @@ export const cartRouter = createTRPCRouter({
         }
       });
 
-      // 7) Return DTO for the client
+      // 8) Return DTO for the client
       return buildCartDTO(updatedCart, tenantId, input.tenantSlug);
     }),
   removeItem: baseProcedure
