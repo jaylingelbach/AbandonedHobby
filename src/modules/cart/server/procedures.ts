@@ -209,6 +209,9 @@ export const cartRouter = createTRPCRouter({
       if (!identity) return emptyCart;
       const cart = await findActiveCart(ctx, identity, tenantId);
       if (!cart) return emptyCart;
+      if (!cart.items?.length) {
+        return buildCartDTO(cart, tenantId, input.tenantSlug);
+      }
       const updatedCart = await ctx.db.update({
         collection: 'carts',
         id: cart.id,
