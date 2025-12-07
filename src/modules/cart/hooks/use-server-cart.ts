@@ -114,7 +114,7 @@ export function useServerCart(tenantSlug: string) {
     error: query.error,
     refetch: query.refetch,
     isFetching: query.isFetching,
-
+    // for UI use with tenantSlug baked in.gi
     adjustQuantityByDelta: (productId: string, delta: number) =>
       adjustQuantityMutation.mutate({ tenantSlug, productId, delta }),
     incrementItem: (productId: string) =>
@@ -128,6 +128,17 @@ export function useServerCart(tenantSlug: string) {
     clearCart: () => {
       clearCartMutation.mutate({ tenantSlug });
     },
+    // async mutations
+    incrementItemAsync: (productId: string) =>
+      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: 1 }),
+    decrementItemAsync: (productId: string) =>
+      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: -1 }),
+    setQuantityAsync: (productId: string, quantity: number) =>
+      setQuantityMutation.mutateAsync({ tenantSlug, productId, quantity }),
+    removeItemAsync: (productId: string) =>
+      removeItemMutation.mutateAsync({ tenantSlug, productId }),
+    clearCartAsync: () => clearCartMutation.mutateAsync({ tenantSlug }),
+    // return full mutation
     adjustQuantityMutation,
     setQuantityMutation,
     removeItemMutation,
