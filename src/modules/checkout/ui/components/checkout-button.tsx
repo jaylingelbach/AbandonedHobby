@@ -29,6 +29,12 @@ export const CheckoutButton = ({
     useCartGlobalSummary();
 
   useEffect(() => {
+    if (isError) {
+      console.error('error: ', error);
+    }
+  }, [isError, error]);
+
+  useEffect(() => {
     const userId = session?.user?.id ?? null;
     const persistApi = useCartStore.persist;
 
@@ -64,12 +70,6 @@ export const CheckoutButton = ({
   }, [tenantSlug, session?.user?.id]);
 
   if (hideIfEmpty && !isLoading && !isError && badgeCount === 0) return null;
-
-  useEffect(() => {
-    if (isError) {
-      console.error('error: ', error);
-    }
-  }, [isError, error]);
 
   const ariaLabel: string =
     isLoading && !cartSummary
