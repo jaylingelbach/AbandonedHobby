@@ -51,12 +51,6 @@ export const CheckoutButton = ({
       }
     };
 
-    useEffect(() => {
-      if (isError) {
-        console.error('error: ', error);
-      }
-    }, [isError, error]);
-
     const unsubscribe = persistApi?.onFinishHydration?.(run);
 
     // If already hydrated when subscription completes, run immediately
@@ -70,6 +64,12 @@ export const CheckoutButton = ({
   }, [tenantSlug, session?.user?.id]);
 
   if (hideIfEmpty && !isLoading && !isError && badgeCount === 0) return null;
+
+  useEffect(() => {
+    if (isError) {
+      console.error('error: ', error);
+    }
+  }, [isError, error]);
 
   const ariaLabel: string =
     isLoading && !cartSummary
