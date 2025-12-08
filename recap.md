@@ -5934,3 +5934,42 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/modules/cart/hooks/use-server-cart.ts
   - Refactored to compose getActiveOptions for query setup; added useQueryClient for cache management; introduced four mutation handlers with error logging; exposed convenience functions (adjustQuantityByDelta, incrementItem, decrementItem, setQuantity, removeItem, clearCart); exposed mutation objects and per-mutation state flags; retained existing query metadata.
+
+# Cart - Nav badge server 12/08/25
+
+## Walkthrough
+
+- Introduces a global cart summary system with a new TRPC procedure getSummaryForIdentity, supporting React hook useCartGlobalSummary, cart identity schema validation, and utility functions for aggregating multi-tenant cart summaries. Updates checkout button to consume the global summary and expands test page with cart action UI.
+
+## New Features
+
+- Added global cart summary functionality enabling real-time cart statistics across the app, including total quantity, distinct item count, and active cart count.
+- Enhanced cart badge display with improved loading and error handling states.
+- Cart information now syncs automatically for seamless checkout experience.
+
+## File changes
+
+### Cart Summary Infrastructure
+
+- src/modules/cart/server/schema.ts, src/modules/cart/server/types.ts, src/modules/cart/server/utils.ts
+  - Adds CartIdentity discriminated union schema, CartSummaryDTO type, and utility functions (findAllActiveCartsForIdentity, createEmptyCartSummaryDTO, buildCartSummaryDTO) for aggregating multi-tenant cart summaries.
+
+### TRPC Procedure
+
+- src/modules/cart/server/procedures.ts
+  - Introduces new getSummaryForIdentity query procedure to fetch cart summary for an identity across tenants, returning empty summary if no identity present.
+
+### Global Cart Summary Hook
+
+- src/modules/cart/hooks/use-cart-global-summary.ts
+  - New React hook that initializes TRPC query, derives cartSummary, badgeCount, and standard query state flags (isLoading, isError, isFetching, refetch).
+
+### Checkout Button Update
+
+- src/modules/checkout/ui/components/checkout-button.tsx
+  - Replaces local cart badge hook with useCartGlobalSummary; adds error handling effect, refined hideIfEmpty condition, and dynamic aria-label reflecting loading state and item count.
+
+### Test Page Extension
+
+- src/app/(app)/api/dev/test/page.tsx
+  - Expands test UI with buttons invoking cart actions (adjust quantity, increment/decrement, remove, clear, set quantity); adds diagnostic logging of cart statistics and full JSON output.
