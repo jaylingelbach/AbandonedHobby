@@ -157,7 +157,12 @@ const Page = () => {
     console.log('total quantity: ', data?.totalQuantity);
     console.log(cart?.distinctItemCount);
     console.log(cart?.totalQuantity);
-  }, [cart?.distinctItemCount, cart?.totalQuantity, adjustQuantityByDelta]);
+  }, [
+    cart?.totalQuantity,
+    cart?.distinctItemCount,
+    cart?.totalQuantity,
+    adjustQuantityByDelta
+  ]);
 
   if (isLoading) return <div>...loading</div>;
   if (isError) return <div>Error: {error?.message}</div>;
