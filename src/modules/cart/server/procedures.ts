@@ -2,11 +2,15 @@ import { z } from 'zod';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { getCartIdentity } from '@/modules/checkout/server/cart-service/identity';
 import type { CartItemSnapshots } from './types';
+
 import {
   adjustItemsByProductId,
   buildCartDTO,
+  buildCartSummaryDTO,
   createEmptyCart,
+  createEmptyCartSummaryDTO,
   findActiveCart,
+  findAllActiveCartsForIdentity,
   getOrCreateActiveCart,
   loadProductForTenant,
   removeProduct,
@@ -232,5 +236,14 @@ export const cartRouter = createTRPCRouter({
         }
       });
       return buildCartDTO(updatedCart, tenantId, input.tenantSlug);
+    }),
+  getSummaryForIdentity: baseProcedure
+    .input(z.void())
+    .query(async ({ ctx }) => {
+      const emptyCartSummaryDTO = createEmptyCartSummaryDTO();
+      const identity = await getCartIdentity(ctx);
+      if (!identity) return emptyCartSummaryDTO;
+      const carts = await findAllActiveCartsForIdentity(ctx, identity);
+      return buildCartSummaryDTO(carts);
     })
 });

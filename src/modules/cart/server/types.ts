@@ -1,5 +1,6 @@
 import { ShippingMode } from '@/modules/orders/types';
 import { Media, Product } from '@/payload-types';
+import { z } from 'zod';
 
 // union for identity helper return
 export type CartIdentity =
@@ -73,4 +74,10 @@ export type CartItemSnapshots = {
   unitAmountCentsSnapshot: number;
   imageSnapshot?: Media | string | null;
   shippingModeSnapshot?: ShippingMode | null;
+};
+
+export type CartSummaryDTO = {
+  totalQuantity: number;
+  distinctItemCount: number;
+  activeCartCount: number;
 };

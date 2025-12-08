@@ -4,7 +4,8 @@ import type {
   CartIdentity,
   CartItemDTO,
   CartItem,
-  CartItemSnapshots
+  CartItemSnapshots,
+  CartSummaryDTO
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
@@ -166,6 +167,48 @@ export async function findActiveCart(
     return doc;
   }
   return undefined; // fallback, should never really happen
+}
+
+/** Retrieve all active carts for a given identity across all tenants.
+ *
+ * @param ctx - The context containing database access
+ * @param identity - The buyer identity (user or guest)
+ * @returns Up to 50 active carts for the identity; returns empty array for unexpected identity kinds
+ */
+
+export async function findAllActiveCartsForIdentity(
+  ctx: Context,
+  identity: CartIdentity
+): Promise<Cart[]> {
+  if (identity.kind === 'user') {
+    const cartRes = await ctx.db.find({
+      collection: 'carts',
+      limit: 50,
+      where: {
+        and: [
+          { buyer: { equals: identity.userId } },
+          { status: { equals: 'active' } }
+        ]
+      }
+    });
+    return cartRes.docs;
+  }
+  if (identity.kind === 'guest') {
+    const cartRes = await ctx.db.find({
+      collection: 'carts',
+      overrideAccess: true,
+      limit: 50,
+      where: {
+        and: [
+          { guestSessionId: { equals: identity.guestSessionId } },
+
+          { status: { equals: 'active' } }
+        ]
+      }
+    });
+    return cartRes.docs;
+  }
+  return []; // fallback, should never really happen
 }
 
 /**
@@ -428,4 +471,33 @@ export function createEmptyCart(tenantSlug: string): CartDTO {
     totalApproxCents: 0,
     currency: 'USD'
   };
+}
+
+export function createEmptyCartSummaryDTO(): CartSummaryDTO {
+  return {
+    totalQuantity: 0,
+    distinctItemCount: 0,
+    activeCartCount: 0
+  };
+}
+
+export function buildCartSummaryDTO(carts: Cart[]): CartSummaryDTO {
+  let totalQuantity = 0;
+  let distinctItemCount = 0;
+  let activeCartCount = 0;
+  for (const cart of carts) {
+    const cartItems = cart?.items ?? [];
+    if (cartItems.length > 0) activeCartCount++;
+
+    for (const item of cartItems) {
+      totalQuantity += item.quantity ?? 0;
+    }
+    distinctItemCount += cartItems.length;
+  }
+  const cartSummary: CartSummaryDTO = {
+    totalQuantity,
+    distinctItemCount,
+    activeCartCount
+  };
+  return cartSummary;
 }
