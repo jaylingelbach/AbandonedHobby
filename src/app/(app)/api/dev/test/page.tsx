@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 import { useTRPC } from '@/trpc/client';
 import { useQuery } from '@tanstack/react-query';
+import { Button } from '@/components/ui/button';
 
 import type { CartItem } from '@/modules/cart/server/types';
 import {
@@ -135,18 +136,115 @@ const Page = () => {
   const { data } = useQuery(trpc.cart.getActive.queryOptions(mockTenantSlug));
   console.log(`data: ${JSON.stringify(data, null, 2)}`);
 
-  const { cart, isLoading, isError, error } = useServerCart('support');
+  const {
+    cart,
+    isLoading,
+    isError,
+    error,
+    incrementItem,
+    decrementItem,
+    clearCart,
+    setQuantity,
+    adjustQuantityByDelta,
+    removeItem
+  } = useServerCart('support');
 
   useEffect(() => {
     runCartHelperTests();
   }, []);
 
+  useEffect(() => {
+    console.log('total quantity: ', cart?.totalQuantity);
+    console.log(cart?.distinctItemCount);
+    console.log(cart?.totalQuantity);
+  }, [
+    cart?.totalQuantity,
+    cart?.distinctItemCount,
+    cart?.totalQuantity,
+    adjustQuantityByDelta
+  ]);
+
   if (isLoading) return <div>...loading</div>;
   if (isError) return <div>Error: {error?.message}</div>;
 
   console.log(`cart: ${JSON.stringify(cart, null, 2)}`);
-
-  return <div>Test for trpc.getActive + cart helpers</div>;
+  const buttonClass = 'hover:bg-pink-500 hover:text-primary';
+  return (
+    <div className="text-center text-base">
+      <h1>Test for trpc.getActive + cart helpers</h1>
+      <div className="flex flex-col gap-3 pl-3 items-center mt-10 mb-10">
+        <Button
+          className={buttonClass}
+          variant="default"
+          onClick={() => {
+            adjustQuantityByDelta('69096a58673b6b5262cea03d', 2);
+          }}
+        >
+          Add test product to cart
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={() => {
+            incrementItem('690b73cedd97632c58db0947');
+          }}
+        >
+          Increment
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={() => {
+            decrementItem('690b73cedd97632c58db0947');
+          }}
+        >
+          Decrement
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={() => {
+            removeItem('69096a58673b6b5262cea03d');
+          }}
+        >
+          Remove Item
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={() => {
+            clearCart();
+          }}
+        >
+          Clear Cart
+        </Button>
+        <Button
+          className={buttonClass}
+          onClick={() => {
+            setQuantity('69096a58673b6b5262cea03d', 5);
+          }}
+        >
+          Set Quantity to 5
+        </Button>
+      </div>
+      <div>
+        <h3>Total Quantity: </h3>
+        {cart?.totalQuantity}
+      </div>
+      <div>
+        <h3>Distinct Item Count:</h3>
+        {cart?.distinctItemCount}
+      </div>
+      <div>
+        <h3>Cart: </h3>
+        {JSON.stringify(cart, null, 2)}
+      </div>
+      {cart?.items?.map((item) => {
+        return (
+          <div key={item.productId}>
+            <div>name: {item.name}</div>
+            <div>quantity: {item.quantity}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
 };
 
 export default Page;

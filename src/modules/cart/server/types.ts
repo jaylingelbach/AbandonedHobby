@@ -74,3 +74,9 @@ export type CartItemSnapshots = {
   imageSnapshot?: Media | string | null;
   shippingModeSnapshot?: ShippingMode | null;
 };
+
+export type CartSummaryDTO = {
+  totalQuantity: number;
+  distinctItemCount: number;
+  activeCartCount: number;
+};

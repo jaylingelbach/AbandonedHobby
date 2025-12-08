@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 import { Button } from '@/components/ui/button';
 
-import { useCartBadgeCount } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+import { useCartGlobalSummary } from '@/modules/cart/hooks/use-cart-global-summary';
 
 interface CheckoutButtonProps {
   className?: string;
@@ -25,7 +25,14 @@ export const CheckoutButton = ({
 }: CheckoutButtonProps) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
-  const badgeCount = useCartBadgeCount();
+  const { cartSummary, badgeCount, isLoading, isError, error } =
+    useCartGlobalSummary();
+
+  useEffect(() => {
+    if (isError) {
+      console.error('error: ', error);
+    }
+  }, [isError, error]);
 
   useEffect(() => {
     const userId = session?.user?.id ?? null;
@@ -62,14 +69,16 @@ export const CheckoutButton = ({
     };
   }, [tenantSlug, session?.user?.id]);
 
-  if (hideIfEmpty && badgeCount === 0) return null;
+  if (hideIfEmpty && !isLoading && !isError && badgeCount === 0) return null;
+
+  const ariaLabel: string =
+    isLoading && !cartSummary
+      ? 'Open checkout'
+      : `Open checkout${badgeCount ? `, ${badgeCount} item${badgeCount === 1 ? '' : 's'}` : ''}`;
 
   return (
     <Button asChild variant="elevated" className={cn('bg-white', className)}>
-      <Link
-        href={'/checkout'}
-        aria-label={`Open checkout${badgeCount ? `, ${badgeCount} item${badgeCount === 1 ? '' : 's'}` : ''}`}
-      >
+      <Link href={'/checkout'} aria-label={ariaLabel}>
         <ShoppingCartIcon /> {badgeCount > 0 ? badgeCount : ''}
       </Link>
     </Button>
