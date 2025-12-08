@@ -235,7 +235,7 @@ const Page = () => {
         <h3>Cart: </h3>
         {JSON.stringify(cart, null, 2)}
       </div>
-      {cart?.items?g.map((item) => {
+      {cart?.items?.map((item) => {
         return (
           <div key={item.productId}>
             <div>name: {item.name}</div>
