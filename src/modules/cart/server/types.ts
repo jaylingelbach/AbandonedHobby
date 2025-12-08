@@ -1,6 +1,5 @@
 import { ShippingMode } from '@/modules/orders/types';
 import { Media, Product } from '@/payload-types';
-import { z } from 'zod';
 
 // union for identity helper return
 export type CartIdentity =
