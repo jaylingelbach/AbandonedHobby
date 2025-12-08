@@ -154,7 +154,7 @@ const Page = () => {
   }, []);
 
   useEffect(() => {
-    console.log('total quantity: ', data?.totalQuantity);
+    console.log('total quantity: ', cart?.totalQuantity);
     console.log(cart?.distinctItemCount);
     console.log(cart?.totalQuantity);
   }, [
