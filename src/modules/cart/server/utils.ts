@@ -123,11 +123,11 @@ export async function resolveTenantIdOrThrow(
 }
 
 /**
- * Locate an active cart for the given identity within the specified tenant.
+ * Find an active cart for the provided identity scoped to a specific tenant.
  *
- * @param identity - The buyer identity; when `kind` is `'user'` looks up carts by `userId`, when `'guest'` looks up carts by `guestSessionId`
- * @param tenantId - The tenant id to scope the cart search
- * @returns `Cart` if an active cart exists for the identity and tenant, `undefined` otherwise
+ * @param identity - The buyer identity; when `kind` is `'user'` looks up carts by `userId`, when `kind` is `'guest'` looks up carts by `guestSessionId`
+ * @param tenantId - The tenant id used to scope the search
+ * @returns The active cart document for the identity and tenant, or `undefined` if none exists
  */
 export async function findActiveCart(
   ctx: Context,
@@ -169,11 +169,11 @@ export async function findActiveCart(
   return undefined; // fallback, should never really happen
 }
 
-/** Retrieve all active carts for a given identity across all tenants.
+/**
+ * Retrieve up to 50 active carts for an identity across all tenants.
  *
- * @param ctx - The context containing database access
- * @param identity - The buyer identity (user or guest)
- * @returns Up to 50 active carts for the identity; returns empty array for unexpected identity kinds
+ * @param identity - The buyer identity (`user` with `userId` or `guest` with `guestSessionId`)
+ * @returns An array of active carts (maximum 50) for the given identity; returns an empty array for unexpected identity kinds
  */
 
 export async function findAllActiveCartsForIdentity(
@@ -473,6 +473,11 @@ export function createEmptyCart(tenantSlug: string): CartDTO {
   };
 }
 
+/**
+ * Create an empty cart summary object with all counts initialized to zero.
+ *
+ * @returns A `CartSummaryDTO` with `totalQuantity` 0, `distinctItemCount` 0, and `activeCartCount` 0
+ */
 export function createEmptyCartSummaryDTO(): CartSummaryDTO {
   return {
     totalQuantity: 0,
@@ -481,6 +486,12 @@ export function createEmptyCartSummaryDTO(): CartSummaryDTO {
   };
 }
 
+/**
+ * Builds a summary of item quantities and counts across multiple carts.
+ *
+ * @param carts - The carts to summarize
+ * @returns An object with `totalQuantity` (sum of all item quantities), `distinctItemCount` (sum of each cart's item count), and `activeCartCount` (number of carts that contain at least one item)
+ */
 export function buildCartSummaryDTO(carts: Cart[]): CartSummaryDTO {
   let totalQuantity = 0;
   let distinctItemCount = 0;
