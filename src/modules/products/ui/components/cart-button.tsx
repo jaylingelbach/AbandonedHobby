@@ -19,7 +19,7 @@ interface Props {
 export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
-  const { cart, removeItem, setQuantity, isSettingQuantity } =
+  const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
     useServerCart(tenantSlug);
 
   const items = cart?.items ?? [];
@@ -52,7 +52,7 @@ export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
         if (isInCart) removeItem(productId);
         else setQuantity(productId, effectiveQuantity);
       }}
-      disabled={isSettingQuantity}
+      disabled={isSettingQuantity || isRemovingItem}
     >
       {isInCart ? 'Remove from cart' : 'Add to cart'}
     </Button>
