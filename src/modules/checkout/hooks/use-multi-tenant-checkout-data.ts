@@ -248,8 +248,7 @@ export function useMultiTenantCheckoutData(): {
       });
     }
 
-    result.filter((group) => group.tenantSlug);
-    return result;
+    return result.filter((group) => group.tenantSlug);
   }, [docs, hasAnyItems, tenantCarts, productsById]);
 
   const grandSubtotalCents = useMemo(
