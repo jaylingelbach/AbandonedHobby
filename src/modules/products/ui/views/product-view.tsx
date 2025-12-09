@@ -83,7 +83,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   const [pickerQuantity, setPickerQuantity] = useState(1);
 
   // ─── Cart state for this tenant ───────────────────────────────────────────
-  const { cart, removeItem, setQuantity, isSettingQuantity } =
+  const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
     useServerCart(tenantSlug);
 
   const productIdStr = String(productId);
@@ -371,10 +371,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                       <CartButton
                         tenantSlug={tenantSlug}
                         productId={productIdStr}
-                        shippingMode={shippingMode}
-                        shippingFeeCentsPerUnit={
-                          shippingFeeCentsPerUnit ?? undefined
-                        }
                         quantity={pickerQuantity}
                       />
                     ) : (
@@ -395,7 +391,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
                   {canPurchase && (
                     <QuantityPicker
-                      isPending={isSettingQuantity}
+                      isPending={isSettingQuantity || isRemovingItem}
                       quantity={pickerQuantity}
                       quantityAvailable={trackInventory ? stockQuantity : 999}
                       onChange={handleQuantityChange}
