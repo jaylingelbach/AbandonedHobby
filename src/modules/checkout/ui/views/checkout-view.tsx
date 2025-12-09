@@ -94,15 +94,17 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     isLoading,
     isFetching,
     isError,
-    error,
+    cartError,
+    productError,
     refetch
   } = useMultiTenantCheckoutData();
 
   // Handle NOT_FOUND from checkout.getProducts – remove only missing items when possible
   useEffect(() => {
-    if (!error) return;
+    if (!productError) return;
 
-    const clientError = error instanceof TRPCClientError ? error : null;
+    const clientError =
+      productError instanceof TRPCClientError ? productError : null;
     if (!clientError) return;
 
     const rawData = clientError.data;
@@ -137,7 +139,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       useCartStore.getState().clearAllCartsForCurrentUser();
       toast.warning('Invalid products found, your cart has been cleared.');
     }
-  }, [error, refetch]);
+  }, [productError, refetch]);
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
