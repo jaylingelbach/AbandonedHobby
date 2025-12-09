@@ -10,9 +10,15 @@ interface Props {
   onChange: (next: number) => void;
   quantity: number;
   quantityAvailable: number;
+  isPending: boolean;
 }
 
-const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
+const QuantityPicker = ({
+  quantity,
+  quantityAvailable,
+  isPending,
+  onChange
+}: Props) => {
   if (process.env.NODE_ENV === 'development') {
     if (quantity < 1 || quantity > quantityAvailable) {
       console.warn(
@@ -40,7 +46,7 @@ const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
       <ButtonGroup className="h-10">
         <Button
           aria-label="Decrease quantity"
-          disabled={!canDecrement}
+          disabled={!canDecrement || isPending}
           onClick={handleDecrement}
           size="sm"
           variant="outline"
@@ -54,7 +60,7 @@ const QuantityPicker = ({ quantity, quantityAvailable, onChange }: Props) => {
 
         <Button
           aria-label="Increase quantity"
-          disabled={!canIncrement}
+          disabled={!canIncrement || isPending}
           onClick={handleIncrement}
           size="sm"
           variant="outline"

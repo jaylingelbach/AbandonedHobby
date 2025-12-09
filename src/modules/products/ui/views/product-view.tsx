@@ -29,10 +29,10 @@ import ViewInOrdersButton from '../components/view-in-order-button';
 // ─── Project Hooks ───────────────────────────────────────────────────────────
 import { useProductViewed } from '@/hooks/analytics/use-product-viewed';
 import { useUser } from '@/hooks/use-user';
-import { useCart } from '@/modules/checkout/hooks/use-cart';
 
 // ─── Project Utilities (Local) ───────────────────────────────────────────────
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
+import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
 const CartButton = dynamic(
   () =>
@@ -80,15 +80,18 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const { user } = useUser();
 
-  const [quantity, setQuantity] = useState(1);
+  const [pickerQuantity, setPickerQuantity] = useState(1);
 
   // ─── Cart state for this tenant ───────────────────────────────────────────
-  const { quantitiesByProductId, addProduct, removeProduct, isProductInCart } =
-    useCart(tenantSlug);
+  const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
+    useServerCart(tenantSlug);
 
   const productIdStr = String(productId);
-  const quantityInCart = quantitiesByProductId[productIdStr];
-  const inCart = isProductInCart(productIdStr);
+
+  const items = cart?.items ?? [];
+  const line = items.find((item) => item.productId === productIdStr);
+  const inCart = Boolean(line);
+  const quantityInCart = line?.quantity ?? 0;
 
   const isSelf = !!(
     user?.tenants?.some((t) =>
@@ -207,9 +210,9 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   useEffect(() => {
     if (inCart) {
       const safe = readQuantityOrDefault(quantityInCart);
-      setQuantity(safe);
+      setPickerQuantity(safe);
     } else {
-      setQuantity(1);
+      setPickerQuantity(1);
     }
   }, [inCart, quantityInCart]);
 
@@ -225,19 +228,20 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     if (inCart) {
       if (numeric <= 0) {
         // Clicking "-" at 1 should remove from cart
-        removeProduct(productIdStr);
+        removeItem(productIdStr);
         return;
       }
 
       const safe = readQuantityOrDefault(numeric);
-      addProduct(productIdStr, safe);
+      setQuantity(productIdStr, safe);
+      setPickerQuantity(safe);
       return;
     }
 
     // Not in cart yet – just update the local selection that will be used
     // the next time the user hits "Add to cart".
     const safe = readQuantityOrDefault(numeric);
-    setQuantity(safe);
+    setPickerQuantity(safe);
   };
 
   return (
@@ -356,7 +360,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <ViewInOrdersButton
                     isPurchased={data.isPurchased}
                     tenantSlug={tenantSlug}
-                    productId={productId}
+                    productId={productIdStr}
                   />
                 </div>
 
@@ -365,14 +369,9 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   <div className="flex-1">
                     {canPurchase ? (
                       <CartButton
-                        isPurchased={data.isPurchased}
                         tenantSlug={tenantSlug}
-                        productId={productId}
-                        shippingMode={shippingMode}
-                        shippingFeeCentsPerUnit={
-                          shippingFeeCentsPerUnit ?? undefined
-                        }
-                        quantity={quantity}
+                        productId={productIdStr}
+                        quantity={pickerQuantity}
                       />
                     ) : (
                       <Button
@@ -392,7 +391,8 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
                   {canPurchase && (
                     <QuantityPicker
-                      quantity={quantity}
+                      isPending={isSettingQuantity || isRemovingItem}
+                      quantity={pickerQuantity}
                       quantityAvailable={trackInventory ? stockQuantity : 999}
                       onChange={handleQuantityChange}
                     />
@@ -427,7 +427,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                 <ChatButtonWithModal
                   disabled={isSelf}
                   tooltip={isSelf ? "You can't message yourself" : undefined}
-                  productId={productId}
+                  productId={productIdStr}
                   sellerId={data.tenant.id}
                   username={data.tenant.name}
                   onConversationCreated={(s) => setChatState(s)}

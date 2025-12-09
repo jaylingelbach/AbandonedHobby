@@ -1,7 +1,6 @@
 'use client';
 
 import { useTRPC } from '@/trpc/client';
-import { useAllTenantCarts } from './use-cart';
 import { useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { Product } from '@/payload-types';
@@ -13,10 +12,12 @@ import { toProductWithShipping } from '../utils/to-product-with-shipping';
 import { calculateShippingAmount } from '../utils/calculate-shipping-amount';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { getTenantNameSafe, getTenantSlugSafe } from '@/lib/utils';
+import { TenantCartSummary } from './types';
+import { FALLBACK_TENANT_NAME } from '@/constants';
 
 export interface TenantCheckoutGroup {
-  /** Normalized tenant key from the cart store (e.g. '__global__' or 'my-tenant') */
-  tenantKey: string;
+  /** Normalized tenant key */
+  tenantKey: string | null;
   /** Slug resolved from the product tenant relationship, when available */
   tenantSlug: string | null;
   /** Human-friendly name for the shop */
@@ -53,7 +54,8 @@ export interface MultiTenantCheckoutData {
  *  - `isLoading`: `true` while product data is initially loading, `false` otherwise.
  *  - `isFetching`: `true` while a background refetch is in progress, `false` otherwise.
  *  - `isError`: `true` if the product query failed, `false` otherwise.
- *  - `error`: The error returned by the product query, if any.
+ *  - `productError`: The error returned by the product query, if any.
+ *  - `cartError`: The error returned by the cart query, if any.
  *  - `refetch`: A function to re-run the product query.
  */
 export function useMultiTenantCheckoutData(): {
@@ -61,11 +63,32 @@ export function useMultiTenantCheckoutData(): {
   isLoading: boolean;
   isFetching: boolean;
   isError: boolean;
-  error: unknown;
+  cartError: unknown;
+  productError: unknown;
   refetch: () => void;
 } {
   const trpc = useTRPC();
-  const tenantCarts = useAllTenantCarts();
+
+  const {
+    data: carts,
+    isError: isErrorCart,
+    error: cartError,
+    isLoading: isLoadingCart,
+    isFetching: isFetchingCart
+  } = useQuery(trpc.cart.getAllActiveForViewer.queryOptions());
+
+  // Derive tenantCarts from that:
+  const tenantCarts: TenantCartSummary[] = useMemo(
+    () =>
+      (carts ?? []).map((cart) => ({
+        tenantKey: cart.tenantSlug, // legacy field, now === slug
+        productIds: cart.items.map((item) => item.productId),
+        quantitiesByProductId: Object.fromEntries(
+          cart.items.map((item) => [item.productId, item.quantity])
+        )
+      })),
+    [carts]
+  );
 
   // Flatten all product ids across all tenant carts
   const allProductIds = useMemo<string[]>(
@@ -88,10 +111,10 @@ export function useMultiTenantCheckoutData(): {
 
   const {
     data: productsPayload,
-    error,
-    isLoading,
-    isFetching,
-    isError,
+    error: productError,
+    isLoading: isLoadingProduct,
+    isFetching: isFetchingProduct,
+    isError: isErrorProduct,
     refetch
   } = useQuery({
     ...productsQueryOptions,
@@ -207,10 +230,9 @@ export function useMultiTenantCheckoutData(): {
 
       const firstProduct = productsForTenant[0];
       const tenantRel = firstProduct?.tenant;
-      const tenantSlug =
-        getTenantSlugSafe(tenantRel) ??
-        (tenantKey && tenantKey !== '__global__' ? tenantKey : null);
-      const tenantName = getTenantNameSafe(tenantRel) ?? tenantSlug ?? 'Shop';
+      const tenantSlug = getTenantSlugSafe(tenantRel) ?? tenantKey ?? null;
+      const tenantName =
+        getTenantNameSafe(tenantRel) ?? tenantSlug ?? FALLBACK_TENANT_NAME;
 
       result.push({
         tenantKey,
@@ -226,7 +248,7 @@ export function useMultiTenantCheckoutData(): {
       });
     }
 
-    return result;
+    return result.filter((group) => group.tenantSlug);
   }, [docs, hasAnyItems, tenantCarts, productsById]);
 
   const grandSubtotalCents = useMemo(
@@ -253,12 +275,17 @@ export function useMultiTenantCheckoutData(): {
       }
     : null;
 
+  const isLoading = isLoadingProduct || isLoadingCart;
+  const isFetching = isFetchingProduct || isFetchingCart;
+  const isError = isErrorProduct || isErrorCart;
+
   return {
     data,
     isLoading,
     isFetching,
     isError,
-    error,
+    cartError,
+    productError,
     refetch
   };
 }

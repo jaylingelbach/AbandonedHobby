@@ -19,15 +19,15 @@ import { relId } from '@/lib/relationshipHelpers';
  * are omitted from the result; currency is set to `USD`.
  *
  * @param cartDoc - Source cart document containing items and cart id
- * @param tenantId - Tenant identifier to include in the DTO
- * @param tenantSlug - Tenant slug to include in the DTO
+ * @param tenantId - Tenant identifier to include in the DTO or null
+ * @param tenantSlug - Tenant slug to include in the DTO or null
  * @returns A CartDTO containing cartId, tenant context, currency (`USD`), distinct item count,
  *          item list, totalApproxCents (sum of line subtotals), and totalQuantity
  */
 export function buildCartDTO(
   cartDoc: Cart,
-  tenantId: string,
-  tenantSlug: string
+  tenantId: string | null,
+  tenantSlug: string | null
 ): CartDTO {
   let approxTotalCents = 0;
   let totalQuantity = 0;
@@ -184,6 +184,7 @@ export async function findAllActiveCartsForIdentity(
     const cartRes = await ctx.db.find({
       collection: 'carts',
       limit: 50,
+      depth: 1,
       where: {
         and: [
           { buyer: { equals: identity.userId } },
@@ -198,6 +199,7 @@ export async function findAllActiveCartsForIdentity(
       collection: 'carts',
       overrideAccess: true,
       limit: 50,
+      depth: 1,
       where: {
         and: [
           { guestSessionId: { equals: identity.guestSessionId } },

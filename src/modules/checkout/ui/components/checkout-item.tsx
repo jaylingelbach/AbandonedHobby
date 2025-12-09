@@ -3,8 +3,10 @@ import Link from 'next/link';
 import { MinusIcon, PlusIcon } from 'lucide-react';
 
 import { cn, formatCurrency } from '@/lib/utils';
+import { FALLBACK_TENANT_NAME } from '@/constants';
 
 interface CheckoutItemProps {
+  isDisabled: boolean;
   isLast?: boolean;
   imageURL?: string | null;
   name: string;
@@ -18,6 +20,7 @@ interface CheckoutItemProps {
 }
 
 export const CheckoutItem = ({
+  isDisabled,
   isLast,
   imageURL,
   name,
@@ -45,6 +48,8 @@ export const CheckoutItem = ({
     onQuantityChange(quantity + 1);
   };
 
+  const isFallBackTenant = tenantName === FALLBACK_TENANT_NAME;
+
   return (
     <div
       className={cn(
@@ -70,9 +75,13 @@ export const CheckoutItem = ({
           <Link href={productURL}>
             <h4 className="font-bold underline">{name}</h4>
           </Link>
-          <Link href={tenantURL}>
-            <h4 className="font-medium underline">{tenantName}</h4>
-          </Link>
+          {isFallBackTenant ? (
+            <h4 className="font-medium">{tenantName}</h4>
+          ) : (
+            <Link href={tenantURL}>
+              <h4 className="font-medium underline">{tenantName}</h4>
+            </Link>
+          )}
         </div>
       </div>
 
@@ -87,7 +96,7 @@ export const CheckoutItem = ({
           <button
             type="button"
             onClick={handleDecrement}
-            disabled={!canDecrement}
+            disabled={!canDecrement || isDisabled}
             aria-label={`Decrease quantity of ${name}`}
             className={cn(
               'h-7 w-7 inline-flex items-center justify-center rounded-full border text-xs',
@@ -100,7 +109,7 @@ export const CheckoutItem = ({
           <button
             type="button"
             onClick={handleIncrement}
-            disabled={!canIncrement}
+            disabled={!canIncrement || isDisabled}
             aria-label={`Increase quantity of ${name}`}
             className={cn(
               'h-7 w-7 inline-flex items-center justify-center rounded-full border text-xs',
