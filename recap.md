@@ -5991,6 +5991,19 @@ src/collections/Carts.ts, src/payload.config.ts
 - Refined quantity management and cart item controls.
 - Better handling of edge cases in cart and product operations.
 
+## Breaking changes
+
+- CartDTO.tenantSlug is now `string | null`. Callers must handle `null` (e.g., fallback name, no tenant link).
+- buildCartDTO accepts nullable `tenantId`/`tenantSlug`; downstream types and guards must be updated.
+- Product CartButton props dropped `isPurchased`/`orderId`; update all usages to rely on server cart state.
+- Checkout and multi-tenant hooks now read from `getAllActiveForViewer`; remove legacy client-cart reads.
+
+## Migration checklist
+
+- Update UI to use `FALLBACK_TENANT_NAME` when `tenantSlug` is `null` and suppress tenant links.
+- Verify all imports of CartButton/QuantityPicker are updated to new signatures/flags.
+- Ensure analytics and cache keys include the new all-carts-for-viewer scope where applicable.
+
 ## File changes
 
 ### Constants & Documentation
