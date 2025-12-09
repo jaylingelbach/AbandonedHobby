@@ -5978,10 +5978,47 @@ src/collections/Carts.ts, src/payload.config.ts
 
 ## Walkthrough
 
--
+- This PR implements a server-driven cart system by introducing a new getAllActiveForViewer API route, updating cart types to support nullable tenant identifiers, and refactoring UI components across checkout and product views to use a new server cart hook instead of client-side cart management.
 
-##
+## New Features
+
+- Server-side cart operations for improved reliability and consistency.
+- Fallback display when tenant information is unavailable.
+
+## Improvements
+
+- Enhanced multi-tenant checkout data handling.
+- Refined quantity management and cart item controls.
+- Better handling of edge cases in cart and product operations.
 
 ## File changes
 
-###
+### Constants & Documentation
+
+- recap.md, src/constants.ts
+  - Adds placeholder section to recap.md and introduces FALLBACK_TENANT_NAME constant for fallback tenant display.
+
+### Cart Server Layer
+
+- src/modules/cart/server/procedures.ts, src/modules/cart/server/types.ts, src/modules/cart/server/utils.ts
+  - Adds new getAllActiveForViewer query route; updates CartDTO tenantSlug to nullable; updates buildCartDTO signature to accept nullable tenantId/tenantSlug; adds depth parameter to database queries in findAllActiveCartsForIdentity.
+
+### Cart Hooks
+
+- src/modules/cart/hooks/use-server-cart.ts
+  - Introduces queryOptions for all-carts-for-viewer and cache invalidation logic; mutations now invalidate per-tenant and all-carts caches after success.
+
+### Checkout Types & Hooks
+
+- src/modules/checkout/hooks/types.ts, src/modules/checkout/hooks/use-multi-tenant-checkout-data.ts
+  - Updates TenantCartSummary and TenantCheckoutGroup to support nullable tenantKey/tenantName; refactors to use new getAllActiveForViewer query; separates product and cart errors; adjusts tenant metadata resolution with fallback logic.
+
+### Checkout UI Components
+
+- src/modules/checkout/ui/components/checkout-item.tsx, src/modules/checkout/ui/views/tenant-checkout-section.tsx
+  - Adds isDisabled prop to CheckoutItem; switches TenantCheckoutSection from local useCart to useServerCart; adds guard for missing tenantSlug; uses FALLBACK_TENANT_NAME for tenant display and conditional link rendering.
+
+### Product UI Components
+
+- src/modules/products/ui/components/cart-button.tsx, src/modules/products/ui/components/quantity-picker.tsx, src/modules/products/ui/views/product-view.tsx
+  - CartButton removes isPurchased/orderId props and switches to useServerCart; QuantityPicker adds isPending prop; ProductView refactors quantity state, switches to useServerCart, derives inCart from server state, and updates mutation calls (addProduct → setQuantity, removeProduct → removeItem).
