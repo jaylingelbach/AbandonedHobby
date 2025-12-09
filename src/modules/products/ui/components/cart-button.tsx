@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo } from 'react';
+import { useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 
 import { cn } from '@/lib/utils';
@@ -8,48 +8,23 @@ import { useTRPC } from '@/trpc/client';
 import { Button } from '@/components/ui/button';
 
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
-import { ShippingMode } from '@/modules/orders/types';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
 interface Props {
   tenantSlug: string;
   productId: string;
-  shippingMode?: 'free' | 'flat' | 'calculated';
-  shippingFeeCentsPerUnit?: number;
   quantity: number;
 }
-export const CartButton = ({
-  tenantSlug,
-  productId,
-  shippingMode,
-  shippingFeeCentsPerUnit,
-  quantity
-}: Props) => {
+export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
-  const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
+  const { cart, removeItem, setQuantity, isSettingQuantity } =
     useServerCart(tenantSlug);
 
   const items = cart?.items ?? [];
   const line = items.find((item) => item.productId === productId);
   const isInCart = Boolean(line);
-
-  const normalized = useMemo(() => {
-    const mode: ShippingMode =
-      shippingMode === 'flat' || shippingMode === 'calculated'
-        ? shippingMode
-        : 'free';
-
-    // Round to nearest cent and clamp to non-negative integer
-    const fee =
-      typeof shippingFeeCentsPerUnit === 'number' &&
-      Number.isFinite(shippingFeeCentsPerUnit)
-        ? Math.max(0, Math.round(shippingFeeCentsPerUnit))
-        : 0;
-
-    return { mode, fee };
-  }, [shippingMode, shippingFeeCentsPerUnit]);
 
   const effectiveQuantity = readQuantityOrDefault(quantity, 1);
 
@@ -74,19 +49,11 @@ export const CartButton = ({
       variant="elevated"
       className={cn('flex-1 bg-pink-400', isInCart && 'bg-white')}
       onClick={() => {
-        useCartStore
-          .getState()
-          .setProductShippingSnapshot(
-            tenantSlug,
-            productId,
-            normalized.mode,
-            normalized.fee
-          );
         isInCart
           ? removeItem(productId)
           : setQuantity(productId, effectiveQuantity);
       }}
-      disabled={isSettingQuantity || isRemovingItem}
+      disabled={isSettingQuantity}
     >
       {isInCart ? 'Remove from cart' : 'Add to cart'}
     </Button>
