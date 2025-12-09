@@ -1,7 +1,7 @@
 import { z } from 'zod';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { getCartIdentity } from '@/modules/checkout/server/cart-service/identity';
-import type { CartItemSnapshots } from './types';
+import type { CartDTO, CartItemSnapshots } from './types';
 
 import {
   adjustItemsByProductId,
@@ -35,6 +35,30 @@ export const cartRouter = createTRPCRouter({
 
       if (!doc) return emptyCart;
       return buildCartDTO(doc, tenantId, input.tenantSlug);
+    }),
+  getAllActiveForViewer: baseProcedure
+    .input(z.void())
+    .query(async ({ ctx }) => {
+      const identity = await getCartIdentity(ctx);
+      if (!identity) return [];
+
+      const allCarts = await findAllActiveCartsForIdentity(ctx, identity);
+
+      let cartDTOs: CartDTO[] = [];
+      for (const cart of allCarts) {
+        const sellerRel = cart.sellerTenant;
+
+        const tenantId =
+          typeof sellerRel === 'string' ? sellerRel : (sellerRel?.id ?? null);
+        const tenantSlug =
+          typeof sellerRel === 'object' && sellerRel
+            ? (sellerRel.slug ?? null)
+            : null;
+
+        const dto = buildCartDTO(cart, tenantId, tenantSlug);
+        cartDTOs.push(dto);
+      }
+      return cartDTOs;
     }),
   // negative delta allowed for decreasing quantity
   adjustQuantityByDelta: baseProcedure

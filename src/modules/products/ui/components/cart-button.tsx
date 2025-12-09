@@ -7,16 +7,14 @@ import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 import { Button } from '@/components/ui/button';
 
-import { useCart } from '@/modules/checkout/hooks/use-cart';
 import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import { ShippingMode } from '@/modules/orders/types';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
 interface Props {
   tenantSlug: string;
   productId: string;
-  isPurchased: boolean;
-  orderId?: string;
   shippingMode?: 'free' | 'flat' | 'calculated';
   shippingFeeCentsPerUnit?: number;
   quantity: number;
@@ -30,8 +28,12 @@ export const CartButton = ({
 }: Props) => {
   const trpc = useTRPC();
   const { data: session } = useQuery(trpc.auth.session.queryOptions());
+  const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
+    useServerCart(tenantSlug);
 
-  const cart = useCart(tenantSlug);
+  const items = cart?.items ?? [];
+  const line = items.find((item) => item.productId === productId);
+  const isInCart = Boolean(line);
 
   const normalized = useMemo(() => {
     const mode: ShippingMode =
@@ -67,8 +69,6 @@ export const CartButton = ({
     return () => unsubscribe?.();
   }, [tenantSlug, session?.user?.id]);
 
-  const isInCart = cart.isProductInCart(productId);
-
   return (
     <Button
       variant="elevated"
@@ -82,9 +82,11 @@ export const CartButton = ({
             normalized.mode,
             normalized.fee
           );
-
-        cart.toggleProduct(productId, effectiveQuantity);
+        isInCart
+          ? removeItem(productId)
+          : setQuantity(productId, effectiveQuantity);
       }}
+      disabled={isSettingQuantity || isRemovingItem}
     >
       {isInCart ? 'Remove from cart' : 'Add to cart'}
     </Button>

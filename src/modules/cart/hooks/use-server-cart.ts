@@ -18,6 +18,7 @@ export function useServerCart(tenantSlug: string) {
   const queryClient = useQueryClient();
   // 1) Build queryOptions once so we can reuse queryKey and queryFn
   const getActiveOptions = trpc.cart.getActive.queryOptions({ tenantSlug });
+  const getAllActiveOptions = trpc.cart.getAllActiveForViewer.queryOptions();
 
   // 2) Use them for the main query
   const query = useQuery(getActiveOptions);
@@ -41,7 +42,13 @@ export function useServerCart(tenantSlug: string) {
         onMutateResult,
         context
       );
+      // Update the per-tenant cart cache
       queryClient.setQueryData(getActiveOptions.queryKey, data);
+
+      // Also refresh the "all carts for viewer" cache
+      void queryClient.invalidateQueries({
+        queryKey: getAllActiveOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseAdjustQuantityByDelta.onError?.(
@@ -63,7 +70,14 @@ export function useServerCart(tenantSlug: string) {
         onMutateResult,
         context
       );
+
+      // Update the per-tenant cart cache
       queryClient.setQueryData(getActiveOptions.queryKey, data);
+
+      // Also refresh the "all carts for viewer" cache
+      void queryClient.invalidateQueries({
+        queryKey: getAllActiveOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseSetQuantityMutation.onError?.(
@@ -84,7 +98,14 @@ export function useServerCart(tenantSlug: string) {
         onMutateResult,
         context
       );
+
+      // Update the per-tenant cart cache
       queryClient.setQueryData(getActiveOptions.queryKey, data);
+
+      // Also refresh the "all carts for viewer" cache
+      void queryClient.invalidateQueries({
+        queryKey: getAllActiveOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseRemoveItemMutation.onError?.(
@@ -106,7 +127,14 @@ export function useServerCart(tenantSlug: string) {
         onMutateResult,
         context
       );
+
+      // Update the per-tenant cart cache
       queryClient.setQueryData(getActiveOptions.queryKey, data);
+
+      // Also refresh the "all carts for viewer" cache
+      void queryClient.invalidateQueries({
+        queryKey: getAllActiveOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseClearCartMutation.onError?.(

@@ -11,10 +11,11 @@ import {
 } from '@/lib/utils';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
-import { useCart } from '../../hooks/use-cart';
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
 import { TenantCheckoutGroup } from '../../hooks/use-multi-tenant-checkout-data';
+import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
+import { FALLBACK_TENANT_NAME } from '@/constants';
 
 export interface TenantCheckoutSectionProps {
   group: TenantCheckoutGroup;
@@ -37,7 +38,6 @@ export function TenantCheckoutSection({
   onCheckoutAction
 }: TenantCheckoutSectionProps) {
   const {
-    tenantKey,
     tenantSlug,
     tenantName,
     products,
@@ -49,7 +49,17 @@ export function TenantCheckoutSection({
     hasCalculatedShipping
   } = group;
 
-  const { addProduct, removeProduct } = useCart(tenantSlug ?? tenantKey);
+  if (!tenantSlug) {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[TenantCheckoutSection] Missing tenantSlug in group:',
+        group
+      );
+    }
+    return null;
+  }
+  const { setQuantity, removeItem, isSettingQuantity, isRemovingItem } =
+    useServerCart(tenantSlug);
 
   if (products.length === 0) {
     return (
@@ -62,14 +72,7 @@ export function TenantCheckoutSection({
     );
   }
 
-  const safeTenantSlug =
-    tenantSlug ??
-    getTenantSlugSafe(products[0]?.tenant) ??
-    (tenantKey !== '__global__' ? tenantKey : null);
-
-  const tenantHref = safeTenantSlug
-    ? generateTenantURL(safeTenantSlug)
-    : undefined;
+  const tenantHref = tenantSlug ? generateTenantURL(tenantSlug) : undefined;
 
   return (
     <section className="border rounded-md bg-white p-4 lg:p-6 flex flex-col gap-4">
@@ -103,10 +106,12 @@ export function TenantCheckoutSection({
                 getPrimaryCardImageUrl(product);
 
               const productTenantSlug =
-                getTenantSlugSafe(product.tenant) ?? safeTenantSlug;
+                getTenantSlugSafe(product.tenant) ?? tenantSlug;
 
               const productTenantName =
-                getTenantNameSafe(product.tenant) ?? tenantName;
+                getTenantNameSafe(product.tenant) ??
+                tenantName ??
+                FALLBACK_TENANT_NAME;
 
               const productURL = productTenantSlug
                 ? `${generateTenantURL(productTenantSlug)}/products/${product.id}`
@@ -120,6 +125,7 @@ export function TenantCheckoutSection({
 
               return (
                 <CheckoutItem
+                  isDisabled={isSettingQuantity || isRemovingItem}
                   key={product.id}
                   isLast={index === products.length - 1}
                   imageURL={imageURL ?? undefined}
@@ -131,9 +137,9 @@ export function TenantCheckoutSection({
                   quantity={quantity}
                   onQuantityChange={(next) => {
                     const safeQuantity = readQuantityOrDefault(next);
-                    addProduct(productIdStr, safeQuantity);
+                    setQuantity(productIdStr, safeQuantity);
                   }}
-                  onRemove={() => removeProduct(productIdStr)}
+                  onRemove={() => removeItem(productIdStr)}
                 />
               );
             })}
@@ -148,7 +154,7 @@ export function TenantCheckoutSection({
             totalCents={totalCents}
             onPurchaseAction={() => onCheckoutAction(group)}
             isCanceled={false}
-            disabled={isBusy}
+            disabled={isBusy || isSettingQuantity || isRemovingItem}
             hasCalculatedShipping={hasCalculatedShipping}
             breakdownItems={breakdownItems}
           />

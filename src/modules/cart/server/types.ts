@@ -32,7 +32,7 @@ export type CartDTO = {
   cartId: string | null;
 
   /** Tenant slug you asked for in .input({ tenantSlug }) */
-  tenantSlug: string;
+  tenantSlug: string | null;
 
   /** Optional: tenant id if you look it up; handy for checkout */
   tenantId: string | null;
