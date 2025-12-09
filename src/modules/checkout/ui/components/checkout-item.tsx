@@ -48,7 +48,7 @@ export const CheckoutItem = ({
     onQuantityChange(quantity + 1);
   };
 
-  const tenantNameText = !tenantName ? FALLBACK_TENANT_NAME : tenantName;
+  const isFallBackTenant = tenantName === FALLBACK_TENANT_NAME;
 
   return (
     <div
@@ -62,7 +62,7 @@ export const CheckoutItem = ({
         <div className="relative aspect-square h-full">
           <Image
             src={imageURL || '/placeholder.png'}
-            alt={`Product: ${name} from ${tenantNameText}`}
+            alt={`Product: ${name} from ${tenantName}`}
             fill
             className="object-cover"
           />
@@ -75,11 +75,11 @@ export const CheckoutItem = ({
           <Link href={productURL}>
             <h4 className="font-bold underline">{name}</h4>
           </Link>
-          {tenantName === FALLBACK_TENANT_NAME ? (
-            <h4 className="font-medium">{tenantNameText}</h4>
+          {isFallBackTenant ? (
+            <h4 className="font-medium">{tenantName}</h4>
           ) : (
             <Link href={tenantURL}>
-              <h4 className="font-medium underline">{tenantNameText}</h4>
+              <h4 className="font-medium underline">{tenantName}</h4>
             </Link>
           )}
         </div>

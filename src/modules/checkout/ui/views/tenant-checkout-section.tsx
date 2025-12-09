@@ -49,17 +49,8 @@ export function TenantCheckoutSection({
     hasCalculatedShipping
   } = group;
 
-  if (!tenantSlug) {
-    if (process.env.NODE_ENV === 'development') {
-      console.warn(
-        '[TenantCheckoutSection] Missing tenantSlug in group:',
-        group
-      );
-    }
-    return null;
-  }
   const { setQuantity, removeItem, isSettingQuantity, isRemovingItem } =
-    useServerCart(tenantSlug);
+    useServerCart(tenantSlug as string);
 
   if (products.length === 0) {
     return (

@@ -21,7 +21,7 @@ export interface TenantCheckoutGroup {
   /** Slug resolved from the product tenant relationship, when available */
   tenantSlug: string | null;
   /** Human-friendly name for the shop */
-  tenantName: string | null;
+  tenantName: string;
   /** Products in this tenant’s cart */
   products: Product[];
   /** Quantities for each product, by id */
@@ -231,7 +231,8 @@ export function useMultiTenantCheckoutData(): {
       const firstProduct = productsForTenant[0];
       const tenantRel = firstProduct?.tenant;
       const tenantSlug = getTenantSlugSafe(tenantRel) ?? tenantKey ?? null;
-      const tenantName = getTenantNameSafe(tenantRel) ?? tenantSlug ?? null;
+      const tenantName =
+        getTenantNameSafe(tenantRel) ?? tenantSlug ?? FALLBACK_TENANT_NAME;
 
       result.push({
         tenantKey,
@@ -247,6 +248,7 @@ export function useMultiTenantCheckoutData(): {
       });
     }
 
+    result.filter((group) => group.tenantSlug);
     return result;
   }, [docs, hasAnyItems, tenantCarts, productsById]);
 
