@@ -49,9 +49,8 @@ export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
       variant="elevated"
       className={cn('flex-1 bg-pink-400', isInCart && 'bg-white')}
       onClick={() => {
-        isInCart
-          ? removeItem(productId)
-          : setQuantity(productId, effectiveQuantity);
+        if (isInCart) removeItem(productId);
+        else setQuantity(productId, effectiveQuantity);
       }}
       disabled={isSettingQuantity}
     >
