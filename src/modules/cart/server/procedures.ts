@@ -44,7 +44,7 @@ export const cartRouter = createTRPCRouter({
 
       const allCarts = await findAllActiveCartsForIdentity(ctx, identity);
 
-      let cartDTOs: CartDTO[] = [];
+      const cartDTOs: CartDTO[] = [];
       for (const cart of allCarts) {
         const sellerRel = cart.sellerTenant;
 
