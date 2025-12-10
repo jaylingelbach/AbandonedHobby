@@ -517,6 +517,17 @@ export function buildCartSummaryDTO(carts: Cart[]): CartSummaryDTO {
   return cartSummary;
 }
 
+/**
+ * Produce a summary of cart items that reference missing or malformed products and collect carts that require updates.
+ *
+ * @param allCarts - Array of cart documents to scan for missing or malformed items
+ * @param missingProductIds - List of product IDs considered missing; any cart item referencing one will be removed
+ * @returns An object containing:
+ *  - `cartsToUpdate`: list of carts (by id) paired with their filtered `newItems` for persistence,
+ *  - `cartsScanned`: total number of carts inspected,
+ *  - `itemsRemovedByProductId`: count of items removed because their product ID was in `missingProductIds`,
+ *  - `itemsRemovedMalformed`: count of items removed because they were malformed (missing product reference)
+ */
 export function pruneMissingOrMalformed(
   allCarts: Cart[],
   missingProductIds: string[]
@@ -574,6 +585,14 @@ export function pruneMissingOrMalformed(
   };
 }
 
+/**
+ * Persist the provided items array to the cart identified by `cartId`.
+ *
+ * Replaces the cart's `items` field in the database with `newItems`.
+ *
+ * @param cartId - ID of the cart to update
+ * @param newItems - The array of cart items to store on the cart (replaces existing items)
+ */
 export async function updateCartItems(
   ctx: Context,
   cartId: string,
