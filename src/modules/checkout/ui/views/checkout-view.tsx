@@ -34,17 +34,17 @@ import { TRPCClientError } from '@trpc/client';
 import MessageCard from '@/modules/checkout/ui/views/message-card';
 import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
+import { usePruneMissingProductsForViewer } from '@/modules/cart/hooks/use-prune-missing-products-for-viewer';
 
 interface CheckoutViewProps {
-  tenantSlug: string;
+  tenantSlug?: string;
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
   const [mounted, setMounted] = useState(false);
 
-  const { pruneMissingProductsAsync, isPruningMissingProducts } =
-    useServerCart(tenantSlug);
+  const { pruneMissingProductsAsync } = usePruneMissingProductsForViewer();
 
   useEffect(() => {
     setMounted(true);
