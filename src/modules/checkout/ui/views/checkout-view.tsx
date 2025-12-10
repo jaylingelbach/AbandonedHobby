@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,7 +33,6 @@ import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-type
 import { TRPCClientError } from '@trpc/client';
 import MessageCard from '@/modules/checkout/ui/views/message-card';
 import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
-import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 import { usePruneMissingProductsForViewer } from '@/modules/cart/hooks/use-prune-missing-products-for-viewer';
 
 interface CheckoutViewProps {
