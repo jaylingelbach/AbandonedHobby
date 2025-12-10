@@ -32,9 +32,6 @@ export function useServerCart(tenantSlug: string) {
 
   const baseClearCartMutation = trpc.cart.clearCart.mutationOptions();
 
-  const basePruneMissingProductsMutation =
-    trpc.cart.pruneMissingProducts.mutationOptions();
-
   // 3) Mutation that invalidates the same queryKey
   const adjustQuantityMutation = useMutation({
     ...baseAdjustQuantityByDelta,
@@ -150,36 +147,6 @@ export function useServerCart(tenantSlug: string) {
     }
   });
 
-  // Identity wide NOT tenant specific
-  const pruneMissingProductsMutation = useMutation({
-    ...basePruneMissingProductsMutation,
-    onSuccess: (data, variables, onMutateResult, context) => {
-      basePruneMissingProductsMutation.onSuccess?.(
-        data,
-        variables,
-        onMutateResult,
-        context
-      );
-      // Invalidate the per-tenant cart cache to reflect pruned products
-      void queryClient.invalidateQueries({
-        queryKey: getActiveOptions.queryKey
-      });
-
-      // Invalidate the all-carts cache
-      void queryClient.invalidateQueries({
-        queryKey: getAllActiveOptions.queryKey
-      });
-    },
-    onError: (error, variables, onMutateResult, context) => {
-      basePruneMissingProductsMutation.onError?.(
-        error,
-        variables,
-        onMutateResult,
-        context
-      );
-      console.error('Error in Prune Missing Products mutation: ', error);
-    }
-  });
   const cart = query.data;
   return {
     cart,
@@ -202,9 +169,6 @@ export function useServerCart(tenantSlug: string) {
     clearCart: () => {
       clearCartMutation.mutate({ tenantSlug });
     },
-    pruneMissingProducts: (productIds: string[]) => {
-      pruneMissingProductsMutation.mutate({ productIds });
-    },
     // async mutations
     incrementItemAsync: (productId: string) =>
       adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: 1 }),
@@ -215,19 +179,15 @@ export function useServerCart(tenantSlug: string) {
     removeItemAsync: (productId: string) =>
       removeItemMutation.mutateAsync({ tenantSlug, productId }),
     clearCartAsync: () => clearCartMutation.mutateAsync({ tenantSlug }),
-    pruneMissingProductsAsync: (productIds: string[]) =>
-      pruneMissingProductsMutation.mutateAsync({ productIds }),
     // return full mutation
     adjustQuantityMutation,
     setQuantityMutation,
     removeItemMutation,
     clearCartMutation,
-    pruneMissingProductsMutation,
     // mutation flags for the UI:
     isAdjustingQuantity: adjustQuantityMutation.isPending,
     isSettingQuantity: setQuantityMutation.isPending,
     isRemovingItem: removeItemMutation.isPending,
-    isClearingCart: clearCartMutation.isPending,
-    isPruningMissingProducts: pruneMissingProductsMutation.isPending
+    isClearingCart: clearCartMutation.isPending
   };
 }
