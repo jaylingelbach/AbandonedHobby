@@ -2,14 +2,14 @@ import { useTRPC } from '@/trpc/client';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 /**
- * Provides reactive, server-backed cart data and mutation helpers for a given tenant.
+ * Provide reactive, server-backed cart data and tenant-scoped mutation helpers.
  *
- * @param tenantSlug - The tenant identifier used to scope cart queries and mutations.
+ * @param tenantSlug - Tenant identifier used to scope cart queries and mutations.
  * @returns An object containing:
- *  - `cart`: the active cart data for the tenant
+ *  - `cart`: the active cart data for the given tenant
  *  - query state and controls: `isLoading`, `isError`, `error`, `refetch`, `isFetching`
- *  - synchronous UI helpers to modify the cart with the tenant baked in: `adjustQuantityByDelta`, `incrementItem`, `decrementItem`, `setQuantity`, `removeItem`, `clearCart`
- *  - asynchronous mutation helpers that return the mutation result: `incrementItemAsync`, `decrementItemAsync`, `setQuantityAsync`, `removeItemAsync`, `clearCartAsync`
+ *  - synchronous UI helpers with the tenant baked in: `adjustQuantityByDelta`, `incrementItem`, `decrementItem`, `setQuantity`, `removeItem`, `clearCart`
+ *  - asynchronous mutation helpers that return mutation results: `incrementItemAsync`, `decrementItemAsync`, `setQuantityAsync`, `removeItemAsync`, `clearCartAsync`
  *  - the raw mutation objects: `adjustQuantityMutation`, `setQuantityMutation`, `removeItemMutation`, `clearCartMutation`
  *  - mutation state flags for UI: `isAdjustingQuantity`, `isSettingQuantity`, `isRemovingItem`, `isClearingCart`
  */

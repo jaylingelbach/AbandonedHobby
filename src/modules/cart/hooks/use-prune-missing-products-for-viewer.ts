@@ -3,6 +3,15 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useTRPC } from '@/trpc/client';
 
+/**
+ * Provides a React hook that prunes missing products from the viewer's cart and keeps the viewer's active carts cache in sync.
+ *
+ * @returns An object with:
+ * - `pruneMissingProducts(productIds: string[])` — triggers the prune mutation with the given product IDs.
+ * - `pruneMissingProductsAsync(productIds: string[])` — triggers the prune mutation and returns a promise.
+ * - `pruneMissingProductsMutation` — the underlying mutation object.
+ * - `isPruningMissingProducts` — `true` when the mutation is pending, `false` otherwise.
+ */
 export function usePruneMissingProductsForViewer() {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
