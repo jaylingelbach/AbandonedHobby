@@ -221,8 +221,18 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     if (!session?.user?.id) return;
     if (!tenantSlug) return;
     const run = () => {
-      if (session?.user?.id) {
-        useCartStore.getState().migrateAnonToUser(tenantSlug, session.user.id);
+      const userId = session?.user?.id;
+      if (!userId) return;
+      const state = useCartStore.getState();
+      if (state.currentUserKey.startsWith('anon:')) {
+        try {
+          state.migrateAnonToUser(tenantSlug, userId);
+        } catch (error) {
+          console.error('Cart migration failed in CheckoutView:', error);
+          state.setCurrentUserKey?.(userId);
+        }
+      } else {
+        state.setCurrentUserKey?.(userId);
       }
     };
     const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
