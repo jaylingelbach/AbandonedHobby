@@ -281,7 +281,8 @@ export const cartRouter = createTRPCRouter({
           cartsScanned: 0,
           cartsUpdated: 0,
           itemsRemovedByProductId: 0,
-          itemsRemovedMalformed: 0
+          itemsRemovedMalformed: 0,
+          cartsFailed: 0
         };
       const allCarts = await findAllActiveCartsForIdentity(ctx, identity);
       const {
@@ -294,7 +295,7 @@ export const cartRouter = createTRPCRouter({
       if (cartsToUpdate.length >= 25)
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
-            `[pruneMissingProducts] pruning ${cartsToUpdate.length} for identity: ${JSON.stringify(identity, null, 2)} `
+            `[pruneMissingProducts] pruning ${cartsToUpdate.length} carts for identity kind: ${identity.kind}`
           );
         }
 
@@ -312,7 +313,7 @@ export const cartRouter = createTRPCRouter({
       if (cartsFailed > 0) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
-            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity: ${JSON.stringify(identity, null, 2)}`
+            `[pruneMissingProducts] pruning ${cartsToUpdate.length} carts for identity kind: ${identity.kind}`
           );
         }
       }

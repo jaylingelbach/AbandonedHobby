@@ -34,8 +34,10 @@ export function usePruneMissingProductsForViewer() {
         onMutateResult,
         context
       );
-      // eslint-disable-next-line no-console
-      console.error('Error in pruneMissingProducts mutation:', error);
+
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Error in pruneMissingProducts mutation:', error);
+      }
     }
   });
 
