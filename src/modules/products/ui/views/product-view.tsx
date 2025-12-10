@@ -221,6 +221,10 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const canPurchase = inStock && !isSelf;
 
+  /**
+   * Note: we may sometimes send a duplicate mutation if the server responds faster than the debounce.
+   * Fine for now; could be optimized by comparing against quantityInCart or cancelling onSuccess.
+   */
   const handleQuantityChange = (next: unknown) => {
     const numeric =
       typeof next === 'number' ? next : Number.parseInt(String(next), 10);
@@ -475,6 +479,24 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
           </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export const ProductViewSkeleton = () => {
+  return (
+    <div className="px-4 lg:px-12 py-10">
+      <div className="border rounded-sm bg-white overflow-hidden">
+        {/* match the hero height change */}
+        <div className="relative h-32 sm:h-40 lg:h-48 border-b">
+          <Image
+            src={'/placeholder.png'}
+            alt="Placeholder"
+            fill
+            className="object-cover"
+          />
         </div>
       </div>
     </div>
