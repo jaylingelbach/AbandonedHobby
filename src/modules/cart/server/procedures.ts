@@ -273,7 +273,7 @@ export const cartRouter = createTRPCRouter({
       return buildCartSummaryDTO(carts);
     }),
   pruneMissingProducts: baseProcedure
-    .input(z.object({ productIds: z.array(z.string().min(1).max(500)) }))
+    .input(z.object({ productIds: z.array(z.string().min(1)).max(500) }))
     .mutation(async ({ ctx, input }) => {
       const identity = await getCartIdentity(ctx);
       if (!identity)
