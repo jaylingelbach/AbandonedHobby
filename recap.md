@@ -6082,3 +6082,23 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/modules/checkout/hooks/utils.ts
   - Adds informational console logging in sanitizeQuantities when encountering invalid quantity values.
+
+# Debounce quantity picker 12/10/25
+
+## Walkthrough
+
+- A single-file change refactors product view quantity handling to introduce debounced server-side synchronization (400ms) for cart items. The handleQuantityChange function now explicitly handles three cases: items not in cart (local update only), items in cart with zero/negative quantity (removal), and items in cart with positive quantity (debounced server sync). The ProductViewSkeleton export was removed.
+
+## Improvements
+
+- Optimized cart quantity synchronization with debounced server updates for improved responsiveness
+- Enhanced quantity change handling with instant local feedback before server sync.
+
+## File changes
+
+### Quantity synchronization and debouncing
+
+- src/modules/products/ui/views/product-view.tsx
+  - Introduced quantityDebounceRef to debounce server-side quantity updates for cart items.
+  - Reworked handleQuantityChange to handle three distinct cases: skip server sync if item not in cart, remove item if quantity ≤ 0, or debounce setQuantity call for 400ms if quantity > 0.
+  - Added cleanup on component unmount.
