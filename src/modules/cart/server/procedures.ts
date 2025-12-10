@@ -13,9 +13,11 @@ import {
   findAllActiveCartsForIdentity,
   getOrCreateActiveCart,
   loadProductForTenant,
+  pruneMissingOrMalformed,
   removeProduct,
   resolveTenantIdOrThrow,
-  setQuantityForProduct
+  setQuantityForProduct,
+  updateCartItems
 } from './utils';
 import { usdToCents } from '@/lib/money';
 import { Cart } from '@/payload-types';
@@ -269,5 +271,57 @@ export const cartRouter = createTRPCRouter({
       if (!identity) return emptyCartSummaryDTO;
       const carts = await findAllActiveCartsForIdentity(ctx, identity);
       return buildCartSummaryDTO(carts);
+    }),
+  pruneMissingProducts: baseProcedure
+    .input(z.object({ productIds: z.array(z.string().min(1).max(500)) }))
+    .mutation(async ({ ctx, input }) => {
+      const identity = await getCartIdentity(ctx);
+      if (!identity)
+        return {
+          cartsScanned: 0,
+          cartsUpdated: 0,
+          itemsRemovedByProductId: 0,
+          itemsRemovedMalformed: 0
+        };
+      const allCarts = await findAllActiveCartsForIdentity(ctx, identity);
+      const {
+        cartsToUpdate,
+        cartsScanned,
+        itemsRemovedByProductId,
+        itemsRemovedMalformed
+      } = pruneMissingOrMalformed(allCarts, input.productIds);
+
+      if (cartsToUpdate.length >= 25)
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[pruneMissingProducts] pruning ${cartsToUpdate.length} for identity: ${identity} `
+          );
+        }
+
+      const results = await Promise.allSettled(
+        cartsToUpdate.map((cart) =>
+          updateCartItems(ctx, cart.cartId, cart.newItems)
+        )
+      );
+      const cartsUpdated = results.filter(
+        (result) => result.status === 'fulfilled'
+      ).length;
+      const cartsFailed = results.filter(
+        (result) => result.status === 'rejected'
+      ).length;
+      if (cartsFailed > 0) {
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity: ${identity}`
+          );
+        }
+      }
+
+      return {
+        cartsScanned,
+        cartsUpdated,
+        itemsRemovedByProductId,
+        itemsRemovedMalformed
+      };
     })
 });

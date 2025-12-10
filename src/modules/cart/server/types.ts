@@ -80,3 +80,15 @@ export type CartSummaryDTO = {
   distinctItemCount: number;
   activeCartCount: number;
 };
+
+export type CartToUpdate = {
+  cartId: string;
+  newItems: CartItem[];
+};
+
+export type PruneSummary = {
+  cartsToUpdate: CartToUpdate[];
+  cartsScanned: number;
+  itemsRemovedByProductId: number;
+  itemsRemovedMalformed: number;
+};

@@ -5,7 +5,9 @@ import type {
   CartItemDTO,
   CartItem,
   CartItemSnapshots,
-  CartSummaryDTO
+  CartSummaryDTO,
+  CartToUpdate,
+  PruneSummary
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
@@ -513,4 +515,75 @@ export function buildCartSummaryDTO(carts: Cart[]): CartSummaryDTO {
     activeCartCount
   };
   return cartSummary;
+}
+
+export function pruneMissingOrMalformed(
+  allCarts: Cart[],
+  missingProductIds: string[]
+): PruneSummary {
+  const cartsScanned = allCarts.length;
+  const missingProductIdSet = new Set(missingProductIds);
+  // overall counters
+  let itemsRemovedByProductId = 0;
+  let itemsRemovedMalformed = 0;
+  const cartsToUpdate: CartToUpdate[] = [];
+  for (const cart of allCarts) {
+    const cartItems = cart.items ?? [];
+    const cartId = cart.id;
+
+    // per-cart counters
+    let removeMissingForCart = 0;
+    let removeMalformedForCart = 0;
+
+    // missing or malformed filter
+    const newItems = cartItems.filter((item) => {
+      if (!item.product) {
+        removeMalformedForCart++;
+        if (process.env.NODE_ENV !== 'production') {
+          console.warn(
+            `[pruneMissingProducts], Received malformed item: Cart ID: ${cart.id}, product name: ${item.nameSnapshot} `
+          );
+        }
+
+        return false;
+      }
+      const productId =
+        typeof item.product === 'string' ? item.product : item.product.id;
+      const isMissingForThisItem = missingProductIdSet.has(productId);
+      if (isMissingForThisItem) {
+        removeMissingForCart++;
+        return false;
+      }
+      return true;
+    });
+
+    // if either per-cart counter is non-zero: add this cart to cartsToUpdate
+    if (removeMalformedForCart > 0 || removeMissingForCart > 0) {
+      const cartToUpdate: CartToUpdate = { cartId, newItems };
+      cartsToUpdate.push(cartToUpdate);
+    }
+
+    itemsRemovedByProductId += removeMissingForCart;
+    itemsRemovedMalformed += removeMalformedForCart;
+  }
+  return {
+    cartsToUpdate,
+    cartsScanned,
+    itemsRemovedByProductId,
+    itemsRemovedMalformed
+  };
+}
+
+export async function updateCartItems(
+  ctx: Context,
+  cartId: string,
+  newItems: CartItem[]
+): Promise<void> {
+  await ctx.db.update({
+    collection: 'carts',
+    id: cartId,
+    data: {
+      items: newItems
+    }
+  });
 }

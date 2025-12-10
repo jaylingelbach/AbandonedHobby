@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -33,14 +33,18 @@ import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-type
 import { TRPCClientError } from '@trpc/client';
 import MessageCard from '@/modules/checkout/ui/views/message-card';
 import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
+import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
 interface CheckoutViewProps {
-  tenantSlug?: string;
+  tenantSlug: string;
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const [states, setStates] = useCheckoutState();
   const [mounted, setMounted] = useState(false);
+
+  const { pruneMissingProductsAsync, isPruningMissingProducts } =
+    useServerCart(tenantSlug);
 
   useEffect(() => {
     setMounted(true);
@@ -87,22 +91,28 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     const missingProductIds = getMissingProductIdsFromError(productErrorTyped);
 
     if (missingProductIds.length > 0) {
-      useCartStore
-        .getState()
-        .removeMissingProductsForCurrentUser(missingProductIds);
-
-      toast.warning(
-        'Some items in your cart were removed because they are no longer available.'
-      );
+      let isMounted = true;
+      pruneMissingProductsAsync(missingProductIds)
+        .then(() => {
+          if (!isMounted) return;
+          void refetch();
+          toast.warning(
+            'Some items in your cart were removed because they are no longer available.'
+          );
+        })
+        .catch((error) => {
+          console.warn('[pruneMissingProductAsync] promise rejected: ', error);
+        });
+      return () => {
+        isMounted = false;
+      };
 
       // Refetch to show updated cart without requiring manual retry
-      void refetch();
     } else {
       // Fallback if we didn’t get details for some reason
-      useCartStore.getState().clearAllCartsForCurrentUser();
-      toast.warning('Invalid products found, your cart has been cleared.');
+      console.error(`[pruneMissingProductsAsync] Problem loading cart`);
     }
-  }, [productError, refetch]);
+  }, [productError, pruneMissingProductsAsync, refetch]);
 
   const groups = multiData?.groups ?? [];
   const hasAnyItems = groups.length > 0;
