@@ -240,6 +240,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     if (numeric <= 0) {
       if (quantityDebounceRef.current)
         clearTimeout(quantityDebounceRef.current);
+      quantityDebounceRef.current = null;
       removeItem(productIdStr);
       setPickerQuantity(1);
       return;
