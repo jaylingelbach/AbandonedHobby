@@ -6035,3 +6035,50 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/modules/products/ui/components/cart-button.tsx, src/modules/products/ui/components/quantity-picker.tsx, src/modules/products/ui/views/product-view.tsx
   - CartButton removes isPurchased/orderId props and switches to useServerCart; QuantityPicker adds isPending prop; ProductView refactors quantity state, switches to useServerCart, derives inCart from server state, and updates mutation calls (addProduct → setQuantity, removeProduct → removeItem).
+
+# Prune missing or malformed cart items 12/10/25
+
+## Walkthrough
+
+- A new server-side mutation prunes missing or malformed products from all user carts, returning a structured summary. The checkout view integrates this async pruning flow to replace direct cart-clearing on missing product errors. Supporting types and utilities enable the pruning logic across the cart layer.
+
+## New Features
+
+- Added an on-demand "prune missing products" action that detects and removes unavailable or malformed items and returns a summary of changes.
+
+## Improvements
+
+- Checkout now runs asynchronous pruning and refreshes the cart instead of clearing it, showing a warning when items are removed.
+- Improved logging for quantity sanitization and prune operations to aid troubleshooting.
+
+## File changes
+
+### Cart Hook Mutation Setup
+
+- src/modules/cart/hooks/use-server-cart.ts
+  - Introduces pruneMissingProducts mutation with synchronous and asynchronous invocations, cache invalidation (per-tenant and all-carts), and isPruningMissingProducts UI state flag.
+
+### Cart Server Procedures
+
+- src/modules/cart/server/procedures.ts
+  - Adds new pruneMissingProducts TRPC mutation that scans all user carts, prunes missing items via utility, batches cart updates, and returns a summary with scan/update/removal counts.
+
+### Cart Server Types
+
+- src/modules/cart/server/types.ts
+  - Introduces CartToUpdate and PruneSummary types to encapsulate cart updates and pruning results.
+
+### Cart Server Utilities
+
+- src/modules/cart/server/utils.ts
+  - Adds pruneMissingOrMalformed utility to filter and count removed items, and updateCartItems to persist changes to the database.
+
+### Checkout Error Handling
+
+- src/modules/checkout/ui/views/checkout-view.tsx
+  - Replaces direct cart clearing with asynchronous pruneMissingProductsAsync flow on NOT_FOUND errors; makes tenantSlug a required prop; includes isMounted guard and error logging.
+
+### Checkout Utilities
+
+- src/modules/checkout/hooks/utils.ts
+  - Adds informational console logging in sanitizeQuantities when encountering invalid quantity values.
