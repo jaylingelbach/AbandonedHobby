@@ -6091,14 +6091,15 @@ src/collections/Carts.ts, src/payload.config.ts
 
 ## Improvements
 
-- Optimized cart quantity synchronization with debounced server updates for improved responsiveness
-- Enhanced quantity change handling with instant local feedback before server sync.
+- Debounced server synchronization for cart quantity updates to reduce flicker and redundant requests
+- Instant local quantity feedback while server update is deferred for smoother UX
+- Safer handling of quantity edge cases (removal at zero or negative values) with cleanup on view exit
 
 ## File changes
 
-### Quantity synchronization and debouncing
+### Product view — quantity debouncing & logic
 
 - src/modules/products/ui/views/product-view.tsx
-  - Introduced quantityDebounceRef to debounce server-side quantity updates for cart items.
-  - Reworked handleQuantityChange to handle three distinct cases: skip server sync if item not in cart, remove item if quantity ≤ 0, or debounce setQuantity call for 400ms if quantity > 0.
-  - Added cleanup on component unmount.
+  - Added quantityDebounceRef and debounce (400ms) for server-side setQuantity calls when updating cart item quantities.
+  - Reworked handleQuantityChange to: update local picker when item not in cart, remove item and reset picker when numeric ≤ 0, or update local picker and debounce the server setQuantity when numeric > 0.
+  - Added debounce cancellation in component cleanup. Included a comment noting possible duplicate mutations due to debounce timing.

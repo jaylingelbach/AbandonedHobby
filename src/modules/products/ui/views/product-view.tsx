@@ -251,6 +251,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
     if (quantityDebounceRef.current) clearTimeout(quantityDebounceRef.current);
 
     quantityDebounceRef.current = setTimeout(() => {
+      // Only sync if item is still in cart when debounce fires
+      const stillInCart = cart?.items?.some(
+        (item) => item.productId === productIdStr
+      );
+      if (!stillInCart) return;
       setQuantity(productIdStr, safe);
     }, 400);
   };
