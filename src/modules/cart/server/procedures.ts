@@ -311,8 +311,12 @@ export const cartRouter = createTRPCRouter({
       ).length;
       if (cartsFailed > 0) {
         if (process.env.NODE_ENV !== 'production') {
+          const failedReasons = results
+            .filter((r): r is PromiseRejectedResult => r.status === 'rejected')
+            .map((r) => r.reason);
           console.warn(
-            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity kind: ${identity.kind}`
+            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity kind: ${identity.kind}`,
+            failedReasons
           );
         }
       }
