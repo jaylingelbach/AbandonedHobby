@@ -292,12 +292,11 @@ export const cartRouter = createTRPCRouter({
         itemsRemovedMalformed
       } = pruneMissingOrMalformed(allCarts, input.productIds);
 
-      if (cartsToUpdate.length >= 25)
-        if (process.env.NODE_ENV !== 'production') {
-          console.warn(
-            `[pruneMissingProducts] pruning ${cartsToUpdate.length} carts for identity kind: ${identity.kind}`
-          );
-        }
+      if (cartsToUpdate.length >= 25 && process.env.NODE_ENV !== 'production') {
+        console.warn(
+          `[pruneMissingProducts] pruning ${cartsToUpdate.length} carts for identity kind: ${identity.kind}`
+        );
+      }
 
       const results = await Promise.allSettled(
         cartsToUpdate.map((cart) =>
@@ -313,7 +312,7 @@ export const cartRouter = createTRPCRouter({
       if (cartsFailed > 0) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
-            `[pruneMissingProducts] pruning ${cartsToUpdate.length} carts for identity kind: ${identity.kind}`
+            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity kind: ${identity.kind}`
           );
         }
       }
