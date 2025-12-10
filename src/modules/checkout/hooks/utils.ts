@@ -38,7 +38,7 @@ export function sanitizeQuantities(raw: unknown): Record<string, number> {
       !Number.isInteger(value)
     ) {
       hasInvalid = true;
-      console.log(
+      console.warn(
         `[sanitizeQuantities]: Invalid quantity for product ${key}: ${value}`
       );
       continue;

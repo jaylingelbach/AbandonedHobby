@@ -294,7 +294,7 @@ export const cartRouter = createTRPCRouter({
       if (cartsToUpdate.length >= 25)
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
-            `[pruneMissingProducts] pruning ${cartsToUpdate.length} for identity: ${identity} `
+            `[pruneMissingProducts] pruning ${cartsToUpdate.length} for identity: ${JSON.stringify(identity, null, 2)} `
           );
         }
 
@@ -312,7 +312,7 @@ export const cartRouter = createTRPCRouter({
       if (cartsFailed > 0) {
         if (process.env.NODE_ENV !== 'production') {
           console.warn(
-            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity: ${identity}`
+            `[pruneMissingProducts] ${cartsFailed} cart updates failed for identity: ${JSON.stringify(identity, null, 2)}`
           );
         }
       }
