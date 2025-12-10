@@ -321,7 +321,8 @@ export const cartRouter = createTRPCRouter({
         cartsScanned,
         cartsUpdated,
         itemsRemovedByProductId,
-        itemsRemovedMalformed
+        itemsRemovedMalformed,
+        cartsFailed
       };
     })
 });
