@@ -34,7 +34,12 @@ export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
     const run = () => {
       const state = useCartStore.getState();
       if (state.currentUserKey.startsWith('anon:')) {
-        state.migrateAnonToUser(tenantSlug, userId);
+        try {
+          state.migrateAnonToUser(tenantSlug, userId);
+        } catch (error) {
+          console.error('Cart migration failed:', error);
+          state.setCurrentUserKey?.(userId);
+        }
       } else {
         state.setCurrentUserKey?.(userId);
       }
