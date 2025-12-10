@@ -16,63 +16,26 @@ import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
-import { useCheckoutState } from '../../hooks/use-checkout-states';
-import { useCartStore } from '../../store/use-cart-store';
-import { cartDebug } from '../../debug';
+import { useCheckoutState } from '@/modules/checkout/hooks/use-checkout-states';
+import { useCartStore } from '@/modules/checkout/store/use-cart-store';
+import { cartDebug } from '@/modules/checkout/debug';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import CheckoutBanner from './checkout-banner';
-import TenantCheckoutSection from './tenant-checkout-section';
+import TenantCheckoutSection from '@/modules/checkout/ui/views/tenant-checkout-section';
 
 // ─── New multi-tenant hook/types ─────────────────────────────────────────────
 import {
   TenantCheckoutGroup,
   useMultiTenantCheckoutData
-} from '../../hooks/use-multi-tenant-checkout-data';
+} from '@/modules/checkout/hooks/use-multi-tenant-checkout-data';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
 import { TRPCClientError } from '@trpc/client';
+import MessageCard from '@/modules/checkout/ui/views/message-card';
+import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
-}
-
-type TrpcErrorShape = { data?: { code?: string } };
-
-/**
- * Extracts valid missing product IDs from a TRPCClientError error payload.
- *
- * @param error - The value to inspect; typically an error thrown by a tRPC call.
- * @returns An array of non-empty `string` product IDs found under `missingProductIds` in the error payload, or an empty array if none are present or the input is not a `TRPCClientError`.
- */
-function getMissingProductIdsFromError(error: unknown): string[] {
-  if (!(error instanceof TRPCClientError)) return [];
-
-  const data = error.data as unknown;
-  if (!data || typeof data !== 'object') return [];
-
-  const missingProductIds = (data as { missingProductIds?: unknown })
-    .missingProductIds;
-
-  if (Array.isArray(missingProductIds)) {
-    return missingProductIds.filter(
-      (id): id is string => typeof id === 'string' && id.trim().length > 0
-    );
-  }
-
-  return [];
-}
-
-/**
- * Determines whether a value matches the expected TRPC error object shape.
- *
- * @param value - The value to test for the TRPC error shape
- * @returns `true` if `value` is an object and either has no `data` property or its `data` is `undefined`, `null`, or an object; `false` otherwise.
- */
-function isTrpcErrorShape(value: unknown): value is TrpcErrorShape {
-  if (typeof value !== 'object' || value === null) return false;
-  if (!('data' in value)) return true; // allow absence of data
-  const data = (value as { data?: unknown }).data;
-  return data === undefined || data === null || typeof data === 'object';
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
@@ -103,11 +66,11 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   useEffect(() => {
     if (!productError) return;
 
-    const clientError =
+    const productErrorTyped =
       productError instanceof TRPCClientError ? productError : null;
-    if (!clientError) return;
+    if (!productErrorTyped) return;
 
-    const rawData = clientError.data;
+    const rawData = productErrorTyped?.data;
     let code: string | undefined;
 
     if (
@@ -121,7 +84,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
 
     if (code !== 'NOT_FOUND') return;
 
-    const missingProductIds = getMissingProductIdsFromError(clientError);
+    const missingProductIds = getMissingProductIdsFromError(productErrorTyped);
 
     if (missingProductIds.length > 0) {
       useCartStore
@@ -295,6 +258,17 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   }
 
   if (isError) {
+    console.error('[CheckoutView] Error loading checkout data', {
+      cartError,
+      productError
+    });
+
+    const message = cartError
+      ? `We couldn’t load your cart. Please retry.`
+      : productError
+        ? `We couldn’t load a product from your cart. Please retry.`
+        : `We couldn’t load your cart. Please retry.`;
+
     return (
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
@@ -307,19 +281,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             }}
           />
         )}
-        <div className="border border-black border-dashed flex items-center justify-center p-8 flex-col gap-4 bg-white w-full rounded-lg">
-          <InboxIcon />
-          <p className="text-sm font-medium">
-            We couldn’t load your cart. Please retry.
-          </p>
-          <button
-            className="underline text-sm"
-            type="button"
-            onClick={() => refetch()}
-          >
-            Retry
-          </button>
-        </div>
+        <MessageCard message={message} onRetry={refetch} />
       </div>
     );
   }
