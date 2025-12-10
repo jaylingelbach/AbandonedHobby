@@ -196,10 +196,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const quantityDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (quantityDebounceRef.current)
+        clearTimeout(quantityDebounceRef.current);
     };
   }, []);
 
@@ -223,25 +226,28 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       typeof next === 'number' ? next : Number.parseInt(String(next), 10);
 
     if (!Number.isFinite(numeric)) return;
+    const safe = readQuantityOrDefault(numeric);
 
-    // If already in cart, change the cart quantity (which updates navbar count)
-    if (inCart) {
-      if (numeric <= 0) {
-        // Clicking "-" at 1 should remove from cart
-        removeItem(productIdStr);
-        return;
-      }
-
-      const safe = readQuantityOrDefault(numeric);
-      setQuantity(productIdStr, safe);
+    if (!inCart) {
       setPickerQuantity(safe);
       return;
     }
 
-    // Not in cart yet – just update the local selection that will be used
-    // the next time the user hits "Add to cart".
-    const safe = readQuantityOrDefault(numeric);
+    if (numeric <= 0) {
+      if (quantityDebounceRef.current)
+        clearTimeout(quantityDebounceRef.current);
+      removeItem(productIdStr);
+      setPickerQuantity(1);
+      return;
+    }
+
     setPickerQuantity(safe);
+    // Debounced server sync for in-cart changes
+    if (quantityDebounceRef.current) clearTimeout(quantityDebounceRef.current);
+
+    quantityDebounceRef.current = setTimeout(() => {
+      setQuantity(productIdStr, safe);
+    }, 400);
   };
 
   return (
@@ -469,24 +475,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               </div>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-export const ProductViewSkeleton = () => {
-  return (
-    <div className="px-4 lg:px-12 py-10">
-      <div className="border rounded-sm bg-white overflow-hidden">
-        {/* match the hero height change */}
-        <div className="relative h-32 sm:h-40 lg:h-48 border-b">
-          <Image
-            src={'/placeholder.png'}
-            alt="Placeholder"
-            fill
-            className="object-cover"
-          />
         </div>
       </div>
     </div>
