@@ -582,6 +582,7 @@ export async function updateCartItems(
   await ctx.db.update({
     collection: 'carts',
     id: cartId,
+    overrideAccess: true,
     data: {
       items: newItems
     }
