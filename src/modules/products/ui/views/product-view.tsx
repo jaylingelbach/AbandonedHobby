@@ -196,10 +196,13 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const [isCopied, setIsCopied] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const quantityDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     return () => {
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (quantityDebounceRef.current)
+        clearTimeout(quantityDebounceRef.current);
     };
   }, []);
 
@@ -218,30 +221,43 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
   const canPurchase = inStock && !isSelf;
 
+  /**
+   * Note: we may sometimes send a duplicate mutation if the server responds faster than the debounce.
+   * Fine for now; could be optimized by comparing against quantityInCart or cancelling onSuccess.
+   */
   const handleQuantityChange = (next: unknown) => {
     const numeric =
       typeof next === 'number' ? next : Number.parseInt(String(next), 10);
 
     if (!Number.isFinite(numeric)) return;
+    const safe = readQuantityOrDefault(numeric);
 
-    // If already in cart, change the cart quantity (which updates navbar count)
-    if (inCart) {
-      if (numeric <= 0) {
-        // Clicking "-" at 1 should remove from cart
-        removeItem(productIdStr);
-        return;
-      }
-
-      const safe = readQuantityOrDefault(numeric);
-      setQuantity(productIdStr, safe);
+    if (!inCart) {
       setPickerQuantity(safe);
       return;
     }
 
-    // Not in cart yet – just update the local selection that will be used
-    // the next time the user hits "Add to cart".
-    const safe = readQuantityOrDefault(numeric);
+    if (numeric <= 0) {
+      if (quantityDebounceRef.current)
+        clearTimeout(quantityDebounceRef.current);
+      quantityDebounceRef.current = null;
+      removeItem(productIdStr);
+      setPickerQuantity(1);
+      return;
+    }
+
     setPickerQuantity(safe);
+    // Debounced server sync for in-cart changes
+    if (quantityDebounceRef.current) clearTimeout(quantityDebounceRef.current);
+
+    quantityDebounceRef.current = setTimeout(() => {
+      // Only sync if item is still in cart when debounce fires
+      const stillInCart = cart?.items?.some(
+        (item) => item.productId === productIdStr
+      );
+      if (!stillInCart) return;
+      setQuantity(productIdStr, safe);
+    }, 400);
   };
 
   return (
