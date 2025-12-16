@@ -750,7 +750,14 @@ export async function mergeCartsPerTenant(
 
   // Group user carts by tenantId
   for (const userCart of userCarts) {
-    const tenantId = asId(userCart.sellerTenant);
+    const tenantId = softRelId(userCart.sellerTenant);
+    if (!tenantId) {
+      console.warn(
+        '[mergeCartsPerTenant] Skipping user cart with missing sellerTenant',
+        { cartId: userCart.id }
+      );
+      continue;
+    }
 
     // Ensure bucket exists
     if (!tenantGroups.has(tenantId)) {
