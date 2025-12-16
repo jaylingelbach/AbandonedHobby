@@ -1,12 +1,12 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { useRouter, useSearchParams } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useMutation, useQuery } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { InboxIcon, LoaderIcon } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -17,7 +17,6 @@ import { useTRPC } from '@/trpc/client';
 
 // ─── Project Hooks / Stores ──────────────────────────────────────────────────
 import { useCheckoutState } from '@/modules/checkout/hooks/use-checkout-states';
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import { cartDebug } from '@/modules/checkout/debug';
 
 // ─── Project Components ──────────────────────────────────────────────────────
@@ -34,12 +33,14 @@ import { TRPCClientError } from '@trpc/client';
 import MessageCard from '@/modules/checkout/ui/views/message-card';
 import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
 import { usePruneMissingProductsForViewer } from '@/modules/cart/hooks/use-prune-missing-products-for-viewer';
+import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
+  const tenSlug = tenantSlug ?? '';
   const [states, setStates] = useCheckoutState();
   const [mounted, setMounted] = useState(false);
 
@@ -52,7 +53,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
-  const { data: session } = useQuery(trpc.auth.session.queryOptions());
+
+  const { clearCart, clearCartAsync } = useServerCart(tenSlug);
 
   // Multi-tenant cart + products
   const {
@@ -120,42 +122,10 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const lastCheckoutTenantRef = useRef<string | null>(null);
   const lastCheckoutLinesRef = useRef<CheckoutLineInput[] | null>(null);
 
-  // Helper: stash the scope we actually used for this checkout
-  const stashCheckoutScope = useCallback((tenantKeyRaw: string | null) => {
-    if (typeof window === 'undefined') return;
-
-    const tenantKey = (tenantKeyRaw ?? '').trim() || '__global__';
-    const userKey = useCartStore.getState().currentUserKey;
-    const scope = `${tenantKey}::${userKey}`;
-    console.log('[cart] stash checkout scope', {
-      tenantKey,
-      userKey,
-      scope
-    });
-
-    window.localStorage.setItem('ah_checkout_scope', scope);
-  }, []);
-
   const purchase = useMutation(
     trpc.checkout.purchase.mutationOptions({
       onMutate: () => setStates({ success: false, cancel: false }),
       onSuccess: (payload) => {
-        // Use the tenant we actually checked out for
-        const scopeTenant =
-          lastCheckoutTenantRef.current || tenantSlug || '__global__';
-
-        stashCheckoutScope(scopeTenant);
-
-        cartDebug('redirecting to Stripe (per-tenant checkout)', {
-          scopeTenant,
-          currentUserKey: useCartStore.getState().currentUserKey,
-          stashedScope:
-            typeof window !== 'undefined'
-              ? window.localStorage.getItem('ah_checkout_scope')
-              : null,
-          lastLines: lastCheckoutLinesRef.current
-        });
-
         window.location.assign(payload.url);
       },
       onError: (err) => {
@@ -226,29 +196,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }, [router, searchParams, setStates]);
 
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    if (!tenantSlug) return;
-    const run = () => {
-      const userId = session?.user?.id;
-      if (!userId) return;
-      const state = useCartStore.getState();
-      if (state.currentUserKey.startsWith('anon:')) {
-        try {
-          state.migrateAnonToUser(tenantSlug, userId);
-        } catch (error) {
-          console.error('Cart migration failed in CheckoutView:', error);
-          state.setCurrentUserKey?.(userId);
-        }
-      } else {
-        state.setCurrentUserKey?.(userId);
-      }
-    };
-    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
-    if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsubscribe?.();
-  }, [tenantSlug, session?.user?.id]);
-
   // ----- Early-return UIs -----
 
   if (!mounted || isLoading) {
@@ -263,7 +210,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             }}
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              useCartStore.getState().clearAllCartsForCurrentUser();
+              clearCartAsync().then(() => {
+                refetch();
+              });
               setStates({ cancel: false, success: false });
             }}
           />
@@ -295,7 +244,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              useCartStore.getState().clearAllCartsForCurrentUser();
+              clearCart();
+              refetch();
               setStates({ cancel: false, success: false });
             }}
           />
@@ -313,7 +263,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              useCartStore.getState().clearAllCartsForCurrentUser();
+              clearCart();
+              refetch();
               setStates({ cancel: false, success: false });
             }}
           />
@@ -339,7 +290,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
           }}
           onDismissAction={() => setStates({ cancel: false, success: false })}
           onClearCartAction={() => {
-            useCartStore.getState().clearAllCartsForCurrentUser();
+            clearCart();
+            refetch();
             setStates({ cancel: false, success: false });
           }}
         />

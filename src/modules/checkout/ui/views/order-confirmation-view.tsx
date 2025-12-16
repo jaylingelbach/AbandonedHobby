@@ -1,7 +1,7 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
@@ -11,11 +11,7 @@ import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { buildSignInUrl, formatCents, generateTenantURL } from '@/lib/utils';
-import { cartDebug } from '@/modules/checkout/debug';
 import { useTRPC } from '@/trpc/client';
-
-// ─── Project Hooks ───────────────────────────────────────────────────────────
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 
 interface Props {
   sessionId: string;
@@ -89,9 +85,8 @@ function computeFallbackAmounts(order: {
  *
  * Shows a finalizing shell while confirmation is pending, renders a sign-in prompt if the
  * request is unauthorized, and displays one or more receipt cards when confirmation succeeds.
- * After a successful confirmation, clears the client-side cart once (scope-aware) after client
- * hydration so server-only protected queries do not run during SSR.
- *
+ * After a successful confirmation, the cart has already been cleared server-side by the checkout flow;
+ * cart UIs will naturally reflect the empty state via their own queries.
  * @param sessionId - The checkout session identifier used to fetch confirmation data
  * @returns The order confirmation view element
  */
@@ -125,56 +120,6 @@ export default function OrderConfirmationView({ sessionId }: Props) {
 
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
-  const firstOrder = orders[0]; // may be undefined while webhook is pending
-  const status = firstOrder?.status ?? null;
-  const hasAnyOrder = orders.length > 0;
-
-  const isSettled = useMemo(
-    () =>
-      status === 'paid' ||
-      status === 'succeeded' ||
-      status === 'complete' ||
-      status === 'processing',
-    [status]
-  );
-  // Prevent multiple clears if component re-renders
-  const clearedRef = useRef(false);
-
-  useEffect(() => {
-    if (!mounted) return; // wait until we're on the client
-    if (clearedRef.current) return;
-
-    // Optional: wait until we have an order or a "settled" status
-    if (!hasAnyOrder && !isSettled) return;
-
-    const scope = window.localStorage.getItem('ah_checkout_scope');
-
-    cartDebug('success page: clearing cart for scope', {
-      scope,
-      byUserBefore: useCartStore.getState().byUser
-    });
-
-    const run = () => {
-      if (scope) {
-        useCartStore.getState().clearCartForScope(scope);
-        window.localStorage.removeItem('ah_checkout_scope');
-      } else {
-        // Fallback if scope is missing: clear all carts for this user
-        useCartStore.getState().clearAllCartsForCurrentUser();
-      }
-
-      cartDebug('success page: after clearing', {
-        scopeUsed: scope,
-        byUserAfter: useCartStore.getState().byUser
-      });
-
-      clearedRef.current = true;
-    };
-
-    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
-    if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsubscribe?.();
-  }, [mounted, hasAnyOrder, isSettled]);
 
   // Not signed in (client-side)
   if (error instanceof TRPCClientError && error.data?.code === 'UNAUTHORIZED') {
