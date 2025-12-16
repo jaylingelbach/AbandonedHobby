@@ -375,6 +375,7 @@ export const cartRouter = createTRPCRouter({
         const { cartsMerged, cartsScanned, itemsMoved, tenantsAffected } =
           mergeRes;
 
+        buildClearCartSessionCookieHeaderValue(ctx.headers);
         return {
           cartsMerged,
           cartsScanned,
@@ -383,6 +384,12 @@ export const cartRouter = createTRPCRouter({
         };
       } catch (error) {
         console.error(error);
+        return {
+          cartsScanned: 0,
+          cartsMerged: 0,
+          itemsMoved: 0,
+          tenantsAffected: 0
+        };
       }
     })
 });
