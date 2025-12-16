@@ -360,35 +360,33 @@ export const cartRouter = createTRPCRouter({
 
       const identity: IdentityForMerge = { userId, guestSessionId };
 
-      // Step 2: Fetch all carts to merge.
-      const allActiveCartsToMerge = await findAllActiveCartsForMergeGuestToUser(
-        ctx,
-        identity
-      );
-      const { guestCarts, userCarts } = allActiveCartsToMerge;
+      try {
+        // Step 2: Fetch all carts to merge.
+        const allActiveCartsToMerge =
+          await findAllActiveCartsForMergeGuestToUser(ctx, identity);
+        const { guestCarts, userCarts } = allActiveCartsToMerge;
 
-      const mergeRes = await mergeCartsPerTenant(
-        ctx,
-        guestCarts,
-        userCarts,
-        userId
-      );
-      const { cartsMerged, cartsScanned, itemsMoved, tenantsAffected } =
-        mergeRes;
+        const mergeRes = await mergeCartsPerTenant(
+          ctx,
+          guestCarts,
+          userCarts,
+          userId
+        );
+        const { cartsMerged, cartsScanned, itemsMoved, tenantsAffected } =
+          mergeRes;
 
-      // clear cookies
-      if (cartsMerged > 0 || itemsMoved > 0 || tenantsAffected > 0) {
+        return {
+          cartsMerged,
+          cartsScanned,
+          itemsMoved,
+          tenantsAffected
+        };
+      } finally {
+        // Always clear the guest session cookie to prevent stale data
         ctx.resHeaders.append(
           'set-cookie',
           buildClearCartSessionCookieHeaderValue(ctx.headers)
         );
       }
-
-      return {
-        cartsMerged,
-        cartsScanned,
-        itemsMoved,
-        tenantsAffected
-      };
     })
 });
