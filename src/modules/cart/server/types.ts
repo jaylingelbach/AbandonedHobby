@@ -92,3 +92,8 @@ export type PruneSummary = {
   itemsRemovedByProductId: number;
   itemsRemovedMalformed: number;
 };
+
+export type IdentityForMerge = {
+  userId: string;
+  guestSessionId: string | null;
+};

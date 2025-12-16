@@ -25,16 +25,20 @@ import { cn } from '@/lib/utils';
 import { getSafeNextURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
-
 import { loginSchema } from '../../schemas';
-
-
 
 const poppins = Poppins({
   subsets: ['latin'],
   weight: ['700']
 });
 
+/**
+ * Render the sign-in view with an email/password form, password visibility toggle, links for sign-up and password recovery, and post-login handling.
+ *
+ * The component handles form validation, attempts to merge a guest cart into the authenticated user's cart after successful login, shows contextual toasts (including a resend-verification action), invalidates relevant caches, and navigates to a safe "next" destination or the site root.
+ *
+ * @returns The React element for the sign-in page.
+ */
 function SignInView() {
   const [showPassword, setShowPassword] = useState(false);
 
@@ -71,6 +75,10 @@ function SignInView() {
     login.mutate(values);
   };
 
+  const mergeGuestIntoUser = useMutation(
+    trpc.cart.mergeGuestIntoUser.mutationOptions()
+  );
+
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       onError: (error) => {
@@ -97,10 +105,39 @@ function SignInView() {
         }
       },
       onSuccess: async () => {
+        // Only bother clearing the cookie when something changed (your earlier rule)
+        try {
+          const mergeRes = await mergeGuestIntoUser.mutateAsync();
+
+          const didWork =
+            mergeRes &&
+            (mergeRes.tenantsAffected > 0 ||
+              mergeRes.itemsMoved > 0 ||
+              mergeRes.cartsMerged > 0);
+
+          // optional: only log in dev
+          if (process.env.NODE_ENV !== 'production' && didWork) {
+            console.log('[cart] merged guest into user', mergeRes);
+          }
+        } catch (error) {
+          // Don’t block login if merge fails; just log in dev.
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('[cart] mergeGuestIntoUser failed', error);
+          }
+          // Notify user
+          toast.info(
+            'Some cart items may not have transferred. Please check your cart.'
+          );
+        }
+
         await Promise.all([
           queryClient.invalidateQueries(trpc.auth.session.queryFilter()),
-          queryClient.invalidateQueries(trpc.users.me.queryFilter())
+          queryClient.invalidateQueries(trpc.users.me.queryFilter()),
+          queryClient.invalidateQueries(
+            trpc.cart.getAllActiveForViewer.queryFilter()
+          )
         ]);
+
         toast.success('Successfully logged in!');
         if (safeNext) {
           // Cross-origin (e.g., apex -> subdomain) needs a full navigation
@@ -218,7 +255,7 @@ function SignInView() {
               )}
             />
             <Button
-              disabled={login.isPending}
+              disabled={login.isPending || mergeGuestIntoUser.isPending}
               type="submit"
               size="lg"
               variant="elevated"

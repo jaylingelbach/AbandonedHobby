@@ -5,17 +5,21 @@ import { getPayloadClient } from '@/lib/payload';
 import { CheckoutProductsNotFoundError } from '@/modules/checkout/server/errors';
 
 /**
- * Create the tRPC request context containing the payload client and request headers.
+ * Build the tRPC request context including a payload client, incoming request headers, and an empty response headers container.
  *
- * @returns An object with `db` — the payload client used for data access, and `headers` — the request `Headers` object for the incoming request
+ * @returns An object with:
+ *  - `db` — the payload client used for data access,
+ *  - `headers` — the request `Headers` for the incoming request,
+ *  - `resHeaders` — an initially-empty `Headers` object intended for response headers
  */
 export async function createTRPCContext() {
   const raw = await getHeaders();
   const headers = new Headers(raw);
+  const resHeaders = new Headers();
 
   const db = await getPayloadClient();
 
-  return { db, headers };
+  return { db, headers, resHeaders };
 }
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;

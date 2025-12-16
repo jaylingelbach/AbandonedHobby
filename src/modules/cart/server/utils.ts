@@ -1,4 +1,4 @@
-import { softRelId } from '@/lib/server/utils';
+import { asId, softRelId } from '@/lib/server/utils';
 import type {
   CartDTO,
   CartIdentity,
@@ -7,12 +7,84 @@ import type {
   CartItemSnapshots,
   CartSummaryDTO,
   CartToUpdate,
-  PruneSummary
+  PruneSummary,
+  IdentityForMerge
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { relId } from '@/lib/relationshipHelpers';
+import { CART_QUERY_LIMIT } from '@/constants';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { Where } from 'payload';
+
+/**
+ * Retrieve carts matching a filter across paginated results, aggregating pages and deduplicating by cart id.
+ *
+ * @param args.where - Filter expression used to query the carts collection
+ * @param args.depth - Document expansion depth for the query; defaults to 1
+ * @param args.sort - Sort expression applied to the query results
+ * @param args.overrideAccess - When true, runs the query with override access enabled
+ * @param args.maxPages - Maximum number of pages to fetch (defaults to 50); results may be truncated if this limit is reached
+ * @returns An array of Cart documents that match the provided filter, aggregated from fetched pages and deduplicated by cart id
+ */
+async function findAllCartsPaged(
+  ctx: Context,
+  args: {
+    where: Where;
+    depth?: number;
+    sort?: string;
+    overrideAccess?: boolean;
+    maxPages?: number;
+  }
+): Promise<Cart[]> {
+  const depth = args.depth ?? 1;
+  const maxPages = args.maxPages ?? 50;
+
+  const all: Cart[] = [];
+  const seenIds = new Set<string>();
+
+  let page = 1;
+
+  for (let pageCount = 0; pageCount < maxPages; pageCount += 1) {
+    const res = await ctx.db.find({
+      collection: 'carts',
+      where: args.where,
+      depth,
+      sort: args.sort,
+      overrideAccess: args.overrideAccess,
+      limit: CART_QUERY_LIMIT,
+      page
+    });
+
+    for (const doc of res.docs as Cart[]) {
+      const cartId = String(doc.id);
+      if (seenIds.has(cartId)) continue;
+      seenIds.add(cartId);
+      all.push(doc);
+    }
+
+    if (!res.hasNextPage) break;
+    // Warn if we're about to hit the page limit
+    if (
+      pageCount === maxPages - 1 &&
+      res.hasNextPage &&
+      process.env.NODE_ENV !== 'production'
+    ) {
+      console.warn(
+        '[findAllCartsPaged] Reached maxPages limit; results may be truncated',
+        {
+          maxPages,
+          cartsReturned: all.length
+        }
+      );
+    }
+
+    page = res.nextPage ?? page + 1;
+  }
+
+  return all;
+}
 
 /**
  * Constructs a CartDTO representation from a Cart document for the specified tenant.
@@ -172,47 +244,87 @@ export async function findActiveCart(
 }
 
 /**
- * Retrieve up to 50 active carts for an identity across all tenants.
+ * Retrieve all active carts for the given identity, sorted by most recently updated.
  *
- * @param identity - The buyer identity (`user` with `userId` or `guest` with `guestSessionId`)
- * @returns An array of active carts (maximum 50) for the given identity; returns an empty array for unexpected identity kinds
+ * For identities of kind `"user"`, returns carts where the buyer matches `identity.userId`.
+ * For identities of kind `"guest"`, returns carts where the guest session matches `identity.guestSessionId` (query performed with override access).
+ *
+ * @param ctx - Request context (used for DB access and permissions)
+ * @param identity - The identity to fetch carts for; must have `kind` equal to `"user"` (requires `userId`) or `"guest"` (requires `guestSessionId`)
+ * @returns An array of active Cart documents for the identity, or an empty array if the identity kind is not `"user"` or `"guest"`
  */
-
 export async function findAllActiveCartsForIdentity(
   ctx: Context,
   identity: CartIdentity
 ): Promise<Cart[]> {
   if (identity.kind === 'user') {
-    const cartRes = await ctx.db.find({
-      collection: 'carts',
-      limit: 50,
-      depth: 1,
+    return findAllCartsPaged(ctx, {
       where: {
         and: [
           { buyer: { equals: identity.userId } },
           { status: { equals: 'active' } }
         ]
-      }
+      },
+      sort: '-updatedAt',
+      depth: 1
     });
-    return cartRes.docs;
   }
+
   if (identity.kind === 'guest') {
-    const cartRes = await ctx.db.find({
-      collection: 'carts',
+    return findAllCartsPaged(ctx, {
       overrideAccess: true,
-      limit: 50,
-      depth: 1,
       where: {
         and: [
           { guestSessionId: { equals: identity.guestSessionId } },
-
           { status: { equals: 'active' } }
         ]
-      }
+      },
+      sort: '-updatedAt',
+      depth: 1
     });
-    return cartRes.docs;
   }
-  return []; // fallback, should never really happen
+
+  return [];
+}
+
+/**
+ * Retrieve active carts for both a guest session and a user to support merging guest carts into the user's account.
+ *
+ * @param identity - Object containing `guestSessionId` and `userId`. If either value is missing, both returned arrays will be empty.
+ * @returns An object with two arrays:
+ *  - `guestCarts`: active carts belonging to the `guestSessionId` that have no `buyer` set.
+ *  - `userCarts`: active carts belonging to the `userId`.
+ */
+export async function findAllActiveCartsForMergeGuestToUser(
+  ctx: Context,
+  identity: IdentityForMerge
+): Promise<{ guestCarts: Cart[]; userCarts: Cart[] }> {
+  const { guestSessionId, userId } = identity;
+  if (!guestSessionId || !userId) return { guestCarts: [], userCarts: [] };
+
+  const [guestCarts, userCarts] = await Promise.all([
+    findAllCartsPaged(ctx, {
+      overrideAccess: true,
+      where: {
+        and: [
+          { guestSessionId: { equals: guestSessionId } },
+          { status: { equals: 'active' } },
+          { buyer: { exists: false } }
+        ]
+      },
+      sort: '-updatedAt',
+      depth: 1
+    }),
+    findAllCartsPaged(ctx, {
+      where: {
+        and: [{ buyer: { equals: userId } }, { status: { equals: 'active' } }]
+      },
+      sort: '-updatedAt',
+      depth: 1
+    })
+  ]);
+
+  return { guestCarts, userCarts };
 }
 
 /**
@@ -606,4 +718,296 @@ export async function updateCartItems(
       items: newItems
     }
   });
+}
+
+/**
+ * Merge cart lines by product id, summing quantities and tallying units moved from secondary carts.
+ *
+ * @param params.primaryItems - Items from the primary cart used as the seed for the merge.
+ * @param params.secondaryCarts - Carts whose items will be merged into the primary set; their quantities contribute to the moved count.
+ * @returns An object with `mergedItems` — an array of CartItem where quantities are summed per product id — and `itemsMoved` — the total quantity units contributed by all secondary carts.
+ */
+export function mergeCartItemsByProduct(params: {
+  primaryItems: CartItem[];
+  secondaryCarts: Cart[];
+}): { mergedItems: CartItem[]; itemsMoved: number } {
+  const mergedByProductId = new Map<string, CartItem>();
+  let itemsMoved = 0;
+
+  const withQuantity = (item: CartItem, quantity: number): CartItem => ({
+    ...item,
+    quantity
+  });
+
+  const addOrUpdate = (item: CartItem) => {
+    const productId = softRelId(item.product);
+    if (!productId) return;
+
+    const incomingQuantity = readQuantityOrDefault(item.quantity);
+    const existing = mergedByProductId.get(productId);
+
+    if (!existing) {
+      mergedByProductId.set(productId, withQuantity(item, incomingQuantity));
+      return;
+    }
+
+    const nextQuantity =
+      readQuantityOrDefault(existing.quantity) + incomingQuantity;
+
+    mergedByProductId.set(productId, withQuantity(existing, nextQuantity));
+  };
+
+  // Seed from primary items (no itemsMoved counting here)
+  for (const item of params.primaryItems) {
+    addOrUpdate(item);
+  }
+
+  // Fold in secondary carts + count units moved
+  for (const cart of params.secondaryCarts) {
+    const cartItems = Array.isArray(cart.items) ? cart.items : [];
+
+    for (const item of cartItems) {
+      const productId = softRelId(item.product);
+      if (!productId) continue;
+
+      itemsMoved += readQuantityOrDefault(item.quantity);
+      addOrUpdate(item);
+    }
+  }
+
+  return { mergedItems: Array.from(mergedByProductId.values()), itemsMoved };
+}
+
+/**
+ * Merge active carts per seller tenant by consolidating guest and user carts, promoting a guest cart to the user when needed, and archiving secondary carts.
+ *
+ * For each tenant, chooses a primary cart (prefer user-owned; otherwise promotes a guest cart), merges item quantities by product into the primary cart, updates the primary cart (promoting ownership when applicable), and archives all secondary carts.
+ *
+ * @param guestCarts - Active carts associated with guest sessions
+ * @param userCarts - Active carts associated with the target user
+ * @param userId - The id of the user receiving merged carts (used when promoting a guest cart)
+ * @returns An object with:
+ *   - `cartsScanned`: total number of carts inspected (guest + user),
+ *   - `cartsMerged`: number of carts that were archived as secondary carts,
+ *   - `itemsMoved`: number of item units moved from secondary carts into primary carts,
+ *   - `tenantsAffected`: number of distinct tenants for which merges or promotions occurred
+ */
+export async function mergeCartsPerTenant(
+  ctx: Context,
+  guestCarts: Cart[],
+  userCarts: Cart[],
+  userId: string
+): Promise<{
+  cartsScanned: number;
+  cartsMerged: number;
+  itemsMoved: number;
+  tenantsAffected: number;
+}> {
+  type TenantCartGroup = {
+    guestCartsForTenant: Cart[];
+    userCartsForTenant: Cart[];
+  };
+
+  const tenantGroups = new Map<string, TenantCartGroup>();
+
+  const cartsScanned = guestCarts.length + userCarts.length;
+
+  let cartsMerged = 0;
+  let itemsMoved = 0;
+  let tenantsAffected = 0;
+
+  // -------------------------
+  // STEP 1: GROUP BY TENANT
+  // -------------------------
+
+  for (const guestCart of guestCarts) {
+    const tenantId = softRelId(guestCart.sellerTenant);
+    if (!tenantId) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[mergeCartsPerTenant] Skipping guest cart with missing sellerTenant',
+          { cartId: String(guestCart.id) }
+        );
+      }
+      continue;
+    }
+
+    if (!tenantGroups.has(tenantId)) {
+      tenantGroups.set(tenantId, {
+        guestCartsForTenant: [],
+        userCartsForTenant: []
+      });
+    }
+
+    tenantGroups.get(tenantId)!.guestCartsForTenant.push(guestCart);
+  }
+
+  for (const userCart of userCarts) {
+    const tenantId = softRelId(userCart.sellerTenant);
+    if (!tenantId) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn(
+          '[mergeCartsPerTenant] Skipping user cart with missing sellerTenant',
+          { cartId: String(userCart.id) }
+        );
+      }
+      continue;
+    }
+
+    if (!tenantGroups.has(tenantId)) {
+      tenantGroups.set(tenantId, {
+        guestCartsForTenant: [],
+        userCartsForTenant: []
+      });
+    }
+
+    tenantGroups.get(tenantId)!.userCartsForTenant.push(userCart);
+  }
+
+  // -----------------------------------------
+  // STEP 2: PER-TENANT MERGE + NORMALIZATION
+  // -----------------------------------------
+
+  for (const [tenantId, group] of tenantGroups.entries()) {
+    const { guestCartsForTenant, userCartsForTenant } = group;
+
+    // Dev-only warnings for “should be rare” states.
+    if (process.env.NODE_ENV !== 'production') {
+      if (userCartsForTenant.length > 1) {
+        console.warn(
+          '[mergeCartsPerTenant] Multiple ACTIVE user carts for tenant (will collapse to 1)',
+          {
+            tenantId,
+            userCartIds: userCartsForTenant.map((cart) => String(cart.id))
+          }
+        );
+      }
+      if (guestCartsForTenant.length > 1) {
+        console.warn(
+          '[mergeCartsPerTenant] Multiple ACTIVE guest carts for tenant (will collapse to 1)',
+          {
+            tenantId,
+            guestCartIds: guestCartsForTenant.map((cart) => String(cart.id))
+          }
+        );
+      }
+      if (userCartsForTenant.length === 0 && guestCartsForTenant.length === 0) {
+        console.warn('[mergeCartsPerTenant] Empty tenant group (unexpected)', {
+          tenantId
+        });
+      }
+    }
+
+    const [firstUserCart, ...leftOverUserCarts] = userCartsForTenant;
+
+    let primaryCart: Cart;
+    let secondaryCarts: Cart[] = [];
+    let needsPromotion = false;
+
+    if (guestCartsForTenant.length === 0 && userCartsForTenant.length === 0) {
+      continue;
+    }
+
+    if (firstUserCart) {
+      primaryCart = firstUserCart;
+      secondaryCarts = [...leftOverUserCarts, ...guestCartsForTenant];
+    } else {
+      const [firstGuestCart, ...leftOverGuestCarts] = guestCartsForTenant;
+      if (!firstGuestCart) continue;
+
+      primaryCart = firstGuestCart;
+      secondaryCarts = leftOverGuestCarts;
+      needsPromotion = true;
+    }
+
+    const didAnyWork = needsPromotion || secondaryCarts.length > 0;
+    if (!didAnyWork) {
+      continue;
+    }
+
+    // -------------------------
+    // STEP 3: MERGE ITEMS
+    // -------------------------
+
+    const primaryItems = Array.isArray(primaryCart.items)
+      ? primaryCart.items
+      : [];
+
+    const merged = mergeCartItemsByProduct({
+      primaryItems,
+      secondaryCarts
+    });
+
+    const mergedItems = merged.mergedItems;
+    itemsMoved += merged.itemsMoved;
+
+    // -------------------------
+    // STEP 4: WRITE PRIMARY
+    // -------------------------
+
+    if (needsPromotion) {
+      await ctx.db.update({
+        collection: 'carts',
+        id: String(primaryCart.id),
+        overrideAccess: true,
+        data: {
+          items: mergedItems,
+          buyer: userId,
+          guestSessionId: null
+        }
+      });
+    } else {
+      await ctx.db.update({
+        collection: 'carts',
+        id: String(primaryCart.id),
+        overrideAccess: true,
+        data: {
+          items: mergedItems
+        }
+      });
+    }
+
+    // -------------------------
+    // STEP 5: ARCHIVE SECONDARIES
+    // -------------------------
+
+    const archiveResults = await Promise.allSettled(
+      secondaryCarts.map((cart) =>
+        ctx.db.update({
+          collection: 'carts',
+          overrideAccess: true,
+          id: String(cart.id),
+          data: { status: 'archived' }
+        })
+      )
+    );
+
+    if (process.env.NODE_ENV !== 'production') {
+      const failed = archiveResults.filter((r) => r.status === 'rejected');
+      if (failed.length > 0) {
+        console.warn(
+          '[mergeCartsPerTenant] Some secondary carts failed to archive',
+          {
+            tenantId,
+            failedCount: failed.length,
+            secondaryCartIds: secondaryCarts.map((cart) => String(cart.id))
+          }
+        );
+      }
+    }
+
+    // -------------------------
+    // STEP 6: STATS
+    // -------------------------
+
+    tenantsAffected += 1;
+    cartsMerged += secondaryCarts.length;
+  }
+
+  return {
+    cartsScanned,
+    cartsMerged,
+    itemsMoved,
+    tenantsAffected
+  };
 }
