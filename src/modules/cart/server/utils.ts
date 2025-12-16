@@ -55,6 +55,21 @@ async function findAllCartsPaged(
     }
 
     if (!res.hasNextPage) break;
+    // Warn if we're about to hit the page limit
+    if (
+      pageCount === maxPages - 1 &&
+      res.hasNextPage &&
+      process.env.NODE_ENV !== 'production'
+    ) {
+      console.warn(
+        '[findAllCartsPaged] Reached maxPages limit; results may be truncated',
+        {
+          maxPages,
+          cartsReturned: all.length
+        }
+      );
+    }
+
     page = res.nextPage ?? page + 1;
   }
 
