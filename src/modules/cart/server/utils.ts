@@ -18,6 +18,16 @@ import { CART_QUERY_LIMIT } from '@/constants';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { Where } from 'payload';
 
+/**
+ * Retrieve carts matching a filter across paginated results, aggregating pages and deduplicating by cart id.
+ *
+ * @param args.where - Filter expression used to query the carts collection
+ * @param args.depth - Document expansion depth for the query; defaults to 1
+ * @param args.sort - Sort expression applied to the query results
+ * @param args.overrideAccess - When true, runs the query with override access enabled
+ * @param args.maxPages - Maximum number of pages to fetch (defaults to 50); results may be truncated if this limit is reached
+ * @returns An array of Cart documents that match the provided filter, aggregated from fetched pages and deduplicated by cart id
+ */
 async function findAllCartsPaged(
   ctx: Context,
   args: {
@@ -233,6 +243,16 @@ export async function findActiveCart(
   return undefined; // fallback, should never really happen
 }
 
+/**
+ * Retrieve all active carts for the given identity, sorted by most recently updated.
+ *
+ * For identities of kind `"user"`, returns carts where the buyer matches `identity.userId`.
+ * For identities of kind `"guest"`, returns carts where the guest session matches `identity.guestSessionId` (query performed with override access).
+ *
+ * @param ctx - Request context (used for DB access and permissions)
+ * @param identity - The identity to fetch carts for; must have `kind` equal to `"user"` (requires `userId`) or `"guest"` (requires `guestSessionId`)
+ * @returns An array of active Cart documents for the identity, or an empty array if the identity kind is not `"user"` or `"guest"`
+ */
 export async function findAllActiveCartsForIdentity(
   ctx: Context,
   identity: CartIdentity
@@ -267,6 +287,14 @@ export async function findAllActiveCartsForIdentity(
   return [];
 }
 
+/**
+ * Retrieve active carts for both a guest session and a user to support merging guest carts into the user's account.
+ *
+ * @param identity - Object containing `guestSessionId` and `userId`. If either value is missing, both returned arrays will be empty.
+ * @returns An object with two arrays:
+ *  - `guestCarts`: active carts belonging to the `guestSessionId` that have no `buyer` set.
+ *  - `userCarts`: active carts belonging to the `userId`.
+ */
 export async function findAllActiveCartsForMergeGuestToUser(
   ctx: Context,
   identity: IdentityForMerge
@@ -692,6 +720,13 @@ export async function updateCartItems(
   });
 }
 
+/**
+ * Merge cart lines by product id, summing quantities and tallying units moved from secondary carts.
+ *
+ * @param params.primaryItems - Items from the primary cart used as the seed for the merge.
+ * @param params.secondaryCarts - Carts whose items will be merged into the primary set; their quantities contribute to the moved count.
+ * @returns An object with `mergedItems` — an array of CartItem where quantities are summed per product id — and `itemsMoved` — the total quantity units contributed by all secondary carts.
+ */
 export function mergeCartItemsByProduct(params: {
   primaryItems: CartItem[];
   secondaryCarts: Cart[];
@@ -743,6 +778,20 @@ export function mergeCartItemsByProduct(params: {
   return { mergedItems: Array.from(mergedByProductId.values()), itemsMoved };
 }
 
+/**
+ * Merge active carts per seller tenant by consolidating guest and user carts, promoting a guest cart to the user when needed, and archiving secondary carts.
+ *
+ * For each tenant, chooses a primary cart (prefer user-owned; otherwise promotes a guest cart), merges item quantities by product into the primary cart, updates the primary cart (promoting ownership when applicable), and archives all secondary carts.
+ *
+ * @param guestCarts - Active carts associated with guest sessions
+ * @param userCarts - Active carts associated with the target user
+ * @param userId - The id of the user receiving merged carts (used when promoting a guest cart)
+ * @returns An object with:
+ *   - `cartsScanned`: total number of carts inspected (guest + user),
+ *   - `cartsMerged`: number of carts that were archived as secondary carts,
+ *   - `itemsMoved`: number of item units moved from secondary carts into primary carts,
+ *   - `tenantsAffected`: number of distinct tenants for which merges or promotions occurred
+ */
 export async function mergeCartsPerTenant(
   ctx: Context,
   guestCarts: Cart[],

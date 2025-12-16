@@ -32,6 +32,13 @@ const poppins = Poppins({
   weight: ['700']
 });
 
+/**
+ * Render the sign-in view with an email/password form, password visibility toggle, links for sign-up and password recovery, and post-login handling.
+ *
+ * The component handles form validation, attempts to merge a guest cart into the authenticated user's cart after successful login, shows contextual toasts (including a resend-verification action), invalidates relevant caches, and navigates to a safe "next" destination or the site root.
+ *
+ * @returns The React element for the sign-in page.
+ */
 function SignInView() {
   const [showPassword, setShowPassword] = useState(false);
 
