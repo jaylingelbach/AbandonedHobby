@@ -6103,3 +6103,63 @@ src/collections/Carts.ts, src/payload.config.ts
   - Added quantityDebounceRef and debounce (400ms) for server-side setQuantity calls when updating cart item quantities.
   - Reworked handleQuantityChange to: update local picker when item not in cart, remove item and reset picker when numeric ≤ 0, or update local picker and debounce the server setQuantity when numeric > 0.
   - Added debounce cancellation in component cleanup. Included a comment noting possible duplicate mutations due to debounce timing.
+
+# Cart - merge guest to user 12/16/25
+
+## Walkthrough
+
+- This pull request implements guest-to-authenticated-user cart merging functionality, triggered during login. It adds response header propagation to TRPC, introduces cart session cookie management utilities, and integrates merge logic into the sign-in flow. The merge operates per-tenant and clears the guest session cookie upon completion.
+
+## New Features
+
+- Guest shopping carts are now automatically merged into your account when you sign in, preserving all items across store locations.
+
+## Improvements
+
+- Enhanced cart session management and cookie handling during authentication for more reliable checkout experiences.
+
+## File changes
+
+### TRPC response headers
+
+- src/app/(app)/api/trpc/[trpc]/route.ts, src/trpc/init.ts
+  - Adds responseMeta hook to fetch request handler; initializes Headers in context and propagates resHeaders from context to HTTP response. Updates createTRPCContext to return resHeaders alongside db and headers.
+
+### Constants
+
+- src/constants.ts
+  - Adds exported constant CART_QUERY_LIMIT with value 50 for consistent cart query pagination.
+
+### Cart merge procedures and types
+
+- src/modules/cart/server/procedures.ts, src/modules/cart/server/types.ts
+  - Introduces new mergeGuestIntoUser protected TRPC procedure that validates user, reads guest session ID, orchestrates merge, and clears cart session cookie on success.
+  - Adds IdentityForMerge type with userId and guestSessionId fields.
+
+### Cart merge utilities
+
+- src/modules/cart/server/utils.ts
+  - Adds findAllActiveCartsForMergeGuestToUser to fetch eligible guest and user carts; adds mergeCartsPerTenant to perform per-tenant cart consolidation with item deduplication, cart promotion, and merge statistics tracking.
+  - Updates findAllActiveCartsForIdentity to use CART_QUERY_LIMIT.
+
+### Cart session cookie management
+
+- src/modules/checkout/server/cart-service/cart-session-cookie.ts
+  - New module providing utilities: readCartSessionIdFromHeaders to extract guest session ID; buildClearCartSessionCookieHeaderValue to construct Set-Cookie header for clearing cart session.
+  - Includes helpers for domain normalization and cookie parsing.
+
+### Cart identity refactoring
+
+- src/modules/checkout/server/cart-service/identity.ts
+  - Relocates readCartSessionIdFromHeaders implementation to cart-session-cookie module; getCartIdentity now imports and uses the external helper.
+
+### Sign-in flow integration
+
+- src/modules/auth/ui/views/sign-in-view.tsx
+  - Integrates mergeGuestIntoUser mutation into login success path; invokes merge, logs results in development only, and expands cache invalidation to include cart.getAllActiveForViewer.queryFilter().
+  - Merge failures do not block login.
+
+### Configuration
+
+- tsconfig.json
+  - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
