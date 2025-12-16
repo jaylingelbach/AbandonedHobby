@@ -381,7 +381,8 @@ export const cartRouter = createTRPCRouter({
           itemsMoved,
           tenantsAffected
         };
-      } finally {
+      } catch (error) {
+        console.error(error);
       }
     })
 });
