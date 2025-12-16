@@ -31,7 +31,8 @@
     ".next/types/**/*.ts",
     "src/app/(app)/chat/[conversationId]/page.js",
     "src/app/(payload)/admin/[[...segments]]/page.tsx",
-    "src/app/(payload)/admin/[[...segments]]/not-found.js"
+    "src/app/(payload)/admin/[[...segments]]/not-found.js",
+    "src/scripts/find-unclosed-braces.mjs"
   ],
   "exclude": ["node_modules"]
 }

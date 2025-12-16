@@ -1,4 +1,4 @@
-import { softRelId } from '@/lib/server/utils';
+import { asId, softRelId } from '@/lib/server/utils';
 import type {
   CartDTO,
   CartIdentity,
@@ -7,12 +7,15 @@ import type {
   CartItemSnapshots,
   CartSummaryDTO,
   CartToUpdate,
-  PruneSummary
+  PruneSummary,
+  IdentityForMerge
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
 import { TRPCError } from '@trpc/server';
 import { relId } from '@/lib/relationshipHelpers';
+import { CART_QUERY_LIMIT } from '@/constants';
+import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 /**
  * Constructs a CartDTO representation from a Cart document for the specified tenant.
@@ -185,7 +188,7 @@ export async function findAllActiveCartsForIdentity(
   if (identity.kind === 'user') {
     const cartRes = await ctx.db.find({
       collection: 'carts',
-      limit: 50,
+      limit: CART_QUERY_LIMIT,
       depth: 1,
       where: {
         and: [
@@ -200,7 +203,7 @@ export async function findAllActiveCartsForIdentity(
     const cartRes = await ctx.db.find({
       collection: 'carts',
       overrideAccess: true,
-      limit: 50,
+      limit: CART_QUERY_LIMIT,
       depth: 1,
       where: {
         and: [
@@ -213,6 +216,43 @@ export async function findAllActiveCartsForIdentity(
     return cartRes.docs;
   }
   return []; // fallback, should never really happen
+}
+
+export async function findAllActiveCartsForMergeGuestToUser(
+  ctx: Context,
+  identity: IdentityForMerge
+): Promise<{ guestCarts: Cart[]; userCarts: Cart[] }> {
+  const guestSessionId = identity.guestSessionId;
+  const userId = identity.userId;
+  if (!guestSessionId || !userId) {
+    return { guestCarts: [], userCarts: [] };
+  }
+  const [guestRes, userRes] = await Promise.all([
+    ctx.db.find({
+      collection: 'carts',
+      depth: 1,
+      limit: CART_QUERY_LIMIT,
+      overrideAccess: true,
+      where: {
+        and: [
+          { guestSessionId: { equals: guestSessionId } },
+          { status: { equals: 'active' } },
+          { buyer: { exists: false } }
+        ]
+      },
+      sort: '-updatedAt'
+    }),
+    ctx.db.find({
+      collection: 'carts',
+      depth: 1,
+      limit: CART_QUERY_LIMIT,
+      where: {
+        and: [{ buyer: { equals: userId } }, { status: { equals: 'active' } }]
+      },
+      sort: '-updatedAt'
+    })
+  ]);
+  return { guestCarts: guestRes.docs, userCarts: userRes.docs };
 }
 
 /**
@@ -606,4 +646,288 @@ export async function updateCartItems(
       items: newItems
     }
   });
+}
+
+export async function mergeCartsPerTenant(
+  ctx: Context,
+  guestCarts: Cart[],
+  userCarts: Cart[],
+  userId: string
+): Promise<{
+  cartsScanned: number;
+  cartsMerged: number;
+  itemsMoved: number;
+  tenantsAffected: number;
+}> {
+  /**
+   * We merge carts "per tenant" because your marketplace is multi-tenant.
+   * A cart always belongs to exactly one sellerTenant, so we never merge across tenants.
+   *
+   * Each tenant group can have:
+   * - 0..N guest carts (guestSessionId-based carts)
+   * - 0..N user carts  (buyer-based carts)
+   */
+  type TenantCartGroup = {
+    guestCartsForTenant: Cart[];
+    userCartsForTenant: Cart[];
+  };
+
+  /**
+   * tenantGroups:
+   * tenantId -> { guest carts for that tenant, user carts for that tenant }
+   *
+   * This is just grouping; no DB writes happen here.
+   */
+  const tenantGroups = new Map<string, TenantCartGroup>();
+
+  /**
+   * Stats:
+   * - cartsScanned: how many cart docs we looked at total
+   * - tenantsAffected: number of tenants where we actually changed anything
+   * - cartsMerged: number of secondary carts we archived (we "collapsed" them)
+   * - itemsMoved: total quantity-units processed from secondary carts into the primary cart
+   */
+  const cartsScanned = guestCarts.length + userCarts.length;
+
+  let cartsMerged = 0;
+  let itemsMoved = 0;
+  let tenantsAffected = 0;
+
+  // -------------------------
+  // STEP 1: GROUP BY TENANT
+  // -------------------------
+
+  // Group guest carts by tenantId
+  for (const guestCart of guestCarts) {
+    const tenantId = asId(guestCart.sellerTenant);
+
+    // Ensure bucket exists
+    if (!tenantGroups.has(tenantId)) {
+      tenantGroups.set(tenantId, {
+        guestCartsForTenant: [],
+        userCartsForTenant: []
+      });
+    }
+
+    tenantGroups.get(tenantId)!.guestCartsForTenant.push(guestCart);
+  }
+
+  // Group user carts by tenantId
+  for (const userCart of userCarts) {
+    const tenantId = asId(userCart.sellerTenant);
+
+    // Ensure bucket exists
+    if (!tenantGroups.has(tenantId)) {
+      tenantGroups.set(tenantId, {
+        guestCartsForTenant: [],
+        userCartsForTenant: []
+      });
+    }
+
+    tenantGroups.get(tenantId)!.userCartsForTenant.push(userCart);
+  }
+
+  // -----------------------------------------
+  // STEP 2: PER-TENANT MERGE + NORMALIZATION
+  // -----------------------------------------
+  //
+  // NOTE: _tenantId is currently unused, but we keep it because it’s the obvious hook for:
+  // - per-tenant debug logs
+  // - returning a per-tenant breakdown later
+  // - future logic that depends on tenant config (shipping rules, etc.)
+  for (const [_tenantId, group] of tenantGroups.entries()) {
+    const { guestCartsForTenant, userCartsForTenant } = group;
+
+    /**
+     * Our "collapse strategy" is:
+     * - Pick ONE cart to become the primary cart for this tenant.
+     * - Merge items from all other carts (secondary carts) into that primary cart.
+     * - Archive the secondary carts.
+     *
+     * Primary cart selection rule:
+     * - Prefer an existing user cart (buyer cart) if present.
+     * - Otherwise use the guest cart and "promote" it (set buyer, clear guestSessionId).
+     */
+    const [firstUserCart, ...leftOverUserCarts] = userCartsForTenant;
+
+    let primaryCart: Cart;
+    let secondaryCarts: Cart[] = [];
+    let needsPromotion = false;
+
+    // If absolutely nothing exists for this tenant, skip.
+    if (guestCartsForTenant.length === 0 && userCartsForTenant.length === 0) {
+      continue;
+    }
+
+    // Prefer user cart as primary (already belongs to the user)
+    if (firstUserCart) {
+      primaryCart = firstUserCart;
+
+      // Secondary carts include:
+      // - any extra user carts for this tenant (should be rare but possible)
+      // - all guest carts for this tenant
+      secondaryCarts = [...leftOverUserCarts, ...guestCartsForTenant];
+    } else {
+      // No user cart exists; promote a guest cart to become the user's primary cart
+      const [firstGuestCart, ...leftOverGuestCarts] = guestCartsForTenant;
+      if (!firstGuestCart) continue; // defensive, should not happen given earlier check
+
+      primaryCart = firstGuestCart;
+      secondaryCarts = leftOverGuestCarts;
+      needsPromotion = true;
+    }
+
+    /**
+     * We only want to count + write when something actually changes.
+     *
+     * didAnyWork means:
+     * - We have to promote a guest cart into a user cart, OR
+     * - We have secondary carts to fold/merge/archive.
+     */
+    const didAnyWork = needsPromotion || secondaryCarts.length > 0;
+    if (!didAnyWork) {
+      continue;
+    }
+
+    // -----------------------------------------
+    // STEP 3: MERGE ITEMS (UNION + SUM QUANTITY)
+    // -----------------------------------------
+    //
+    // mergedByProductId is the core "accumulator":
+    // - key: productId
+    // - value: CartItem with the correct summed quantity
+    //
+    // If the same product exists in multiple carts, we sum quantities.
+    const mergedByProductId = new Map<string, CartItem>();
+
+    // Start from primary cart items
+    const seedItems = Array.isArray(primaryCart.items) ? primaryCart.items : [];
+
+    /**
+     * Helper: ensure the CartItem we store always has the correct quantity.
+     * (We preserve the rest of the fields on the item.)
+     */
+    const withQuantity = (item: CartItem, quantity: number): CartItem => {
+      return { ...item, quantity };
+    };
+
+    /**
+     * Upsert behavior:
+     * - normalize product relationship -> productId
+     * - if product not yet seen: insert
+     * - if product already present: sum quantities
+     */
+    const addOrUpdate = (item: CartItem) => {
+      const productId = softRelId(item.product);
+      if (!productId) return; // invalid item; skip
+
+      const incomingQuantity = readQuantityOrDefault(item.quantity);
+      const existing = mergedByProductId.get(productId);
+
+      if (!existing) {
+        mergedByProductId.set(productId, withQuantity(item, incomingQuantity));
+        return;
+      }
+
+      const nextQuantity =
+        readQuantityOrDefault(existing.quantity) + incomingQuantity;
+
+      mergedByProductId.set(productId, withQuantity(existing, nextQuantity));
+    };
+
+    // Seed accumulator with primary items
+    for (const item of seedItems) {
+      addOrUpdate(item);
+    }
+
+    /**
+     * Fold in secondary carts:
+     *
+     * itemsMoved (Option 1) counts the total quantity units that came from secondary carts.
+     * - This is not "unique items", it's "units moved".
+     * - We only count items with a valid productId (same rule as merge).
+     */
+    for (const cart of secondaryCarts) {
+      const cartItems = Array.isArray(cart.items) ? cart.items : [];
+
+      for (const item of cartItems) {
+        const productId = softRelId(item.product);
+        if (!productId) continue;
+
+        itemsMoved += readQuantityOrDefault(item.quantity);
+        addOrUpdate(item);
+      }
+    }
+
+    // Final merged array to write to the primary cart
+    const mergedItems: CartItem[] = Array.from(mergedByProductId.values());
+
+    // -----------------------------------------
+    // STEP 4: WRITE PRIMARY CART
+    // -----------------------------------------
+    //
+    // If needsPromotion:
+    // - This primary cart used to be a guest cart.
+    // - We attach it to the user (buyer=userId) and clear guestSessionId.
+    //
+    // Else:
+    // - Primary cart is already a user cart.
+    // - We only write items.
+    //
+    // overrideAccess is used because this is a backend "system" operation
+    // that may run outside normal collection access rules.
+    if (needsPromotion) {
+      await ctx.db.update({
+        collection: 'carts',
+        id: String(primaryCart.id),
+        overrideAccess: true,
+        data: {
+          items: mergedItems,
+          buyer: userId,
+          guestSessionId: null
+        }
+      });
+    } else {
+      await ctx.db.update({
+        collection: 'carts',
+        id: String(primaryCart.id),
+        overrideAccess: true,
+        data: {
+          items: mergedItems
+        }
+      });
+    }
+
+    // -----------------------------------------
+    // STEP 5: ARCHIVE SECONDARY CARTS
+    // -----------------------------------------
+    //
+    // We collapse down to one active cart per tenant.
+    // Secondary carts get archived (not deleted) to avoid breaking debugging/history.
+    for (const cart of secondaryCarts) {
+      await ctx.db.update({
+        collection: 'carts',
+        overrideAccess: true,
+        id: String(cart.id),
+        data: { status: 'archived' }
+      });
+    }
+
+    // -----------------------------------------
+    // STEP 6: UPDATE STATS
+    // -----------------------------------------
+    //
+    // tenantsAffected: one per tenant where we actually changed data
+    // cartsMerged: number of carts collapsed/archived
+    tenantsAffected += 1;
+    cartsMerged += secondaryCarts.length;
+  }
+
+  // Return totals for the entire merge operation across all tenants
+  return {
+    cartsScanned,
+    cartsMerged,
+    itemsMoved,
+    tenantsAffected
+  };
 }

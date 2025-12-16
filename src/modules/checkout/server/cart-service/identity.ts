@@ -1,25 +1,6 @@
 import type { Context } from '@/trpc/init';
-import { CART_SESSION_COOKIE } from '@/constants';
 import type { CartIdentity } from '@/modules/cart/server/types';
-
-/**
- * Extracts the cart session ID stored in the `CART_SESSION_COOKIE` from the request headers' `cookie` header.
- *
- * @param headers - Request headers to read the cookie from
- * @returns The cart session ID string if the `CART_SESSION_COOKIE` is present and non-empty, `null` otherwise
- */
-function readCartSessionIdFromHeaders(headers: Headers): string | null {
-  const cookieHeader = headers.get('cookie');
-  if (!cookieHeader) return null;
-
-  const parts = cookieHeader.split(';').map((part) => part.trim());
-  for (const part of parts) {
-    if (part.startsWith(`${CART_SESSION_COOKIE}=`)) {
-      return part.slice(CART_SESSION_COOKIE.length + 1) || null;
-    }
-  }
-  return null;
-}
+import { readCartSessionIdFromHeaders } from './cart-session-cookie';
 
 /**
  * Resolve the cart identity from the request context, returning an authenticated user identity, a guest identity derived from the cart session cookie, or `null` if neither is available.

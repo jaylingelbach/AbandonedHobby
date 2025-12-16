@@ -12,10 +12,11 @@ import { CheckoutProductsNotFoundError } from '@/modules/checkout/server/errors'
 export async function createTRPCContext() {
   const raw = await getHeaders();
   const headers = new Headers(raw);
+  const resHeaders = new Headers();
 
   const db = await getPayloadClient();
 
-  return { db, headers };
+  return { db, headers, resHeaders };
 }
 
 export type Context = Awaited<ReturnType<typeof createTRPCContext>>;

@@ -11,7 +11,21 @@ const handler = (req: Request) =>
     endpoint: '/api/trpc',
     req,
     router: appRouter,
-    createContext: createTRPCContext
+    createContext: createTRPCContext,
+    responseMeta({ ctx }) {
+      const responseHeaders = new Headers();
+
+      if (ctx && typeof ctx === 'object' && 'resHeaders' in ctx) {
+        const maybeResHeaders = (ctx as { resHeaders?: unknown }).resHeaders;
+        if (maybeResHeaders instanceof Headers) {
+          for (const [key, value] of maybeResHeaders.entries()) {
+            responseHeaders.append(key, value);
+          }
+        }
+      }
+
+      return { headers: responseHeaders };
+    }
   });
 
 export { handler as GET, handler as POST };

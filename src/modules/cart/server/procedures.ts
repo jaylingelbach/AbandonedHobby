@@ -1,7 +1,11 @@
 import { z } from 'zod';
-import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure
+} from '@/trpc/init';
 import { getCartIdentity } from '@/modules/checkout/server/cart-service/identity';
-import type { CartDTO, CartItemSnapshots } from './types';
+import type { CartDTO, CartItemSnapshots, IdentityForMerge } from './types';
 
 import {
   adjustItemsByProductId,
@@ -11,8 +15,10 @@ import {
   createEmptyCartSummaryDTO,
   findActiveCart,
   findAllActiveCartsForIdentity,
+  findAllActiveCartsForMergeGuestToUser,
   getOrCreateActiveCart,
   loadProductForTenant,
+  mergeCartsPerTenant,
   pruneMissingOrMalformed,
   removeProduct,
   resolveTenantIdOrThrow,
@@ -21,6 +27,11 @@ import {
 } from './utils';
 import { usdToCents } from '@/lib/money';
 import { Cart } from '@/payload-types';
+import { TRPCError } from '@trpc/server';
+import {
+  buildClearCartSessionCookieHeaderValue,
+  readCartSessionIdFromHeaders
+} from '@/modules/checkout/server/cart-service/cart-session-cookie';
 
 export const cartRouter = createTRPCRouter({
   getActive: baseProcedure
@@ -327,6 +338,57 @@ export const cartRouter = createTRPCRouter({
         itemsRemovedByProductId,
         itemsRemovedMalformed,
         cartsFailed
+      };
+    }),
+  mergeGuestIntoUser: protectedProcedure
+    .input(z.void())
+    .mutation(async ({ ctx }) => {
+      // Step 1: get identities
+      const user = ctx.session.user;
+      if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      const userId = user.id;
+      const guestSessionId = readCartSessionIdFromHeaders(ctx.headers);
+      // No guestSessionId means no work to do. Early return.
+      if (!guestSessionId)
+        return {
+          cartsScanned: 0,
+          cartsMerged: 0,
+          itemsMoved: 0,
+          tenantsAffected: 0
+        };
+
+      const identity: IdentityForMerge = { userId, guestSessionId };
+
+      // Step 2: Fetch all carts to merge.
+      const allActiveCartsToMerge = await findAllActiveCartsForMergeGuestToUser(
+        ctx,
+        identity
+      );
+      const { guestCarts, userCarts } = allActiveCartsToMerge;
+
+      const mergeRes = await mergeCartsPerTenant(
+        ctx,
+        guestCarts,
+        userCarts,
+        userId
+      );
+      const { cartsMerged, cartsScanned, itemsMoved, tenantsAffected } =
+        mergeRes;
+
+      // clear cookies
+      if (cartsMerged > 0 || itemsMoved > 0 || tenantsAffected > 0) {
+        ctx.resHeaders.append(
+          'set-cookie',
+          buildClearCartSessionCookieHeaderValue(ctx.headers)
+        );
+      }
+
+      return {
+        cartsMerged,
+        cartsScanned,
+        itemsMoved,
+        tenantsAffected
       };
     })
 });

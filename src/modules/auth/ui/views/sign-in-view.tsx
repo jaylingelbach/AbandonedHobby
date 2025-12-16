@@ -25,10 +25,7 @@ import { cn } from '@/lib/utils';
 import { getSafeNextURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
-
 import { loginSchema } from '../../schemas';
-
-
 
 const poppins = Poppins({
   subsets: ['latin'],
@@ -71,6 +68,10 @@ function SignInView() {
     login.mutate(values);
   };
 
+  const mergeGuestIntoUser = useMutation(
+    trpc.cart.mergeGuestIntoUser.mutationOptions()
+  );
+
   const login = useMutation(
     trpc.auth.login.mutationOptions({
       onError: (error) => {
@@ -97,10 +98,34 @@ function SignInView() {
         }
       },
       onSuccess: async () => {
+        // Only bother clearing the cookie when something changed (your earlier rule)
+        try {
+          const mergeRes = await mergeGuestIntoUser.mutateAsync();
+
+          const didWork =
+            mergeRes.tenantsAffected > 0 ||
+            mergeRes.itemsMoved > 0 ||
+            mergeRes.cartsMerged > 0;
+
+          // optional: only log in dev
+          if (process.env.NODE_ENV !== 'production' && didWork) {
+            console.log('[cart] merged guest into user', mergeRes);
+          }
+        } catch (error) {
+          // Don’t block login if merge fails; just log in dev.
+          if (process.env.NODE_ENV !== 'production') {
+            console.error('[cart] mergeGuestIntoUser failed', error);
+          }
+        }
+
         await Promise.all([
           queryClient.invalidateQueries(trpc.auth.session.queryFilter()),
-          queryClient.invalidateQueries(trpc.users.me.queryFilter())
+          queryClient.invalidateQueries(trpc.users.me.queryFilter()),
+          queryClient.invalidateQueries(
+            trpc.cart.getAllActiveForViewer.queryFilter()
+          )
         ]);
+
         toast.success('Successfully logged in!');
         if (safeNext) {
           // Cross-origin (e.g., apex -> subdomain) needs a full navigation

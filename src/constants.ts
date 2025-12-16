@@ -18,3 +18,5 @@ export const DEVICE_ID_COOKIE = 'ah_device_id';
 
 // UI fallback for unnamed tenants and changing the literal may affect conditional rendering elsewhere. UI fallback for unnamed tenants and that changing the literal may affect conditional rendering elsewhere.
 export const FALLBACK_TENANT_NAME = 'An Abandoned Hobby Shop';
+
+export const CART_QUERY_LIMIT = 50;
