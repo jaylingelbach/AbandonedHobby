@@ -40,7 +40,7 @@ interface CheckoutViewProps {
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
-  const tenSlug = tenantSlug ?? '';
+  const tenSlug = tenantSlug ?? '__global__';
   const [states, setStates] = useCheckoutState();
   const [mounted, setMounted] = useState(false);
 
