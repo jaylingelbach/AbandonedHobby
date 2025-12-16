@@ -16,6 +16,50 @@ import { TRPCError } from '@trpc/server';
 import { relId } from '@/lib/relationshipHelpers';
 import { CART_QUERY_LIMIT } from '@/constants';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { Where } from 'payload';
+
+async function findAllCartsPaged(
+  ctx: Context,
+  args: {
+    where: Where;
+    depth?: number;
+    sort?: string;
+    overrideAccess?: boolean;
+    maxPages?: number;
+  }
+): Promise<Cart[]> {
+  const depth = args.depth ?? 1;
+  const maxPages = args.maxPages ?? 50;
+
+  const all: Cart[] = [];
+  const seenIds = new Set<string>();
+
+  let page = 1;
+
+  for (let pageCount = 0; pageCount < maxPages; pageCount += 1) {
+    const res = await ctx.db.find({
+      collection: 'carts',
+      where: args.where,
+      depth,
+      sort: args.sort,
+      overrideAccess: args.overrideAccess,
+      limit: CART_QUERY_LIMIT,
+      page
+    });
+
+    for (const doc of res.docs as Cart[]) {
+      const cartId = String(doc.id);
+      if (seenIds.has(cartId)) continue;
+      seenIds.add(cartId);
+      all.push(doc);
+    }
+
+    if (!res.hasNextPage) break;
+    page = res.nextPage ?? page + 1;
+  }
+
+  return all;
+}
 
 /**
  * Constructs a CartDTO representation from a Cart document for the specified tenant.
@@ -174,64 +218,49 @@ export async function findActiveCart(
   return undefined; // fallback, should never really happen
 }
 
-/**
- * Retrieve up to 50 active carts for an identity across all tenants.
- *
- * @param identity - The buyer identity (`user` with `userId` or `guest` with `guestSessionId`)
- * @returns An array of active carts (maximum 50) for the given identity; returns an empty array for unexpected identity kinds
- */
-
 export async function findAllActiveCartsForIdentity(
   ctx: Context,
   identity: CartIdentity
 ): Promise<Cart[]> {
   if (identity.kind === 'user') {
-    const cartRes = await ctx.db.find({
-      collection: 'carts',
-      limit: CART_QUERY_LIMIT,
-      depth: 1,
+    return findAllCartsPaged(ctx, {
       where: {
         and: [
           { buyer: { equals: identity.userId } },
           { status: { equals: 'active' } }
         ]
-      }
+      },
+      sort: '-updatedAt',
+      depth: 1
     });
-    return cartRes.docs;
   }
+
   if (identity.kind === 'guest') {
-    const cartRes = await ctx.db.find({
-      collection: 'carts',
+    return findAllCartsPaged(ctx, {
       overrideAccess: true,
-      limit: CART_QUERY_LIMIT,
-      depth: 1,
       where: {
         and: [
           { guestSessionId: { equals: identity.guestSessionId } },
-
           { status: { equals: 'active' } }
         ]
-      }
+      },
+      sort: '-updatedAt',
+      depth: 1
     });
-    return cartRes.docs;
   }
-  return []; // fallback, should never really happen
+
+  return [];
 }
 
 export async function findAllActiveCartsForMergeGuestToUser(
   ctx: Context,
   identity: IdentityForMerge
 ): Promise<{ guestCarts: Cart[]; userCarts: Cart[] }> {
-  const guestSessionId = identity.guestSessionId;
-  const userId = identity.userId;
-  if (!guestSessionId || !userId) {
-    return { guestCarts: [], userCarts: [] };
-  }
-  const [guestRes, userRes] = await Promise.all([
-    ctx.db.find({
-      collection: 'carts',
-      depth: 1,
-      limit: CART_QUERY_LIMIT,
+  const { guestSessionId, userId } = identity;
+  if (!guestSessionId || !userId) return { guestCarts: [], userCarts: [] };
+
+  const [guestCarts, userCarts] = await Promise.all([
+    findAllCartsPaged(ctx, {
       overrideAccess: true,
       where: {
         and: [
@@ -240,19 +269,19 @@ export async function findAllActiveCartsForMergeGuestToUser(
           { buyer: { exists: false } }
         ]
       },
-      sort: '-updatedAt'
+      sort: '-updatedAt',
+      depth: 1
     }),
-    ctx.db.find({
-      collection: 'carts',
-      depth: 1,
-      limit: CART_QUERY_LIMIT,
+    findAllCartsPaged(ctx, {
       where: {
         and: [{ buyer: { equals: userId } }, { status: { equals: 'active' } }]
       },
-      sort: '-updatedAt'
+      sort: '-updatedAt',
+      depth: 1
     })
   ]);
-  return { guestCarts: guestRes.docs, userCarts: userRes.docs };
+
+  return { guestCarts, userCarts };
 }
 
 /**
@@ -911,16 +940,6 @@ export async function mergeCartsPerTenant(
     //
     // We collapse down to one active cart per tenant.
     // Secondary carts get archived (not deleted) to avoid breaking debugging/history.
-    await Promise.all(
-      secondaryCarts.map((cart) =>
-        ctx.db.update({
-          collection: 'carts',
-          overrideAccess: true,
-          id: cart.id,
-          data: { status: 'archived' }
-        })
-      )
-    );
 
     const archiveResults = await Promise.allSettled(
       secondaryCarts.map((cart) =>
