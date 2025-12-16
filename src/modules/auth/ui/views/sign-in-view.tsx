@@ -103,9 +103,10 @@ function SignInView() {
           const mergeRes = await mergeGuestIntoUser.mutateAsync();
 
           const didWork =
-            mergeRes.tenantsAffected > 0 ||
-            mergeRes.itemsMoved > 0 ||
-            mergeRes.cartsMerged > 0;
+            mergeRes &&
+            (mergeRes.tenantsAffected > 0 ||
+              mergeRes.itemsMoved > 0 ||
+              mergeRes.cartsMerged > 0);
 
           // optional: only log in dev
           if (process.env.NODE_ENV !== 'production' && didWork) {
