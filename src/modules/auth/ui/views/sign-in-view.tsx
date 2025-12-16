@@ -117,6 +117,10 @@ function SignInView() {
           if (process.env.NODE_ENV !== 'production') {
             console.error('[cart] mergeGuestIntoUser failed', error);
           }
+          // Notify user
+          toast.info(
+            'Some cart items may not have transferred. Please check your cart.'
+          );
         }
 
         await Promise.all([
