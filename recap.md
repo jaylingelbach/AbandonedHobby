@@ -6163,3 +6163,43 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - tsconfig.json
   - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
+
+# Cart - Remove local store
+
+## Walkthrough
+
+- This pull request removes client-side cart state management infrastructure (Zustand store, device ID management, scope utilities) and shifts cart operations to server-side handling via tRPC. The useServerCart hook is enhanced with query caching for cart summaries, and UI components are updated to use server cart mutations instead of client store interactions.
+
+## Refactor
+
+- Restructured cart management system to leverage server-side operations, improving reliability and reducing client-side complexity.
+- Simplified checkout flow by streamlining session and cart synchronization logic.
+- Removed client-side cart persistence layers for more efficient state management.
+
+## File changes
+
+### Server Cart Query Caching
+
+- src/modules/cart/hooks/use-server-cart.ts
+  - Added getSummaryOptions query and its queryKey invalidation on cart mutations (adjustQuantityByDelta, setQuantity, removeItem, clearCart) to refresh global summary badge.
+
+### Cleanup & Import Fixes
+
+- src/modules/cart/server/utils.ts
+  - Removed unused asId import; adjusted trailing newline.
+
+### Removed Client-Side Cart Infrastructure
+
+-src/modules/checkout/hooks/cart-scope.ts, src/modules/checkout/hooks/use-cart.ts, src/modules/checkout/hooks/utils.ts, src/modules/checkout,server/cart-scope-server.ts, src/modules/checkout/store/use-cart-store.ts src/modules/checkout/store/utils.ts
+
+- Deleted Zustand cart store, useCart/useAllTenantCarts/useCartBadgeCount hooks, device ID and scope management utilities, and server-side scope building (shifted to server-side cart operations via tRPC).
+
+### Updated Checkout Components
+
+- src/modules/checkout/ui/components/checkout-button.tsx, src/modules/checkout/ui/views/checkout-view.tsx, src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Removed tenantSlug prop and session/migration hydration effects; replaced cart store usage with useServerCart mutations; removed client-side cart clearing and scope persistence logic.
+
+### Updated Product & Tenant UI
+
+- src/modules/products/ui/components/cart-button.tsx, src/modules/tenants/ui/components/navbar.tsx
+  - Removed TRPC session data fetching and anon-to-user migration logic; changed CheckoutButton from dynamic to static import and removed tenantSlug prop.
