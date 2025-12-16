@@ -382,11 +382,6 @@ export const cartRouter = createTRPCRouter({
           tenantsAffected
         };
       } finally {
-        // Always clear the guest session cookie to prevent stale data
-        ctx.resHeaders.append(
-          'set-cookie',
-          buildClearCartSessionCookieHeaderValue(ctx.headers)
-        );
       }
     })
 });
