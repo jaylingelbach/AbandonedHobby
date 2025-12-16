@@ -922,6 +922,27 @@ export async function mergeCartsPerTenant(
       )
     );
 
+    const archiveResults = await Promise.allSettled(
+      secondaryCarts.map((cart) =>
+        ctx.db.update({
+          collection: 'carts',
+          overrideAccess: true,
+          id: cart.id,
+          data: { status: 'archived' }
+        })
+      )
+    );
+
+    // Handle partial failures gracefully
+    const archiveFailed = archiveResults.filter(
+      (r) => r.status === 'rejected'
+    ).length;
+    if (archiveFailed > 0 && process.env.NODE_ENV !== 'production') {
+      console.warn(
+        `[mergeCartsPerTenant] Failed to archive ${archiveFailed} carts for tenant`
+      );
+    }
+
     // -----------------------------------------
     // STEP 6: UPDATE STATS
     // -----------------------------------------

@@ -243,7 +243,7 @@ function SignInView() {
               )}
             />
             <Button
-              disabled={login.isPending}
+              disabled={login.isPending || mergeGuestIntoUser.isPending}
               type="submit"
               size="lg"
               variant="elevated"
