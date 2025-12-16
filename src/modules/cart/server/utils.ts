@@ -699,7 +699,14 @@ export async function mergeCartsPerTenant(
 
   // Group guest carts by tenantId
   for (const guestCart of guestCarts) {
-    const tenantId = asId(guestCart.sellerTenant);
+    const tenantId = softRelId(guestCart.sellerTenant);
+    if (!tenantId) {
+      console.warn(
+        '[mergeCartsPerTenant] Skipping cart with missing sellerTenant',
+        { cartId: guestCart.id }
+      );
+      continue;
+    }
 
     // Ensure bucket exists
     if (!tenantGroups.has(tenantId)) {
@@ -904,14 +911,16 @@ export async function mergeCartsPerTenant(
     //
     // We collapse down to one active cart per tenant.
     // Secondary carts get archived (not deleted) to avoid breaking debugging/history.
-    for (const cart of secondaryCarts) {
-      await ctx.db.update({
-        collection: 'carts',
-        overrideAccess: true,
-        id: String(cart.id),
-        data: { status: 'archived' }
-      });
-    }
+    await Promise.all(
+      secondaryCarts.map((cart) =>
+        ctx.db.update({
+          collection: 'carts',
+          overrideAccess: true,
+          id: cart.id,
+          data: { status: 'archived' }
+        })
+      )
+    );
 
     // -----------------------------------------
     // STEP 6: UPDATE STATS
