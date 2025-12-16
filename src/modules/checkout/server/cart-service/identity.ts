@@ -3,10 +3,10 @@ import type { CartIdentity } from '@/modules/cart/server/types';
 import { readCartSessionIdFromHeaders } from './cart-session-cookie';
 
 /**
- * Resolve the cart identity from the request context, returning an authenticated user identity, a guest identity derived from the cart session cookie, or `null` if neither is available.
+ * Determine the cart identity for the incoming request: an authenticated user identity, a guest session identity from the cart session cookie, or `null` if none is available.
  *
- * @param ctx - Request context containing the database auth client and HTTP headers used for authentication and cookie lookup.
- * @returns A `CartIdentity` for an authenticated user or a guest session, or `null` when no identity can be determined.
+ * @param ctx - Request context containing the auth client and HTTP headers used to resolve user and cart session information
+ * @returns A `CartIdentity` for an authenticated user (includes `userId` and optional `guestSessionId`) or a guest session identity (`guestSessionId` with `userId` null), or `null` when no identity can be determined
  */
 export async function getCartIdentity(
   ctx: Context

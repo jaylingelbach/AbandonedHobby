@@ -1,8 +1,10 @@
 import { CART_SESSION_COOKIE } from '@/constants';
 
 /**
- * Normalize a raw root domain or URL into a canonical hostname string.
- * (Matches the behavior in middleware so Domain scoping stays consistent.)
+ * Produce a canonical lowercase hostname from a raw root domain or URL for consistent domain scoping.
+ *
+ * @param raw - The input root domain or URL; may include a scheme (e.g., "https://") or leading dots. If omitted, returns an empty string.
+ * @returns The normalized hostname in lowercase, or an empty string when `raw` is missing or falsy.
  */
 function normalizeRootDomain(raw: string | undefined): string {
   if (!raw) return '';
@@ -14,8 +16,11 @@ function normalizeRootDomain(raw: string | undefined): string {
 }
 
 /**
- * Determine the shared dot-prefixed cookie domain for a root domain and its subdomains.
- * Returns ".example.com" when hostname is example.com or *.example.com; otherwise undefined.
+ * Compute the shared dot-prefixed cookie Domain for a root domain and its subdomains.
+ *
+ * @param hostname - The request hostname (without port)
+ * @param rootDomain - The canonical root domain to match against
+ * @returns `.<rootDomain>` if `hostname` equals `rootDomain` or is a subdomain of it, `undefined` otherwise
  */
 function computeCookieDomain(
   hostname: string,
@@ -27,6 +32,13 @@ function computeCookieDomain(
   return undefined;
 }
 
+/**
+ * Extracts the value of a named cookie from a Cookie header string.
+ *
+ * @param cookieHeader - The full value of the `Cookie` header (semicolon-separated cookies)
+ * @param cookieName - The cookie name to find
+ * @returns The cookie value if present and non-empty, `null` otherwise
+ */
 function readCookieFromHeader(
   cookieHeader: string,
   cookieName: string
@@ -41,6 +53,13 @@ function readCookieFromHeader(
   return null;
 }
 
+/**
+ * Extracts the cart session identifier from the request headers.
+ *
+ * Looks up the "cookie" header and returns the value of the cart session cookie.
+ *
+ * @returns The cart session ID string if present, `null` otherwise.
+ */
 export function readCartSessionIdFromHeaders(headers: Headers): string | null {
   const cookieHeader = headers.get('cookie');
   if (!cookieHeader) return null;
@@ -48,8 +67,10 @@ export function readCartSessionIdFromHeaders(headers: Headers): string | null {
 }
 
 /**
- * Best-effort hostname extraction for cookie Domain computation.
- * In Next/Node this is typically "host". We strip port if present.
+ * Extracts the hostname from request headers for cookie domain computation.
+ *
+ * @param headers - The request Headers object to read the Host header from.
+ * @returns The hostname portion of the Host header in lowercase (port removed), or an empty string if missing.
  */
 function readHostnameFromHeaders(headers: Headers): string {
   const host = headers.get('host') ?? '';
@@ -57,12 +78,16 @@ function readHostnameFromHeaders(headers: Headers): string {
 }
 
 /**
- * Builds the Set-Cookie header value that clears the cart session cookie.
+ * Build the Set-Cookie header value that clears the cart session cookie.
  *
- * IMPORTANT:
- * - Clearing requires sending Set-Cookie on the RESPONSE.
- * - Domain must match how middleware set it (".rootDomain" vs host-only),
- *   otherwise the browser may keep the original cookie.
+ * The returned value sets an empty cookie value and attributes (Path=/, Max-Age=0,
+ * Expires in the past, SameSite=Lax, HttpOnly) and will include `Secure` in
+ * production and a `Domain` attribute when a shared root domain applies.
+ *
+ * @param headers - Request headers used to derive the request hostname for domain computation
+ * @param opts.rootDomainRaw - Optional override for the root domain used to compute a shared cookie Domain (defaults to NEXT_PUBLIC_ROOT_DOMAIN)
+ * @param opts.isProd - Optional override to force production behavior; when true the `Secure` attribute is added (defaults to NODE_ENV === "production")
+ * @returns The Set-Cookie header value that instructs browsers to clear the cart session cookie
  */
 export function buildClearCartSessionCookieHeaderValue(
   headers: Headers,
