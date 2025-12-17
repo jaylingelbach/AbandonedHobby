@@ -60,7 +60,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const serverCart = useServerCart(tenantSlug);
   const clearCartAsync: ClearCartAsyncFn | undefined = tenantSlug
     ? async () => {
-        serverCart.clearCartAsync();
+        await serverCart.clearCartAsync();
       }
     : undefined;
   const clearAllCartsForIdentityResult = useClearAllCartsForIdentity();
