@@ -196,38 +196,54 @@ export function useServerCart(tenantSlug?: string) {
     adjustQuantityByDelta: (productId: string, delta: number) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta });
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta
+      });
     },
     incrementItem: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta: 1 });
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta: 1
+      });
     },
     decrementItem: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta: -1 });
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta: -1
+      });
     },
     setQuantity: (productId: string, quantity: number) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      setQuantityMutation.mutate({ tenantSlug: slug, productId, quantity });
+      return setQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        quantity
+      });
     },
     removeItem: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      removeItemMutation.mutate({ tenantSlug: slug, productId });
+      return removeItemMutation.mutate({ tenantSlug: slug, productId });
     },
     clearCart: () => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      clearCartMutation.mutate({ tenantSlug: slug });
+      return clearCartMutation.mutate({ tenantSlug: slug });
     },
     // async mutations
     incrementItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      adjustQuantityMutation.mutateAsync({
+      return adjustQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
         delta: 1
@@ -236,7 +252,7 @@ export function useServerCart(tenantSlug?: string) {
     decrementItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      adjustQuantityMutation.mutateAsync({
+      return adjustQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
         delta: -1
@@ -246,7 +262,7 @@ export function useServerCart(tenantSlug?: string) {
     setQuantityAsync: (productId: string, quantity: number) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      setQuantityMutation.mutateAsync({
+      return setQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
         quantity
@@ -255,12 +271,12 @@ export function useServerCart(tenantSlug?: string) {
     removeItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      removeItemMutation.mutateAsync({ tenantSlug: slug, productId });
+      return removeItemMutation.mutateAsync({ tenantSlug: slug, productId });
     },
     clearCartAsync: () => {
       const slug = ensureTenantSlug();
       if (!slug) return;
-      clearCartMutation.mutateAsync({ tenantSlug: slug });
+      return clearCartMutation.mutateAsync({ tenantSlug: slug });
     },
     // return full mutation
     adjustQuantityMutation,
