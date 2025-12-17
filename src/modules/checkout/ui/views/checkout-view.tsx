@@ -217,15 +217,13 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         // Multi-tenant: clear all carts for this identity
         await clearAllCartsForIdentityAsync();
       }
-
-      refetch();
     } catch (error) {
       if (process.env.NODE_ENV !== 'production') {
         console.error('[checkout] clear cart action failed', error);
       }
       toast.error('Failed to clear cart. Please try again.');
-      refetch();
     } finally {
+      refetch();
       setStates({ cancel: false, success: false });
     }
   };
