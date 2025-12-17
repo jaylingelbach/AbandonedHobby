@@ -19,6 +19,8 @@ export function useServerCart(tenantSlug?: string) {
   const hasTenant = Boolean(tenantSlug);
   // 1) Build queryOptions once so we can reuse queryKey and queryFn
   const getActiveOptions = trpc.cart.getActive.queryOptions({
+    // Note: queryKey uses placeholder when no slug; query is disabled and mutations
+    // are guarded by ensureTenantSlug, so this key is never used in practice.
     tenantSlug: tenantSlug ?? '__placeholder__'
   });
   const getAllActiveOptions = trpc.cart.getAllActiveForViewer.queryOptions();
