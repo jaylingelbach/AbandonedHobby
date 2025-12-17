@@ -720,6 +720,11 @@ export async function updateCartItems(
   });
 }
 
+/**
+ * Mark the specified cart as archived.
+ *
+ * @param cartId - The ID of the cart to archive
+ */
 export async function archiveCart(ctx: Context, cartId: string): Promise<void> {
   await ctx.db.update({
     collection: 'carts',
@@ -790,18 +795,13 @@ export function mergeCartItemsByProduct(params: {
 }
 
 /**
- * Merge active carts per seller tenant by consolidating guest and user carts, promoting a guest cart to the user when needed, and archiving secondary carts.
+ * Consolidates active carts per seller tenant: for each tenant choose a primary cart (prefer a user cart; otherwise promote a guest cart), merge item quantities by product into the primary cart, update ownership when promoting, and archive the remaining carts.
  *
- * For each tenant, chooses a primary cart (prefer user-owned; otherwise promotes a guest cart), merges item quantities by product into the primary cart, updates the primary cart (promoting ownership when applicable), and archives all secondary carts.
- *
- * @param guestCarts - Active carts associated with guest sessions
- * @param userCarts - Active carts associated with the target user
- * @param userId - The id of the user receiving merged carts (used when promoting a guest cart)
  * @returns An object with:
- *   - `cartsScanned`: total number of carts inspected (guest + user),
- *   - `cartsMerged`: number of carts that were archived as secondary carts,
- *   - `itemsMoved`: number of item units moved from secondary carts into primary carts,
- *   - `tenantsAffected`: number of distinct tenants for which merges or promotions occurred
+ *   - `cartsScanned`: total number of carts inspected,
+ *   - `cartsMerged`: number of carts archived as secondary carts,
+ *   - `itemsMoved`: number of item units moved into primary carts,
+ *   - `tenantsAffected`: number of distinct tenants where a merge or promotion occurred
  */
 export async function mergeCartsPerTenant(
   ctx: Context,
