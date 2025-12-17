@@ -34,6 +34,7 @@ import MessageCard from '@/modules/checkout/ui/views/message-card';
 import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
 import { usePruneMissingProductsForViewer } from '@/modules/cart/hooks/use-prune-missing-products-for-viewer';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
+import { useClearAllCartsForIdentity } from '@/modules/cart/hooks/use-clear-all-carts-for-identity';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
@@ -56,14 +57,16 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const trpc = useTRPC();
 
   // Always call the hook with a fallback slug; guard usage based on tenantSlug presence
-  const serverCart = useServerCart(tenantSlug ?? '__placeholder__');
-  const clearCart = tenantSlug ? serverCart.clearCart : undefined;
+  const serverCart = useServerCart(tenantSlug);
   const clearCartAsync: ClearCartAsyncFn | undefined = tenantSlug
-    ? serverCart.clearCartAsync
+    ? async () => {
+        serverCart.clearCartAsync();
+      }
     : undefined;
+  const clearAllCartsForIdentityResult = useClearAllCartsForIdentity();
   const clearAllCartsForIdentityAsync:
     | ClearAllCartsForIdentityAsyncFn
-    | undefined = serverCart.clearAllCartsForIdentityAsync;
+    | undefined = clearAllCartsForIdentityResult?.clearAllCartsForIdentityAsync;
 
   // Multi-tenant cart + products
   const {

@@ -13,16 +13,22 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
  *  - the raw mutation objects: `adjustQuantityMutation`, `setQuantityMutation`, `removeItemMutation`, `clearCartMutation`
  *  - mutation state flags for UI: `isAdjustingQuantity`, `isSettingQuantity`, `isRemovingItem`, `isClearingCart`
  */
-export function useServerCart(tenantSlug: string) {
+export function useServerCart(tenantSlug?: string) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const hasTenant = Boolean(tenantSlug);
   // 1) Build queryOptions once so we can reuse queryKey and queryFn
-  const getActiveOptions = trpc.cart.getActive.queryOptions({ tenantSlug });
+  const getActiveOptions = trpc.cart.getActive.queryOptions({
+    tenantSlug: tenantSlug ?? '__placeholder__'
+  });
   const getAllActiveOptions = trpc.cart.getAllActiveForViewer.queryOptions();
   const getSummaryOptions = trpc.cart.getSummaryForIdentity.queryOptions();
 
   // 2) Use them for the main query
-  const query = useQuery(getActiveOptions);
+  const query = useQuery({
+    ...getActiveOptions,
+    enabled: hasTenant
+  });
 
   const baseAdjustQuantityByDelta =
     trpc.cart.adjustQuantityByDelta.mutationOptions();
@@ -32,9 +38,6 @@ export function useServerCart(tenantSlug: string) {
   const baseRemoveItemMutation = trpc.cart.removeItem.mutationOptions();
 
   const baseClearCartMutation = trpc.cart.clearCart.mutationOptions();
-
-  const baseClearAllCartsForIdentity =
-    trpc.cart.clearAllCartsForIdentity.mutationOptions();
 
   // 3) Mutation that invalidates the same queryKey
   const adjustQuantityMutation = useMutation({
@@ -171,43 +174,17 @@ export function useServerCart(tenantSlug: string) {
     }
   });
 
-  const clearAllCartsForIdentityMutation = useMutation({
-    ...baseClearAllCartsForIdentity,
-    onSuccess: (data, variables, onMutateResult, context) => {
-      baseClearAllCartsForIdentity.onSuccess?.(
-        data,
-        variables,
-        onMutateResult,
-        context
-      );
-
-      // Invalidate the per-tenant cart cache
-      void queryClient.invalidateQueries({
-        queryKey: getActiveOptions.queryKey
-      });
-
-      // Also refresh the "all carts for viewer" cache
-      void queryClient.invalidateQueries({
-        queryKey: getAllActiveOptions.queryKey
-      });
-
-      // Refresh the global summary used for the badge
-      void queryClient.invalidateQueries({
-        queryKey: getSummaryOptions.queryKey
-      });
-    },
-    onError: (error, variables, onMutateResult, context) => {
-      baseClearAllCartsForIdentity.onError?.(
-        error,
-        variables,
-        onMutateResult,
-        context
-      );
-      console.error('Error clearing cart for identity: ', error);
-    }
-  });
-
   const cart = query.data;
+  const ensureTenantSlug = () => {
+    if (!tenantSlug) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[useServerCart] mutation called without tenantSlug');
+      }
+      return null;
+    }
+    return tenantSlug;
+  };
+
   return {
     cart,
     isLoading: query.isLoading,
@@ -216,45 +193,84 @@ export function useServerCart(tenantSlug: string) {
     refetch: query.refetch,
     isFetching: query.isFetching,
     // for UI use with tenantSlug baked in.
-    adjustQuantityByDelta: (productId: string, delta: number) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta }),
-    incrementItem: (productId: string) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta: 1 }),
-    decrementItem: (productId: string) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta: -1 }),
-    setQuantity: (productId: string, quantity: number) =>
-      setQuantityMutation.mutate({ tenantSlug, productId, quantity }),
-    removeItem: (productId: string) =>
-      removeItemMutation.mutate({ tenantSlug, productId }),
-    clearCart: () => {
-      clearCartMutation.mutate({ tenantSlug });
+    adjustQuantityByDelta: (productId: string, delta: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta });
     },
-    clearAllCartsForIdentity: () => {
-      clearAllCartsForIdentityMutation.mutate();
+    incrementItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta: 1 });
+    },
+    decrementItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      adjustQuantityMutation.mutate({ tenantSlug: slug, productId, delta: -1 });
+    },
+    setQuantity: (productId: string, quantity: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      setQuantityMutation.mutate({ tenantSlug: slug, productId, quantity });
+    },
+    removeItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      removeItemMutation.mutate({ tenantSlug: slug, productId });
+    },
+    clearCart: () => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      clearCartMutation.mutate({ tenantSlug: slug });
     },
     // async mutations
-    incrementItemAsync: (productId: string) =>
-      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: 1 }),
-    decrementItemAsync: (productId: string) =>
-      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: -1 }),
-    setQuantityAsync: (productId: string, quantity: number) =>
-      setQuantityMutation.mutateAsync({ tenantSlug, productId, quantity }),
-    removeItemAsync: (productId: string) =>
-      removeItemMutation.mutateAsync({ tenantSlug, productId }),
-    clearCartAsync: () => clearCartMutation.mutateAsync({ tenantSlug }),
-    clearAllCartsForIdentityAsync: () =>
-      clearAllCartsForIdentityMutation.mutateAsync(),
+    incrementItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      adjustQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        delta: 1
+      });
+    },
+    decrementItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      adjustQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        delta: -1
+      });
+    },
+
+    setQuantityAsync: (productId: string, quantity: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      setQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        quantity
+      });
+    },
+    removeItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      removeItemMutation.mutateAsync({ tenantSlug: slug, productId });
+    },
+    clearCartAsync: () => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      clearCartMutation.mutateAsync({ tenantSlug: slug });
+    },
     // return full mutation
     adjustQuantityMutation,
     setQuantityMutation,
     removeItemMutation,
     clearCartMutation,
-    clearAllCartsForIdentityMutation,
     // mutation flags for the UI:
     isAdjustingQuantity: adjustQuantityMutation.isPending,
     isSettingQuantity: setQuantityMutation.isPending,
     isRemovingItem: removeItemMutation.isPending,
-    isClearingCart: clearCartMutation.isPending,
-    isClearingAllCart: clearAllCartsForIdentityMutation.isPending
+    isClearingCart: clearCartMutation.isPending
   };
 }
