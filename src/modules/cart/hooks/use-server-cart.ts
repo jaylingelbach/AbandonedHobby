@@ -242,7 +242,7 @@ export function useServerCart(tenantSlug?: string) {
     // async mutations
     incrementItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
-      if (!slug) return;
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
       return adjustQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
@@ -251,7 +251,7 @@ export function useServerCart(tenantSlug?: string) {
     },
     decrementItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
-      if (!slug) return;
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
       return adjustQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
@@ -261,7 +261,7 @@ export function useServerCart(tenantSlug?: string) {
 
     setQuantityAsync: (productId: string, quantity: number) => {
       const slug = ensureTenantSlug();
-      if (!slug) return;
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
       return setQuantityMutation.mutateAsync({
         tenantSlug: slug,
         productId,
@@ -270,12 +270,12 @@ export function useServerCart(tenantSlug?: string) {
     },
     removeItemAsync: (productId: string) => {
       const slug = ensureTenantSlug();
-      if (!slug) return;
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
       return removeItemMutation.mutateAsync({ tenantSlug: slug, productId });
     },
     clearCartAsync: () => {
       const slug = ensureTenantSlug();
-      if (!slug) return;
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
       return clearCartMutation.mutateAsync({ tenantSlug: slug });
     },
     // return full mutation
