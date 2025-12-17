@@ -291,15 +291,15 @@ export const cartRouter = createTRPCRouter({
         if (result.status === 'fulfilled') {
           clearedCount += 1;
         } else {
-          console.log(result.reason);
+          console.error(
+            '[cart.clearAllForIdentity] Archive failed:',
+            result.reason
+          );
         }
       }
 
-      if (
-        process.env.NODE_ENV !== 'production' &&
-        results.some((res) => res.status === 'rejected')
-      ) {
-        console.warn(
+      if (results.some((res) => res.status === 'rejected')) {
+        console.error(
           '[cart.clearAllForIdentity] Some carts failed to archive',
           {
             total: carts.length,
