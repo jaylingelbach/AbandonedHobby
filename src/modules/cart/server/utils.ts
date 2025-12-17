@@ -720,6 +720,17 @@ export async function updateCartItems(
   });
 }
 
+export async function archiveCart(ctx: Context, cartId: string): Promise<void> {
+  await ctx.db.update({
+    collection: 'carts',
+    id: cartId,
+    overrideAccess: true,
+    data: {
+      status: 'archived'
+    }
+  });
+}
+
 /**
  * Merge cart lines by product id, summing quantities and tallying units moved from secondary carts.
  *

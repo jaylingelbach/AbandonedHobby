@@ -9,6 +9,7 @@ import type { CartDTO, CartItemSnapshots, IdentityForMerge } from './types';
 
 import {
   adjustItemsByProductId,
+  archiveCart,
   buildCartDTO,
   buildCartSummaryDTO,
   createEmptyCart,
@@ -273,6 +274,40 @@ export const cartRouter = createTRPCRouter({
         }
       });
       return buildCartDTO(updatedCart, tenantId, input.tenantSlug);
+    }),
+  clearAllCartsForIdentity: baseProcedure
+    .input(z.void())
+    .mutation(async ({ ctx }) => {
+      const identity = await getCartIdentity(ctx);
+      if (!identity) return { cartsCleared: 0 };
+      const carts = await findAllActiveCartsForIdentity(ctx, identity);
+      if (carts.length === 0) return { cartsCleared: 0 };
+      const results = await Promise.allSettled(
+        carts.map((cart) => archiveCart(ctx, cart.id))
+      );
+
+      let clearedCount = 0;
+      for (const result of results) {
+        if (result.status === 'fulfilled') {
+          clearedCount += 1;
+        } else {
+          console.log(result.reason);
+        }
+      }
+
+      if (
+        process.env.NODE_ENV !== 'production' &&
+        results.some((res) => res.status === 'rejected')
+      ) {
+        console.warn(
+          '[cart.clearAllForIdentity] Some carts failed to archive',
+          {
+            total: carts.length,
+            clearedCount
+          }
+        );
+      }
+      return { cartsCleared: clearedCount };
     }),
   getSummaryForIdentity: baseProcedure
     .input(z.void())

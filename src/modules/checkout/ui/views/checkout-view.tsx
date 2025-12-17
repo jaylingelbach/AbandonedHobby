@@ -40,11 +40,12 @@ interface CheckoutViewProps {
 }
 
 export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
-  const tenSlug = tenantSlug ?? '__global__';
   const [states, setStates] = useCheckoutState();
   const [mounted, setMounted] = useState(false);
 
   const { pruneMissingProductsAsync } = usePruneMissingProductsForViewer();
+  type ClearCartAsyncFn = () => Promise<unknown>;
+  type ClearAllCartsForIdentityAsyncFn = () => Promise<unknown>;
 
   useEffect(() => {
     setMounted(true);
@@ -53,8 +54,18 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
-
-  const { clearCart, clearCartAsync } = useServerCart(tenSlug);
+  // only call when truthy
+  let clearCart;
+  let clearCartAsync: ClearCartAsyncFn | undefined;
+  let clearAllCartsForIdentityAsync:
+    | ClearAllCartsForIdentityAsyncFn
+    | undefined;
+  if (tenantSlug) {
+    const serverCart = useServerCart(tenantSlug);
+    clearCart = serverCart.clearCart;
+    clearCartAsync = serverCart.clearCartAsync;
+    clearAllCartsForIdentityAsync = serverCart.clearAllCartsForIdentityAsync;
+  }
 
   // Multi-tenant cart + products
   const {
@@ -196,6 +207,28 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     );
   }, [router, searchParams, setStates]);
 
+  const clearCartOrAllCarts = async () => {
+    try {
+      if (tenantSlug && clearCartAsync) {
+        // Single-tenant: clear just this tenant’s cart
+        await clearCartAsync();
+      } else if (clearAllCartsForIdentityAsync) {
+        // Multi-tenant: clear all carts for this identity
+        clearAllCartsForIdentityAsync();
+      }
+
+      refetch();
+    } catch (error) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('[checkout] clear cart action failed', error);
+      }
+      toast.error('Failed to clear cart. Please try again.');
+      refetch();
+    } finally {
+      setStates({ cancel: false, success: false });
+    }
+  };
+
   // ----- Early-return UIs -----
 
   if (!mounted || isLoading) {
@@ -210,10 +243,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             }}
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              clearCartAsync().then(() => {
-                refetch();
-              });
-              setStates({ cancel: false, success: false });
+              void clearCartOrAllCarts();
             }}
           />
         )}
@@ -244,9 +274,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              clearCart();
-              refetch();
-              setStates({ cancel: false, success: false });
+              void clearCartOrAllCarts();
             }}
           />
         )}
@@ -263,9 +291,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
             disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
-              clearCart();
-              refetch();
-              setStates({ cancel: false, success: false });
+              void clearCartOrAllCarts();
             }}
           />
         )}
@@ -290,9 +316,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
           }}
           onDismissAction={() => setStates({ cancel: false, success: false })}
           onClearCartAction={() => {
-            clearCart();
-            refetch();
-            setStates({ cancel: false, success: false });
+            void clearCartOrAllCarts();
           }}
         />
       )}

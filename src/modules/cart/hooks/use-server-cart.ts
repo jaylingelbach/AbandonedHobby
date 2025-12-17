@@ -33,6 +33,9 @@ export function useServerCart(tenantSlug: string) {
 
   const baseClearCartMutation = trpc.cart.clearCart.mutationOptions();
 
+  const baseClearAllCartsForIdentity =
+    trpc.cart.clearAllCartsForIdentity.mutationOptions();
+
   // 3) Mutation that invalidates the same queryKey
   const adjustQuantityMutation = useMutation({
     ...baseAdjustQuantityByDelta,
@@ -168,6 +171,42 @@ export function useServerCart(tenantSlug: string) {
     }
   });
 
+  const clearAllCartsForIdentityMutation = useMutation({
+    ...baseClearAllCartsForIdentity,
+    onSuccess: (data, variables, onMutateResult, context) => {
+      baseClearAllCartsForIdentity.onSuccess?.(
+        data,
+        variables,
+        onMutateResult,
+        context
+      );
+
+      // Invalidate the per-tenant cart cache
+      void queryClient.invalidateQueries({
+        queryKey: getActiveOptions.queryKey
+      });
+
+      // Also refresh the "all carts for viewer" cache
+      void queryClient.invalidateQueries({
+        queryKey: getAllActiveOptions.queryKey
+      });
+
+      // Refresh the global summary used for the badge
+      void queryClient.invalidateQueries({
+        queryKey: getSummaryOptions.queryKey
+      });
+    },
+    onError: (error, variables, onMutateResult, context) => {
+      baseClearAllCartsForIdentity.onError?.(
+        error,
+        variables,
+        onMutateResult,
+        context
+      );
+      console.error('Error clearing cart for identity: ', error);
+    }
+  });
+
   const cart = query.data;
   return {
     cart,
@@ -190,6 +229,9 @@ export function useServerCart(tenantSlug: string) {
     clearCart: () => {
       clearCartMutation.mutate({ tenantSlug });
     },
+    clearAllCartsForIdentity: () => {
+      clearAllCartsForIdentityMutation.mutate();
+    },
     // async mutations
     incrementItemAsync: (productId: string) =>
       adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: 1 }),
@@ -200,15 +242,19 @@ export function useServerCart(tenantSlug: string) {
     removeItemAsync: (productId: string) =>
       removeItemMutation.mutateAsync({ tenantSlug, productId }),
     clearCartAsync: () => clearCartMutation.mutateAsync({ tenantSlug }),
+    clearAllCartsForIdentityAsync: () =>
+      clearAllCartsForIdentityMutation.mutateAsync(),
     // return full mutation
     adjustQuantityMutation,
     setQuantityMutation,
     removeItemMutation,
     clearCartMutation,
+    clearAllCartsForIdentityMutation,
     // mutation flags for the UI:
     isAdjustingQuantity: adjustQuantityMutation.isPending,
     isSettingQuantity: setQuantityMutation.isPending,
     isRemovingItem: removeItemMutation.isPending,
-    isClearingCart: clearCartMutation.isPending
+    isClearingCart: clearCartMutation.isPending,
+    isClearingAllCart: clearAllCartsForIdentityMutation.isPending
   };
 }
