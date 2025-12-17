@@ -6163,3 +6163,80 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - tsconfig.json
   - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
+
+# Cart - Remove local store
+
+## Walkthrough
+
+- Moves cart management from a client-side Zustand store and scope utilities to server-driven cart operations via new server hooks and procedures; adds global-summary invalidation and a bulk archive mutation; removes client-side cart store, scope helpers, and related hooks/components.
+
+## Refactor
+
+- Cart management moved from client persistence to server-driven operations; many client-side cart utilities and stores removed.
+- Checkout/cart UI simplified and tenant-scoped prop removed.
+
+### New Features
+
+- Added server-side cart operations including summary-refreshing mutations and a bulk "clear all carts for identity" action (sync + async).
+
+## Chores
+
+- Server utilities updated to support cart archival; miscellaneous cleanup and formatting fixes.
+
+## File changes
+
+### Server cart hook & cache invalidation
+
+- src/modules/cart/hooks/use-server-cart.ts
+  - Added useServerCart(tenantSlug?: string) with optional slug guarding, getSummaryOptions, ensure-tenant checks, sync/async mutation wrappers, and explicit invalidation of global summary after per-tenant mutations.
+
+### Server procedures & utils (archive / clear-all)
+
+- src/modules/cart/server/procedures.ts
+- src/modules/cart/server/utils.ts
+  - Added clearAllCartsForIdentity mutation (archives carts) and new exported archiveCart(ctx, cartId); removed unused asId import.
+
+### New hook: clear-all for identity
+
+- src/modules/cart/hooks/use-clear-all-carts-for-identity.ts
+  - New useClearAllCartsForIdentity() hook exposing sync/async triggers for clearAllCartsForIdentity with cache invalidation for active-carts and global summary keys.
+
+### Removed client-side cart scope utilities (client + server)
+
+- src/modules/checkout/hooks/cart-scope.ts
+- src/modules/checkout/server/cart-scope-server.ts
+  - Deleted client & server cart-scope modules and exported constants (DEFAULT_TENANT, ANON_PREFIX, DEVICE_ID_KEY) and scope builders.
+
+### Removed client cart hooks & badge utilities
+
+- src/modules/checkout/hooks/use-cart.ts
+- src/modules/checkout/hooks/utils.ts
+  - Removed useCart, useAllTenantCarts, useCartBadgeCount, and selectGlobalCartItemCount (client-side cart hooks and badge/global-count helpers).
+
+### Removed client cart store & store utils
+
+- src/modules/checkout/store/use-cart-store.ts
+- src/modules/checkout/store/utils.ts
+  - Deleted Zustand cart store, persistence/migrations, BroadcastChannel sync, and utilities (tenant normalization, device ID, deriveUserKey, collapseCompositeTenantKeys).
+
+### Checkout & confirmation UI switched to server flow
+
+- src/modules/checkout/ui/views/checkout-view.tsx
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Replaced client-store interactions with useServerCart and useClearAllCartsForIdentity, removed local stash/migration/clear logic, and rely on server-side state for post-order behavior.
+
+### Checkout button & CartButton adjustments
+
+- src/modules/checkout/ui/components/checkout-button.tsx
+- src/modules/products/ui/components/cart-button.tsx
+  - Removed tenantSlug prop from CheckoutButton; removed session/TRPC migration effects from CartButton; both now use server-driven cart hooks.
+
+### Navbar import update
+
+- src/modules/tenants/ui/components/navbar.tsx
+  - Replaced dynamic import of CheckoutButton with a static import and updated usage to prop-less CheckoutButton.
+
+### Misc / manifest & docs
+
+- package.json, recap.md
+  - Recap/docs updated; manifest unchanged beyond module edits.

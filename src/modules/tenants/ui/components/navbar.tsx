@@ -2,7 +2,6 @@
 
 import { useSuspenseQuery } from '@tanstack/react-query';
 import { ShoppingCartIcon } from 'lucide-react';
-import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -10,21 +9,7 @@ import BackToRootLink from '@/components/back-to-root-link';
 import { Button } from '@/components/ui/button';
 import { generateTenantURL } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
-
-const CheckoutButton = dynamic(
-  () =>
-    import('@/modules/checkout/ui/components/checkout-button').then((mod) => ({
-      default: mod.CheckoutButton
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <Button disabled className="bg-white">
-        <ShoppingCartIcon className="text-black" />
-      </Button>
-    )
-  }
-); // doing this to solve hydration errors while using local storage.
+import CheckoutButton from '@/modules/checkout/ui/components/checkout-button';
 
 interface Props {
   slug: string;
@@ -65,7 +50,7 @@ export const Navbar = ({ slug }: Props) => {
         </div>
 
         <div className="flex justify-end">
-          <CheckoutButton tenantSlug={slug} />
+          <CheckoutButton />
         </div>
       </div>
     </nav>
