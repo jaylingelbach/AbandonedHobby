@@ -1,9 +1,10 @@
 import { track } from '@/lib/analytics';
+import { usdNumberToCents } from '@/lib/money';
 
 export interface CartLineForAnalytics {
   productId: string;
   quantity: number;
-  unitAmountCents?: number | null;
+  price?: number | null;
 }
 
 /**
@@ -31,6 +32,7 @@ export function trackCartUpdated(args: {
   for (const line of lines) {
     const rawId = line.productId;
     const productId = typeof rawId === 'string' ? rawId.trim() : '';
+    const priceCents = usdNumberToCents(line.price);
     if (!productId) continue;
 
     const rawQty = line.quantity;
@@ -46,12 +48,12 @@ export function trackCartUpdated(args: {
     itemCount += safeQty;
 
     if (
-      typeof line.unitAmountCents === 'number' &&
-      Number.isFinite(line.unitAmountCents) &&
-      line.unitAmountCents >= 0
+      typeof line.price === 'number' &&
+      Number.isFinite(priceCents) &&
+      line.price >= 0
     ) {
       hasPriceData = true;
-      subtotalCents += Math.round(line.unitAmountCents * safeQty);
+      subtotalCents += Math.round(priceCents * safeQty);
     }
   }
 

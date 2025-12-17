@@ -13,9 +13,9 @@ import { readQuantityOrDefault } from '@/lib/validation/quantity';
 
 import CheckoutSidebar from '../components/checkout-sidebar';
 import { CheckoutItem } from '../components/checkout-item';
-import { TenantCheckoutGroup } from '../../hooks/use-multi-tenant-checkout-data';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 import { FALLBACK_TENANT_NAME } from '@/constants';
+import { TenantCheckoutGroup } from '@/modules/cart/server/types';
 
 export interface TenantCheckoutSectionProps {
   group: TenantCheckoutGroup;
@@ -43,7 +43,7 @@ export function TenantCheckoutSection({
     products,
     quantitiesByProductId,
     subtotalCents,
-    shippingCents,
+    flatFeeShippingCents,
     totalCents,
     breakdownItems,
     hasCalculatedShipping
@@ -141,7 +141,7 @@ export function TenantCheckoutSection({
         <div className="lg:col-span-3">
           <CheckoutSidebar
             subtotalCents={subtotalCents}
-            shippingCents={shippingCents}
+            shippingCents={flatFeeShippingCents}
             totalCents={totalCents}
             onPurchaseAction={() => onCheckoutAction(group)}
             isCanceled={false}
