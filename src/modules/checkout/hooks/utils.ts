@@ -51,14 +51,14 @@ export function sanitizeQuantities(raw: unknown): Record<string, number> {
 }
 
 /**
- * Builds an array of tenant-scoped cart summaries for the current user.
+ * Builds tenant-scoped cart summaries for the current user.
  *
- * Each summary contains the tenant key, the tenant's product id list, and a
- * sanitized mapping of quantities by product id. Tenants with no product ids
- * are omitted from the result.
+ * Each summary includes the tenant's key, the tenant's product id list, and a
+ * sanitized mapping of quantities by product id; tenants with no product ids
+ * are omitted.
  *
- * @param state - The current cart state containing the active user key and per-user tenant buckets
- * @returns An array of TenantCartSummary objects for tenants that have one or more product ids; quantities are sanitized to valid positive integers
+ * @param state - The cart state containing the active user key and per-user tenant buckets
+ * @returns An array of TenantCartSummary objects for tenants that have one or more product ids. Quantities are sanitized to positive integers.
  */
 export function buildTenantSummaries(state: CartState): TenantCartSummary[] {
   const currentUserKey = state.currentUserKey;
