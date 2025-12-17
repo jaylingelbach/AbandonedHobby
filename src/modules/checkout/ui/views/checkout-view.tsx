@@ -54,18 +54,16 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const trpc = useTRPC();
-  // only call when truthy
-  let clearCart;
-  let clearCartAsync: ClearCartAsyncFn | undefined;
-  let clearAllCartsForIdentityAsync:
+
+  // Always call the hook with a fallback slug; guard usage based on tenantSlug presence
+  const serverCart = useServerCart(tenantSlug ?? '__placeholder__');
+  const clearCart = tenantSlug ? serverCart.clearCart : undefined;
+  const clearCartAsync: ClearCartAsyncFn | undefined = tenantSlug
+    ? serverCart.clearCartAsync
+    : undefined;
+  const clearAllCartsForIdentityAsync:
     | ClearAllCartsForIdentityAsyncFn
-    | undefined;
-  if (tenantSlug) {
-    const serverCart = useServerCart(tenantSlug);
-    clearCart = serverCart.clearCart;
-    clearCartAsync = serverCart.clearCartAsync;
-    clearAllCartsForIdentityAsync = serverCart.clearAllCartsForIdentityAsync;
-  }
+    | undefined = serverCart.clearAllCartsForIdentityAsync;
 
   // Multi-tenant cart + products
   const {
@@ -214,7 +212,7 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         await clearCartAsync();
       } else if (clearAllCartsForIdentityAsync) {
         // Multi-tenant: clear all carts for this identity
-        clearAllCartsForIdentityAsync();
+        await clearAllCartsForIdentityAsync();
       }
 
       refetch();
