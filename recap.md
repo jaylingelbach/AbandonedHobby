@@ -6163,3 +6163,41 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - tsconfig.json
   - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
+
+# Cart cleanup script 12/17/25
+
+## Walkthrough
+
+- Adds a new TypeScript cart cleanup script, updates package.json scripts and Next.js version, and expands a JSDoc note in cart utilities. The cleanup script supports dry-run, batched deletions, CLI/env configuration, and removes stale guest/empty/archived carts via the Payload CMS API.
+
+## New Features
+
+- Added a cart cleanup command (dry-run, batch processing, configurable age-based rules) and a corresponding package script.
+
+## Chores
+
+- Removed two maintenance scripts.
+- Updated Next.js to a newer patch version.
+
+## Documentation
+
+- Clarified cart pruning documentation and fixed file formatting.
+
+## File changes
+
+### NPM Script Configuration
+
+- package.json
+  - Removed scripts: send:test, migrate:media.
+  - Added script: cleanup:carts.
+  - Bumped dependency: next ^15.4.8 → ^15.4.10.
+
+### Cart Utilities Documentation
+
+- src/modules/cart/server/utils.ts
+  - Expanded JSDoc for pruneMissingOrMalformed with an example noting NOT_FOUND items are pruned. Added trailing newline.
+
+### Cart Cleanup Automation
+
+- src/scripts/cart-cleanup.ts New script that connects to Payload CMS and deletes stale guest carts, empty carts, and archived carts.
+- Supports CLI/env flags, dry-run, batched deletions ordered by updatedAt, validation helpers, maxDelete/sleep controls, and logging/error handling.
