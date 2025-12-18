@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import { getPayload } from 'payload';
 import type { Where } from 'payload';
+import { runCartCleanupJob } from './cart-cleanup-job';
 
 import config from '@payload-config';
 
@@ -61,64 +62,42 @@ process.on('SIGINT', () => {
 
 await main();
 
-/**
- * Main entry point for the cart cleanup script.
- * Initializes Payload, builds cleanup rules based on configuration, and executes
- * cleanup for each rule. Handles errors gracefully and continues processing
- * remaining rules if one fails.
- * @returns {Promise<void>}
- */
 async function main(): Promise<void> {
-  const payload = await initPayload();
+  try {
+    const result = await runCartCleanupJob(
+      {
+        dryRun,
+        guestAgeDays,
+        emptyAgeDays,
+        archivedAgeDays,
+        batchSize,
+        sleepMs,
+        maxDelete
+      },
+      { shouldStop: () => shuttingDown }
+    );
 
-  const cleanupRules: CleanupRule[] = [
-    {
-      description: `guest carts older than ${guestAgeDays}d`,
-      where: {
-        and: [
-          { buyer: { exists: false } },
-          { guestSessionId: { exists: true } },
-          { updatedAt: { less_than: daysAgoISO(guestAgeDays) } }
-        ]
+    if (dryRun) {
+      for (const row of result.results) {
+        console.log(
+          `[dry-run] ${row.description}: ${row.matched} carts would be deleted.`
+        );
+      }
+    } else {
+      for (const row of result.results) {
+        console.log(
+          `[cart-cleanup] ${row.description}: matched=${row.matched}, deleted=${row.deleted}, errors=${row.errorCount}`
+        );
       }
     }
-  ];
 
-  if (typeof emptyAgeDays === 'number' && emptyAgeDays > 0) {
-    cleanupRules.push({
-      description: `empty carts older than ${emptyAgeDays}d`,
-      where: {
-        and: [
-          { itemCount: { less_than_equal: 0 } },
-          { updatedAt: { less_than: daysAgoISO(emptyAgeDays) } }
-        ]
-      }
-    });
-  }
-
-  if (typeof archivedAgeDays === 'number' && archivedAgeDays > 0) {
-    cleanupRules.push({
-      description: `archived carts older than ${archivedAgeDays}d`,
-      where: {
-        and: [
-          { status: { equals: 'archived' } },
-          { updatedAt: { less_than: daysAgoISO(archivedAgeDays) } }
-        ]
-      }
-    });
-  }
-
-  for (const rule of cleanupRules) {
-    try {
-      await runCleanup(payload, rule);
-    } catch (error: unknown) {
+    if (result.hadErrors) {
       process.exitCode = 1;
-      console.error(
-        `[cart-cleanup] ERROR while running rule "${rule.description}".`
-      );
-      logError(error);
-      // Keep going so one bad rule doesn't prevent other cleanup.
     }
+  } catch (error: unknown) {
+    process.exitCode = 1;
+    console.error('[cart-cleanup] Fatal error. Exiting non-zero.');
+    logError(error);
   }
 }
 
