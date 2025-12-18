@@ -6201,3 +6201,46 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/scripts/cart-cleanup.ts New script that connects to Payload CMS and deletes stale guest carts, empty carts, and archived carts.
 - Supports CLI/env flags, dry-run, batched deletions ordered by updatedAt, validation helpers, maxDelete/sleep controls, and logging/error handling.
+
+# Cart - cleanup cron 12/17/25
+
+## Walkthrough
+
+- Adds a scheduled cart cleanup: a new Next.js GET route protected by a CRON_SECRET, a reusable cart cleanup job with batching and dry-run support, a refactored CLI to call the job, and a Vercel cron entry to invoke the route daily.
+
+## New Features
+
+- Automated daily cart cleanup runs at 07:00 UTC via a secured API endpoint (requires secret token)
+- Cleans guest, empty, and archived carts with configurable age thresholds, batched deletions, and dry‑run mode
+- Returns clear status codes (success, partial, or failure) and reports per‑type metrics and summaries
+
+## Chores
+
+- CLI cleanup now delegates to the centralized job workflow for consistent behavior and logging
+
+## File changes
+
+### Cart cleanup job
+
+- src/scripts/cart-cleanup-job.ts
+  - Adds types (CleanupRule, CartCleanupOptions, CartCleanupRuleResult, CartCleanupResult) and exports runCartCleanupJob and buildCleanupRules. Implements payload initialization, batched deletions, dry-run, error handling, progress guards, and aggregated results.
+
+### CLI wrapper
+
+- src/scripts/cart-cleanup.ts
+  - Refactors the CLI to import and call runCartCleanupJob, handle results/exit codes, and retain signal handling and argument parsing while removing per-rule orchestration.
+
+### Cron API endpoint
+
+- src/app/api/cron/cart-cleanup/route.ts
+  - New Next.js GET route with Bearer CRON_SECRET auth, parses env vars (with defaults/min checks), invokes runCartCleanupJob (dryRun=false), and returns 200/207/500/401 as appropriate; exports runtime and dynamic.
+
+### Deployment schedule
+
+- vercel.json
+  - New file adding a Vercel cron entry for /api/cron/cart-cleanup scheduled daily at 07:00 UTC.
+
+### Docs / recap
+
+- recap.md
+  - Adds a summary section describing the cart cleanup cron feature and files changed.
