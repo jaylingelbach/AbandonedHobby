@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+
 import { runCartCleanupJob } from './cart-cleanup-job';
 
 dotenv.config();
@@ -77,14 +78,13 @@ async function main(): Promise<void> {
       }
     }
 
-   if (result.hadErrors) {
-    if (process.exitCode === undefined) {
+    if (result.hadErrors) {
       process.exitCode = 1;
     }
-   }
- } catch (error: unknown) {
-  if (process.exitCode === undefined) {
+  } catch (error: unknown) {
     process.exitCode = 1;
+    console.error('[cart-cleanup] Fatal error. Exiting non-zero.');
+    logError(error);
   }
 }
 
