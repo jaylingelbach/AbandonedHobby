@@ -1023,31 +1023,3 @@ export async function mergeCartsPerTenant(
     tenantsAffected
   };
 }
-
-export interface AnalyticsCheckoutItem {
-  productId: string;
-  quantity: number;
-  price: number;
-  tenantKey: string | null;
-  tenantSlug: string | null;
-  tenantName: string;
-}
-
-export function buildAnalyticsItemsFromGroup(
-  group: TenantCheckoutGroup
-): AnalyticsCheckoutItem[] {
-  return group.products.map((product) => {
-    const productId = product.id;
-    const quantity = group.quantitiesByProductId[productId] ?? 0;
-    const price = typeof product.price === 'number' ? product.price : 0;
-
-    return {
-      productId,
-      quantity,
-      price,
-      tenantKey: group.tenantKey,
-      tenantSlug: group.tenantSlug,
-      tenantName: group.tenantName
-    };
-  });
-}
