@@ -52,6 +52,15 @@ type StopSignal = {
   shouldStop: () => boolean;
 };
 
+/**
+ * Execute the cart cleanup job using the provided options.
+ *
+ * Performs per-rule counting and (unless `options.dryRun` is true) batched deletions, continuing past individual rule errors so other rules still run.
+ *
+ * @param options - Configuration for the cleanup run (dry-run flag, age thresholds for rules, batching parameters, and optional max delete limit).
+ * @param stopSignal - Optional signal consulted between batches; if provided and `shouldStop()` returns true the job will stop early.
+ * @returns A `CartCleanupResult` that includes start/finish timestamps, per-rule matched and deleted counts, aggregate totals, and whether any errors occurred.
+ */
 export async function runCartCleanupJob(
   options: CartCleanupOptions,
   stopSignal?: StopSignal
@@ -147,6 +156,15 @@ export async function runCartCleanupJob(
   };
 }
 
+/**
+ * Builds cleanup rules targeting carts that have not been updated within specified age thresholds.
+ *
+ * @param options - Configuration for which rules to include:
+ *   - guestAgeDays: age in days for guest carts (always included)
+ *   - emptyAgeDays: age in days for empty carts (included when a positive number)
+ *   - archivedAgeDays: age in days for archived carts (included when a positive number)
+ * @returns An array of CleanupRule objects describing the queries to match carts older than the configured ages
+ */
 export function buildCleanupRules(options: {
   guestAgeDays: number;
   emptyAgeDays?: number;
@@ -195,6 +213,12 @@ export function buildCleanupRules(options: {
   return cleanupRules;
 }
 
+/**
+ * Initialize the Payload client using the module configuration.
+ *
+ * @returns A configured Payload instance
+ * @throws Re-throws the original initialization error after logging initialization failure details
+ */
 async function initPayload() {
   try {
     return await getPayload({ config });
@@ -210,6 +234,17 @@ async function initPayload() {
   }
 }
 
+/**
+ * Deletes matching cart documents in repeated batches until no more matches, a stop signal, or configured limits are reached.
+ *
+ * Performs batched finds and deletes using the provided Payload instance according to `where` and `options`. Honors `options.batchSize`, `options.sleepMs`, and `options.maxDelete` (if provided). Stops early if `stopSignal.shouldStop()` returns true or if repeated attempts make no progress.
+ *
+ * @param payload - Payload client used to query and delete cart documents
+ * @param where - Query to select carts eligible for deletion
+ * @param options - Batch deletion settings (batchSize, sleepMs, optional maxDelete)
+ * @param stopSignal - Optional signal with `shouldStop()` to request an early shutdown
+ * @returns The total number of cart documents deleted by this call
+ */
 async function deleteWhereInBatches(
   payload: Awaited<ReturnType<typeof getPayload>>,
   where: Where,
@@ -311,6 +346,11 @@ async function deleteWhereInBatches(
   }
 }
 
+/**
+ * Logs an error value to the console, preferring an Error's stack when available.
+ *
+ * @param error - The error or value to log; if it's an `Error`, logs `error.stack` or `error.message`, otherwise logs `String(error)`
+ */
 function logError(error: unknown): void {
   if (error instanceof Error) {
     console.error(error.stack ?? error.message);
@@ -319,25 +359,59 @@ function logError(error: unknown): void {
   console.error(String(error));
 }
 
+/**
+ * Extracts the `id` property as a string from a record-like value.
+ *
+ * @param value - The value to inspect for a string `id` property
+ * @returns The `id` string when present and a string, `undefined` otherwise
+ */
 function extractId(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   const idValue = value.id;
   return typeof idValue === 'string' ? idValue : undefined;
 }
 
+/**
+ * Checks whether a value is a non-null object.
+ *
+ * @returns `true` if `value` is an object and not `null`, `false` otherwise.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Delays execution for the specified number of milliseconds.
+ *
+ * @param ms - Number of milliseconds to wait
+ * @returns `void` after the specified delay
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Compute the ISO 8601 timestamp for the date/time a given number of days ago.
+ *
+ * @param days - Number of days before the current time
+ * @returns An ISO 8601 timestamp representing the date/time exactly `days` days before now
+ */
 function daysAgoISO(days: number): string {
   const msInDay = 86_400_000;
   return new Date(Date.now() - days * msInDay).toISOString();
 }
 
+/**
+ * Validates cart cleanup configuration and throws an Error for any invalid field.
+ *
+ * @param options - Cart cleanup configuration to validate
+ * @throws If `guestAgeDays` is not a positive number.
+ * @throws If `emptyAgeDays` is provided and is not a positive integer.
+ * @throws If `archivedAgeDays` is provided and is not a positive integer.
+ * @throws If `batchSize` is not a positive integer.
+ * @throws If `sleepMs` is not a non-negative integer.
+ * @throws If `maxDelete` is provided and is not a positive integer.
+ */
 function validateOptions(options: CartCleanupOptions): void {
   if (!Number.isFinite(options.guestAgeDays) || options.guestAgeDays <= 0) {
     throw new Error('guestAgeDays must be a positive number.');
