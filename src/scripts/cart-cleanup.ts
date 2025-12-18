@@ -89,10 +89,9 @@ async function main(): Promise<void> {
 }
 
 /**
- * Logs an error to the console. If the error is an Error instance,
- * logs its stack trace or message. Otherwise, converts it to a string.
- * @param {unknown} error - The error to log
- * @returns {void}
+ * Log an error to the console prioritizing an Error's stack trace when available.
+ *
+ * @param error - The value to log; if an Error, its `stack` or `message` is printed, otherwise the value is converted to a string.
  */
 function logError(error: unknown): void {
   if (error instanceof Error) {

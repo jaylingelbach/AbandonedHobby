@@ -52,6 +52,20 @@ type StopSignal = {
   shouldStop: () => boolean;
 };
 
+/**
+ * Runs a cart cleanup job that removes carts matching configured rules and produces a summary of the run.
+ *
+ * The function validates the provided options, builds cleanup rules (guest carts and optionally empty/archived carts
+ * based on age thresholds), counts matches per rule, and — unless `options.dryRun` is true — deletes matching carts
+ * in batches. Per-rule errors are recorded and logged while allowing the job to continue for remaining rules.
+ *
+ * @param options - Configuration for the cleanup job (includes `dryRun`, age thresholds like `guestAgeDays`,
+ *   optional `emptyAgeDays` and `archivedAgeDays`, and batching controls such as `batchSize`, `sleepMs`, and
+ *   optional `maxDelete`).
+ * @param stopSignal - Optional stop signal consulted between batches to allow a graceful, early shutdown.
+ * @returns A `CartCleanupResult` containing `dryRun`, `startedAt` and `finishedAt` timestamps, an array of per-rule
+ *   `results` (description, matched, deleted, errorCount), aggregated `totalMatched` and `totalDeleted`, and a
+ *   boolean `hadErrors` indicating whether any rule failed.
 export async function runCartCleanupJob(
   options: CartCleanupOptions,
   stopSignal?: StopSignal
@@ -147,6 +161,15 @@ export async function runCartCleanupJob(
   };
 }
 
+/**
+ * Build cleanup rules for cart deletion based on age thresholds.
+ *
+ * @param options - Configuration for which cleanup rules to generate.
+ * @param options.guestAgeDays - Age in days for guest carts to target.
+ * @param options.emptyAgeDays - If provided and greater than 0, include a rule for carts with zero items older than this many days.
+ * @param options.archivedAgeDays - If provided and greater than 0, include a rule for carts with status `'archived'` older than this many days.
+ * @returns An array of CleanupRule objects describing the cart selection criteria to apply during cleanup.
+ */
 export function buildCleanupRules(options: {
   guestAgeDays: number;
   emptyAgeDays?: number;
@@ -195,6 +218,12 @@ export function buildCleanupRules(options: {
   return cleanupRules;
 }
 
+/**
+ * Initializes and returns a configured Payload instance.
+ *
+ * @returns The initialized Payload instance.
+ * @throws The error encountered while initializing Payload (for example, config, environment, or database connection failure).
+ */
 async function initPayload() {
   try {
     return await getPayload({ config });
@@ -210,6 +239,14 @@ async function initPayload() {
   }
 }
 
+/**
+ * Deletes matching cart documents in repeated batches until the query is exhausted, a stop signal or max-delete is reached, or no further progress can be made.
+ *
+ * @param payload - Initialized Payload instance used to query and delete cart documents.
+ * @param where - Query used to select carts to delete.
+ * @param options - Batch controls: `batchSize`, `sleepMs`, and optional `maxDelete` limit.
+ * @param stopSignal - Optional graceful shutdown signal; when `shouldStop()` returns `true`, the function finishes and returns the current total.
+ * @returns The total number of cart documents successfully deleted.
 async function deleteWhereInBatches(
   payload: Awaited<ReturnType<typeof getPayload>>,
   where: Where,
@@ -311,6 +348,11 @@ async function deleteWhereInBatches(
   }
 }
 
+/**
+ * Logs an error value to stderr, emitting an error stack if available.
+ *
+ * @param error - The value to log; if it's an `Error` the stack (or message) is written, otherwise the value is stringified and logged
+ */
 function logError(error: unknown): void {
   if (error instanceof Error) {
     console.error(error.stack ?? error.message);
@@ -319,25 +361,59 @@ function logError(error: unknown): void {
   console.error(String(error));
 }
 
+/**
+ * Retrieves the string `id` property from an object if present.
+ *
+ * @param value - The value to read an `id` property from
+ * @returns The `id` string when present, `undefined` otherwise
+ */
 function extractId(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   const idValue = value.id;
   return typeof idValue === 'string' ? idValue : undefined;
 }
 
+/**
+ * Type guard that determines whether a value is a non-null object.
+ *
+ * @returns `true` if `value` is a non-null object, `false` otherwise.
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Pauses execution for the specified number of milliseconds.
+ *
+ * @param ms - The delay duration in milliseconds
+ * @returns `void`
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Produce an ISO 8601 timestamp for the time that is `days` days before now.
+ *
+ * @param days - Number of days to subtract from the current time; may be fractional or negative to compute a future timestamp
+ * @returns An ISO 8601 string representing the computed timestamp
+ */
 function daysAgoISO(days: number): string {
   const msInDay = 86_400_000;
   return new Date(Date.now() - days * msInDay).toISOString();
 }
 
+/**
+ * Validates cleanup job configuration and throws if any numeric option is out of the accepted range.
+ *
+ * @param options - The CartCleanupOptions to validate (must include positive guestAgeDays, positive integer batchSize, non-negative integer sleepMs; optional numeric fields are validated if present).
+ * @throws Error if `guestAgeDays` is not a positive number.
+ * @throws Error if `emptyAgeDays` is provided and is not a positive integer.
+ * @throws Error if `archivedAgeDays` is provided and is not a positive integer.
+ * @throws Error if `batchSize` is not a positive integer.
+ * @throws Error if `sleepMs` is not a non-negative integer.
+ * @throws Error if `maxDelete` is provided and is not a positive integer.
+ */
 function validateOptions(options: CartCleanupOptions): void {
   if (!Number.isFinite(options.guestAgeDays) || options.guestAgeDays <= 0) {
     throw new Error('guestAgeDays must be a positive number.');

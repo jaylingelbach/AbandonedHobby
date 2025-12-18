@@ -4,6 +4,12 @@ import { runCartCleanupJob } from '@/scripts/cart-cleanup-job';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Validates that the incoming request carries the expected cron secret in its Authorization header.
+ *
+ * @param request - The incoming HTTP request to check.
+ * @returns `true` if the Authorization header exactly matches `Bearer <CRON_SECRET>` (with `CRON_SECRET` taken from the environment), `false` otherwise or if `CRON_SECRET` is not set.
+ */
 function isAuthorized(request: Request): boolean {
   const expected = process.env.CRON_SECRET;
   if (!expected) return false;
@@ -12,6 +18,13 @@ function isAuthorized(request: Request): boolean {
   return header === `Bearer ${expected}`;
 }
 
+/**
+ * Parse an environment variable into a finite number and enforce an optional minimum.
+ *
+ * @param name - The environment variable name to read.
+ * @param min - Optional minimum allowed value; values less than `min` are treated as missing.
+ * @returns The parsed numeric value, or `undefined` if the variable is not set, not a finite number, or is less than `min`.
+ */
 function parseEnvNumber(name: string, min?: number): number | undefined {
   const raw = process.env[name];
   if (!raw) return undefined;
@@ -27,6 +40,20 @@ function parseEnvNumber(name: string, min?: number): number | undefined {
   return parsed;
 }
 
+/**
+ * Handles the cron cart cleanup GET route.
+ *
+ * Validates a Bearer token in the request's Authorization header against the `CRON_SECRET` environment
+ * variable. If authorized, reads cleanup configuration from environment variables, runs the cart cleanup
+ * job (not a dry run), and returns the job result.
+ *
+ * @param request - Incoming request. Must include `Authorization: Bearer <CRON_SECRET>`.
+ * @returns A NextResponse with JSON `{ ok: boolean, result?: object }` and HTTP status:
+ *          `401` when unauthorized,
+ *          `200` when cleanup completed without errors,
+ *          `207` when there were errors but some deletions succeeded,
+ *          `500` when cleanup failed completely or a fatal error occurred.
+ */
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ ok: false }, { status: 401 });
