@@ -17,6 +17,7 @@ function parseEnvNumber(name: string, min?: number): number | undefined {
   if (!raw) return undefined;
   const parsed = Number(raw);
   if (!Number.isFinite(parsed)) return undefined;
+  // If value is below minimum, ignore it and let the caller use its default
   if (min !== undefined && parsed < min) {
     console.warn(
       `[cron/cart-cleanup] ${name}=${parsed} is below minimum ${min}, ignoring`
@@ -50,7 +51,12 @@ export async function GET(request: Request) {
       maxDelete
     });
 
-    const status = result.hadErrors ? 500 : 200;
+    // Return 500 only if no deletions succeeded; partial failures get 207
+    const status = result.hadErrors
+      ? result.totalDeleted > 0
+        ? 207
+        : 500
+      : 200;
     return NextResponse.json({ ok: !result.hadErrors, result }, { status });
   } catch (error: unknown) {
     console.error('[cron/cart-cleanup] Fatal error');
