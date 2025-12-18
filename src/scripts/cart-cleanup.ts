@@ -47,9 +47,11 @@ if (batchSize <= 0) {
   throw new Error('batch-size must be a positive integer.');
 }
 
+let shuttingDown = false;
 process.on('SIGINT', () => {
   console.warn('[cart-cleanup] Received SIGINT (Ctrl+C). Exiting…');
   process.exitCode = 130; // standard “terminated by Ctrl+C”
+  shuttingDown = true;
 });
 
 await main();
@@ -174,6 +176,12 @@ async function deleteWhereInBatches(
   let deletedTotal = 0;
 
   while (true) {
+    if (shuttingDown) {
+      console.warn(
+        `[cart-cleanup] Shutdown requested. Stopping after ${deletedTotal} deletions.`
+      );
+      return deletedTotal;
+    }
     if (
       typeof options.maxDelete === 'number' &&
       deletedTotal >= options.maxDelete
