@@ -11,8 +11,6 @@ type CleanupRule = {
   where: Where;
 };
 
-type DocWithId = { id: string };
-
 const args = process.argv.slice(2);
 
 const dryRun = args.includes('--dry-run') || process.env.DRY_RUN === 'true';
@@ -45,55 +43,93 @@ const maxDelete = parsePositiveInt(
 if (guestAgeDays <= 0) {
   throw new Error('guest-age-days must be a positive number of days.');
 }
-
 if (batchSize <= 0) {
   throw new Error('batch-size must be a positive integer.');
 }
 
-const payload = await getPayload({ config });
+process.on('SIGINT', () => {
+  console.warn('[cart-cleanup] Received SIGINT (Ctrl+C). Exiting…');
+  process.exitCode = 130; // standard “terminated by Ctrl+C”
+});
 
-const cleanupRules: CleanupRule[] = [
-  {
-    description: `guest carts older than ${guestAgeDays}d`,
-    where: {
-      and: [
-        { buyer: { exists: false } },
-        { guestSessionId: { exists: true } },
-        { updatedAt: { less_than: daysAgoISO(guestAgeDays) } }
-      ]
+await main();
+
+async function main(): Promise<void> {
+  const payload = await initPayload();
+
+  const cleanupRules: CleanupRule[] = [
+    {
+      description: `guest carts older than ${guestAgeDays}d`,
+      where: {
+        and: [
+          { buyer: { exists: false } },
+          { guestSessionId: { exists: true } },
+          { updatedAt: { less_than: daysAgoISO(guestAgeDays) } }
+        ]
+      }
+    }
+  ];
+
+  if (typeof emptyAgeDays === 'number' && emptyAgeDays > 0) {
+    cleanupRules.push({
+      description: `empty carts older than ${emptyAgeDays}d`,
+      where: {
+        and: [
+          { itemCount: { less_than_equal: 0 } },
+          { updatedAt: { less_than: daysAgoISO(emptyAgeDays) } }
+        ]
+      }
+    });
+  }
+
+  if (typeof archivedAgeDays === 'number' && archivedAgeDays > 0) {
+    cleanupRules.push({
+      description: `archived carts older than ${archivedAgeDays}d`,
+      where: {
+        and: [
+          { status: { equals: 'archived' } },
+          { updatedAt: { less_than: daysAgoISO(archivedAgeDays) } }
+        ]
+      }
+    });
+  }
+
+  for (const rule of cleanupRules) {
+    try {
+      await runCleanup(payload, rule);
+    } catch (error: unknown) {
+      process.exitCode = 1;
+      console.error(
+        `[cart-cleanup] ERROR while running rule "${rule.description}".`
+      );
+      logError(error);
+      // Keep going so one bad rule doesn’t prevent other cleanup.
     }
   }
-];
-
-if (typeof emptyAgeDays === 'number' && emptyAgeDays > 0) {
-  cleanupRules.push({
-    description: `empty carts older than ${emptyAgeDays}d`,
-    where: {
-      and: [
-        { itemCount: { less_than_equal: 0 } },
-        { updatedAt: { less_than: daysAgoISO(emptyAgeDays) } }
-      ]
-    }
-  });
 }
 
-if (typeof archivedAgeDays === 'number' && archivedAgeDays > 0) {
-  cleanupRules.push({
-    description: `archived carts older than ${archivedAgeDays}d`,
-    where: {
-      and: [
-        { status: { equals: 'archived' } },
-        { updatedAt: { less_than: daysAgoISO(archivedAgeDays) } }
-      ]
-    }
-  });
+async function initPayload() {
+  try {
+    return await getPayload({ config });
+  } catch (error: unknown) {
+    process.exitCode = 1;
+    console.error(
+      '[cart-cleanup] ERROR initializing Payload via getPayload().'
+    );
+    console.error(
+      '[cart-cleanup] This usually means config/env/DB connection failed.'
+    );
+    logError(error);
+
+    // Throw to stop main() early; the top-level await will end the process.
+    throw error;
+  }
 }
 
-for (const rule of cleanupRules) {
-  await runCleanup(rule);
-}
-
-async function runCleanup(rule: CleanupRule): Promise<void> {
+async function runCleanup(
+  payload: Awaited<ReturnType<typeof getPayload>>,
+  rule: CleanupRule
+): Promise<void> {
   const { totalDocs } = await payload.count({
     collection: 'carts',
     where: rule.where,
@@ -119,7 +155,7 @@ async function runCleanup(rule: CleanupRule): Promise<void> {
       }.`
   );
 
-  const deletedCount = await deleteWhereInBatches(rule.where, {
+  const deletedCount = await deleteWhereInBatches(payload, rule.where, {
     batchSize,
     sleepMs,
     maxDelete
@@ -131,6 +167,7 @@ async function runCleanup(rule: CleanupRule): Promise<void> {
 }
 
 async function deleteWhereInBatches(
+  payload: Awaited<ReturnType<typeof getPayload>>,
   where: Where,
   options: { batchSize: number; sleepMs: number; maxDelete?: number }
 ): Promise<number> {
@@ -153,10 +190,8 @@ async function deleteWhereInBatches(
         : options.batchSize;
 
     const limit = Math.min(options.batchSize, remainingBudget);
-
     if (limit <= 0) return deletedTotal;
 
-    // Always pull page 1, delete them, repeat. This avoids paging drift as we delete.
     const result = await payload.find({
       collection: 'carts',
       where,
@@ -164,7 +199,7 @@ async function deleteWhereInBatches(
       page: 1,
       depth: 0,
       overrideAccess: true,
-      sort: 'updatedAt' // deterministic-ish; optional but nice
+      sort: 'updatedAt'
     });
 
     const docsUnknown: unknown = result.docs;
@@ -174,9 +209,7 @@ async function deleteWhereInBatches(
       .map((doc) => extractId(doc))
       .filter((id): id is string => typeof id === 'string' && id.length > 0);
 
-    if (ids.length === 0) {
-      return deletedTotal;
-    }
+    if (ids.length === 0) return deletedTotal;
 
     const deleteRes = await payload.delete({
       collection: 'carts',
@@ -203,13 +236,21 @@ async function deleteWhereInBatches(
     );
 
     if (errorCount) {
-      console.error('Delete errors:', errorsUnknown);
+      console.error('[cart-cleanup] Delete errors:', errorsUnknown);
     }
 
     if (options.sleepMs > 0) {
       await sleep(options.sleepMs);
     }
   }
+}
+
+function logError(error: unknown): void {
+  if (error instanceof Error) {
+    console.error(error.stack ?? error.message);
+    return;
+  }
+  console.error(String(error));
 }
 
 function extractId(value: unknown): string | undefined {
