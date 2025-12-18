@@ -4,6 +4,12 @@ import { runCartCleanupJob } from '@/scripts/cart-cleanup-job';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
+/**
+ * Validate that the incoming request carries the CRON secret in the Authorization header.
+ *
+ * @param request - HTTP request whose `Authorization` header will be checked
+ * @returns `true` if the `Authorization` header equals `Bearer {CRON_SECRET}`, `false` otherwise (also `false` if `CRON_SECRET` is not set)
+ */
 function isAuthorized(request: Request): boolean {
   const expected = process.env.CRON_SECRET;
   if (!expected) return false;
@@ -12,6 +18,13 @@ function isAuthorized(request: Request): boolean {
   return header === `Bearer ${expected}`;
 }
 
+/**
+ * Read and validate a numeric environment variable.
+ *
+ * @param name - Environment variable name to read
+ * @param min - Optional minimum allowed value; values less than `min` are treated as absent
+ * @returns The parsed numeric value, or `undefined` if the variable is not set, not a finite number, or below `min`
+ */
 function parseEnvNumber(name: string, min?: number): number | undefined {
   const raw = process.env[name];
   if (!raw) return undefined;
@@ -27,6 +40,16 @@ function parseEnvNumber(name: string, min?: number): number | undefined {
   return parsed;
 }
 
+/**
+ * Handles an authorized cron-triggered cart cleanup and responds with JSON status.
+ *
+ * @param request - Incoming HTTP request; must include `Authorization: Bearer <CRON_SECRET>` to be authorized.
+ * @returns JSON response with shape `{ ok: boolean, result?: any }`. Responses:
+ * - 401 when the request is not authorized.
+ * - 200 when cleanup completed without errors.
+ * - 207 when some deletions succeeded but there were errors.
+ * - 500 when cleanup failed entirely or an unexpected error occurred (body will be `{ ok: false }`).
+ */
 export async function GET(request: Request) {
   if (!isAuthorized(request)) {
     return NextResponse.json({ ok: false }, { status: 401 });

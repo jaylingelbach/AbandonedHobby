@@ -49,6 +49,11 @@ process.on('SIGINT', () => {
 
 await main();
 
+/**
+ * Runs the cart cleanup job with the configured options, logs per-rule summaries, and sets the process exit code to 1 if the job reports errors or an unexpected error occurs.
+ *
+ * Logs dry-run summaries when dry run is enabled; otherwise logs matched/deleted/error metrics for each cleanup rule.
+ */
 async function main(): Promise<void> {
   try {
     const result = await runCartCleanupJob(
@@ -89,10 +94,11 @@ async function main(): Promise<void> {
 }
 
 /**
- * Logs an error to the console. If the error is an Error instance,
- * logs its stack trace or message. Otherwise, converts it to a string.
- * @param {unknown} error - The error to log
- * @returns {void}
+ * Log an error value to the console.
+ *
+ * Logs the error's stack trace when available; otherwise logs the error's message or the value converted to a string.
+ *
+ * @param error - The error value to log; may be an Error or any other type
  */
 function logError(error: unknown): void {
   if (error instanceof Error) {
