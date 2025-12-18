@@ -640,6 +640,7 @@ export function buildCartSummaryDTO(carts: Cart[]): CartSummaryDTO {
  *  - `cartsScanned`: total number of carts inspected,
  *  - `itemsRemovedByProductId`: count of items removed because their product ID was in `missingProductIds`,
  *  - `itemsRemovedMalformed`: count of items removed because they were malformed (missing product reference)
+ *  -  An example of this being used is in checkout-view. if product(s) return NOT_FOUND this prunes those products from the cart.
  */
 export function pruneMissingOrMalformed(
   allCarts: Cart[],

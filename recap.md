@@ -6164,131 +6164,40 @@ src/collections/Carts.ts, src/payload.config.ts
 - tsconfig.json
   - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
 
-# Cart - Remove local store 12/17/25
+# Cart cleanup script 12/17/25
 
 ## Walkthrough
 
-- Moves cart management from a client-side Zustand store and scope utilities to server-driven cart operations via new server hooks and procedures; adds global-summary invalidation and a bulk archive mutation; removes client-side cart store, scope helpers, and related hooks/components.
-
-## Refactor
-
-- Cart management moved from client persistence to server-driven operations; many client-side cart utilities and stores removed.
-- Checkout/cart UI simplified and tenant-scoped prop removed.
-
-### New Features
-
-- Added server-side cart operations including summary-refreshing mutations and a bulk "clear all carts for identity" action (sync + async).
-
-## Chores
-
-- Server utilities updated to support cart archival; miscellaneous cleanup and formatting fixes.
-
-## File changes
-
-### Server cart hook & cache invalidation
-
-- src/modules/cart/hooks/use-server-cart.ts
-  - Added useServerCart(tenantSlug?: string) with optional slug guarding, getSummaryOptions, ensure-tenant checks, sync/async mutation wrappers, and explicit invalidation of global summary after per-tenant mutations.
-
-### Server procedures & utils (archive / clear-all)
-
-- src/modules/cart/server/procedures.ts
-- src/modules/cart/server/utils.ts
-  - Added clearAllCartsForIdentity mutation (archives carts) and new exported archiveCart(ctx, cartId); removed unused asId import.
-
-### New hook: clear-all for identity
-
-- src/modules/cart/hooks/use-clear-all-carts-for-identity.ts
-  - New useClearAllCartsForIdentity() hook exposing sync/async triggers for clearAllCartsForIdentity with cache invalidation for active-carts and global summary keys.
-
-### Removed client-side cart scope utilities (client + server)
-
-- src/modules/checkout/hooks/cart-scope.ts
-- src/modules/checkout/server/cart-scope-server.ts
-  - Deleted client & server cart-scope modules and exported constants (DEFAULT_TENANT, ANON_PREFIX, DEVICE_ID_KEY) and scope builders.
-
-### Removed client cart hooks & badge utilities
-
-- src/modules/checkout/hooks/use-cart.ts
-- src/modules/checkout/hooks/utils.ts
-  - Removed useCart, useAllTenantCarts, useCartBadgeCount, and selectGlobalCartItemCount (client-side cart hooks and badge/global-count helpers).
-
-### Removed client cart store & store utils
-
-- src/modules/checkout/store/use-cart-store.ts
-- src/modules/checkout/store/utils.ts
-  - Deleted Zustand cart store, persistence/migrations, BroadcastChannel sync, and utilities (tenant normalization, device ID, deriveUserKey, collapseCompositeTenantKeys).
-
-### Checkout & confirmation UI switched to server flow
-
-- src/modules/checkout/ui/views/checkout-view.tsx
-- src/modules/checkout/ui/views/order-confirmation-view.tsx
-  - Replaced client-store interactions with useServerCart and useClearAllCartsForIdentity, removed local stash/migration/clear logic, and rely on server-side state for post-order behavior.
-
-### Checkout button & CartButton adjustments
-
-- src/modules/checkout/ui/components/checkout-button.tsx
-- src/modules/products/ui/components/cart-button.tsx
-  - Removed tenantSlug prop from CheckoutButton; removed session/TRPC migration effects from CartButton; both now use server-driven cart hooks.
-
-### Navbar import update
-
-- src/modules/tenants/ui/components/navbar.tsx
-  - Replaced dynamic import of CheckoutButton with a static import and updated usage to prop-less CheckoutButton.
-
-### Misc / manifest & docs
-
-- package.json, recap.md
-  - Recap/docs updated; manifest unchanged beyond module edits.
-
-# Cart - Checkout from server 12/17/25
-
-## Walthrough
-
-- This PR centralizes the TenantCheckoutGroup type into the cart module, updates price handling for analytics, adds computeGroupTotals and analytics tracking at checkout start/completion/error, introduces cart-clearing after confirmation, and renames/shifts per-tenant shipping fields to flatFeeShippingCents.
+- Adds a new TypeScript cart cleanup script, updates package.json scripts and Next.js version, and expands a JSDoc note in cart utilities. The cleanup script supports dry-run, batched deletions, CLI/env configuration, and removes stale guest/empty/archived carts via the Payload CMS API.
 
 ## New Features
 
-- Added per-group checkout analytics (checkoutStarted/checkoutCompleted) and a utility to compute per-group totals.
-- Exposed grand shipping and grand total values in multi-tenant checkout data.
-- Tenant checkout sections now accept busy state and a checkout action callback.
+- Added a cart cleanup command (dry-run, batch processing, configurable age-based rules) and a corresponding package script.
 
-## Bug Fixes
+## Chores
 
-- Improved analytics/error tracking without blocking checkout; reports checkout confirmation errors.
+- Removed two maintenance scripts.
+- Updated Next.js to a newer patch version.
 
-## Improvements
+## Documentation
 
-- Renamed/shaped per-tenant shipping field for clearer totals; automatic cart-clear flow with user-facing error message.
+- Clarified cart pruning documentation and fixed file formatting.
 
 ## File changes
 
-### Cart server types & small utils
+### NPM Script Configuration
 
-- src/modules/cart/server/types.ts, src/modules/cart/server/utils.ts
-  - Added exported TenantCheckoutGroup type (tenant metadata, products, quantities, totals, per-item shipping/flags). Updated imports in utils to include the new type.
+- package.json
+  - Removed scripts: send:test, migrate:media.
+  - Added script: cleanup:carts.
+  - Bumped dependency: next ^15.4.8 → ^15.4.10.
 
-### Checkout analytics core
+### Cart Utilities Documentation
 
-- src/modules/checkout/analytics/cart-analytics.ts
-  - Switched line item amount shape from unitAmountCents to price; added usdNumberToCents conversion and compute of priceCents for subtotal/analytics. Updated CartLineForAnalytics interface accordingly.
+- src/modules/cart/server/utils.ts
+  - Expanded JSDoc for pruneMissingOrMalformed with an example noting NOT_FOUND items are pruned. Added trailing newline.
 
-### Multi-tenant checkout data hook
+### Cart Cleanup Automation
 
-- src/modules/checkout/hooks/use-multi-tenant-checkout-data.ts
-  - Replaced local TenantCheckoutGroup declaration with import from cart types. Added grandShippingCents and grandTotalCents; renamed per-group shippingCents → flatFeeShippingCents.
-
-### Checkout view + utilities
-
-- src/modules/checkout/ui/views/checkout-view.tsx, src/modules/checkout/ui/views/utils.ts, src/modules/checkout/ui/views/types.ts
-  - Introduced computeGroupTotals(group) utility and CheckoutGroup type. Updated checkout view to import TenantCheckoutGroup, computeGroupTotals, and analytics track; added pre-purchase checkoutStarted analytics with per-group totals.
-
-### Tenant checkout section (UI)
-
-- src/modules/checkout/ui/views/tenant-checkout-section.tsx
-  - TenantCheckoutSection props extended to accept isBusy and onCheckoutAction(group). Import path for TenantCheckoutGroup updated. Uses flatFeeShippingCents instead of shippingCents.
-
-### Order confirmation view (UI)
-
-- src/modules/checkout/ui/views/order-confirmation-view.tsx
-  - Added post-confirmation cart-clearing via useClearAllCartsForIdentity, tracking checkoutCompleted on success and checkoutConfirmationError on TRPC error, with state/refs to avoid duplicate events and UI messaging for cart-clear failures.
+- src/scripts/cart-cleanup.ts New script that connects to Payload CMS and deletes stale guest carts, empty carts, and archived carts.
+- Supports CLI/env flags, dry-run, batched deletions ordered by updatedAt, validation helpers, maxDelete/sleep controls, and logging/error handling.
