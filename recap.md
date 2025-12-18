@@ -6210,10 +6210,13 @@ src/collections/Carts.ts, src/payload.config.ts
 
 ## New Features
 
-- Automated daily cart cleanup system now runs at 07:00 UTC to remove stale carts
-- Targets guest carts, empty carts, and archived carts with configurable age thresholds
-- Supports dry-run testing mode, batched deletion, and comprehensive error handling
-- Results include detailed per-cart-type metrics and processing summaries
+- Automated daily cart cleanup runs at 07:00 UTC via a secured API endpoint (requires secret token)
+- Cleans guest, empty, and archived carts with configurable age thresholds, batched deletions, and dry‑run mode
+- Returns clear status codes (success, partial, or failure) and reports per‑type metrics and summaries
+
+## Chores
+
+- CLI cleanup now delegates to the centralized job workflow for consistent behavior and logging
 
 ## File changes
 
