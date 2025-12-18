@@ -11,8 +11,12 @@ type CleanupRule = {
   where: Where;
 };
 
+type DocWithId = { id: string };
+
 const args = process.argv.slice(2);
+
 const dryRun = args.includes('--dry-run') || process.env.DRY_RUN === 'true';
+
 const guestAgeDays =
   parseDays('guest-age-days', process.env.GUEST_CART_MAX_AGE_DAYS, 30) ?? 30;
 const emptyAgeDays = parseDays(
@@ -24,8 +28,26 @@ const archivedAgeDays = parseDays(
   process.env.ARCHIVED_CART_MAX_AGE_DAYS
 );
 
+const batchSize =
+  parsePositiveInt('batch-size', process.env.CLEANUP_BATCH_SIZE, 250) ?? 250;
+
+const sleepMs = parseNonNegativeInt(
+  'sleep-ms',
+  process.env.CLEANUP_SLEEP_MS,
+  0
+);
+
+const maxDelete = parsePositiveInt(
+  'max-delete',
+  process.env.CLEANUP_MAX_DELETE
+);
+
 if (guestAgeDays <= 0) {
   throw new Error('guest-age-days must be a positive number of days.');
+}
+
+if (batchSize <= 0) {
+  throw new Error('batch-size must be a positive integer.');
 }
 
 const payload = await getPayload({ config });
@@ -72,36 +94,136 @@ for (const rule of cleanupRules) {
 }
 
 async function runCleanup(rule: CleanupRule): Promise<void> {
+  const { totalDocs } = await payload.count({
+    collection: 'carts',
+    where: rule.where,
+    overrideAccess: true
+  });
+
   if (dryRun) {
-    const { totalDocs } = await payload.count({
-      collection: 'carts',
-      where: rule.where,
-      overrideAccess: true
-    });
     console.log(
       `[dry-run] ${rule.description}: ${totalDocs} carts would be deleted.`
     );
     return;
   }
 
-  const res = await payload.delete({
-    collection: 'carts',
-    where: rule.where,
-    overrideAccess: true,
-    depth: 0
+  if (totalDocs === 0) {
+    console.log(`No carts matched for ${rule.description}.`);
+    return;
+  }
+
+  console.log(
+    `Starting cleanup: ${rule.description} (estimated ${totalDocs} carts). ` +
+      `Batch size: ${batchSize}${sleepMs ? `, sleep: ${sleepMs}ms` : ''}${
+        typeof maxDelete === 'number' ? `, max-delete: ${maxDelete}` : ''
+      }.`
+  );
+
+  const deletedCount = await deleteWhereInBatches(rule.where, {
+    batchSize,
+    sleepMs,
+    maxDelete
   });
 
-  const docs = res.docs;
-  const errors = res.errors;
+  console.log(
+    `Finished: deleted ${deletedCount} carts for ${rule.description}.`
+  );
+}
 
-  console.log(`Deleted ${docs.length} ${rule.description}.`);
+async function deleteWhereInBatches(
+  where: Where,
+  options: { batchSize: number; sleepMs: number; maxDelete?: number }
+): Promise<number> {
+  let deletedTotal = 0;
 
-  if (errors.length > 0) {
-    console.error(
-      `${errors.length} errors while deleting ${rule.description}:`,
-      errors
+  while (true) {
+    if (
+      typeof options.maxDelete === 'number' &&
+      deletedTotal >= options.maxDelete
+    ) {
+      console.warn(
+        `Reached max-delete=${options.maxDelete}. Stopping early (deleted ${deletedTotal}).`
+      );
+      return deletedTotal;
+    }
+
+    const remainingBudget =
+      typeof options.maxDelete === 'number'
+        ? Math.max(0, options.maxDelete - deletedTotal)
+        : options.batchSize;
+
+    const limit = Math.min(options.batchSize, remainingBudget);
+
+    if (limit <= 0) return deletedTotal;
+
+    // Always pull page 1, delete them, repeat. This avoids paging drift as we delete.
+    const result = await payload.find({
+      collection: 'carts',
+      where,
+      limit,
+      page: 1,
+      depth: 0,
+      overrideAccess: true,
+      sort: 'updatedAt' // deterministic-ish; optional but nice
+    });
+
+    const docsUnknown: unknown = result.docs;
+    const docs = Array.isArray(docsUnknown) ? docsUnknown : [];
+
+    const ids = docs
+      .map((doc) => extractId(doc))
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    if (ids.length === 0) {
+      return deletedTotal;
+    }
+
+    const deleteRes = await payload.delete({
+      collection: 'carts',
+      where: { id: { in: ids } },
+      overrideAccess: true,
+      depth: 0
+    });
+
+    const deletedThisBatch = Array.isArray(
+      (deleteRes as { docs?: unknown }).docs
+    )
+      ? ((deleteRes as { docs: unknown[] }).docs.length ?? 0)
+      : 0;
+
+    deletedTotal += deletedThisBatch;
+
+    const errorsUnknown = (deleteRes as { errors?: unknown }).errors;
+    const errorCount = Array.isArray(errorsUnknown) ? errorsUnknown.length : 0;
+
+    console.log(
+      `Batch deleted ${deletedThisBatch}/${ids.length}. Total deleted: ${deletedTotal}${
+        errorCount ? ` (errors: ${errorCount})` : ''
+      }.`
     );
+
+    if (errorCount) {
+      console.error('Delete errors:', errorsUnknown);
+    }
+
+    if (options.sleepMs > 0) {
+      await sleep(options.sleepMs);
+    }
   }
+}
+
+function extractId(value: unknown): string | undefined {
+  if (!isRecord(value)) return undefined;
+  const idValue = value.id;
+  return typeof idValue === 'string' ? idValue : undefined;
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 function daysAgoISO(days: number): string {
@@ -114,15 +236,44 @@ function parseDays(
   envValue?: string,
   fallback?: number
 ): number | undefined {
-  const flag = readArg(flagName);
-  const raw = flag ?? envValue;
-  if (raw === undefined || raw === '') {
-    return fallback;
-  }
+  const raw = readArg(flagName) ?? envValue;
+  if (raw === undefined || raw === '') return fallback;
 
   const parsed = Number(raw);
   if (Number.isNaN(parsed)) {
     throw new Error(`Invalid number provided for ${flagName}: ${String(raw)}`);
+  }
+  return parsed;
+}
+
+function parsePositiveInt(
+  flagName: string,
+  envValue?: string,
+  fallback?: number
+): number | undefined {
+  const raw = readArg(flagName) ?? envValue;
+  if (raw === undefined || raw === '') return fallback;
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed <= 0) {
+    throw new Error(`Invalid positive integer for ${flagName}: ${String(raw)}`);
+  }
+  return parsed;
+}
+
+function parseNonNegativeInt(
+  flagName: string,
+  envValue?: string,
+  fallback?: number
+): number {
+  const raw = readArg(flagName) ?? envValue;
+  if (raw === undefined || raw === '') return fallback ?? 0;
+
+  const parsed = Number(raw);
+  if (!Number.isInteger(parsed) || parsed < 0) {
+    throw new Error(
+      `Invalid non-negative integer for ${flagName}: ${String(raw)}`
+    );
   }
   return parsed;
 }
