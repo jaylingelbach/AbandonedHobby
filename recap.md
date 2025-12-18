@@ -6201,3 +6201,20 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/scripts/cart-cleanup.ts New script that connects to Payload CMS and deletes stale guest carts, empty carts, and archived carts.
 - Supports CLI/env flags, dry-run, batched deletions ordered by updatedAt, validation helpers, maxDelete/sleep controls, and logging/error handling.
+
+# Cart - cleanup cron 12/17/25
+
+## Walkthrough
+
+- This PR introduces a scheduled cart cleanup system via a new Next.js API route handler that integrates with Vercel's cron scheduler. It adds a standalone job script with configurable cleanup rules for expired carts, refactors the existing CLI script to delegate to the new job, and defines cron scheduling configuration.
+
+## New Features
+
+- Automated daily cart cleanup system now runs at 07:00 UTC to remove stale carts
+- Targets guest carts, empty carts, and archived carts with configurable age thresholds
+- Supports dry-run testing mode, batched deletion, and comprehensive error handling
+- Results include detailed per-cart-type metrics and processing summaries
+
+## File changes
+
+###
