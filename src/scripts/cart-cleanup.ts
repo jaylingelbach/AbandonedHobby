@@ -6,6 +6,11 @@ import config from '@payload-config';
 
 dotenv.config();
 
+/**
+ * Defines a cleanup rule for cart deletion.
+ * @property {string} description - Human-readable description of what this rule targets
+ * @property {Where} where - Payload query condition that identifies carts to delete
+ */
 type CleanupRule = {
   description: string;
   where: Where;
@@ -50,12 +55,19 @@ if (batchSize <= 0) {
 let shuttingDown = false;
 process.on('SIGINT', () => {
   console.warn('[cart-cleanup] Received SIGINT (Ctrl+C). Exiting…');
-  process.exitCode = 130; // standard “terminated by Ctrl+C”
+  process.exitCode = 130; // standard "terminated by Ctrl+C"
   shuttingDown = true;
 });
 
 await main();
 
+/**
+ * Main entry point for the cart cleanup script.
+ * Initializes Payload, builds cleanup rules based on configuration, and executes
+ * cleanup for each rule. Handles errors gracefully and continues processing
+ * remaining rules if one fails.
+ * @returns {Promise<void>}
+ */
 async function main(): Promise<void> {
   const payload = await initPayload();
 
@@ -105,11 +117,16 @@ async function main(): Promise<void> {
         `[cart-cleanup] ERROR while running rule "${rule.description}".`
       );
       logError(error);
-      // Keep going so one bad rule doesn’t prevent other cleanup.
+      // Keep going so one bad rule doesn't prevent other cleanup.
     }
   }
 }
 
+/**
+ * Initializes and returns a Payload instance.
+ * @returns {Promise<Awaited<ReturnType<typeof getPayload>>>} Configured Payload instance
+ * @throws {Error} If Payload initialization fails (config/env/DB connection issues)
+ */
 async function initPayload() {
   try {
     return await getPayload({ config });
@@ -128,6 +145,14 @@ async function initPayload() {
   }
 }
 
+/**
+ * Executes a single cleanup rule against the carts collection.
+ * In dry-run mode, counts and logs how many carts would be deleted.
+ * In normal mode, deletes matching carts in batches and logs progress.
+ * @param {Awaited<ReturnType<typeof getPayload>>} payload - Payload instance
+ * @param {CleanupRule} rule - The cleanup rule to execute
+ * @returns {Promise<void>}
+ */
 async function runCleanup(
   payload: Awaited<ReturnType<typeof getPayload>>,
   rule: CleanupRule
@@ -168,6 +193,18 @@ async function runCleanup(
   );
 }
 
+/**
+ * Deletes carts matching the given query in batches.
+ * Processes deletions iteratively, respecting batch size, max delete limit,
+ * and sleep intervals. Handles graceful shutdown on SIGINT.
+ * @param {Awaited<ReturnType<typeof getPayload>>} payload - Payload instance
+ * @param {Where} where - Query condition to identify carts to delete
+ * @param {Object} options - Deletion configuration options
+ * @param {number} options.batchSize - Number of carts to delete per batch
+ * @param {number} options.sleepMs - Milliseconds to sleep between batches
+ * @param {number} [options.maxDelete] - Maximum total deletions allowed (optional)
+ * @returns {Promise<number>} Total number of carts deleted
+ */
 async function deleteWhereInBatches(
   payload: Awaited<ReturnType<typeof getPayload>>,
   where: Where,
@@ -253,6 +290,12 @@ async function deleteWhereInBatches(
   }
 }
 
+/**
+ * Logs an error to the console. If the error is an Error instance,
+ * logs its stack trace or message. Otherwise, converts it to a string.
+ * @param {unknown} error - The error to log
+ * @returns {void}
+ */
 function logError(error: unknown): void {
   if (error instanceof Error) {
     console.error(error.stack ?? error.message);
@@ -261,25 +304,53 @@ function logError(error: unknown): void {
   console.error(String(error));
 }
 
+/**
+ * Safely extracts the `id` field from an unknown value.
+ * @param {unknown} value - Value to extract ID from
+ * @returns {string | undefined} The ID if present and valid, otherwise undefined
+ */
 function extractId(value: unknown): string | undefined {
   if (!isRecord(value)) return undefined;
   const idValue = value.id;
   return typeof idValue === 'string' ? idValue : undefined;
 }
 
+/**
+ * Type guard to check if a value is a non-null object.
+ * @param {unknown} value - Value to check
+ * @returns {boolean} True if value is a record (object with string keys)
+ */
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }
 
+/**
+ * Returns a promise that resolves after the specified delay.
+ * @param {number} ms - Number of milliseconds to sleep
+ * @returns {Promise<void>}
+ */
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+/**
+ * Calculates an ISO timestamp for a date N days ago from now.
+ * @param {number} days - Number of days to subtract from current time
+ * @returns {string} ISO 8601 formatted timestamp string
+ */
 function daysAgoISO(days: number): string {
   const msInDay = 86_400_000;
   return new Date(Date.now() - days * msInDay).toISOString();
 }
 
+/**
+ * Parses a number of days from CLI arguments or environment variables.
+ * @param {string} flagName - Name of the CLI flag (without -- prefix)
+ * @param {string} [envValue] - Optional environment variable value
+ * @param {number} [fallback] - Default value if not provided
+ * @returns {number | undefined} Parsed number of days, fallback, or undefined
+ * @throws {Error} If the provided value is not a valid number
+ */
 function parseDays(
   flagName: string,
   envValue?: string,
@@ -295,6 +366,14 @@ function parseDays(
   return parsed;
 }
 
+/**
+ * Parses a positive integer from CLI arguments or environment variables.
+ * @param {string} flagName - Name of the CLI flag (without -- prefix)
+ * @param {string} [envValue] - Optional environment variable value
+ * @param {number} [fallback] - Default value if not provided
+ * @returns {number | undefined} Parsed positive integer, fallback, or undefined
+ * @throws {Error} If the provided value is not a valid positive integer
+ */
 function parsePositiveInt(
   flagName: string,
   envValue?: string,
@@ -310,6 +389,14 @@ function parsePositiveInt(
   return parsed;
 }
 
+/**
+ * Parses a non-negative integer from CLI arguments or environment variables.
+ * @param {string} flagName - Name of the CLI flag (without -- prefix)
+ * @param {string} [envValue] - Optional environment variable value
+ * @param {number} [fallback] - Default value if not provided (defaults to 0)
+ * @returns {number} Parsed non-negative integer or fallback
+ * @throws {Error} If the provided value is not a valid non-negative integer
+ */
 function parseNonNegativeInt(
   flagName: string,
   envValue?: string,
@@ -327,6 +414,12 @@ function parseNonNegativeInt(
   return parsed;
 }
 
+/**
+ * Reads a command-line argument value by flag name.
+ * Supports both `--name=value` and `--name value` formats.
+ * @param {string} name - Flag name to search for (without -- prefix)
+ * @returns {string | undefined} The argument value if found, otherwise undefined
+ */
 function readArg(name: string): string | undefined {
   const withEquals = `--${name}=`;
   const direct = args.find((arg) => arg.startsWith(withEquals));
