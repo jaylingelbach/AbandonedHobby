@@ -333,7 +333,12 @@ function readArg(name: string): string | undefined {
   if (direct) return direct.slice(withEquals.length);
 
   const index = args.indexOf(`--${name}`);
-  if (index !== -1) return args[index + 1];
+  if (index !== -1) {
+    const nextArg = args[index + 1];
+    if (nextArg !== undefined && !nextArg.startsWith('--')) {
+      return nextArg;
+    }
+  }
 
   return undefined;
 }
