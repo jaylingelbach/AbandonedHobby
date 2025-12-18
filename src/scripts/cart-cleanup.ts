@@ -102,45 +102,6 @@ function logError(error: unknown): void {
 }
 
 /**
- * Safely extracts the `id` field from an unknown value.
- * @param {unknown} value - Value to extract ID from
- * @returns {string | undefined} The ID if present and valid, otherwise undefined
- */
-function extractId(value: unknown): string | undefined {
-  if (!isRecord(value)) return undefined;
-  const idValue = value.id;
-  return typeof idValue === 'string' ? idValue : undefined;
-}
-
-/**
- * Type guard to check if a value is a non-null object.
- * @param {unknown} value - Value to check
- * @returns {boolean} True if value is a record (object with string keys)
- */
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null;
-}
-
-/**
- * Returns a promise that resolves after the specified delay.
- * @param {number} ms - Number of milliseconds to sleep
- * @returns {Promise<void>}
- */
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * Calculates an ISO timestamp for a date N days ago from now.
- * @param {number} days - Number of days to subtract from current time
- * @returns {string} ISO 8601 formatted timestamp string
- */
-function daysAgoISO(days: number): string {
-  const msInDay = 86_400_000;
-  return new Date(Date.now() - days * msInDay).toISOString();
-}
-
-/**
  * Parses a number of days from CLI arguments or environment variables.
  * @param {string} flagName - Name of the CLI flag (without -- prefix)
  * @param {string} [envValue] - Optional environment variable value
