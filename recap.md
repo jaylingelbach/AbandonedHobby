@@ -6164,7 +6164,7 @@ src/collections/Carts.ts, src/payload.config.ts
 - tsconfig.json
   - Adds "src/scripts/find-unclosed-braces.mjs" to include array.
 
-# Cart - Remove local store
+# Cart - Remove local store 12/17/25
 
 ## Walkthrough
 
@@ -6240,3 +6240,55 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - package.json, recap.md
   - Recap/docs updated; manifest unchanged beyond module edits.
+
+# Cart - Checkout from server 12/17/25
+
+## Walthrough
+
+- This PR centralizes the TenantCheckoutGroup type into the cart module, updates price handling for analytics, adds computeGroupTotals and analytics tracking at checkout start/completion/error, introduces cart-clearing after confirmation, and renames/shifts per-tenant shipping fields to flatFeeShippingCents.
+
+## New Features
+
+- Added per-group checkout analytics (checkoutStarted/checkoutCompleted) and a utility to compute per-group totals.
+- Exposed grand shipping and grand total values in multi-tenant checkout data.
+- Tenant checkout sections now accept busy state and a checkout action callback.
+
+## Bug Fixes
+
+- Improved analytics/error tracking without blocking checkout; reports checkout confirmation errors.
+
+## Improvements
+
+- Renamed/shaped per-tenant shipping field for clearer totals; automatic cart-clear flow with user-facing error message.
+
+## File changes
+
+### Cart server types & small utils
+
+- src/modules/cart/server/types.ts, src/modules/cart/server/utils.ts
+  - Added exported TenantCheckoutGroup type (tenant metadata, products, quantities, totals, per-item shipping/flags). Updated imports in utils to include the new type.
+
+### Checkout analytics core
+
+- src/modules/checkout/analytics/cart-analytics.ts
+  - Switched line item amount shape from unitAmountCents to price; added usdNumberToCents conversion and compute of priceCents for subtotal/analytics. Updated CartLineForAnalytics interface accordingly.
+
+### Multi-tenant checkout data hook
+
+- src/modules/checkout/hooks/use-multi-tenant-checkout-data.ts
+  - Replaced local TenantCheckoutGroup declaration with import from cart types. Added grandShippingCents and grandTotalCents; renamed per-group shippingCents → flatFeeShippingCents.
+
+### Checkout view + utilities
+
+- src/modules/checkout/ui/views/checkout-view.tsx, src/modules/checkout/ui/views/utils.ts, src/modules/checkout/ui/views/types.ts
+  - Introduced computeGroupTotals(group) utility and CheckoutGroup type. Updated checkout view to import TenantCheckoutGroup, computeGroupTotals, and analytics track; added pre-purchase checkoutStarted analytics with per-group totals.
+
+### Tenant checkout section (UI)
+
+- src/modules/checkout/ui/views/tenant-checkout-section.tsx
+  - TenantCheckoutSection props extended to accept isBusy and onCheckoutAction(group). Import path for TenantCheckoutGroup updated. Uses flatFeeShippingCents instead of shippingCents.
+
+### Order confirmation view (UI)
+
+- src/modules/checkout/ui/views/order-confirmation-view.tsx
+  - Added post-confirmation cart-clearing via useClearAllCartsForIdentity, tracking checkoutCompleted on success and checkoutConfirmationError on TRPC error, with state/refs to avoid duplicate events and UI messaging for cart-clear failures.

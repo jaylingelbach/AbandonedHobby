@@ -24,17 +24,20 @@ import CheckoutBanner from './checkout-banner';
 import TenantCheckoutSection from '@/modules/checkout/ui/views/tenant-checkout-section';
 
 // ─── New multi-tenant hook/types ─────────────────────────────────────────────
-import {
-  TenantCheckoutGroup,
-  useMultiTenantCheckoutData
-} from '@/modules/checkout/hooks/use-multi-tenant-checkout-data';
+import { useMultiTenantCheckoutData } from '@/modules/checkout/hooks/use-multi-tenant-checkout-data';
 import { CheckoutLineInput } from '@/lib/validation/seller-order-validation-types';
 import { TRPCClientError } from '@trpc/client';
 import MessageCard from '@/modules/checkout/ui/views/message-card';
-import { getMissingProductIdsFromError, isTrpcErrorShape } from './utils';
+import {
+  computeGroupTotals,
+  getMissingProductIdsFromError,
+  isTrpcErrorShape
+} from './utils';
 import { usePruneMissingProductsForViewer } from '@/modules/cart/hooks/use-prune-missing-products-for-viewer';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 import { useClearAllCartsForIdentity } from '@/modules/cart/hooks/use-clear-all-carts-for-identity';
+import { track } from '@/lib/analytics';
+import { TenantCheckoutGroup } from '@/modules/cart/server/types';
 
 interface CheckoutViewProps {
   tenantSlug?: string;
@@ -175,6 +178,24 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
         group.quantitiesByProductId[String(product.id)]
       )
     }));
+
+    // 2. Compute analytics totals from the group
+    try {
+      const { totalQuantity, totalCents } = computeGroupTotals(group);
+
+      track('checkoutStarted', {
+        tenantKey: group.tenantKey,
+        tenantSlug: group.tenantSlug,
+        tenantName: group.tenantName,
+        productCount: group.products.length,
+        totalQuantity,
+        totalCents,
+        currency: 'USD'
+      });
+    } catch (error) {
+      console.error('[analytics] Failed to track checkout started:', error);
+      // Continue with checkout even if analytics fails
+    }
 
     cartDebug('checkout group tenant selection', {
       groupTenantKey: group.tenantKey,

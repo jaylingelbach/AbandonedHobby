@@ -1,7 +1,7 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
@@ -10,8 +10,15 @@ import { TRPCClientError } from '@trpc/client';
 import { ArrowLeftIcon, CheckCircle2, ReceiptIcon } from 'lucide-react';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
-import { buildSignInUrl, formatCents, generateTenantURL } from '@/lib/utils';
+import {
+  buildSignInUrl,
+  formatCents,
+  generateTenantURL,
+  getTrpcCode
+} from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
+import { useClearAllCartsForIdentity } from '@/modules/cart/hooks/use-clear-all-carts-for-identity';
+import { track } from '@/lib/analytics';
 
 interface Props {
   sessionId: string;
@@ -92,9 +99,15 @@ function computeFallbackAmounts(order: {
  */
 export default function OrderConfirmationView({ sessionId }: Props) {
   const trpc = useTRPC();
-
+  const { clearAllCartsForIdentityAsync } = useClearAllCartsForIdentity();
   // Gate all protected queries to run ONLY after the component has mounted in the browser.
   const [mounted, setMounted] = useState(false);
+  const [hasClearedCarts, setHasClearedCarts] = useState(false);
+  const [cartClearError, setCartClearError] = useState(false);
+
+  const hasTrackedSuccessRef = useRef(false);
+  const hasTrackedErrorRef = useRef(false);
+
   useEffect(() => setMounted(true), []);
 
   // Confirmation query (protected) — DO NOT run on SSR.
@@ -117,6 +130,82 @@ export default function OrderConfirmationView({ sessionId }: Props) {
       return hasOrders || elapsed > 30_000 ? false : 2_000;
     }
   });
+  // 1) Clear all carts for this identity once confirmation is loaded
+  useEffect(() => {
+    if (!mounted) return;
+    if (hasClearedCarts) return;
+    if (isLoading || isFetching) return;
+    if (error) return;
+    if (!data || !Array.isArray(data.orders) || data.orders.length === 0)
+      return;
+
+    void clearAllCartsForIdentityAsync()
+      .catch((err: unknown) => {
+        setCartClearError(true);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            '[OrderConfirmationView] Failed to clear carts for identity',
+            err
+          );
+        }
+      })
+      .finally(() => {
+        setHasClearedCarts(true);
+      });
+  }, [
+    data,
+    mounted,
+    hasClearedCarts,
+    isLoading,
+    isFetching,
+    error,
+    clearAllCartsForIdentityAsync
+  ]);
+
+  // 2) Analytics - Track success once when we have order data
+  useEffect(() => {
+    if (!data || hasTrackedSuccessRef.current) return;
+
+    const orders = data.orders ?? [];
+    if (!orders.length) return;
+
+    track('checkoutCompleted', {
+      sessionId,
+      orderCount: orders.length,
+      totalCentsAllOrders: orders.reduce(
+        (sum, order) => sum + order.totalCents,
+        0
+      ),
+      orders: orders.map((order) => ({
+        orderId: order.orderId,
+        orderNumber: order.orderNumber,
+        tenantSlug: order.tenantSlug,
+        totalCents: order.totalCents,
+        itemCount: order.items.length,
+        items: order.items.map((item) => ({
+          productId: item.productId,
+          quantity: item.quantity,
+          unitAmountCents: item.unitAmountCents
+        }))
+      }))
+    });
+
+    hasTrackedSuccessRef.current = true;
+  }, [data, sessionId]);
+
+  // 3) Analytics - Track order failures
+
+  useEffect(() => {
+    if (!error || hasTrackedErrorRef.current) return;
+
+    track('checkoutConfirmationError', {
+      sessionId,
+      code: getTrpcCode(error),
+      message: error.message
+    });
+
+    hasTrackedErrorRef.current = true;
+  }, [error, sessionId]);
 
   // Derive values *before* any early return so hooks below stay unconditional.
   const orders = data?.orders ?? [];
@@ -191,6 +280,13 @@ export default function OrderConfirmationView({ sessionId }: Props) {
       </header>
 
       <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10">
+        {hasClearedCarts && cartClearError && (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Your order is confirmed, but we couldn&apos;t clear your cart
+            automatically. If items still appear in your cart later, you can
+            remove them manually.
+          </p>
+        )}
         <div className="space-y-6">
           {orders.map((order) => {
             // Prefer server-authoritative amounts when present; otherwise fallback.

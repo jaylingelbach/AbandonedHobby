@@ -8,7 +8,8 @@ import type {
   CartSummaryDTO,
   CartToUpdate,
   PruneSummary,
-  IdentityForMerge
+  IdentityForMerge,
+  TenantCheckoutGroup
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
