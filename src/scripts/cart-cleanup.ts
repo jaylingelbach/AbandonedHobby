@@ -77,13 +77,14 @@ async function main(): Promise<void> {
       }
     }
 
-    if (result.hadErrors) {
+   if (result.hadErrors) {
+    if (process.exitCode === undefined) {
       process.exitCode = 1;
     }
-  } catch (error: unknown) {
+   }
+ } catch (error: unknown) {
+  if (process.exitCode === undefined) {
     process.exitCode = 1;
-    console.error('[cart-cleanup] Fatal error. Exiting non-zero.');
-    logError(error);
   }
 }
 
