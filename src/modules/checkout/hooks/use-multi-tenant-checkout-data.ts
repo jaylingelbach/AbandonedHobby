@@ -14,30 +14,7 @@ import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { getTenantNameSafe, getTenantSlugSafe } from '@/lib/utils';
 import { TenantCartSummary } from './types';
 import { FALLBACK_TENANT_NAME } from '@/constants';
-
-export interface TenantCheckoutGroup {
-  /** Normalized tenant key */
-  tenantKey: string | null;
-  /** Slug resolved from the product tenant relationship, when available */
-  tenantSlug: string | null;
-  /** Human-friendly name for the shop */
-  tenantName: string;
-  /** Products in this tenant’s cart */
-  products: Product[];
-  /** Quantities for each product, by id */
-  quantitiesByProductId: Record<string, number>;
-  /** Subtotal (items only) in cents */
-  subtotalCents: number;
-  /** Shipping total in cents (flat-fee portion only) */
-  shippingCents: number;
-  /** Subtotal + shipping in cents */
-  totalCents: number;
-  /** Per-item shipping breakdown for this tenant */
-  breakdownItems: CartItemForShipping[];
-  /** True when any item in this group uses “calculated” shipping */
-  hasCalculatedShipping: boolean;
-}
-
+import { TenantCheckoutGroup } from '@/modules/cart/server/types';
 export interface MultiTenantCheckoutData {
   groups: TenantCheckoutGroup[];
   grandSubtotalCents: number;
@@ -241,7 +218,7 @@ export function useMultiTenantCheckoutData(): {
         products: productsForTenant,
         quantitiesByProductId,
         subtotalCents,
-        shippingCents,
+        flatFeeShippingCents: shippingCents,
         totalCents,
         breakdownItems,
         hasCalculatedShipping
@@ -257,7 +234,7 @@ export function useMultiTenantCheckoutData(): {
   );
 
   const grandShippingCents = useMemo(
-    () => groups.reduce((sum, group) => sum + group.shippingCents, 0),
+    () => groups.reduce((sum, group) => sum + group.flatFeeShippingCents, 0),
     [groups]
   );
 

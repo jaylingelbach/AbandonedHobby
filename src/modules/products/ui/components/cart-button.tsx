@@ -1,13 +1,8 @@
 'use client';
 
-import { useEffect } from 'react';
-import { useQuery } from '@tanstack/react-query';
-
 import { cn } from '@/lib/utils';
-import { useTRPC } from '@/trpc/client';
 import { Button } from '@/components/ui/button';
 
-import { useCartStore } from '@/modules/checkout/store/use-cart-store';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
 
@@ -17,8 +12,6 @@ interface Props {
   quantity: number;
 }
 export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
-  const trpc = useTRPC();
-  const { data: session } = useQuery(trpc.auth.session.queryOptions());
   const { cart, removeItem, setQuantity, isSettingQuantity, isRemovingItem } =
     useServerCart(tenantSlug);
 
@@ -27,27 +20,6 @@ export const CartButton = ({ tenantSlug, productId, quantity }: Props) => {
   const isInCart = Boolean(line);
 
   const effectiveQuantity = readQuantityOrDefault(quantity, 1);
-
-  useEffect(() => {
-    if (!session?.user?.id) return;
-    const userId = session.user.id;
-    const run = () => {
-      const state = useCartStore.getState();
-      if (state.currentUserKey.startsWith('anon:')) {
-        try {
-          state.migrateAnonToUser(tenantSlug, userId);
-        } catch (error) {
-          console.error('Cart migration failed:', error);
-          state.setCurrentUserKey?.(userId);
-        }
-      } else {
-        state.setCurrentUserKey?.(userId);
-      }
-    };
-    const unsubscribe = useCartStore.persist?.onFinishHydration?.(run);
-    if (useCartStore.persist?.hasHydrated?.()) run();
-    return () => unsubscribe?.();
-  }, [tenantSlug, session?.user?.id]);
 
   return (
     <Button

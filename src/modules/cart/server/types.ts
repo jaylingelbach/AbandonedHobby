@@ -1,4 +1,4 @@
-import { ShippingMode } from '@/modules/orders/types';
+import { CartItemForShipping, ShippingMode } from '@/modules/orders/types';
 import { Media, Product } from '@/payload-types';
 
 // union for identity helper return
@@ -97,3 +97,26 @@ export type IdentityForMerge = {
   userId: string;
   guestSessionId: string | null;
 };
+
+export interface TenantCheckoutGroup {
+  /** Normalized tenant key */
+  tenantKey: string | null;
+  /** Slug resolved from the product tenant relationship, when available */
+  tenantSlug: string | null;
+  /** Human-friendly name for the shop */
+  tenantName: string;
+  /** Products in this tenant’s cart */
+  products: Product[];
+  /** Quantities for each product, by id */
+  quantitiesByProductId: Record<string, number>;
+  /** Subtotal (items only) in cents */
+  subtotalCents: number;
+  /** Shipping total in cents (flat-fee portion only) */
+  flatFeeShippingCents: number;
+  /** Subtotal + shipping in cents */
+  totalCents: number;
+  /** Per-item shipping breakdown for this tenant */
+  breakdownItems: CartItemForShipping[];
+  /** True when any item in this group uses “calculated” shipping */
+  hasCalculatedShipping: boolean;
+}

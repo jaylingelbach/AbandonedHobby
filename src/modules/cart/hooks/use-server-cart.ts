@@ -13,15 +13,24 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
  *  - the raw mutation objects: `adjustQuantityMutation`, `setQuantityMutation`, `removeItemMutation`, `clearCartMutation`
  *  - mutation state flags for UI: `isAdjustingQuantity`, `isSettingQuantity`, `isRemovingItem`, `isClearingCart`
  */
-export function useServerCart(tenantSlug: string) {
+export function useServerCart(tenantSlug?: string) {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const hasTenant = Boolean(tenantSlug);
   // 1) Build queryOptions once so we can reuse queryKey and queryFn
-  const getActiveOptions = trpc.cart.getActive.queryOptions({ tenantSlug });
+  const getActiveOptions = trpc.cart.getActive.queryOptions({
+    // Note: queryKey uses placeholder when no slug; query is disabled and mutations
+    // are guarded by ensureTenantSlug, so this key is never used in practice.
+    tenantSlug: tenantSlug ?? '__placeholder__'
+  });
   const getAllActiveOptions = trpc.cart.getAllActiveForViewer.queryOptions();
+  const getSummaryOptions = trpc.cart.getSummaryForIdentity.queryOptions();
 
   // 2) Use them for the main query
-  const query = useQuery(getActiveOptions);
+  const query = useQuery({
+    ...getActiveOptions,
+    enabled: hasTenant
+  });
 
   const baseAdjustQuantityByDelta =
     trpc.cart.adjustQuantityByDelta.mutationOptions();
@@ -48,6 +57,11 @@ export function useServerCart(tenantSlug: string) {
       // Also refresh the "all carts for viewer" cache
       void queryClient.invalidateQueries({
         queryKey: getAllActiveOptions.queryKey
+      });
+
+      // Refresh the global summary used for the badge
+      void queryClient.invalidateQueries({
+        queryKey: getSummaryOptions.queryKey
       });
     },
     onError: (error, variables, onMutateResult, context) => {
@@ -78,6 +92,11 @@ export function useServerCart(tenantSlug: string) {
       void queryClient.invalidateQueries({
         queryKey: getAllActiveOptions.queryKey
       });
+
+      // Refresh the global summary used for the badge
+      void queryClient.invalidateQueries({
+        queryKey: getSummaryOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseSetQuantityMutation.onError?.(
@@ -105,6 +124,11 @@ export function useServerCart(tenantSlug: string) {
       // Also refresh the "all carts for viewer" cache
       void queryClient.invalidateQueries({
         queryKey: getAllActiveOptions.queryKey
+      });
+
+      // Refresh the global summary used for the badge
+      void queryClient.invalidateQueries({
+        queryKey: getSummaryOptions.queryKey
       });
     },
     onError: (error, variables, onMutateResult, context) => {
@@ -135,6 +159,11 @@ export function useServerCart(tenantSlug: string) {
       void queryClient.invalidateQueries({
         queryKey: getAllActiveOptions.queryKey
       });
+
+      // Refresh the global summary used for the badge
+      void queryClient.invalidateQueries({
+        queryKey: getSummaryOptions.queryKey
+      });
     },
     onError: (error, variables, onMutateResult, context) => {
       baseClearCartMutation.onError?.(
@@ -148,6 +177,16 @@ export function useServerCart(tenantSlug: string) {
   });
 
   const cart = query.data;
+  const ensureTenantSlug = () => {
+    if (!tenantSlug) {
+      if (process.env.NODE_ENV !== 'production') {
+        console.warn('[useServerCart] mutation called without tenantSlug');
+      }
+      return null;
+    }
+    return tenantSlug;
+  };
+
   return {
     cart,
     isLoading: query.isLoading,
@@ -156,29 +195,91 @@ export function useServerCart(tenantSlug: string) {
     refetch: query.refetch,
     isFetching: query.isFetching,
     // for UI use with tenantSlug baked in.
-    adjustQuantityByDelta: (productId: string, delta: number) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta }),
-    incrementItem: (productId: string) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta: 1 }),
-    decrementItem: (productId: string) =>
-      adjustQuantityMutation.mutate({ tenantSlug, productId, delta: -1 }),
-    setQuantity: (productId: string, quantity: number) =>
-      setQuantityMutation.mutate({ tenantSlug, productId, quantity }),
-    removeItem: (productId: string) =>
-      removeItemMutation.mutate({ tenantSlug, productId }),
+    adjustQuantityByDelta: (productId: string, delta: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta
+      });
+    },
+    incrementItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta: 1
+      });
+    },
+    decrementItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return adjustQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        delta: -1
+      });
+    },
+    setQuantity: (productId: string, quantity: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return setQuantityMutation.mutate({
+        tenantSlug: slug,
+        productId,
+        quantity
+      });
+    },
+    removeItem: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return removeItemMutation.mutate({ tenantSlug: slug, productId });
+    },
     clearCart: () => {
-      clearCartMutation.mutate({ tenantSlug });
+      const slug = ensureTenantSlug();
+      if (!slug) return;
+      return clearCartMutation.mutate({ tenantSlug: slug });
     },
     // async mutations
-    incrementItemAsync: (productId: string) =>
-      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: 1 }),
-    decrementItemAsync: (productId: string) =>
-      adjustQuantityMutation.mutateAsync({ tenantSlug, productId, delta: -1 }),
-    setQuantityAsync: (productId: string, quantity: number) =>
-      setQuantityMutation.mutateAsync({ tenantSlug, productId, quantity }),
-    removeItemAsync: (productId: string) =>
-      removeItemMutation.mutateAsync({ tenantSlug, productId }),
-    clearCartAsync: () => clearCartMutation.mutateAsync({ tenantSlug }),
+    incrementItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
+      return adjustQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        delta: 1
+      });
+    },
+    decrementItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
+      return adjustQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        delta: -1
+      });
+    },
+
+    setQuantityAsync: (productId: string, quantity: number) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
+      return setQuantityMutation.mutateAsync({
+        tenantSlug: slug,
+        productId,
+        quantity
+      });
+    },
+    removeItemAsync: (productId: string) => {
+      const slug = ensureTenantSlug();
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
+      return removeItemMutation.mutateAsync({ tenantSlug: slug, productId });
+    },
+    clearCartAsync: () => {
+      const slug = ensureTenantSlug();
+      if (!slug) return Promise.reject(new Error('Missing tenant slug'));
+      return clearCartMutation.mutateAsync({ tenantSlug: slug });
+    },
     // return full mutation
     adjustQuantityMutation,
     setQuantityMutation,
