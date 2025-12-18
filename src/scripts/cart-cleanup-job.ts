@@ -342,9 +342,7 @@ function validateOptions(options: CartCleanupOptions): void {
   if (!Number.isFinite(options.guestAgeDays) || options.guestAgeDays <= 0) {
     throw new Error('guestAgeDays must be a positive number.');
   }
-  if (!Number.isInteger(options.guestAgeDays) || options.guestAgeDays <= 0) {
-    throw new Error('guestAgeDays must be a positive integer.');
-  }
+
   if (
     typeof options.emptyAgeDays === 'number' &&
     (!Number.isInteger(options.emptyAgeDays) || options.emptyAgeDays <= 0)
