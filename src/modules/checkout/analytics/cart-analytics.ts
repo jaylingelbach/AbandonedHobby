@@ -53,7 +53,7 @@ export function trackCartUpdated(args: {
       line.price >= 0
     ) {
       hasPriceData = true;
-      subtotalCents += Math.round(priceCents * safeQty);
+      subtotalCents += priceCents * safeQty;
     }
   }
 
