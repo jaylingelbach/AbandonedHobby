@@ -1,17 +1,7 @@
 import dotenv from 'dotenv';
-import { getPayload } from 'payload';
-import type { Where } from 'payload';
-import { CleanupRule, runCartCleanupJob } from './cart-cleanup-job';
-
-import config from '@payload-config';
+import { runCartCleanupJob } from './cart-cleanup-job';
 
 dotenv.config();
-
-/**
- * Defines a cleanup rule for cart deletion.
- * @property {string} description - Human-readable description of what this rule targets
- * @property {Where} where - Payload query condition that identifies carts to delete
- */
 
 const args = process.argv.slice(2);
 
