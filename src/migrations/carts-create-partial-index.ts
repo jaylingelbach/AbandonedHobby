@@ -23,6 +23,90 @@ const getCartsCollection = (payload: MigrateUpArgs['payload']) => {
 export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
+  // Step 1: Identify and resolve duplicate active carts
+  // Find duplicates for buyer-based carts
+  const buyerDuplicates = await collection
+    .aggregate(
+      [
+        {
+          $match: {
+            status: 'active',
+            buyer: { $exists: true, $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              sellerTenant: '$sellerTenant',
+              buyer: '$buyer',
+              status: '$status'
+            },
+            ids: { $push: '$_id' },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $match: { count: { $gt: 1 } }
+        }
+      ],
+      { session }
+    )
+    .toArray();
+
+  // Archive all but the most recent cart for each duplicate group
+  for (const dup of buyerDuplicates) {
+    const [keep, ...archive] = dup.ids;
+    if (archive.length > 0) {
+      await collection.updateMany(
+        { _id: { $in: archive } },
+        { $set: { status: 'archived' } },
+        { session }
+      );
+    }
+  }
+
+  // Repeat for guest-based carts
+  const guestDuplicates = await collection
+    .aggregate(
+      [
+        {
+          $match: {
+            status: 'active',
+            guestSessionId: { $exists: true, $ne: null }
+          }
+        },
+        {
+          $group: {
+            _id: {
+              sellerTenant: '$sellerTenant',
+              guestSessionId: '$guestSessionId',
+              status: '$status'
+            },
+            ids: { $push: '$_id' },
+            count: { $sum: 1 }
+          }
+        },
+        {
+          $match: { count: { $gt: 1 } }
+        }
+      ],
+      { session }
+    )
+    .toArray();
+
+  for (const dup of guestDuplicates) {
+    const [keep, ...archive] = dup.ids;
+    if (archive.length > 0) {
+      await collection.updateMany(
+        { _id: { $in: archive } },
+        { $set: { status: 'archived' } },
+        { session }
+      );
+    }
+  }
+
+  // Step 2: Create the unique indexes
+
   await collection.createIndexes(
     [
       {
@@ -53,7 +137,10 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
  *
  * Drops indexes named for active buyers and active guests, ignoring errors if the indexes or namespaces do not exist.
  */
-export async function down({ payload, session }: MigrateDownArgs): Promise<void> {
+export async function down({
+  payload,
+  session
+}: MigrateDownArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
   const dropIndex = async (name: string) => {
