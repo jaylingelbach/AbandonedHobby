@@ -13,6 +13,13 @@ const getCartsCollection = (payload: MigrateUpArgs['payload']) => {
   return carts.collection;
 };
 
+/**
+ * Create two unique partial indexes on the carts collection.
+ *
+ * The created indexes:
+ * - BUYER_INDEX_NAME: keys { sellerTenant: 1, buyer: 1, status: 1 } with uniqueness enforced and a partial filter where status is 'active' and buyer exists and is not null.
+ * - GUEST_INDEX_NAME: keys { sellerTenant: 1, guestSessionId: 1, status: 1 } with uniqueness enforced and a partial filter where status is 'active' and guestSessionId exists and is not null.
+ */
 export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
@@ -41,6 +48,11 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
   );
 }
 
+/**
+ * Removes the unique partial indexes on buyer and guest fields from the carts collection.
+ *
+ * Drops indexes named for active buyers and active guests, ignoring errors if the indexes or namespaces do not exist.
+ */
 export async function down({ payload, session }: MigrateDownArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
