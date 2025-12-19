@@ -57,30 +57,12 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
                         sortBy: { updatedAt: -1 }
                       }
                     },
+                    1, // start position: skip the first (newest) element
                     { $subtract: ['$count', 1] }
                   ]
                 },
                 as: 'item',
                 in: '$$item.id'
-              }
-            },
-            keepId: {
-              $first: {
-                $map: {
-                  input: {
-                    $slice: [
-                      {
-                        $sortArray: {
-                          input: '$ids',
-                          sortBy: { updatedAt: -1 }
-                        }
-                      },
-                      1
-                    ]
-                  },
-                  as: 'item',
-                  in: '$$item.id'
-                }
               }
             }
           }
@@ -137,30 +119,12 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
                         sortBy: { updatedAt: -1 }
                       }
                     },
+                    1, // start position: skip the first (newest) element
                     { $subtract: ['$count', 1] }
                   ]
                 },
                 as: 'item',
                 in: '$$item.id'
-              }
-            },
-            keepId: {
-              $first: {
-                $map: {
-                  input: {
-                    $slice: [
-                      {
-                        $sortArray: {
-                          input: '$ids',
-                          sortBy: { updatedAt: -1 }
-                        }
-                      },
-                      1
-                    ]
-                  },
-                  as: 'item',
-                  in: '$$item.id'
-                }
               }
             }
           }
