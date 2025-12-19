@@ -380,6 +380,14 @@ export async function getOrCreateActiveCart(
         if (isDuplicateKeyError(error)) {
           const existing = await findActiveCart(ctx, identity, tenantId);
           if (existing) return existing;
+          // Cart was deleted/archived after duplicate error; retry once
+          const retried = await findActiveCart(ctx, identity, tenantId);
+          if (retried) return retried;
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Failed to create or retrieve active cart due to race condition'
+          });
         }
         throw error;
       }
@@ -402,6 +410,14 @@ export async function getOrCreateActiveCart(
         if (isDuplicateKeyError(error)) {
           const existing = await findActiveCart(ctx, identity, tenantId);
           if (existing) return existing;
+          // Cart was deleted/archived after duplicate error; retry once
+          const retried = await findActiveCart(ctx, identity, tenantId);
+          if (retried) return retried;
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Failed to create or retrieve active cart due to race condition'
+          });
         }
         throw error;
       }
