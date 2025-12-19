@@ -6244,3 +6244,33 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - recap.md
   - Adds a summary section describing the cart cleanup cron feature and files changed.
+
+# Prevent duplicate active carts 12/18/25
+
+## Walkthrough
+
+- A new MongoDB migration creates partial indexes on the carts collection to optimize queries by status and buyer/guest session IDs. Concurrently, the cart creation logic is updated with error handling to gracefully recover from duplicate key conflicts by fetching existing carts rather than failing.
+
+## Bug Fixes
+
+- Improved cart creation reliability under concurrent requests by handling race conditions gracefully.
+
+## Chores
+
+- Added database indexes to optimize cart query performance.
+
+## File changes
+
+### Carts Collection Migration
+
+- src/migrations/carts-create-partial-index.ts
+  - New migration module that registers up and down functions to create and drop partial unique indexes on carts collection.
+  - Up migration creates two indexes: one on (sellerTenant, buyer, status) filtered for active status with non-null buyer, and another on (sellerTenant, guestSessionId, status) filtered for active status with non-null guestSessionId.
+  - Down migration drops both indexes with error suppression for not-found cases.
+
+### Cart Utilities Error Handling
+
+- src/modules/cart/server/utils.ts
+  - Removes unused TenantCheckoutGroup import.
+  - Adds MongoDB error type guards (isMongoServerError, isDuplicateKeyError) to detect duplicate key violations (code 11000).
+  - Updates getOrCreateActiveCart to wrap cart creation in try/catch, retrying by fetching existing active cart on duplicate key error instead of failing.
