@@ -17,7 +17,7 @@ import { relId } from '@/lib/relationshipHelpers';
 import { CART_QUERY_LIMIT } from '@/constants';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { Where } from 'payload';
-import type { MongoServerError } from 'mongodb';
+import { MongoServerError } from 'mongodb';
 
 /**
  * Determines whether an unknown value is a MongoServerError.
@@ -25,11 +25,7 @@ import type { MongoServerError } from 'mongodb';
  * @returns `true` if the value is a MongoServerError, `false` otherwise.
  */
 function isMongoServerError(error: unknown): error is MongoServerError {
-  return (
-    typeof error === 'object' &&
-    error !== null &&
-    (error as { name?: unknown }).name === 'MongoServerError'
-  );
+  return error instanceof MongoServerError;
 }
 
 /**
