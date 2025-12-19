@@ -41,8 +41,48 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
               buyer: '$buyer',
               status: '$status'
             },
-            ids: { $push: '$_id' },
+            ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
             count: { $sum: 1 }
+          }
+        },
+        {
+          $addFields: {
+            ids: {
+              $map: {
+                input: {
+                  $slice: [
+                    {
+                      $sortArray: {
+                        input: '$ids',
+                        sortBy: { updatedAt: -1 }
+                      }
+                    },
+                    { $subtract: ['$count', 1] }
+                  ]
+                },
+                as: 'item',
+                in: '$$item.id'
+              }
+            },
+            keepId: {
+              $first: {
+                $map: {
+                  input: {
+                    $slice: [
+                      {
+                        $sortArray: {
+                          input: '$ids',
+                          sortBy: { updatedAt: -1 }
+                        }
+                      },
+                      1
+                    ]
+                  },
+                  as: 'item',
+                  in: '$$item.id'
+                }
+              }
+            }
           }
         },
         {
@@ -55,10 +95,9 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
 
   // Archive all but the most recent cart for each duplicate group
   for (const dup of buyerDuplicates) {
-    const [keep, ...archive] = dup.ids;
-    if (archive.length > 0) {
+    if (dup.ids.length > 0) {
       await collection.updateMany(
-        { _id: { $in: archive } },
+        { _id: { $in: dup.ids } },
         { $set: { status: 'archived' } },
         { session }
       );
@@ -82,8 +121,48 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
               guestSessionId: '$guestSessionId',
               status: '$status'
             },
-            ids: { $push: '$_id' },
+            ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
             count: { $sum: 1 }
+          }
+        },
+        {
+          $addFields: {
+            ids: {
+              $map: {
+                input: {
+                  $slice: [
+                    {
+                      $sortArray: {
+                        input: '$ids',
+                        sortBy: { updatedAt: -1 }
+                      }
+                    },
+                    { $subtract: ['$count', 1] }
+                  ]
+                },
+                as: 'item',
+                in: '$$item.id'
+              }
+            },
+            keepId: {
+              $first: {
+                $map: {
+                  input: {
+                    $slice: [
+                      {
+                        $sortArray: {
+                          input: '$ids',
+                          sortBy: { updatedAt: -1 }
+                        }
+                      },
+                      1
+                    ]
+                  },
+                  as: 'item',
+                  in: '$$item.id'
+                }
+              }
+            }
           }
         },
         {
@@ -95,10 +174,9 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
     .toArray();
 
   for (const dup of guestDuplicates) {
-    const [keep, ...archive] = dup.ids;
-    if (archive.length > 0) {
+    if (dup.ids.length > 0) {
       await collection.updateMany(
-        { _id: { $in: archive } },
+        { _id: { $in: dup.ids } },
         { $set: { status: 'archived' } },
         { session }
       );
