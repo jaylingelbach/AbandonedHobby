@@ -19,6 +19,11 @@ import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { Where } from 'payload';
 import type { MongoServerError } from 'mongodb';
 
+/**
+ * Determines whether an unknown value is a MongoServerError.
+ *
+ * @returns `true` if the value is a MongoServerError, `false` otherwise.
+ */
 function isMongoServerError(error: unknown): error is MongoServerError {
   return (
     typeof error === 'object' &&
@@ -27,6 +32,12 @@ function isMongoServerError(error: unknown): error is MongoServerError {
   );
 }
 
+/**
+ * Checks whether an unknown value represents a MongoDB duplicate-key error.
+ *
+ * @param error - The value to test
+ * @returns `true` if `error` is a `MongoServerError` with code `11000` (duplicate key), `false` otherwise.
+ */
 function isDuplicateKeyError(error: unknown): error is MongoServerError {
   return (
     isMongoServerError(error) && error.code === 11000 // classic duplicate key code
@@ -342,6 +353,14 @@ export async function findAllActiveCartsForMergeGuestToUser(
   return { guestCarts, userCarts };
 }
 
+/**
+ * Ensures there is an active cart for the given identity within the specified tenant, creating one if none exists.
+ *
+ * @param identity - The cart owner identity (user or guest) used to locate or create the cart
+ * @param tenantId - The seller tenant id the cart should belong to
+ * @returns The active Cart document for the identity and tenant, either an existing cart or a newly created one
+ * @throws TRPCError If the identity kind is not 'user' or 'guest'
+ */
 export async function getOrCreateActiveCart(
   ctx: Context,
   identity: CartIdentity,
