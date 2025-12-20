@@ -20,59 +20,56 @@ const getCartsCollection = (payload: MigrateUpArgs['payload']) => {
  * - BUYER_INDEX_NAME: keys { sellerTenant: 1, buyer: 1, status: 1 } with uniqueness enforced and a partial filter where status is 'active' and buyer exists and is not null.
  * - GUEST_INDEX_NAME: keys { sellerTenant: 1, guestSessionId: 1, status: 1 } with uniqueness enforced and a partial filter where status is 'active' and guestSessionId exists and is not null.
  */
-export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
+export async function up({ payload }: MigrateUpArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
   // Step 1: Identify and resolve duplicate active carts
   // Find duplicates for buyer-based carts
   const buyerDuplicates = await collection
-    .aggregate(
-      [
-        {
-          $match: {
-            status: 'active',
-            buyer: { $exists: true, $ne: null }
-          }
-        },
-        {
-          $group: {
-            _id: {
-              sellerTenant: '$sellerTenant',
-              buyer: '$buyer',
-              status: '$status'
-            },
-            ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
-            count: { $sum: 1 }
-          }
-        },
-        {
-          $addFields: {
-            ids: {
-              $map: {
-                input: {
-                  $slice: [
-                    {
-                      $sortArray: {
-                        input: '$ids',
-                        sortBy: { updatedAt: -1 }
-                      }
-                    },
-                    1, // start position: skip the first (newest) element
-                    { $subtract: ['$count', 1] }
-                  ]
-                },
-                as: 'item',
-                in: '$$item.id'
-              }
+    .aggregate([
+      {
+        $match: {
+          status: 'active',
+          buyer: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            sellerTenant: '$sellerTenant',
+            buyer: '$buyer',
+            status: '$status'
+          },
+          ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $addFields: {
+          ids: {
+            $map: {
+              input: {
+                $slice: [
+                  {
+                    $sortArray: {
+                      input: '$ids',
+                      sortBy: { updatedAt: -1 }
+                    }
+                  },
+                  1, // start position: skip the first (newest) element
+                  { $subtract: ['$count', 1] }
+                ]
+              },
+              as: 'item',
+              in: '$$item.id'
             }
           }
-        },
-        {
-          $match: { count: { $gt: 1 } }
         }
-      ],
-      { session }
-    )
+      },
+      {
+        $match: { count: { $gt: 1 } }
+      }
+    ])
     .toArray();
 
   // Archive all but the most recent cart for each duplicate group
@@ -80,98 +77,90 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
     if (dup.ids.length > 0) {
       await collection.updateMany(
         { _id: { $in: dup.ids } },
-        { $set: { status: 'archived' } },
-        { session }
+        { $set: { status: 'archived' } }
       );
     }
   }
 
   // Repeat for guest-based carts
   const guestDuplicates = await collection
-    .aggregate(
-      [
-        {
-          $match: {
-            status: 'active',
-            guestSessionId: { $exists: true, $ne: null }
-          }
-        },
-        {
-          $group: {
-            _id: {
-              sellerTenant: '$sellerTenant',
-              guestSessionId: '$guestSessionId',
-              status: '$status'
-            },
-            ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
-            count: { $sum: 1 }
-          }
-        },
-        {
-          $addFields: {
-            ids: {
-              $map: {
-                input: {
-                  $slice: [
-                    {
-                      $sortArray: {
-                        input: '$ids',
-                        sortBy: { updatedAt: -1 }
-                      }
-                    },
-                    1, // start position: skip the first (newest) element
-                    { $subtract: ['$count', 1] }
-                  ]
-                },
-                as: 'item',
-                in: '$$item.id'
-              }
+    .aggregate([
+      {
+        $match: {
+          status: 'active',
+          guestSessionId: { $exists: true, $ne: null }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            sellerTenant: '$sellerTenant',
+            guestSessionId: '$guestSessionId',
+            status: '$status'
+          },
+          ids: { $push: { id: '$_id', updatedAt: '$updatedAt' } },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $addFields: {
+          ids: {
+            $map: {
+              input: {
+                $slice: [
+                  {
+                    $sortArray: {
+                      input: '$ids',
+                      sortBy: { updatedAt: -1 }
+                    }
+                  },
+                  1, // start position: skip the first (newest) element
+                  { $subtract: ['$count', 1] }
+                ]
+              },
+              as: 'item',
+              in: '$$item.id'
             }
           }
-        },
-        {
-          $match: { count: { $gt: 1 } }
         }
-      ],
-      { session }
-    )
+      },
+      {
+        $match: { count: { $gt: 1 } }
+      }
+    ])
     .toArray();
 
   for (const dup of guestDuplicates) {
     if (dup.ids.length > 0) {
       await collection.updateMany(
         { _id: { $in: dup.ids } },
-        { $set: { status: 'archived' } },
-        { session }
+        { $set: { status: 'archived' } }
       );
     }
   }
 
   // Step 2: Create the unique indexes
 
-  await collection.createIndexes(
-    [
-      {
-        name: BUYER_INDEX_NAME,
-        key: { sellerTenant: 1, buyer: 1, status: 1 },
-        unique: true,
-        partialFilterExpression: {
-          status: 'active',
-          buyer: { $exists: true, $ne: null }
-        }
-      },
-      {
-        name: GUEST_INDEX_NAME,
-        key: { sellerTenant: 1, guestSessionId: 1, status: 1 },
-        unique: true,
-        partialFilterExpression: {
-          status: 'active',
-          guestSessionId: { $exists: true, $ne: null }
-        }
+  await collection.createIndexes([
+    {
+      name: BUYER_INDEX_NAME,
+      key: { sellerTenant: 1, buyer: 1, status: 1 },
+      unique: true,
+      partialFilterExpression: {
+        status: 'active',
+        buyer: { $exists: true }
       }
-    ],
-    { session }
-  );
+    },
+    {
+      name: GUEST_INDEX_NAME,
+      key: { sellerTenant: 1, guestSessionId: 1, status: 1 },
+      unique: true,
+      partialFilterExpression: {
+        status: 'active',
+        guestSessionId: { $exists: true }
+      }
+    }
+  ]);
 }
 
 /**
@@ -179,15 +168,12 @@ export async function up({ payload, session }: MigrateUpArgs): Promise<void> {
  *
  * Drops indexes named for active buyers and active guests, ignoring errors if the indexes or namespaces do not exist.
  */
-export async function down({
-  payload,
-  session
-}: MigrateDownArgs): Promise<void> {
+export async function down({ payload }: MigrateDownArgs): Promise<void> {
   const collection = getCartsCollection(payload);
 
   const dropIndex = async (name: string) => {
     try {
-      await collection.dropIndex(name, { session });
+      await collection.dropIndex(name);
     } catch (error) {
       const message = error instanceof Error ? error.message : '';
       if (
