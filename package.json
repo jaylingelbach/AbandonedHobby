@@ -13,7 +13,8 @@
     "db:seed": "tsx -r dotenv/config src/lib/seed.ts",
     "db:importmap": "payload generate:importmap",
     "lint:fix": "eslint . --ext .js,.jsx,.ts,.tsx --fix",
-    "cleanup:carts": "tsx -r dotenv/config src/scripts/cart-cleanup.ts"
+    "cleanup:carts": "tsx -r dotenv/config src/scripts/cart-cleanup.ts",
+    "db:migrate": "payload migrate"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.890.0",

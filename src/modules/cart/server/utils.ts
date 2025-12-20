@@ -8,8 +8,7 @@ import type {
   CartSummaryDTO,
   CartToUpdate,
   PruneSummary,
-  IdentityForMerge,
-  TenantCheckoutGroup
+  IdentityForMerge
 } from './types';
 import type { Cart, Product, Tenant } from '@/payload-types';
 import { Context } from '@/trpc/init';
@@ -18,6 +17,28 @@ import { relId } from '@/lib/relationshipHelpers';
 import { CART_QUERY_LIMIT } from '@/constants';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
 import { Where } from 'payload';
+import { MongoServerError } from 'mongodb';
+
+/**
+ * Determines whether an unknown value is a MongoServerError.
+ *
+ * @returns `true` if the value is a MongoServerError, `false` otherwise.
+ */
+function isMongoServerError(error: unknown): error is MongoServerError {
+  return error instanceof MongoServerError;
+}
+
+/**
+ * Checks whether an unknown value represents a MongoDB duplicate-key error.
+ *
+ * @param error - The value to test
+ * @returns `true` if `error` is a `MongoServerError` with code `11000` (duplicate key), `false` otherwise.
+ */
+function isDuplicateKeyError(error: unknown): error is MongoServerError {
+  return (
+    isMongoServerError(error) && error.code === 11000 // classic duplicate key code
+  );
+}
 
 /**
  * Retrieve carts matching a filter across paginated results, aggregating pages and deduplicating by cart id.
@@ -329,12 +350,12 @@ export async function findAllActiveCartsForMergeGuestToUser(
 }
 
 /**
- * Retrieve an active cart for the given identity and tenant, creating a new active cart if none exists.
+ * Ensures there is an active cart for the given identity within the specified tenant, creating one if none exists.
  *
- * @param identity - The cart identity (user or guest) used to find or create the cart
- * @param tenantId - The seller tenant's ID the cart belongs to
- * @returns The active `Cart` document for the identity within the specified tenant
- * @throws TRPCError If `identity.kind` is neither `'user'` nor `'guest'` (BAD_REQUEST)
+ * @param identity - The cart owner identity (user or guest) used to locate or create the cart
+ * @param tenantId - The seller tenant id the cart should belong to
+ * @returns The active Cart document for the identity and tenant, either an existing cart or a newly created one
+ * @throws TRPCError If the identity kind is not 'user' or 'guest'
  */
 export async function getOrCreateActiveCart(
   ctx: Context,
@@ -344,30 +365,62 @@ export async function getOrCreateActiveCart(
   const cart = await findActiveCart(ctx, identity, tenantId);
   if (!cart) {
     if (identity.kind === 'user') {
-      const userCart = await ctx.db.create({
-        collection: 'carts',
-        data: {
-          buyer: identity.userId,
-          sellerTenant: tenantId,
-          status: 'active',
-          items: []
+      try {
+        const userCart = await ctx.db.create({
+          collection: 'carts',
+          data: {
+            buyer: identity.userId,
+            sellerTenant: tenantId,
+            status: 'active',
+            items: []
+          }
+        });
+        return userCart;
+      } catch (error) {
+        if (isDuplicateKeyError(error)) {
+          const existing = await findActiveCart(ctx, identity, tenantId);
+          if (existing) return existing;
+          // Cart was deleted/archived after duplicate error; retry once
+          const retried = await findActiveCart(ctx, identity, tenantId);
+          if (retried) return retried;
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Failed to create or retrieve active cart due to race condition'
+          });
         }
-      });
-      return userCart;
+        throw error;
+      }
     }
 
     if (identity.kind === 'guest') {
-      const guestCart = await ctx.db.create({
-        collection: 'carts',
-        overrideAccess: true,
-        data: {
-          guestSessionId: identity.guestSessionId,
-          sellerTenant: tenantId,
-          status: 'active',
-          items: []
+      try {
+        const guestCart = await ctx.db.create({
+          collection: 'carts',
+          overrideAccess: true,
+          data: {
+            guestSessionId: identity.guestSessionId,
+            sellerTenant: tenantId,
+            status: 'active',
+            items: []
+          }
+        });
+        return guestCart;
+      } catch (error) {
+        if (isDuplicateKeyError(error)) {
+          const existing = await findActiveCart(ctx, identity, tenantId);
+          if (existing) return existing;
+          // Cart was deleted/archived after duplicate error; retry once
+          const retried = await findActiveCart(ctx, identity, tenantId);
+          if (retried) return retried;
+          throw new TRPCError({
+            code: 'INTERNAL_SERVER_ERROR',
+            message:
+              'Failed to create or retrieve active cart due to race condition'
+          });
         }
-      });
-      return guestCart;
+        throw error;
+      }
     }
 
     throw new TRPCError({
@@ -375,6 +428,7 @@ export async function getOrCreateActiveCart(
       message: 'Invalid cart identity kind'
     });
   }
+
   return cart;
 }
 
