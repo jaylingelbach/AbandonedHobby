@@ -401,6 +401,33 @@ export interface Product {
         id?: string | null;
       }[]
     | null;
+  /**
+   * Indicates that this product has been flagged for moderation review under our marketplace guidelines.
+   */
+  flagged: boolean;
+  /**
+   * Select the primary reason this listing was flagged for review.
+   */
+  flagReason?:
+    | (
+        | 'spam'
+        | 'scam_or_fraud'
+        | 'inappropriate_or_nsfw'
+        | 'prohibited_item'
+        | 'misleading_or_false'
+        | 'copyright_or_ip'
+        | 'duplicate_listing'
+        | 'other'
+      )
+    | null;
+  /**
+   * Provide more detail when the flag reason is “Other” (minimum 10 characters).
+   */
+  flagReasonOtherText?: string | null;
+  /**
+   * Internal note for moderators (visible only to staff). Use this to document what action was taken and why.
+   */
+  moderationNote?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1122,6 +1149,10 @@ export interface ProductsSelect<T extends boolean = true> {
         alt?: T;
         id?: T;
       };
+  flagged?: T;
+  flagReason?: T;
+  flagReasonOtherText?: T;
+  moderationNote?: T;
   updatedAt?: T;
   createdAt?: T;
 }
