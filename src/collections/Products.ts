@@ -9,8 +9,13 @@ import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-pro
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
+import { Product } from '@/payload-types';
+import { ShippingMode } from '@/modules/orders/types';
 
-type ShippingMode = 'free' | 'flat' | 'calculated';
+type ProductModerationCtx = {
+  data?: Partial<Product>;
+  siblingData?: Partial<Product>;
+};
 
 /**
  * Clears shippingFlatFee when shippingMode is not 'flat'
@@ -244,7 +249,6 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
     {
       name: 'images',
       type: 'array',
@@ -265,6 +269,126 @@ export const Products: CollectionConfig = {
         },
         { name: 'alt', type: 'text' }
       ]
+    },
+    // moderation
+    {
+      name: 'flagged',
+      label: 'Item has been flagged for review',
+      type: 'checkbox',
+      required: true,
+      defaultValue: false,
+      admin: {
+        description:
+          'Indicates that this product has been flagged for moderation review under our marketplace guidelines.'
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'flagReason',
+      required: false,
+      type: 'select',
+      options: [
+        { label: 'Spam or advertising', value: 'spam' },
+        { label: 'Scam or fraudulent activity', value: 'scam_or_fraud' },
+        {
+          label: 'Inappropriate or NSFW content',
+          value: 'inappropriate_or_nsfw'
+        },
+        { label: 'Prohibited or restricted item', value: 'prohibited_item' },
+        {
+          label: 'Misleading or false information',
+          value: 'misleading_or_false'
+        },
+        {
+          label: 'Copyright or intellectual property issue',
+          value: 'copyright_or_ip'
+        },
+        { label: 'Duplicate listing', value: 'duplicate_listing' },
+        { label: 'Other (please specify)', value: 'other' }
+      ],
+      admin: {
+        description:
+          'Select the primary reason this listing was flagged for review.'
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      validate: (
+        value: unknown,
+        { data }: ProductModerationCtx
+      ): true | string => {
+        const isFlagged = data?.flagged === true;
+
+        if (!isFlagged) {
+          // If the product is not flagged, no reason is required.
+          return true;
+        }
+
+        // When flagged, a reason is required.
+        if (value === null || value === undefined || value === '') {
+          return 'Please select a reason for flagging this listing.';
+        }
+
+        return true;
+      }
+    },
+    {
+      name: 'flagReasonOtherText',
+      type: 'textarea',
+      admin: {
+        condition: (_data, siblingData) => siblingData?.flagReason === 'other',
+        description:
+          'Provide more detail when the flag reason is “Other” (minimum 10 characters).'
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      validate: (
+        value: unknown,
+        { siblingData }: ProductModerationCtx
+      ): true | string => {
+        const reason = siblingData?.flagReason;
+
+        if (reason !== 'other') {
+          // Only required when "other" is chosen.
+          return true;
+        }
+
+        const text = typeof value === 'string' ? value.trim() : '';
+
+        if (!text) {
+          return 'Please provide a short description for “Other”.';
+        }
+
+        if (text.length < 10) {
+          return 'Please provide at least 10 characters of detail for “Other”.';
+        }
+
+        return true;
+      }
+    },
+    {
+      name: 'moderationNote',
+      type: 'textarea',
+      required: false,
+      admin: {
+        description:
+          'Internal note for moderators (visible only to staff). Use this to document what action was taken and why.',
+        condition: (_data, siblingData) => siblingData?.flagged === true
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      }
     }
   ]
 };
