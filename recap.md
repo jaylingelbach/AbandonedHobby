@@ -6274,3 +6274,26 @@ src/collections/Carts.ts, src/payload.config.ts
   - Removes unused TenantCheckoutGroup import.
   - Adds MongoDB error type guards (isMongoServerError, isDuplicateKeyError) to detect duplicate key violations (code 11000).
   - Updates getOrCreateActiveCart to wrap cart creation in try/catch, retrying by fetching existing active cart on duplicate key error instead of failing.
+
+# Moderation - Data model 12/22/25
+
+## Walkthrough
+
+- The changes add moderation capabilities to the Products collection by introducing four new super-admin-only fields: a boolean flagged indicator, a reason selection field with validation that requires a reason only if flagged is true, an optional explanation textarea for the "other" reason, and an internal moderation note field visible only when flagged. Corresponding TypeScript type definitions are updated to reflect these new fields.
+
+## New Features
+
+- Added product moderation capabilities for administrators, including the ability to flag items, select from predefined moderation reason categories, provide optional detailed explanations, and maintain internal notes for tracking.
+- Enables systematic content governance and compliance management with restricted administrative access.
+
+## File changes
+
+### Product moderation implementation
+
+- src/collections/Products.ts
+  - Added four new moderation fields with super-admin-only access: flagged (boolean checkbox), flagReason (conditional select with predefined options), flagReasonOtherText (conditional textarea with 10-character minimum), and moderationNote (internal textarea). Includes cross-field validation context and conditional visibility logic.
+
+### Product moderation types
+
+- src/payload-types.ts
+  - Added moderation-related field definitions to Product type and ProductsSelect interface: flagged (boolean), flagReason (union of predefined reasons or null), flagReasonOtherText (optional string), and moderationNote (optional string).
