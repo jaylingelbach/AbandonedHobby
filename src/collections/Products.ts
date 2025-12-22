@@ -320,9 +320,9 @@ export const Products: CollectionConfig = {
       },
       validate: (
         value: unknown,
-        { data }: ProductModerationCtx
+        { siblingData }: ProductModerationCtx
       ): true | string => {
-        const isFlagged = data?.flagged === true;
+        const isFlagged = siblingData?.flagged === true;
 
         if (!isFlagged) {
           // If the product is not flagged, no reason is required.
