@@ -402,6 +402,10 @@ export interface Product {
       }[]
     | null;
   /**
+   * Indicates that this product has been flagged for moderation review under our marketplace guidelines.
+   */
+  flagged: boolean;
+  /**
    * Select the primary reason this listing was flagged for review.
    */
   flagReason?:
@@ -411,7 +415,7 @@ export interface Product {
         | 'inappropriate_or_nsfw'
         | 'prohibited_item'
         | 'misleading_or_false'
-        | 'copywrite_or_ip'
+        | 'copyright_or_ip'
         | 'duplicate_listing'
         | 'other'
       )
@@ -424,10 +428,6 @@ export interface Product {
    * Internal note for moderators (visible only to staff). Use this to document what action was taken and why.
    */
   moderationNote?: string | null;
-  /**
-   * Indicates that this product has been flagged for moderation review under our marketplace guidelines.
-   */
-  flagged: boolean;
   updatedAt: string;
   createdAt: string;
 }
@@ -1149,10 +1149,10 @@ export interface ProductsSelect<T extends boolean = true> {
         alt?: T;
         id?: T;
       };
+  flagged?: T;
   flagReason?: T;
   flagReasonOtherText?: T;
   moderationNote?: T;
-  flagged?: T;
   updatedAt?: T;
   createdAt?: T;
 }
