@@ -13,7 +13,6 @@ import { Product } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
 
 type ProductModerationCtx = {
-  data?: Partial<Product>;
   siblingData?: Partial<Product>;
 };
 
