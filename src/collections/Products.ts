@@ -228,7 +228,6 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
     {
       name: 'maxPerOrder',
       type: 'number',
