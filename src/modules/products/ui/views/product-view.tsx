@@ -1,7 +1,6 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import dynamic from 'next/dynamic';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,9 +19,11 @@ import { readQuantityOrDefault } from '@/lib/validation/quantity';
 // ─── Project Components ──────────────────────────────────────────────────────
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { CartButton } from '../components/cart-button';
 import { Progress } from '@/components/ui/progress';
 import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with-modal';
 import ProductGallery from '../components/product-gallery';
+import { ReportListingDialog } from '../components/report-listing-dialog';
 import QuantityPicker from '../components/quantity-picker';
 import ViewInOrdersButton from '../components/view-in-order-button';
 
@@ -33,21 +34,6 @@ import { useUser } from '@/hooks/use-user';
 // ─── Project Utilities (Local) ───────────────────────────────────────────────
 import { mapProductImagesFromPayload } from '../utils/product-gallery-mappers';
 import { useServerCart } from '@/modules/cart/hooks/use-server-cart';
-
-const CartButton = dynamic(
-  () =>
-    import('../components/cart-button').then((mod) => ({
-      default: mod.CartButton
-    })),
-  {
-    ssr: false,
-    loading: () => (
-      <Button disabled className="flex-1 bg-pink-400">
-        Add to cart
-      </Button>
-    )
-  }
-); // avoid hydration issues while using localStorage
 
 interface ProductRatingsBreakdownProps {
   ratings: Array<{ stars: number; percentage: number }>;
@@ -379,7 +365,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     productId={productIdStr}
                   />
                 </div>
-
                 {/* Row 2: add to cart + quantity picker */}
                 <div className="flex flex-row items-center gap-1">
                   <div className="flex-1">
@@ -439,7 +424,6 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                     {isCopied ? <CheckCheckIcon /> : <LinkIcon />}
                   </Button>
                 </div>
-
                 <ChatButtonWithModal
                   disabled={isSelf}
                   tooltip={isSelf ? "You can't message yourself" : undefined}
@@ -448,17 +432,22 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
                   username={data.tenant.name}
                   onConversationCreated={(s) => setChatState(s)}
                 />
-
                 <p className="text-center font-medium">
                   {data.refundPolicy === 'no refunds'
                     ? 'No refunds'
                     : `${data.refundPolicy} money back guarantee`}
                 </p>
-
                 {trackInventory && (
                   <p className="text-center text-sm font-bold text-muted-foreground">
                     {availabilityLabel}
                   </p>
+                )}
+
+                {!isSelf && (
+                  <ReportListingDialog
+                    disabled={isSelf}
+                    productId={productIdStr}
+                  />
                 )}
               </div>
 

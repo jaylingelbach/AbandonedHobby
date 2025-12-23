@@ -7,11 +7,10 @@ import { isNotFound } from '@/lib/server/utils';
 
 export async function POST(
   request: NextRequest,
-  params: { productId: string }
+  { params }: { params: Promise<{ productId: string }> }
 ): Promise<NextResponse> {
   let body: unknown;
-  const { productId } = params;
-  console.log(productId);
+  const { productId } = await params;
   try {
     body = await request.json();
   } catch {
