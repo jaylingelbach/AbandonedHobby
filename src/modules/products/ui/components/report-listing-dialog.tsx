@@ -76,13 +76,7 @@ export const ReportListingDialog = ({
       return;
     }
 
-    let data;
-    if (reason !== 'other') {
-      data = { reason };
-    }
-    if (reason === 'other') {
-      data = { reason, otherText };
-    }
+    const data = reason === 'other' ? { reason, otherText } : { reason };
 
     setIsSubmitting(true);
     try {
