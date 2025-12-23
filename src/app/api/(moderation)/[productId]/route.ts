@@ -5,6 +5,22 @@ import config from '@/payload.config';
 import { Product } from '@/payload-types';
 import { isNotFound } from '@/lib/server/utils';
 
+/**
+ * Handle POST requests to report a product for moderation.
+ *
+ * Validates the JSON body (expects `reason` and optional `otherText`), authenticates the caller,
+ * and marks the specified product as flagged if allowed.
+ *
+ * @param request - Incoming request whose JSON body must include `reason` and may include `otherText`.
+ * @param params - Promise resolving to route params containing `productId`.
+ * @returns A JSON NextResponse:
+ *  - 200: `{ message: 'Success' }` when the product is flagged.
+ *  - 400: error for invalid JSON or validation failures.
+ *  - 401: error when authentication fails.
+ *  - 404: error when the product is not found.
+ *  - 409: error when the product cannot be reported due to its current state.
+ *  - 500: internal server error (message masked in production).
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
