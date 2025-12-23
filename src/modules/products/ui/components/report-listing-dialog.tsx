@@ -93,7 +93,17 @@ export const ReportListingDialog = ({
         resetState();
         setOpen(false);
       } else {
-        toast.error('Failed to submit, please try again');
+        const errorData = await response.json().catch(() => ({}));
+        const errorMessage =
+          errorData?.error ||
+          (response.status === 401
+            ? 'Please log in to report'
+            : response.status === 404
+              ? 'Product not found'
+              : response.status === 409
+                ? 'This listing cannot be reported'
+                : 'Failed to submit, please try again');
+        toast.error(errorMessage);
       }
     } catch (error) {
       console.error(`[moderation dialog] error: ${error}`);
