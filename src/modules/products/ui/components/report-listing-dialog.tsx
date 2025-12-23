@@ -113,7 +113,15 @@ export const ReportListingDialog = ({
       <Tooltip>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <TooltipTrigger>Report Listing</TooltipTrigger>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                disabled={disabled}
+                className="disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Report Listing
+              </button>
+            </TooltipTrigger>
           </DialogTrigger>
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
