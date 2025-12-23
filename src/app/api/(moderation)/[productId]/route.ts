@@ -79,7 +79,15 @@ export async function POST(
         `[Moderation] there was a problem flagging productId: ${productId} for ${reason} for route /api/(moderation)/[productId]`
       );
     }
-    return NextResponse.json({ error: message }, { status: 500 });
+    return NextResponse.json(
+      {
+        error:
+          process.env.NODE_ENV === 'production'
+            ? 'Internal server error'
+            : message
+      },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ message: 'Success' }, { status: 200 });
