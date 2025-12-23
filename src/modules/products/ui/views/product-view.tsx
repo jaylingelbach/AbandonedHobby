@@ -445,7 +445,7 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
                 {!isSelf && (
                   <ReportListingDialog
-                    disabled={isSelf}
+                    disabled={false}
                     productId={productIdStr}
                   />
                 )}
