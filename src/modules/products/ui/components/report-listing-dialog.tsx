@@ -121,7 +121,13 @@ export const ReportListingDialog = ({
   return (
     <div className="text-center text-sm font-bold">
       <Tooltip>
-        <Dialog open={open} onOpenChange={setOpen}>
+        <Dialog
+          open={open}
+          onOpenChange={(nextOpen) => {
+            if (disabled && nextOpen) return;
+            setOpen(nextOpen);
+          }}
+        >
           <DialogTrigger asChild>
             <TooltipTrigger asChild>
               <button
