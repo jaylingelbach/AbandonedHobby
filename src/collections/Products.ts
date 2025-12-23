@@ -270,8 +270,8 @@ export const Products: CollectionConfig = {
     },
     // moderation
     {
-      name: 'flagged',
-      label: 'Item has been flagged for review',
+      name: 'isFlagged',
+      label: 'Flagged',
       type: 'checkbox',
       required: true,
       defaultValue: false,
@@ -287,6 +287,7 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'flagReason',
+      label: 'Flag Reason',
       required: false,
       type: 'select',
       options: [
@@ -321,7 +322,7 @@ export const Products: CollectionConfig = {
         value: unknown,
         { siblingData }: ProductModerationCtx
       ): true | string => {
-        const isFlagged = siblingData?.flagged === true;
+        const isFlagged = siblingData?.isFlagged === true;
 
         if (!isFlagged) {
           // If the product is not flagged, no reason is required.
@@ -338,6 +339,7 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'flagReasonOtherText',
+      label: 'Flag Reason Other',
       type: 'textarea',
       admin: {
         condition: (_data, siblingData) => siblingData?.flagReason === 'other',
@@ -375,12 +377,28 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'moderationNote',
+      label: 'Moderation Note',
       type: 'textarea',
       required: false,
       admin: {
         description:
           'Internal note for moderators (visible only to staff). Use this to document what action was taken and why.',
-        condition: (_data, siblingData) => siblingData?.flagged === true
+        condition: (_data, siblingData) => siblingData?.isFlagged === true
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'isRemovedForPolicy',
+      label: 'Removed For Policy',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description:
+          'Indicates that this product has been removed for a policy violation'
       },
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
