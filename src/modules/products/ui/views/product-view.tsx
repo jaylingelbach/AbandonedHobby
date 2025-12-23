@@ -104,6 +104,11 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
       ? true
       : trackInventory && stockQuantity <= 0;
 
+  const listingState = data as {
+    isArchived?: boolean;
+    isRemovedForPolicy?: boolean;
+  };
+
   const availabilityLabel =
     typeof (data as { availabilityLabel?: unknown })?.availabilityLabel ===
     'string'
@@ -445,7 +450,10 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
 
                 {!isSelf && (
                   <ReportListingDialog
-                    disabled={false}
+                    disabled={
+                      listingState.isArchived === true ||
+                      listingState.isRemovedForPolicy === true
+                    }
                     productId={productIdStr}
                   />
                 )}
