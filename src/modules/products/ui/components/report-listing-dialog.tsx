@@ -71,7 +71,7 @@ export const ReportListingDialog = ({
     if (!isNonEmptyString(otherText)) {
       return 'Reason required.';
     }
-    if (isNonEmptyString(otherText) && otherText.length < 10) {
+    if (otherText.length < 10) {
       return 'Must be at least 10 characters long.';
     }
   };
