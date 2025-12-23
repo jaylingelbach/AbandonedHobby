@@ -50,7 +50,13 @@ export const ReportListingDialog = ({
   const [open, setOpen] = useState<boolean>(false);
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
 
-  const isBtnDisabled = Boolean(disabled || reason === '' || isSubmitting);
+  const isBtnDisabled = Boolean(
+    disabled ||
+      reason === '' ||
+      isSubmitting ||
+      (reason === 'other' &&
+        (!isNonEmptyString(otherText) || otherText.length < 10))
+  );
 
   const resetState = () => {
     setReason('');
