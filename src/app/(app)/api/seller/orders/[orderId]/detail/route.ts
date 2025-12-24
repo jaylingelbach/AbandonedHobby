@@ -12,6 +12,7 @@ import { toIntCents } from '@/lib/money';
 import type { SellerOrderDetail } from './types';
 import { zShippingMode } from '@/lib/validation/seller-order-validation-types';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { isNotFound } from '@/lib/server/utils';
 
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
@@ -272,12 +273,7 @@ export async function GET(
     return resp;
   } catch (error) {
     console.error('[seller-order-detail] unexpected error:', error);
-    if (
-      error &&
-      typeof error === 'object' &&
-      'status' in error &&
-      (error as { status?: number }).status === 404
-    ) {
+    if (isNotFound(error)) {
       const resp = NextResponse.json(
         { error: 'Order not found' },
         { status: 404 }

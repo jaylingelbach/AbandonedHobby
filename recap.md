@@ -6297,3 +6297,66 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/payload-types.ts
   - Added moderation-related field definitions to Product type and ProductsSelect interface: flagged (boolean), flagReason (union of predefined reasons or null), flagReasonOtherText (optional string), and moderationNote (optional string).
+
+# Moderation - Report listing 12/23/25
+
+## Walkthrough
+
+- Adds a product moderation flow: new POST moderation API and Zod schema, UI dialog to report listings, moderation constants, collection/type changes (rename flagged → isFlagged, add isRemovedForPolicy), product-view UI integration, and a seller-order GET error-handling tweak using isNotFound().
+
+## New Features
+
+- Report listings for moderation from product pages via a new reporting dialog with predefined reasons, optional “Other” details, and submit feedback.
+
+## Validation
+
+- “Other” reason now requires at least 10 characters; request payloads are schema-validated.
+
+## UI / Content
+
+- Moderation labels clarified (e.g., “Flagged”, “Flag Reason”, “Flag Reason Other”, “Moderation Note”); new “Removed For Policy” status visible.
+
+## API
+
+- Added moderation report endpoint with improved error handling and clearer status responses.
+
+## Data Model
+
+- Product fields renamed/added: flagged → isFlagged, plus isRemovedForPolicy.
+
+## File changes
+
+### Seller order error handling
+
+- src/app/(app)/api/seller/orders/[orderId]/detail/route.ts
+  - Replaced manual 404 shape checks with imported isNotFound(error) in GET catch block to determine not-found scenarios and return 404.
+
+## Moderation API & schema
+
+- src/app/api/(moderation)/[productId]/route.ts, src/app/api/(moderation)/[productId]/schema.ts
+  - New POST route to report a product using moderationRequestSchema (Zod). Validates request, authenticates via payload, checks product state, sets isFlagged, flagReason, and flagReasonOtherText; responds with 400/401/404/409/500 as appropriate.
+
+### Moderation constants
+
+- src/constants.ts
+  - Added moderationFlagReasons tuple, FlagReasons type, and flagReasonLabels / flagReasonLabelsEmail mappings for UI and emails.
+
+### Collection schema updates
+
+- src/collections/Products.ts
+  - Renamed flagged → isFlagged; added isRemovedForPolicy; updated flagReason options to derive from moderationFlagReasons/flagReasonLabels; adjusted validation/admin/access/labels and conditional logic to reference isFlagged.
+
+### Payload types
+
+- src/payload-types.ts
+  - Renamed flagged → isFlagged on Product and ProductsSelect; added optional isRemovedForPolicy.
+
+### Report listing UI
+
+- src/modules/products/ui/components/report-listing-dialog.tsx
+  - New ReportListingDialog component: reason select (from constants), conditional "Other" textarea with min-length (10) validation, POST to moderation API, toast feedback; props: productId, disabled.
+
+### Product view integration
+
+- src/modules/products/ui/views/product-view.tsx
+  - Removed dynamic CartButton shim, switched to direct import; integrated ReportListingDialog into right-hand CTAs and added listingState-driven enable/disable behavior.

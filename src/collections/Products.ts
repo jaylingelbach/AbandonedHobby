@@ -11,6 +11,7 @@ import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrem
 import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
 import { Product } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
+import { flagReasonLabels, moderationFlagReasons } from '@/constants';
 
 type ProductModerationCtx = {
   siblingData?: Partial<Product>;
@@ -270,8 +271,8 @@ export const Products: CollectionConfig = {
     },
     // moderation
     {
-      name: 'flagged',
-      label: 'Item has been flagged for review',
+      name: 'isFlagged',
+      label: 'Flagged',
       type: 'checkbox',
       required: true,
       defaultValue: false,
@@ -287,27 +288,13 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'flagReason',
+      label: 'Flag Reason',
       required: false,
       type: 'select',
-      options: [
-        { label: 'Spam or advertising', value: 'spam' },
-        { label: 'Scam or fraudulent activity', value: 'scam_or_fraud' },
-        {
-          label: 'Inappropriate or NSFW content',
-          value: 'inappropriate_or_nsfw'
-        },
-        { label: 'Prohibited or restricted item', value: 'prohibited_item' },
-        {
-          label: 'Misleading or false information',
-          value: 'misleading_or_false'
-        },
-        {
-          label: 'Copyright or intellectual property issue',
-          value: 'copyright_or_ip'
-        },
-        { label: 'Duplicate listing', value: 'duplicate_listing' },
-        { label: 'Other (please specify)', value: 'other' }
-      ],
+      options: moderationFlagReasons.map((value) => ({
+        label: flagReasonLabels[value],
+        value
+      })),
       admin: {
         description:
           'Select the primary reason this listing was flagged for review.'
@@ -321,7 +308,7 @@ export const Products: CollectionConfig = {
         value: unknown,
         { siblingData }: ProductModerationCtx
       ): true | string => {
-        const isFlagged = siblingData?.flagged === true;
+        const isFlagged = siblingData?.isFlagged === true;
 
         if (!isFlagged) {
           // If the product is not flagged, no reason is required.
@@ -338,6 +325,7 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'flagReasonOtherText',
+      label: 'Flag Reason Other',
       type: 'textarea',
       admin: {
         condition: (_data, siblingData) => siblingData?.flagReason === 'other',
@@ -375,12 +363,28 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'moderationNote',
+      label: 'Moderation Note',
       type: 'textarea',
       required: false,
       admin: {
         description:
           'Internal note for moderators (visible only to staff). Use this to document what action was taken and why.',
-        condition: (_data, siblingData) => siblingData?.flagged === true
+        condition: (_data, siblingData) => siblingData?.isFlagged === true
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'isRemovedForPolicy',
+      label: 'Removed For Policy',
+      type: 'checkbox',
+      defaultValue: false,
+      admin: {
+        description:
+          'Indicates that this product has been removed for a policy violation'
       },
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
