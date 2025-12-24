@@ -26,11 +26,6 @@ interface Props {
 }
 
 export default function Layout({ children }: Props) {
-  //   /* ─── Server-side prefetch ───────────────────────────────────────────── */
-  // const queryClient = getQueryClient();
-  // // pre-warm the cache so the first paint is instant
-  // await queryClient.prefetchQuery(trpc.categories.getMany.queryOptions());
-
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar />
