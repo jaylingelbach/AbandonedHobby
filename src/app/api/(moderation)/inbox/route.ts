@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
           : 'Unknown',
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
         thumbnailUrl: null, // or wire up images later
-        reportedAt: product.updatedAt,
         reportedAtLabel: new Date(product.updatedAt).toLocaleDateString()
       };
     });
