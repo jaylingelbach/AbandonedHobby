@@ -36,7 +36,9 @@ export async function fetchModerationInbox(
   }
 
   if (!response.ok) {
-    throw new Error('Failed to load moderation inbox');
+    throw new Error(
+      `Failed to load moderation inbox: ${response.status} ${response.statusText}`
+    );
   }
 
   const json = (await response.json()) as unknown;
