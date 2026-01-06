@@ -10,8 +10,7 @@ import { cn } from '@/lib/utils';
 import { moderationInboxQueryKey } from './queryKeys';
 import ModerationRow from './moderation-row';
 import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
-import { getErrorStatus } from './utils';
-import { fetchModerationInbox } from './utils';
+import { getErrorStatus, fetchModerationInbox } from './utils';
 
 export default function ModerationInboxPage() {
   const router = useRouter();
