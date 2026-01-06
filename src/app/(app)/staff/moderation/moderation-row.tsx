@@ -134,7 +134,11 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         {/* Actions */}
         <div className="flex flex-col items-stretch gap-2 min-w-45">
           {/* Approve / meets standards */}
-          <AlertDialog>
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) setModerationNote('');
+            }}
+          >
             <AlertDialogTrigger asChild>
               <Button
                 variant="secondary"
@@ -188,7 +192,11 @@ export default function ModerationRow({ item }: ModerationRowProps) {
             </AlertDialogContent>
           </AlertDialog>
           {/* Remove / violates standards */}
-          <AlertDialog>
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) setModerationNote('');
+            }}
+          >
             <AlertDialogTrigger asChild>
               <Button
                 className={cn(
