@@ -56,7 +56,9 @@ export async function POST(
     });
     if (product.isArchived || product.isRemovedForPolicy) {
       return NextResponse.json(
-        { error: `Listing can not be unflagged in its current state.` },
+        {
+          error: `Listing is already archived or removed for policy violations.`
+        },
         { status: 409 }
       );
     }
@@ -79,7 +81,7 @@ export async function POST(
     }
     if (process.env.NODE_ENV !== 'production') {
       console.error(
-        `[Moderation] there was a problem removing productId: ${productId} with note: ${moderationNote} for route /api/(moderation)/[productId/remove]`
+        `[Moderation] there was a problem removing productId: ${productId} with note: ${moderationNote} for route /api/(moderation)/[productId]/remove`
       );
     }
     return NextResponse.json(
