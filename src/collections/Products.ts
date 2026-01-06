@@ -9,7 +9,7 @@ import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-pro
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
-import { Product, User } from '@/payload-types';
+import { Product } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
 import { flagReasonLabels, moderationFlagReasons } from '@/constants';
 
