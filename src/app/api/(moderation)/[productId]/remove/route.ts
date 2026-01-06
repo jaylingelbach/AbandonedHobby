@@ -1,9 +1,16 @@
+// ─── Next.js / Framework Built-ins ───────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
-import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
+
+// ─── Payload CMS ─────────────────────────────────────────────────────────────
 import { getPayload } from 'payload';
 import config from '@/payload.config';
+
+// ─── Project Types ───────────────────────────────────────────────────────────
 import { Product } from '@/payload-types';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { isNotFound } from '@/lib/server/utils';
+import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
 
 export async function POST(
   request: NextRequest,
