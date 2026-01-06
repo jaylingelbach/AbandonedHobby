@@ -69,7 +69,7 @@ export async function POST(
       overrideAccess: true,
       data: {
         isRemovedForPolicy: true,
-        moderationNote: moderationNote ?? undefined,
+        moderationNote: moderationNote,
         isArchived: true
       }
     });
