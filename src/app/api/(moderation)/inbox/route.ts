@@ -37,6 +37,8 @@ export async function GET(request: NextRequest) {
           { isArchived: { equals: false } }
         ]
       },
+      limit: 50, // or accept from query params
+      page: 1, // or accept from query params
       sort: '-updatedAt'
     });
     moderationInboxItems = result.docs.map((product) => {
