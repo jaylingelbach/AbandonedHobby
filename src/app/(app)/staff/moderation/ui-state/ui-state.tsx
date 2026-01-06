@@ -4,7 +4,9 @@ const BASE_CONTAINER_CLASS =
 export function EmptyState() {
   return (
     <div className={`${BASE_CONTAINER_CLASS}`}>
-      <h2 className="text-sm font-semibold uppercase tracking-wide"></h2>
+      <h2 className="text-sm font-semibold uppercase tracking-wide">
+        Nothing to review 🎉
+      </h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         There are currently no flagged listings. New reports will show up here
         automatically when buyers report a listing.
