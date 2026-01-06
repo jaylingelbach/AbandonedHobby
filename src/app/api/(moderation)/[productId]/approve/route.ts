@@ -66,12 +66,12 @@ export async function POST(
     }
 
     await payload.update({
-      collection: 'products',
+      collection: 'products',g
       id: productId,
       overrideAccess: true,
       data: {
         isFlagged: false,
-        moderationNote: moderationNote ?? undefined
+        moderationNote
       }
     });
   } catch (error) {
