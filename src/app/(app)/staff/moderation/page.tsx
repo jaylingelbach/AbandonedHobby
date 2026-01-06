@@ -1,16 +1,22 @@
 'use client';
 
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
 import { useQuery } from '@tanstack/react-query';
 import { Flag } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
-import { moderationInboxQueryKey } from './queryKeys';
-import ModerationRow from './moderation-row';
-import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
 import { getErrorStatus, fetchModerationInbox } from './utils';
+import { moderationInboxQueryKey } from './queryKeys';
+
+// ─── Project Components ──────────────────────────────────────────────────────
+import { Button } from '@/components/ui/button';
+import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
+import ModerationRow from './moderation-row';
 
 export default function ModerationInboxPage() {
   const router = useRouter();
