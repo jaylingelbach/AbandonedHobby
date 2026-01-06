@@ -37,8 +37,7 @@ export async function GET(request: NextRequest) {
           { isArchived: { equals: false } }
         ]
       },
-      limit: 50, // or accept from query params
-      page: 1, // or accept from query params
+      limit: 50, // or accept from query param      page: 1, // or accept from query params
       sort: '-updatedAt'
     });
     moderationInboxItems = result.docs.map((product) => {
@@ -58,7 +57,7 @@ export async function GET(request: NextRequest) {
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
         thumbnailUrl: null, // or wire up images later
         reportedAt: product.updatedAt,
-        reportedAtLabel: new Date(product.updatedAt).toLocaleDateString()
+        reportedAtLabel: new Date(product.updatedAt).toISOString().split('T')[0]
       };
     });
   } catch (error) {
