@@ -20,7 +20,7 @@ import { toast } from 'sonner';
 import { useState } from 'react';
 import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
-import { useQueryClient, useSuspenseQuery } from '@tanstack/react-query';
+import { useQueryClient } from '@tanstack/react-query';
 import { moderationInboxQueryKey } from './queryKeys';
 
 interface ModerationRowProps {
@@ -38,10 +38,11 @@ export default function ModerationRow({ item }: ModerationRowProps) {
   } = item;
   const queryClient = useQueryClient();
 
-  const [moderationNote, setModerationNote] = useState<string>('');
+  const [approveNote, setApproveNote] = useState<string>('');
+  const [removeNote, setRemoveNote] = useState<string>('');
 
   async function approveClickHandler() {
-    const data = moderationNote ? { moderationNote } : {};
+    const data = approveNote ? { approveNote } : {};
     try {
       const response = await fetch(`/api/${id}/approve`, {
         method: 'POST',
@@ -54,7 +55,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         toast.success(
           'Listing has been approved and removed from the moderation queue.'
         );
-        setModerationNote('');
+        setApproveNote('');
         queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -77,7 +78,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
     }
   }
   async function removeClickHandler() {
-    const data = moderationNote ? { moderationNote } : {};
+    const data = removeNote ? { removeNote } : {};
     try {
       const response = await fetch(`/api/${id}/remove`, {
         method: 'POST',
@@ -88,7 +89,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
       });
       if (response.ok) {
         toast.success('Item has been removed from the marketplace.');
-        setModerationNote('');
+        setRemoveNote('');
         queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
       } else {
         const errorData = await response.json().catch(() => ({}));
