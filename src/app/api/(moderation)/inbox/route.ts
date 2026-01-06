@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
         thumbnailUrl: null, // or wire up images later
         reportedAt: product.updatedAt,
-        reportedAtLabel: new Date(product.updatedAt).toISOString().split('T')[0]
+        reportedAtLabel: new Date(product.updatedAt).toLocaleDateString()
       };
     });
   } catch (error) {
