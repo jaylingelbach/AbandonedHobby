@@ -175,6 +175,26 @@ export const Products: CollectionConfig = {
       defaultValue: false,
       type: 'checkbox',
       admin: {
+        /**
+         * Show rules:
+         * - Super-admin: always see the checkbox.
+         * - Everyone else: hide it when the listing has been removed for policy
+         *   so they can't un-archive / resurrect a policy-removed listing.
+         */
+        condition: (
+          _data,
+          siblingData?: { isRemovedForPolicy?: boolean },
+          context?: { user?: unknown }
+        ) => {
+          const user = context?.user ?? null;
+
+          if (isSuperAdmin(user as any)) {
+            return true;
+          }
+
+          // Non-super-admin: hide the field once it's removed for policy
+          return siblingData?.isRemovedForPolicy !== true;
+        },
         description:
           'Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.'
       }

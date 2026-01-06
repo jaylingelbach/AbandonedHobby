@@ -199,7 +199,8 @@ export const checkoutRouter = createTRPCRouter({
         where: {
           and: [
             { id: { in: productIds } },
-            { isArchived: { not_equals: true } }
+            { isArchived: { not_equals: true } },
+            { isRemovedForPolicy: { not_equals: true } }
           ]
         }
       });
@@ -648,7 +649,11 @@ export const checkoutRouter = createTRPCRouter({
         collection: 'products',
         depth: 2,
         where: {
-          and: [{ id: { in: input.ids } }, { isArchived: { not_equals: true } }]
+          and: [
+            { id: { in: input.ids } },
+            { isArchived: { not_equals: true } },
+            { isRemovedForPolicy: { not_equals: true } }
+          ]
         }
       });
 

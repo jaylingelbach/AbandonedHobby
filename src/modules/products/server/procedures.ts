@@ -89,6 +89,13 @@ export const productsRouter = createTRPCRouter({
         });
       }
 
+      if (product.isRemovedForPolicy) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Product has been removed for policy violations'
+        });
+      }
+
       // Availability
       const trackInventory = Boolean(product.trackInventory);
       const stockQuantity = product.stockQuantity ?? 0;
