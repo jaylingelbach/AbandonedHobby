@@ -1,9 +1,7 @@
 export function EmptyState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-16 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-      <p className="text-sm font-semibold uppercase tracking-wide">
-        Nothing to review 🎉
-      </p>
+      <h2 className="text-sm font-semibold uppercase tracking-wide"></h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         There are currently no flagged listings. New reports will show up here
         automatically when buyers report a listing.
@@ -16,9 +14,9 @@ export function EmptyState() {
 export function NotAllowedState() {
   return (
     <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-16 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-      <p className="text-sm font-semibold uppercase tracking-wide">
+      <h2 className="text-sm font-semibold uppercase tracking-wide">
         Not allowed
-      </p>
+      </h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         You don&apos;t have permission to view the moderation inbox.
       </p>
@@ -29,10 +27,10 @@ export function NotAllowedState() {
 /** Generic error state for other failures */
 export function ErrorState({ message }: { message?: string }) {
   return (
-    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-8 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
-      <p className="text-sm font-semibold uppercase tracking-wide">
+    <div className="flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-16 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
+      <h2 className="text-sm font-semibold uppercase tracking-wide">
         Couldn&apos;t load moderation queue
-      </p>
+      </h2>
       <p className="mt-2 max-w-md text-sm text-muted-foreground">
         {message ?? 'Please refresh and try again.'}
       </p>
