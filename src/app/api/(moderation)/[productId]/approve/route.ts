@@ -1,9 +1,18 @@
+// ─── Core Frameworks ─────────────────────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
+
+// ─── Payload CMS ─────────────────────────────────────────────────────────────
 import { getPayload } from 'payload';
-import { moderationApproveSchema } from '@/app/api/(moderation)/[productId]/schema';
 import config from '@/payload.config';
+
+// ─── Project Types ───────────────────────────────────────────────────────────
 import { Product } from '@/payload-types';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
 import { isNotFound } from '@/lib/server/utils';
+
+// ─── Validation Schemas ──────────────────────────────────────────────────────
+import { moderationApproveSchema } from '@/app/api/(moderation)/[productId]/schema';
 
 export async function POST(
   request: NextRequest,

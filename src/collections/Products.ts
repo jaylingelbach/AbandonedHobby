@@ -1,17 +1,25 @@
+// ─── Payload CMS ─────────────────────────────────────────────────────────────
 import { CollectionConfig } from 'payload';
 
-import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
-import { getCategoryIdFromSibling } from '@/lib/server/utils';
-import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/resolve-tenant-and-require-stripe-ready';
-import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
-import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
-import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-product-analytics';
-import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
-import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
-import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
+// ─── Project Constants / Types ───────────────────────────────────────────────
+import { flagReasonLabels, moderationFlagReasons } from '@/constants';
 import { Product } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
-import { flagReasonLabels, moderationFlagReasons } from '@/constants';
+
+// ─── Access Control ──────────────────────────────────────────────────────────
+import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { getCategoryIdFromSibling } from '@/lib/server/utils';
+
+// ─── Product Hooks ───────────────────────────────────────────────────────────
+import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
+import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-product-analytics';
+import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
+import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
+import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/resolve-tenant-and-require-stripe-ready';
+import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
+import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
 
 type ProductModerationCtx = {
   siblingData?: Partial<Product>;
