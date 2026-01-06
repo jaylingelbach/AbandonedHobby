@@ -38,24 +38,29 @@ export default function ModerationRow({ item }: ModerationRowProps) {
   } = item;
   const queryClient = useQueryClient();
 
-  const [approveNote, setApproveNote] = useState<string>('');
-  const [removeNote, setRemoveNote] = useState<string>('');
+  const [moderationNote, setModerationNote] = useState<string>('');
 
-  async function approveClickHandler() {
-    const data = approveNote ? { approveNote } : {};
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  async function handleModerationAction(
+    action: 'approve' | 'remove',
+    note: string
+  ) {
+    const data = note ? { moderationNote: note } : {};
+    setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/${id}/approve`, {
+      const response = await fetch(`/api/${id}/${action}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(data)
       });
       if (response.ok) {
         toast.success(
-          'Listing has been approved and removed from the moderation queue.'
+          action === 'approve'
+            ? 'Listing has been approved and removed from the moderation queue.'
+            : 'Item has been removed from the marketplace.'
         );
-        setApproveNote('');
+        setModerationNote('');
         queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
       } else {
         const errorData = await response.json().catch(() => ({}));
@@ -68,47 +73,15 @@ export default function ModerationRow({ item }: ModerationRowProps) {
               : response.status === 404
                 ? 'Product not found'
                 : response.status === 409
-                  ? 'This listing cannot be unflagged in its current state'
+                  ? 'This listing cannot be moderated in its current state'
                   : 'Failed to submit, please try again');
         toast.error(errorMessage);
       }
     } catch (error) {
       console.error(`[moderation dialog] error: ${error}`);
       toast.error('Something went wrong, please try again.');
-    }
-  }
-  async function removeClickHandler() {
-    const data = removeNote ? { removeNote } : {};
-    try {
-      const response = await fetch(`/api/${id}/remove`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
-        toast.success('Item has been removed from the marketplace.');
-        setRemoveNote('');
-        queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          errorData?.error ||
-          (response.status === 401
-            ? 'Authentication required. Please sign in again.'
-            : response.status === 403
-              ? 'Not authorized'
-              : response.status === 404
-                ? 'Product not found'
-                : response.status === 409
-                  ? 'This listing cannot be unflagged in its current state'
-                  : 'Failed to submit, please try again');
-        toast.error(errorMessage);
-      }
-    } catch (error) {
-      console.error(`[moderation dialog] error: ${error}`);
-      toast.error('Something went wrong, please try again.');
+    } finally {
+      setIsSubmitting(false);
     }
   }
 
@@ -204,7 +177,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                     'border-2 border-black bg-black text-white',
                     'hover:bg-green-500 hover:text-primary'
                   )}
-                  onClick={() => approveClickHandler()}
+                  onClick={() =>
+                    handleModerationAction('approve', moderationNote)
+                  }
+                  disabled={isSubmitting}
                 >
                   Confirm approval
                 </AlertDialogAction>
@@ -255,7 +231,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                     'border-2 border-black bg-black text-white',
                     'hover:bg-red-500 hover:text-primary'
                   )}
-                  onClick={() => removeClickHandler()}
+                  onClick={() =>
+                    handleModerationAction('remove', moderationNote)
+                  }
+                  disabled={isSubmitting}
                 >
                   Confirm removal
                 </AlertDialogAction>
