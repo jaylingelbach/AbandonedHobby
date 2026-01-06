@@ -63,7 +63,10 @@ export async function GET(request: NextRequest) {
     const message = error instanceof Error ? error.message : String(error);
 
     if (process.env.NODE_ENV !== 'production') {
-      console.error(`[Moderation] there was a problem getting inbox items`);
+      console.error(
+        `[Moderation] there was a problem getting inbox items:`,
+        message
+      );
     }
     return NextResponse.json(
       {
