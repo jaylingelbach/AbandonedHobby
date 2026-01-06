@@ -31,7 +31,7 @@ import { Textarea } from '@/components/ui/textarea';
 // ─── Project Types / Features ────────────────────────────────────────────────
 import { moderationInboxQueryKey } from './queryKeys';
 import { ModerationInboxItem } from './types';
-git;
+
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
