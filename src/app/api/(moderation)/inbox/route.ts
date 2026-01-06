@@ -33,11 +33,11 @@ export async function GET(request: NextRequest) {
       where: {
         and: [
           { isFlagged: { equals: true } },
-          { isRemovedForPolicy: { equals: false } },
-          { isArchived: { equals: false } }
+          { isRemovedForPolicy: { not_equals: true } },
+          { isArchived: { not_equals: true } }
         ]
       },
-      limit: 50, // or accept from query param      page: 1, // or accept from query params
+      limit: 50,
       sort: '-updatedAt'
     });
     moderationInboxItems = result.docs.map((product) => {
