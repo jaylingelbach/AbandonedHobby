@@ -15,13 +15,10 @@ export function getErrorStatus(error: unknown): number | undefined {
 }
 
 /** Fetcher used by React Query */
-export async function fetchModerationInbox(
-  signal?: AbortSignal
-): Promise<ModerationInboxItem[]> {
+export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
   const response = await fetch('/api/inbox', {
     method: 'GET',
-    credentials: 'include',
-    signal
+    credentials: 'include'
   });
 
   // Auth / authz handling
