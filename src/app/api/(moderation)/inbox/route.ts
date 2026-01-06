@@ -1,9 +1,16 @@
+// ─── Next.js / Framework Built-ins ───────────────────────────────────────────
 import { NextRequest, NextResponse } from 'next/server';
+
+// ─── Payload CMS ─────────────────────────────────────────────────────────────
 import { getPayload } from 'payload';
 import config from '@/payload.config';
-import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
+
+// ─── Project Constants / Types ───────────────────────────────────────────────
 import { flagReasonLabels } from '@/constants';
 import type { Product, Tenant } from '@/payload-types';
+
+// ─── Project Features / Modules ──────────────────────────────────────────────
+import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
 
 export async function GET(request: NextRequest) {
   function isPopulatedTenant(value: Product['tenant']): value is Tenant {
