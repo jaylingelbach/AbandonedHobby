@@ -1,6 +1,18 @@
 'use client';
 
-import { Button } from '@/components/ui/button';
+// ─── React / Next.js Built-ins ───────────────────────────────────────────────
+import { useState } from 'react';
+import Link from 'next/link';
+
+// ─── Third-party Libraries ───────────────────────────────────────────────────
+import { CheckCircle2, ShieldOff } from 'lucide-react';
+import { useQueryClient } from '@tanstack/react-query';
+import { toast } from 'sonner';
+
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { cn } from '@/lib/utils';
+
+// ─── Project Components ──────────────────────────────────────────────────────
 import {
   AlertDialog,
   AlertDialogAction,
@@ -12,17 +24,14 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
-import { cn } from '@/lib/utils';
-import { ModerationInboxItem } from './types';
-import { CheckCircle2, ShieldOff } from 'lucide-react';
-import Link from 'next/link';
-import { toast } from 'sonner';
-import { useState } from 'react';
-import { Textarea } from '@/components/ui/textarea';
+import { Button } from '@/components/ui/button';
 import { Label } from '@/components/ui/label';
-import { useQueryClient } from '@tanstack/react-query';
-import { moderationInboxQueryKey } from './queryKeys';
+import { Textarea } from '@/components/ui/textarea';
 
+// ─── Project Types / Features ────────────────────────────────────────────────
+import { moderationInboxQueryKey } from './queryKeys';
+import { ModerationInboxItem } from './types';
+git;
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
