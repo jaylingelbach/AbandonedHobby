@@ -9,7 +9,7 @@ import { captureProductAnalytics } from '@/lib/server/products/hooks/capture-pro
 import { autoArchiveOrUnarchiveOnInventoryChange } from '@/lib/server/products/hooks/auto-archive-or-unarchive-on-inventory-change';
 import { decrementTenantCountOnDelete } from '@/lib/server/products/hooks/decrement-tenant-count-on-delete';
 import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks/force-track-inventory-true-for-non-super-admins';
-import { Product } from '@/payload-types';
+import { Product, User } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
 import { flagReasonLabels, moderationFlagReasons } from '@/constants';
 
@@ -181,14 +181,8 @@ export const Products: CollectionConfig = {
          * - Everyone else: hide it when the listing has been removed for policy
          *   so they can't un-archive / resurrect a policy-removed listing.
          */
-        condition: (
-          _data,
-          siblingData?: { isRemovedForPolicy?: boolean },
-          context?: { user?: unknown }
-        ) => {
-          const user = context?.user ?? null;
-
-          if (isSuperAdmin(user as any)) {
+        condition: (_data, siblingData, { user }) => {
+          if (isSuperAdmin(user)) {
             return true;
           }
 
@@ -199,6 +193,7 @@ export const Products: CollectionConfig = {
           'Check this box if you want to hide this item from the entire site. Customers who have purchased this item retain access to their purchase history.'
       }
     },
+
     {
       name: 'isPrivate',
       label: 'Private',
