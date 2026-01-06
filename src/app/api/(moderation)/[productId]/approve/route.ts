@@ -66,7 +66,7 @@ export async function POST(
     }
 
     await payload.update({
-      collection: 'products',g
+      collection: 'products',
       id: productId,
       overrideAccess: true,
       data: {
