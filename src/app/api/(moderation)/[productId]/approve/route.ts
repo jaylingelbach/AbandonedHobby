@@ -82,7 +82,7 @@ export async function POST(
     }
     if (process.env.NODE_ENV !== 'production') {
       console.error(
-        `[Moderation] there was a problem unflagging productId: ${productId} with note: ${moderationNote} for route /api/(moderation)/[productId/approve]`
+        `[Moderation] there was a problem unflagging productId: ${productId} with note: ${moderationNote} for route /api/(moderation)/[productId]/approve`
       );
     }
     return NextResponse.json(
