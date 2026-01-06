@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { moderationRemoveSchema } from '../schema';
+import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
 import { getPayload } from 'payload';
 import config from '@/payload.config';
 import { Product } from '@/payload-types';
