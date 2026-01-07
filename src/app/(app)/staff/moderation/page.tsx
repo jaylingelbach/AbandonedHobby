@@ -5,8 +5,13 @@ import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useQuery } from '@tanstack/react-query';
 import { Flag } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
+import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
@@ -85,24 +90,42 @@ export default function ModerationInboxPage() {
 
           {/* Room for future filters (reason, tenant, status) */}
           <div className="hidden md:flex items-center gap-2">
-            <Button
-              variant="outline"
-              className={cn(
-                'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
-                'hover:bg-black hover:text-white'
-              )}
-            >
-              All reasons
-            </Button>
-            <Button
-              variant="outline"
-              className={cn(
-                'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
-                'hover:bg-black hover:text-white'
-              )}
-            >
-              All shops
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    className={cn(
+                      'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
+                      'hover:bg-black hover:text-white'
+                    )}
+                    aria-disabled={true}
+                    disabled={true}
+                    variant="outline"
+                  >
+                    All reasons
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon...</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    className={cn(
+                      'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
+                      'hover:bg-black hover:text-white'
+                    )}
+                    aria-disabled={true}
+                    disabled={true}
+                    variant="outline"
+                  >
+                    All shops
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon...</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 
