@@ -1,6 +1,14 @@
 import { ModerationInboxItem } from './types';
 
-/** Helper: read a numeric `status` off any thrown error safely */
+/**
+ * Extracts a numeric status code from an error-like value, if present.
+ *
+ * The function returns the value of a numeric `status` property when `error` is an object
+ * that contains such a property; otherwise it returns `undefined`.
+ *
+ * @param error - The value to inspect for a `status` property
+ * @returns The numeric `status` value if present, `undefined` otherwise
+ */
 export function getErrorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined;
 
@@ -14,7 +22,16 @@ export function getErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
-/** Fetcher used by React Query */
+/**
+ * Load moderation inbox items from the server.
+ *
+ * Fetches the moderation inbox endpoint and returns the parsed items.
+ *
+ * @returns An array of `ModerationInboxItem` representing the moderation inbox entries.
+ * @throws Error with a numeric `status` property set to 401 or 403 when the request is unauthorized or forbidden.
+ * @throws Error when the response has a non-OK status (message includes status and statusText).
+ * @throws Error when the response body is not an array as expected.
+ */
 export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
   const response = await fetch('/api/inbox', {
     method: 'GET',

@@ -25,6 +25,12 @@ interface Props {
   children: React.ReactNode;
 }
 
+/**
+ * Page layout component that renders the site chrome and hosts page content.
+ *
+ * @param children - Content to be displayed in the layout's main content area.
+ * @returns The composed layout element containing the navigation, main content area, and footer.
+ */
 export default function Layout({ children }: Props) {
   return (
     <div className="flex flex-col min-h-screen">

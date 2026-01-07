@@ -1,12 +1,17 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
-import { useQuery } from '@tanstack/react-query';
 import { Flag } from 'lucide-react';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
+import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
@@ -15,11 +20,28 @@ import { moderationInboxQueryKey } from './queryKeys';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import { Button } from '@/components/ui/button';
-import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
+import {
+  ErrorState,
+  EmptyState,
+  NotAllowedState,
+  LoadingState
+} from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 
+/**
+ * Render the moderation inbox page for staff to review listings reported by the community.
+ *
+ * Fetches moderation inbox items on the client and preserves the current path when redirecting
+ * unauthenticated users to the sign-in page. While redirecting or while the initial query is in
+ * flight the component renders nothing to avoid flashing UI. Renders a forbidden state for 403
+ * responses, an error state showing the error message for other errors, an empty state when there
+ * are no items, or a list of ModerationRow entries when items are present.
+ *
+ * @returns The rendered moderation inbox UI.
+ */
 export default function ModerationInboxPage() {
   const router = useRouter();
+  const [showLoading, setShowLoading] = useState(false);
 
   const { data, isError, error } = useQuery({
     queryKey: moderationInboxQueryKey,
@@ -38,16 +60,44 @@ export default function ModerationInboxPage() {
     }
   }, [errorStatus, router]);
 
-  // While the query is in-flight (no data, no error yet),
-  // render nothing — this avoids showing *anything* to logged-out users
-  // before we know it's a 401 and redirect.
-  if (!data && !isError) {
-    return null;
-  }
+  /**
+   *   Delayed loading state for authenticated staff:
+   * - While query is in-flight (no data, no error), start a 300ms timer.
+   * - After 300ms, show <LoadingState />.
+   * - If data or error arrives sooner, cancel and hide loading.
+   */
+
+  useEffect(() => {
+    if (!data && !isError) {
+      const timeoutId = window.setTimeout(() => {
+        setShowLoading(true);
+      }, 300);
+
+      return () => {
+        window.clearTimeout(timeoutId);
+        setShowLoading(false);
+      };
+    }
+
+    // Once we have data or an error, ensure loading is off
+    setShowLoading(false);
+  }, [data, isError]);
 
   // If we hit a 401, we're redirecting in useEffect — render nothing
   if (errorStatus === 401) {
     return null;
+  }
+
+  /**
+   *  While the query is in-flight (no data, no error yet),
+   *  render nothing at first, then <LoadingState /> after 300ms.
+   */
+
+  if (!data && !isError) {
+    if (!showLoading) {
+      return null;
+    }
+    return <LoadingState />;
   }
 
   const moderationInboxItems = data ?? [];
@@ -74,24 +124,42 @@ export default function ModerationInboxPage() {
 
           {/* Room for future filters (reason, tenant, status) */}
           <div className="hidden md:flex items-center gap-2">
-            <Button
-              variant="outline"
-              className={cn(
-                'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
-                'hover:bg-black hover:text-white'
-              )}
-            >
-              All reasons
-            </Button>
-            <Button
-              variant="outline"
-              className={cn(
-                'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
-                'hover:bg-black hover:text-white'
-              )}
-            >
-              All shops
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    className={cn(
+                      'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
+                      'hover:bg-black hover:text-white'
+                    )}
+                    aria-disabled={true}
+                    disabled={true}
+                    variant="outline"
+                  >
+                    All reasons
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon...</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <span className="inline-flex">
+                  <Button
+                    className={cn(
+                      'rounded-full border-2 border-black bg-white px-4 py-2 text-xs font-semibold uppercase tracking-wide',
+                      'hover:bg-black hover:text-white'
+                    )}
+                    aria-disabled={true}
+                    disabled={true}
+                    variant="outline"
+                  >
+                    All shops
+                  </Button>
+                </span>
+              </TooltipTrigger>
+              <TooltipContent>Coming soon...</TooltipContent>
+            </Tooltip>
           </div>
         </div>
 

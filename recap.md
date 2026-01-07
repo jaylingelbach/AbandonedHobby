@@ -6360,3 +6360,52 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/modules/products/ui/views/product-view.tsx
   - Removed dynamic CartButton shim, switched to direct import; integrated ReportListingDialog into right-hand CTAs and added listingState-driven enable/disable behavior.
+
+# Moderation inbox 01/07/26
+
+## Walkthrough
+
+- Adds a staff moderation feature: inbox UI and row actions, client types/utilities, server APIs with Zod schemas and super-admin checks, plus product visibility/query filters to exclude items removed for policy; also minor cleanups and removal of a commented prefetch block.
+
+## New Features
+
+- Staff moderation inbox and per-item review UI added, with approve/remove actions, optional moderation notes, and empty/forbidden/error states.
+
+## Bug Fixes
+
+- Listings removed for policy are excluded from checkout, product views, and inventory counts; such items now surface as not found where applicable.
+
+## Improvements
+
+- Admin UI now conditionally shows the archive control based on role and product status.
+
+## Chores
+
+- Minor cleanup of commented/outdated code.
+
+## File changes
+
+### Moderation UI & states
+
+- src/app/(app)/staff/moderation/page.tsx, src/app/(app)/staff/moderation/moderation-row.tsx, src/app/(app)/staff/moderation/ui-state/ui-state.tsx
+  - New ModerationInboxPage, ModerationRow component with modal actions (approve/remove), and presentational Empty/NotAllowed/Error states.
+
+### Client types & utilities
+
+- src/app/(app)/staff/moderation/types.tsx, src/app/(app)/staff/moderation/queryKeys.ts, src/app/(app)/staff/moderation/utils.ts
+  - Added ModerationInboxItem type, stable moderationInboxQueryKey, fetchModerationInbox() with auth-aware error handling, and getErrorStatus().
+
+### Moderation API & schemas
+
+- src/app/api/(moderation)/inbox/route.ts, src/app/api/(moderation)/[productId]/approve/route.ts, src/app/api/(moderation)/[productId]/remove/route.ts, src/app/api/(moderation)/[productId]/schema.ts
+  - New GET /api/inbox and POST approve/remove endpoints, Zod schemas for request bodies, super-admin auth checks, state validation, and environment-aware error responses.
+
+### Product visibility & query filters
+
+- src/collections/Products.ts, src/modules/checkout/server/procedures.ts, src/modules/products/server/procedures.ts, src/payload/views/utils.ts
+  - Added admin.condition to isArchived visibility; added guards/filters to exclude isRemovedForPolicy === true from queries and an early-not-found guard in product lookup.
+
+### Minor cleanup / removed comment
+
+- src/app/(app)/(home)/layout.tsx, src/lib/money.ts
+  - Removed a commented server-prefetch block from layout and an unused top-of-file comment in money util; no runtime behavior changes.

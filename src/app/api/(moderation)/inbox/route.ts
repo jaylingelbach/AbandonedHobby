@@ -7,17 +7,21 @@ import config from '@/payload.config';
 
 // ─── Project Constants / Types ───────────────────────────────────────────────
 import { flagReasonLabels } from '@/constants';
-import type { Product, Tenant } from '@/payload-types';
 
 // ─── Project Features / Modules ──────────────────────────────────────────────
 import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
+import { isPopulatedTenant, resolveThumbnailUrl } from './utils';
 
+/**
+ * Handle GET requests to return a list of flagged products for moderation.
+ *
+ * Enforces authentication and requires the requesting user to have the `super-admin` role; responds with 401 if unauthenticated or 403 if not authorized. On success returns up to 50 products that are flagged, not removed for policy, and not archived, mapped to moderation inbox item objects.
+ *
+ * @returns A JSON HTTP response containing an array of moderation inbox items on success, or an error object with an `error` message and the appropriate HTTP status code (401, 403, or 500).
+ */
 export async function GET(request: NextRequest) {
-  function isPopulatedTenant(value: Product['tenant']): value is Tenant {
-    return !!value && typeof value === 'object' && 'slug' in value;
-  }
-
   let moderationInboxItems: ModerationInboxItem[] = [];
+
   // Auth
   const payload = await getPayload({ config });
   const { user } = await payload.auth({
@@ -53,6 +57,8 @@ export async function GET(request: NextRequest) {
       const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
       const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
 
+      const thumbnailUrl = resolveThumbnailUrl(product);
+
       return {
         id: product.id,
         productName: product.name,
@@ -62,7 +68,7 @@ export async function GET(request: NextRequest) {
           ? flagReasonLabels[product.flagReason]
           : 'Unknown',
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
-        thumbnailUrl: null, // or wire up images later
+        thumbnailUrl,
         reportedAtLabel: new Date(product.updatedAt).toLocaleDateString()
       };
     });

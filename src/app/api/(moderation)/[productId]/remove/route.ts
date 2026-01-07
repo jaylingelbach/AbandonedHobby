@@ -12,6 +12,24 @@ import { Product } from '@/payload-types';
 import { isNotFound } from '@/lib/server/utils';
 import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
 
+/**
+ * Handle POST requests that mark a product as removed for policy and archive it.
+ *
+ * Validates the request body against `moderationRemoveSchema`, requires an authenticated user
+ * with the `super-admin` role, verifies the product exists and is not already archived/removed,
+ * and updates the product's `isRemovedForPolicy`, `moderationNote`, and `isArchived` fields.
+ *
+ * @param params - An object (resolved promise) containing route parameters; must include `productId` identifying the target product.
+ * @returns A NextResponse containing:
+ * - `{ message: 'Success' }` with status 200 on successful update.
+ * - `{ error: 'Invalid JSON body' }` with status 400 when the request body is not valid JSON.
+ * - `{ error: 'Invalid request body', issues: ... }` with status 400 when schema validation fails.
+ * - `{ error: 'Authentication failed.' }` with status 401 when no authenticated user is present.
+ * - `{ error: 'Not authorized' }` with status 403 when the user lacks the `super-admin` role.
+ * - `{ error: 'Product not found' }` with status 404 when the product does not exist.
+ * - `{ error: 'Listing is already archived or removed for policy violations.' }` with status 409 when the product is already archived or removed.
+ * - `{ error: 'Internal server error' }` with status 500 in production, or the underlying error message in non-production environments for unexpected failures.
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }
