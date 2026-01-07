@@ -282,11 +282,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
             </AlertDialogContent>
           </AlertDialog>
 
-          <Button
-            asChild
-            className="mt-1 h-8 w-full justify-center px-0 text-xs font-medium underline-offset-4 hover:underline"
-            variant="ghost"
-          >
+          <Button asChild className={BASE_LISTING_CLASS} variant="ghost">
             <Link
               href={`/tenants/${tenantSlug}/products/${id}`}
               className="flex justify-center hover:bg-pink-500 hover:text-primary"
