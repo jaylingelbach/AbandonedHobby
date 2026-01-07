@@ -401,6 +401,7 @@ export async function getData(props: AdminViewServerProps): Promise<{
         { tenant: { in: tenantIds } },
         { trackInventory: { equals: true } },
         { isArchived: { not_equals: true } },
+        { isRemovedForPolicy: { not_equals: true } },
         { stockQuantity: { greater_than: 0 } }
       ]
     }

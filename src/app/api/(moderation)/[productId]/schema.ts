@@ -17,3 +17,15 @@ export const moderationRequestSchema = z
   );
 
 export type ModerationRequest = z.infer<typeof moderationRequestSchema>;
+
+export const moderationApproveSchema = z.object({
+  moderationNote: z.string().trim().optional()
+});
+
+export type ModerationApprove = z.infer<typeof moderationApproveSchema>;
+
+export const moderationRemoveSchema = z.object({
+  moderationNote: z.string().trim().optional()
+});
+
+export type ModerationRemove = z.infer<typeof moderationRemoveSchema>;

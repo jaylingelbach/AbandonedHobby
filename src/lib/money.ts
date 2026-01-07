@@ -1,5 +1,3 @@
-// src/lib/money.ts
-
 /**
  * Determines whether the given value is a finite number (not NaN or ±Infinity).
  *
