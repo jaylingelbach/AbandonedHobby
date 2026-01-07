@@ -23,7 +23,8 @@ export default function ModerationInboxPage() {
 
   const { data, isError, error } = useQuery({
     queryKey: moderationInboxQueryKey,
-    queryFn: fetchModerationInbox
+    queryFn: fetchModerationInbox,
+    enabled: typeof window !== 'undefined' // gate query
   });
 
   const errorStatus = getErrorStatus(error);
