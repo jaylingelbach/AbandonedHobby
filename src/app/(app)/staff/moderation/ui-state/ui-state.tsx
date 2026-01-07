@@ -1,5 +1,14 @@
 'use client';
 
+import { Flag } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
+import { cn } from '@/lib/utils';
+
 const BASE_CONTAINER_CLASS =
   'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-16 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]';
 
@@ -58,15 +67,6 @@ export function ErrorState({ message }: { message?: string }) {
     </div>
   );
 }
-
-import { Flag } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip';
-import { cn } from '@/lib/utils';
 
 export function LoadingState() {
   return (
