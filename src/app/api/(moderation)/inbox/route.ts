@@ -12,6 +12,13 @@ import type { Product, Tenant } from '@/payload-types';
 // ─── Project Features / Modules ──────────────────────────────────────────────
 import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
 
+/**
+ * Handle GET requests to return a list of flagged products for moderation.
+ *
+ * Enforces authentication and requires the requesting user to have the `super-admin` role; responds with 401 if unauthenticated or 403 if not authorized. On success returns up to 50 products that are flagged, not removed for policy, and not archived, mapped to moderation inbox item objects.
+ *
+ * @returns A JSON HTTP response containing an array of moderation inbox items on success, or an error object with an `error` message and the appropriate HTTP status code (401, 403, or 500).
+ */
 export async function GET(request: NextRequest) {
   function isPopulatedTenant(value: Product['tenant']): value is Tenant {
     return !!value && typeof value === 'object' && 'slug' in value;
