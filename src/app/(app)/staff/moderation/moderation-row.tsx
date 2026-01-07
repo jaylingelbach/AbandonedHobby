@@ -31,6 +31,10 @@ import { Textarea } from '@/components/ui/textarea';
 // ─── Project Types / Features ────────────────────────────────────────────────
 import { moderationInboxQueryKey } from './queryKeys';
 import { ModerationInboxItem } from './types';
+import Image from 'next/image';
+
+const BASE_LISTING_CLASS =
+  'mt-1 h-8 w-full justify-center px-0 text-xs font-medium underline-offset-4 hover:underline';
 
 interface ModerationRowProps {
   item: ModerationInboxItem;
@@ -51,6 +55,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
     tenantSlug,
     flagReasonLabel,
     flagReasonOtherText,
+    thumbnailUrl,
     reportedAtLabel
   } = item;
   const queryClient = useQueryClient();
@@ -107,9 +112,19 @@ export default function ModerationRow({ item }: ModerationRowProps) {
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
         {/* Left: product + shop */}
         <div className="flex gap-4">
-          {/* Thumbnail placeholder */}
-          <div className="flex h-20 w-20 items-center justify-center rounded-md border-2 border-dashed border-black bg-muted text-[10px] uppercase tracking-wide text-muted-foreground">
-            Photo
+          {/* Thumbnail */}
+          <div className="flex h-20 w-20 items-center justify-center overflow-hidden rounded-md border-2 border-black bg-muted text-[10px] uppercase tracking-wide text-muted-foreground">
+            {thumbnailUrl ? (
+              <Image
+                src={thumbnailUrl}
+                alt={`Photo for ${productName}`}
+                width={80}
+                height={80}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span>Photo</span>
+            )}
           </div>
 
           <div className="space-y-1">
@@ -277,6 +292,14 @@ export default function ModerationRow({ item }: ModerationRowProps) {
               className="flex justify-center hover:bg-pink-500 hover:text-primary"
             >
               View listing
+            </Link>
+          </Button>
+          <Button asChild className={BASE_LISTING_CLASS} variant="ghost">
+            <Link
+              href={`/admin/collections/products/${id}`}
+              className="flex justify-center hover:bg-pink-500 hover:text-primary"
+            >
+              View in Payload
             </Link>
           </Button>
         </div>

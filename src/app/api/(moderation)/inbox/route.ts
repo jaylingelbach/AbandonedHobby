@@ -7,7 +7,7 @@ import config from '@/payload.config';
 
 // ─── Project Constants / Types ───────────────────────────────────────────────
 import { flagReasonLabels } from '@/constants';
-import type { Product, Tenant } from '@/payload-types';
+import type { Media, Product, Tenant } from '@/payload-types';
 
 // ─── Project Features / Modules ──────────────────────────────────────────────
 import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
@@ -24,7 +24,43 @@ export async function GET(request: NextRequest) {
     return !!value && typeof value === 'object' && 'slug' in value;
   }
 
+  // Narrow the media relationship (upload)
+  function isMedia(value: unknown): value is Media {
+    return (
+      !!value &&
+      typeof value === 'object' &&
+      'id' in (value as { id?: unknown })
+    );
+  }
+
+  // Get a thumbnail URL from the product's first image (if present)
+  function resolveThumbnailUrl(product: Product): string | undefined {
+    const firstImage = product.images?.[0];
+    if (!firstImage) return undefined;
+
+    const image = firstImage.image;
+    if (!image) return undefined;
+
+    if (typeof image === 'string') {
+      // Only an id, no populated doc – with depth: 1 this usually
+      // shouldn't happen, but if it does we just skip the thumbnail.
+      return undefined;
+    }
+
+    if (!isMedia(image)) {
+      return undefined;
+    }
+
+    // Simplest and safest: use the main URL
+    if (typeof image.url === 'string' && image.url.length > 0) {
+      return image.url;
+    }
+
+    return undefined;
+  }
+
   let moderationInboxItems: ModerationInboxItem[] = [];
+
   // Auth
   const payload = await getPayload({ config });
   const { user } = await payload.auth({
@@ -60,6 +96,8 @@ export async function GET(request: NextRequest) {
       const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
       const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
 
+      const thumbnailUrl = resolveThumbnailUrl(product);
+
       return {
         id: product.id,
         productName: product.name,
@@ -69,7 +107,7 @@ export async function GET(request: NextRequest) {
           ? flagReasonLabels[product.flagReason]
           : 'Unknown',
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
-        thumbnailUrl: null, // or wire up images later
+        thumbnailUrl,
         reportedAtLabel: new Date(product.updatedAt).toLocaleDateString()
       };
     });

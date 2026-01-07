@@ -1,7 +1,7 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
@@ -20,7 +20,12 @@ import { moderationInboxQueryKey } from './queryKeys';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import { Button } from '@/components/ui/button';
-import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
+import {
+  ErrorState,
+  EmptyState,
+  NotAllowedState,
+  LoadingState
+} from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 
 /**
@@ -36,6 +41,7 @@ import ModerationRow from './moderation-row';
  */
 export default function ModerationInboxPage() {
   const router = useRouter();
+  const [showLoading, setShowLoading] = useState(false);
 
   const { data, isError, error } = useQuery({
     queryKey: moderationInboxQueryKey,
@@ -54,16 +60,44 @@ export default function ModerationInboxPage() {
     }
   }, [errorStatus, router]);
 
-  // While the query is in-flight (no data, no error yet),
-  // render nothing — this avoids showing *anything* to logged-out users
-  // before we know it's a 401 and redirect.
-  if (!data && !isError) {
-    return null;
-  }
+  /**
+   *   Delayed loading state for authenticated staff:
+   * - While query is in-flight (no data, no error), start a 300ms timer.
+   * - After 300ms, show <LoadingState />.
+   * - If data or error arrives sooner, cancel and hide loading.
+   */
+
+  useEffect(() => {
+    if (!data && !isError) {
+      const timeoutId = window.setTimeout(() => {
+        setShowLoading(true);
+      }, 300);
+
+      return () => {
+        window.clearTimeout(timeoutId);
+        setShowLoading(false);
+      };
+    }
+
+    // Once we have data or an error, ensure loading is off
+    setShowLoading(false);
+  }, [data, isError]);
 
   // If we hit a 401, we're redirecting in useEffect — render nothing
   if (errorStatus === 401) {
     return null;
+  }
+
+  /**
+   *  While the query is in-flight (no data, no error yet),
+   *  render nothing at first, then <LoadingState /> after 300ms.
+   */
+
+  if (!data && !isError) {
+    if (!showLoading) {
+      return null;
+    }
+    return <LoadingState />;
   }
 
   const moderationInboxItems = data ?? [];
