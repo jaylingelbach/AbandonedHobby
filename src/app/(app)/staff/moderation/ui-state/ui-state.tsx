@@ -1,6 +1,11 @@
 const BASE_CONTAINER_CLASS =
   'flex flex-col items-center justify-center rounded-lg border-2 border-dashed border-black bg-secondary px-6 py-16 text-center shadow-[4px_4px_0_0_rgba(0,0,0,1)]';
 
+/**
+ * Renders the empty moderation UI shown when there are no flagged listings.
+ *
+ * @returns A React element containing a titled container ("Nothing to review 🎉") and a short explanatory paragraph indicating no flagged listings and that new reports will appear automatically.
+ */
 export function EmptyState() {
   return (
     <div className={`${BASE_CONTAINER_CLASS}`}>
@@ -15,7 +20,11 @@ export function EmptyState() {
   );
 }
 
-/** When user is logged in but not allowed to see this page */
+/**
+ * Renders a "Not allowed" UI state shown when a logged-in user lacks permission to view the moderation inbox.
+ *
+ * @returns A JSX element containing a heading "Not allowed" and a message stating the user does not have permission to view the moderation inbox.
+ */
 export function NotAllowedState() {
   return (
     <div className={`${BASE_CONTAINER_CLASS}`}>
@@ -29,7 +38,12 @@ export function NotAllowedState() {
   );
 }
 
-/** Generic error state for other failures */
+/**
+ * Renders an error UI for failed moderation-queue loads.
+ *
+ * @param message - Optional descriptive error message to display; falls back to "Please refresh and try again."
+ * @returns A UI element showing a heading "Couldn’t load moderation queue" and the provided message or fallback.
+ */
 export function ErrorState({ message }: { message?: string }) {
   return (
     <div className={`${BASE_CONTAINER_CLASS}`}>

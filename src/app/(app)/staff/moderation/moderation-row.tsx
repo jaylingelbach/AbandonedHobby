@@ -35,6 +35,14 @@ import { ModerationInboxItem } from './types';
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
+/**
+ * Renders a moderation row for a single moderation inbox item, displaying product and reporter metadata and providing controls to approve or remove the listing with an optional internal moderation note.
+ *
+ * The component shows product/shop information, reporter comments (if any), and three actions: "Meets standards" (approve), "Remove for policy" (remove), and "View listing". Approve/remove actions open confirmation dialogs that accept an optional internal moderation note; confirming sends a POST to the corresponding moderation API endpoint, shows success or error toasts, and invalidates the moderation inbox query to refresh data.
+ *
+ * @param item - The moderation inbox item to display (product, tenant, flag reason, reporter text, and timestamps).
+ * @returns The rendered moderation row element.
+ */
 export default function ModerationRow({ item }: ModerationRowProps) {
   const {
     id,

@@ -14,6 +14,13 @@ import { isNotFound } from '@/lib/server/utils';
 // ─── Validation Schemas ──────────────────────────────────────────────────────
 import { moderationApproveSchema } from '@/app/api/(moderation)/[productId]/schema';
 
+/**
+ * Unflags a product by ID after validating the request body and enforcing super-admin authorization.
+ *
+ * @param request - The incoming NextRequest whose JSON body must satisfy `moderationApproveSchema` (provides `moderationNote`).
+ * @param params - An object promise that resolves to `{ productId }`, the ID of the product to unflag.
+ * @returns A NextResponse containing JSON; on success `{ message: 'Success' }` with status 200, otherwise an `error` (and optional `issues`) with an appropriate HTTP status (400, 401, 403, 404, 409, or 500).
+ */
 export async function POST(
   request: NextRequest,
   { params }: { params: Promise<{ productId: string }> }

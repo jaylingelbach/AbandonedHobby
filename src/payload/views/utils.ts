@@ -255,10 +255,18 @@ async function needsOnboardingByQuery(
  * -------------------------------------------------------------------------- */
 
 /**
- * Fetches seller-scoped KPI counts, orders needing tracking, and recently shipped orders.
+ * Assembles seller-scoped KPIs and lists used by the seller dashboard.
  *
- * - “Needs tracking” = paid + unfulfilled.
- * - “Recently shipped” = shipped within the last 30 days (shippedAt present).
+ * Computes the count of paid orders that remain unfulfilled, the count of unsold
+ * inventory (tracked, not archived/removed, and with stock > 0), a list of paid
+ * orders that need tracking (paid + unfulfilled), and a list of orders shipped
+ * within the last 30 days.
+ *
+ * @param props - Server props containing the request (with `user` and `payload`) used to scope queries
+ * @returns An object containing:
+ *  - `summary`: counts and onboarding hint (`unfulfilledOrders`: number, `unsold`: number, `needsOnboarding`: boolean),
+ *  - `needsTracking`: array of `OrderListItem` for paid orders that are unfulfilled,
+ *  - `recentShipped`: array of `ShippedOrderListItem` for orders shipped within the last 30 days
  */
 export async function getData(props: AdminViewServerProps): Promise<{
   summary: CountSummary;

@@ -18,6 +18,17 @@ import { Button } from '@/components/ui/button';
 import { ErrorState, EmptyState, NotAllowedState } from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 
+/**
+ * Render the moderation inbox page for staff to review listings reported by the community.
+ *
+ * Fetches moderation inbox items on the client and preserves the current path when redirecting
+ * unauthenticated users to the sign-in page. While redirecting or while the initial query is in
+ * flight the component renders nothing to avoid flashing UI. Renders a forbidden state for 403
+ * responses, an error state showing the error message for other errors, an empty state when there
+ * are no items, or a list of ModerationRow entries when items are present.
+ *
+ * @returns The rendered moderation inbox UI.
+ */
 export default function ModerationInboxPage() {
   const router = useRouter();
 
