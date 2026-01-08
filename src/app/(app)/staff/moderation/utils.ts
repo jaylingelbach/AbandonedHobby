@@ -64,3 +64,33 @@ export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
 
   return json as ModerationInboxItem[];
 }
+
+export async function fetchRemovedItems(): Promise<ModerationInboxItem[]> {
+  const response = await fetch('/api/removed', {
+    method: 'GET',
+    credentials: 'include'
+  });
+  // Auth / authz handling
+  if (response.status === 401 || response.status === 403) {
+    const error = new Error('Not authorized to view removed items') as Error & {
+      status?: number;
+    };
+    error.status = response.status;
+    throw error;
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `Failed to load removed items: ${response.status} ${response.statusText}`
+    );
+  }
+
+  const json = (await response.json()) as unknown;
+
+  // Minimal runtime guard so we don't blindly trust the shape
+  if (!Array.isArray(json)) {
+    throw new Error('Unexpected removed item response shape');
+  }
+
+  return json as ModerationInboxItem[];
+}

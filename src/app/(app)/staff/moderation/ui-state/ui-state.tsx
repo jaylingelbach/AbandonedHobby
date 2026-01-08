@@ -198,3 +198,16 @@ export function LoadingState() {
     </main>
   );
 }
+
+export function InlineLoadingState() {
+  return (
+    <div className="space-y-4">
+      {[0, 1, 2].map((index) => (
+        <div
+          key={index}
+          className="h-24 rounded-lg border-2 border-dashed border-muted-foreground/40 bg-muted animate-pulse"
+        />
+      ))}
+    </div>
+  );
+}

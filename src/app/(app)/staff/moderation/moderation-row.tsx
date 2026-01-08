@@ -29,13 +29,10 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 
 // ─── Project Types / Features ────────────────────────────────────────────────
-import { moderationInboxQueryKey } from './queryKeys';
+import { moderationInboxQueryKey, removedItemsQueryKey } from './queryKeys';
 import { ModerationInboxItem } from './types';
 import Image from 'next/image';
-
-const BASE_LISTING_CLASS =
-  'mt-1 h-8 w-full justify-center px-0 text-xs font-medium underline-offset-4 hover:underline';
-
+import { BASE_LISTING_CLASS } from './constants';
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
@@ -84,6 +81,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         );
         setModerationNote('');
         queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
+        queryClient.invalidateQueries({ queryKey: removedItemsQueryKey });
       } else {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
@@ -180,7 +178,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 )}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
-                Meets standards
+                {isSubmitting ? 'Approving...' : 'Meets standards'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -213,10 +211,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                     'border-2 border-black bg-black text-white',
                     'hover:bg-green-500 hover:text-primary'
                   )}
+                  disabled={isSubmitting}
                   onClick={() =>
                     handleModerationAction('approve', moderationNote)
                   }
-                  disabled={isSubmitting}
                 >
                   Confirm approval
                 </AlertDialogAction>
@@ -238,7 +236,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 variant="secondary"
               >
                 <ShieldOff className="mr-2 h-4 w-4" />
-                Remove for policy
+                {isSubmitting ? 'Removing ' : 'Remove for policy'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
@@ -271,10 +269,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                     'border-2 border-black bg-black text-white',
                     'hover:bg-red-500 hover:text-primary'
                   )}
+                  disabled={isSubmitting}
                   onClick={() =>
                     handleModerationAction('remove', moderationNote)
                   }
-                  disabled={isSubmitting}
                 >
                   Confirm removal
                 </AlertDialogAction>
