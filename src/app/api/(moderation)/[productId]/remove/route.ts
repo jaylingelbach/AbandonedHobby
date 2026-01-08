@@ -11,24 +11,22 @@ import { Product } from '@/payload-types';
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { isNotFound } from '@/lib/server/utils';
 import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
+import { sendRemovalEmail } from '@/lib/sendEmail';
+import { isPopulatedTenant } from '../../inbox/utils';
+import { isNonEmptyString } from '@/lib/utils';
 
 /**
- * Handle POST requests that mark a product as removed for policy and archive it.
+ * Mark a product as removed for policy and archive it.
  *
- * Validates the request body against `moderationRemoveSchema`, requires an authenticated user
- * with the `super-admin` role, verifies the product exists and is not already archived/removed,
- * and updates the product's `isRemovedForPolicy`, `moderationNote`, and `isArchived` fields.
+ * Validates the request body, requires an authenticated user with the `super-admin` role,
+ * updates the product's `isRemovedForPolicy`, `moderationNote`, and `isArchived` fields,
+ * and conditionally sends a tenant removal notification email when tenant contact details are available.
  *
- * @param params - An object (resolved promise) containing route parameters; must include `productId` identifying the target product.
- * @returns A NextResponse containing:
- * - `{ message: 'Success' }` with status 200 on successful update.
- * - `{ error: 'Invalid JSON body' }` with status 400 when the request body is not valid JSON.
- * - `{ error: 'Invalid request body', issues: ... }` with status 400 when schema validation fails.
- * - `{ error: 'Authentication failed.' }` with status 401 when no authenticated user is present.
- * - `{ error: 'Not authorized' }` with status 403 when the user lacks the `super-admin` role.
- * - `{ error: 'Product not found' }` with status 404 when the product does not exist.
- * - `{ error: 'Listing is already archived or removed for policy violations.' }` with status 409 when the product is already archived or removed.
- * - `{ error: 'Internal server error' }` with status 500 in production, or the underlying error message in non-production environments for unexpected failures.
+ * @param params - An object resolving to route parameters; must include `productId` for the target product.
+ * @returns An object with one of the following shapes:
+ * - `{ message: 'Success' }` on successful update.
+ * - `{ error: string }` on failure.
+ * - `{ error: string, issues: unknown }` when request body validation fails.
  */
 export async function POST(
   request: NextRequest,
@@ -88,7 +86,7 @@ export async function POST(
       );
     }
 
-    await payload.update({
+    const res = await payload.update({
       collection: 'products',
       id: productId,
       overrideAccess: true,
@@ -98,6 +96,30 @@ export async function POST(
         isArchived: true
       }
     });
+
+    if (res.isArchived && res.isRemovedForPolicy) {
+      const tenant = res.tenant;
+      const name = isPopulatedTenant(tenant)
+        ? (tenant.notificationName ?? '')
+        : '';
+      const to = isPopulatedTenant(tenant)
+        ? (tenant.notificationEmail ?? '')
+        : '';
+      const item = res;
+
+      if (isNonEmptyString(name) && isNonEmptyString(to)) {
+        try {
+          await sendRemovalEmail({ to, name, item });
+        } catch (error) {
+          // Log but don't fail the whole request
+          console.error('Error sending removal email:', error);
+        }
+      } else {
+        console.error(
+          'Skipping removal email: missing tenant notificationName/notificationEmail'
+        );
+      }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 
