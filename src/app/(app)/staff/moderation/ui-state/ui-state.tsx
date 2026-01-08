@@ -199,11 +199,22 @@ export function LoadingState() {
   );
 }
 
+/**
+ * Renders an inline loading state with skeleton placeholders.
+ *
+ * @returns A React element containing three animated skeleton blocks suitable for inline use within other layouts.
+ */
 export function InlineLoadingState() {
   return (
-    <div className="space-y-4">
-      {[0, 1, 2].map((index) => (
+    <div
+      className="space-y-4"
+      role="status"
+      aria-label="Loading content"
+      aria-live="polite"
+    >
+      {Array.from({ length: 3 }).map((_, index) => (
         <div
+          aria-hidden="true"
           key={index}
           className="h-24 rounded-lg border-2 border-dashed border-muted-foreground/40 bg-muted animate-pulse"
         />
