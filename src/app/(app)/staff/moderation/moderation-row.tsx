@@ -176,6 +176,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                   'w-full justify-center rounded-none border-2 border-black bg-white text-sm font-semibold',
                   'hover:bg-green-500 hover:text-white'
                 )}
+                disabled={isSubmitting}
               >
                 <CheckCircle2 className="mr-2 h-4 w-4" />
                 {isSubmitting ? 'Approving...' : 'Meets standards'}
@@ -233,6 +234,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                   'w-full justify-center rounded-none border-2 border-black bg-black text-sm font-semibold text-white',
                   'hover:bg-red-500 hover:text-primary'
                 )}
+                disabled={isSubmitting}
                 variant="secondary"
               >
                 <ShieldOff className="mr-2 h-4 w-4" />
