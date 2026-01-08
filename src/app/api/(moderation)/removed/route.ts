@@ -15,13 +15,6 @@ import {
   resolveThumbnailUrl
 } from '@/app/api/(moderation)/inbox/utils';
 
-/**
- * Handle GET requests to return a list of removed products.
- *
- * Enforces authentication and requires the requesting user to have the `super-admin` role; responds with 401 if unauthenticated or 403 if not authorized. On success returns up to 50 products that are flagged, not removed for policy, and not archived, mapped to moderation inbox item objects.
- *
- * @returns A JSON HTTP response containing an array of removed items on success, or an error object with an `error` message and the appropriate HTTP status code (401, 403, or 500).
- */
 export async function GET(request: NextRequest) {
   let removedItems: ModerationInboxItem[] = [];
 
