@@ -606,6 +606,18 @@ export function buildReceiptDetailsV2(
   });
 }
 
+/**
+ * Format a human-friendly shipping charge string for a receipt line.
+ *
+ * @param args - Options used to determine the shipping display
+ * @param args.isFree - True when shipping is free
+ * @param args.isFlat - True when a flat shipping rate applies (prefer subtotal then per-unit)
+ * @param args.isCalculated - True when shipping was calculated per-order (prefer subtotal, then per-unit)
+ * @param args.quantity - Item quantity used when rendering per-unit expressions
+ * @param args.shipPerUnitStr - Localized per-unit shipping amount (e.g., "$2.00")
+ * @param args.shipSubtotalStr - Localized shipping subtotal for the line (e.g., "$5.00")
+ * @returns The formatted shipping display: `"Free"`, a subtotal (e.g., `"$5.00"`), a per-unit expression (e.g., `"3 × $2.00"`), a combined form (e.g., `"$5.00 (3 × $2.00)"`), or `"—"` when not available.
+ */
 function computeShipDisplay(args: {
   isFree: boolean;
   isFlat: boolean;
@@ -667,6 +679,15 @@ function computeShipDisplay(args: {
   return '—';
 }
 
+/**
+ * Send a removal notification email to a seller when their listing is flagged for policy violations.
+ *
+ * @param input - Parameters for the removal email
+ * @param input.to - Recipient email address
+ * @param input.name - Recipient display name (tenant notificationName)
+ * @param input.item - The product/listing being removed; used to derive the listing title and flag reason
+ * @throws When the underlying email send operation fails
+ */
 export async function sendRemovalEmail(input: {
   to: string;
   name: string; // recipient name (tenant notificationName)

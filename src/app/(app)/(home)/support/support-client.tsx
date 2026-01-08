@@ -29,6 +29,13 @@ import SupportContactForm from './components/support-contact-form';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Render the marketplace support page with search, quick actions, audience-specific FAQs, and contact/escalation flows.
+ *
+ * The component synchronizes the active audience tab with the URL hash (`#buyers` / `#sellers`), provides a local search over FAQs, actions, and policies, and emits FAQ JSON-LD for SEO.
+ *
+ * @returns The React element representing the full support UI (hero search, quick action cards, Buyers/Sellers tabs with FAQs and policy/tips, contact form, and escalation guidance).
+ */
 export default function SupportClient() {
   const [tab, setTab] = useState<'buyers' | 'sellers'>(() => {
     if (typeof window !== 'undefined') {
