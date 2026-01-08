@@ -6409,3 +6409,31 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/app/(app)/(home)/layout.tsx, src/lib/money.ts
   - Removed a commented server-prefetch block from layout and an unused top-of-file comment in money util; no runtime behavior changes.
+
+# Moderation email removal 01/08/26
+
+## Walkthrough
+
+- The changes add a "Community Standards" quick action to the support page, introduce post-removal email notifications in the moderation API route, and implement a new sendRemovalEmail function to dispatch Postmark-based removal policy emails with recipient name, listing title, and policy violation reason.
+
+## New Features
+
+- Community Standards section is now available in support for quick reference to community guidelines, policies, and best practices.
+- Automated email notifications are now sent when listings are removed for policy violations, including the specific removal reason and relevant support resources to help resolve the issue.
+
+## File changes
+
+### Support Page UI
+
+- src/app/(app)/(home)/support/support-client.tsx
+  - Added HeartHandshake icon import and inserted new "Community Standards" action item with sky-blue styling; replaced commented placeholder.
+
+### Moderation Removal Route
+
+- src/app/api/(moderation)/[productId]/remove/route.ts
+  - Added conditional post-update email notification logic that sends removal email when tenant contact info is populated and non-empty, with error logging.
+
+### Email Utility
+
+- src/lib/sendEmail.ts
+  - Implemented new sendRemovalEmail export that validates recipient, constructs Postmark template model with name/item/reason/support details, and dispatches removal policy email via Postmark.
