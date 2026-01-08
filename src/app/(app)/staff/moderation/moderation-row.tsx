@@ -81,7 +81,9 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         );
         setModerationNote('');
         queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
-        queryClient.invalidateQueries({ queryKey: removedItemsQueryKey });
+        if (action === 'remove') {
+          queryClient.invalidateQueries({ queryKey: removedItemsQueryKey });
+        }
       } else {
         const errorData = await response.json().catch(() => ({}));
         const errorMessage =
