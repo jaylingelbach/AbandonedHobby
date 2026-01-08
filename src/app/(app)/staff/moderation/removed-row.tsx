@@ -70,7 +70,7 @@ export default function RemovedRow({ item }: RemovedRowProps) {
               <p className="mb-1 font-semibold uppercase tracking-wide text-[11px] text-muted-foreground">
                 Reporter comments
               </p>
-              <p className="wrap-anywhere">{flagReasonOtherText}</p>
+              <p className="wrap-break-word">{flagReasonOtherText}</p>
             </div>
           ) : (
             <p className="text-xs text-muted-foreground italic">
