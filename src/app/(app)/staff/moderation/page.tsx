@@ -63,7 +63,8 @@ export default function ModerationInboxPage() {
   const {
     data: removedData,
     isError: isRemovedError,
-    error: removedError
+    error: removedError,
+    isPending: isRemovedPending
   } = useQuery({
     queryKey: removedItemsQueryKey,
     queryFn: fetchRemovedItems,
@@ -125,11 +126,64 @@ export default function ModerationInboxPage() {
     return <LoadingState />;
   }
 
+  // At this point, the inbox query has either:
+  // - data (success), or
+  // - isError = true (error path handled per-tab)
   const moderationInboxItems = data ?? [];
   const hasItems = moderationInboxItems.length > 0;
 
   const removedItems = removedData ?? [];
   const hasRemovedItems = removedItems.length > 0;
+
+  // ─── Tab render helpers ────────────────────────────────────────────────────
+
+  const renderInboxContent = () => {
+    if (isError) {
+      return isForbidden ? (
+        <NotAllowedState />
+      ) : (
+        <ErrorState message={(error as Error | undefined)?.message} />
+      );
+    }
+
+    if (!hasItems) {
+      return <EmptyState />;
+    }
+
+    return (
+      <div className="space-y-4">
+        {moderationInboxItems.map((item) => (
+          <ModerationRow key={item.id} item={item} />
+        ))}
+      </div>
+    );
+  };
+
+  const renderRemovedContent = () => {
+    if (isRemovedPending && !removedData && !isRemovedError) {
+      return <InlineLoadingState />;
+    }
+
+    if (isRemovedError) {
+      return isRemovedUnauthorized ? (
+        <NotAllowedState />
+      ) : (
+        <ErrorState message={(removedError as Error | undefined)?.message} />
+      );
+    }
+
+    if (!hasRemovedItems) {
+      return <EmptyState />;
+    }
+
+    return (
+      <div className="space-y-4">
+        {removedItems.map((item) => (
+          <RemovedRow key={item.id} item={item} />
+        ))}
+      </div>
+    );
+  };
 
   return (
     <main className="min-h-screen bg-background">
@@ -252,6 +306,10 @@ export default function ModerationInboxPage() {
                 </p>
                 {hasRemovedItems ? (
                   <p className="text-xl font-semibold">{removedItems.length}</p>
+                ) : isRemovedPending ? (
+                  <p className="text-sm font-medium text-muted-foreground">
+                    Loading…
+                  </p>
                 ) : (
                   <p className="text-xl font-semibold">-</p>
                 )}
@@ -291,46 +349,9 @@ export default function ModerationInboxPage() {
 
       {/* Main list area */}
       <section className="px-4 lg:px-12 py-8">
-        {activeTab === 'inbox' ? (
-          // INBOX TAB
-          isError && !data ? (
-            isForbidden ? (
-              <NotAllowedState />
-            ) : (
-              <ErrorState message={(error as Error | undefined)?.message} />
-            )
-          ) : !hasItems ? (
-            <EmptyState />
-          ) : (
-            <div className="space-y-4">
-              {moderationInboxItems.map((item) => (
-                <ModerationRow key={item.id} item={item} />
-              ))}
-            </div>
-          )
-        ) : activeTab === 'removed' ? (
-          // REMOVED TAB
-          !removedData && !isRemovedError ? (
-            <InlineLoadingState />
-          ) : isRemovedError && !removedData ? (
-            isRemovedUnauthorized ? (
-              <NotAllowedState />
-            ) : (
-              <ErrorState
-                message={(removedError as Error | undefined)?.message}
-              />
-            )
-          ) : !hasRemovedItems ? (
-            <EmptyState />
-          ) : (
-            <div className="space-y-4">
-              {removedItems.map((item) => (
-                <RemovedRow key={item.id} item={item} />
-              ))}
-            </div>
-          )
-        ) : (
-          // OPEN APPEALS – future work
+        {activeTab === 'inbox' && renderInboxContent()}
+        {activeTab === 'removed' && renderRemovedContent()}
+        {activeTab === 'open_appeals' && (
           <div className="space-y-4">Coming soon...</div>
         )}
       </section>
