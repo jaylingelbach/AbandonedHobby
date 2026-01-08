@@ -11,6 +11,9 @@ import { Product } from '@/payload-types';
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { isNotFound } from '@/lib/server/utils';
 import { moderationRemoveSchema } from '@/app/api/(moderation)/[productId]/schema';
+import { sendRemovalEmail } from '@/lib/sendEmail';
+import { isPopulatedTenant } from '../../inbox/utils';
+import { isNonEmptyString } from '@/lib/utils';
 
 /**
  * Handle POST requests that mark a product as removed for policy and archive it.
@@ -88,7 +91,7 @@ export async function POST(
       );
     }
 
-    await payload.update({
+    const res = await payload.update({
       collection: 'products',
       id: productId,
       overrideAccess: true,
@@ -98,6 +101,30 @@ export async function POST(
         isArchived: true
       }
     });
+
+    if (res.isArchived && res.isRemovedForPolicy) {
+      const tenant = res.tenant;
+      const name = isPopulatedTenant(tenant)
+        ? (tenant.notificationName ?? '')
+        : '';
+      const to = isPopulatedTenant(tenant)
+        ? (tenant.notificationEmail ?? '')
+        : '';
+      const item = res;
+
+      if (isNonEmptyString(name) && isNonEmptyString(to)) {
+        try {
+          await sendRemovalEmail({ to, name, item });
+        } catch (error) {
+          // Log but don't fail the whole request
+          console.error('Error sending removal email:', error);
+        }
+      } else {
+        console.error(
+          'Skipping removal email: missing tenant notificationName/notificationEmail'
+        );
+      }
+    }
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
 

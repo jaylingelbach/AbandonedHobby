@@ -9,12 +9,12 @@ import {
   Lock,
   CheckCircle2,
   DollarSign,
-  Bell
+  Bell,
+  HeartHandshake
 } from 'lucide-react';
 import Link from 'next/link';
 import Script from 'next/script';
 import { useEffect, useMemo, useState } from 'react';
-
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -98,12 +98,12 @@ export default function SupportClient() {
         icon: CheckCircle2,
         color: 'bg-lime-300'
       },
-      // {
-      //   label: 'Set up payouts',
-      //   href: '/dashboard/payouts',
-      //   icon: Wallet,
-      //   color: 'bg-sky-300'
-      // },
+      {
+        label: 'Community Standards',
+        href: '/community-standards',
+        icon: HeartHandshake,
+        color: 'bg-sky-300'
+      },
       {
         label: 'Fees & taxes',
         href: '/support#policies',

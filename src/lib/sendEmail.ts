@@ -1,7 +1,8 @@
 import { Client } from 'postmark';
-import { formatCents } from './utils';
-import { carrierLabels } from '@/constants';
+import { formatCents, isNonEmptyString } from './utils';
+import { carrierLabels, flagReasonLabels } from '@/constants';
 import type { ShippingMode } from '@/modules/orders/types';
+import { Product } from '@/payload-types';
 
 const postmark = new Client(process.env.POSTMARK_SERVER_TOKEN!);
 
@@ -664,4 +665,73 @@ function computeShipDisplay(args: {
   }
 
   return '—';
+}
+
+export async function sendRemovalEmail(input: {
+  to: string;
+  name: string; // recipient name (tenant notificationName)
+  item: Product;
+}) {
+  const { to, name: recipientNameRaw, item } = input;
+  const { flagReason } = item;
+
+  // Bail early if we don't have a usable recipient address
+  if (!isNonEmptyString(to)) {
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[email:removal] skipping send: missing notification email for tenant',
+        { productId: item.id, to }
+      );
+    }
+    return;
+  }
+
+  const templateId = Number(
+    process.env.POSTMARK_REMOVAL_FOR_POLICY_EMAIL_TEMPLATEID!
+  );
+
+  // Label like "Inappropriate / NSFW content", falling back to a generic phrase
+  const reason =
+    flagReason && flagReasonLabels[flagReason]
+      ? flagReasonLabels[flagReason]
+      : 'our marketplace guidelines';
+
+  const recipientName = isNonEmptyString(recipientNameRaw)
+    ? recipientNameRaw.trim()
+    : 'there';
+
+  const listingTitle =
+    typeof item.name === 'string' && item.name.trim().length > 0
+      ? item.name.trim()
+      : 'your listing';
+
+  const templateModel = {
+    // Person
+    name: recipientName,
+    // Brand
+    product_name: 'Abandoned Hobby',
+    // Listing metadata
+    listing_title: listingTitle,
+    reason,
+    // Support
+    support_url: process.env.SUPPORT_URL,
+    // Support Email
+    support_email: process.env.POSTMARK_SUPPORT_EMAIL
+  };
+
+  try {
+    await postmark.sendEmailWithTemplate({
+      From: process.env.POSTMARK_FROM_EMAIL!,
+      To: to,
+      TemplateId: templateId,
+      TemplateModel: templateModel
+    });
+  } catch (error) {
+    console.error('Failed to send removal email:', error);
+    throw new Error(
+      `Email sending failed: ${
+        error instanceof Error ? error.message : 'Unknown error'
+      }`
+    );
+  }
 }
