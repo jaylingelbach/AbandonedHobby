@@ -22,6 +22,16 @@ export function getErrorStatus(error: unknown): number | undefined {
   return undefined;
 }
 
+/**
+ * Loads a moderation-related resource from the specified endpoint and returns its items.
+ *
+ * @param endpoint - The HTTP GET endpoint to request.
+ * @param resourceName - Human-readable resource name used in error messages.
+ * @returns An array of ModerationInboxItem parsed from the response JSON.
+ * @throws Error when the request is unauthorized (401 or 403); the thrown error includes a numeric `status` property.
+ * @throws Error when the response status is not OK (non-2xx).
+ * @throws Error when the response JSON is not an array.
+ */
 async function fetchModerationResource(
   endpoint: string,
   resourceName: string
@@ -74,12 +84,10 @@ export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
 }
 
 /**
- * Load removed moderation items from the server.
- *
- * Fetches the removed items endpoint and returns the parsed items.
+ * Load the removed moderation items from the server.
  *
  * @returns An array of `ModerationInboxItem` representing the removed items.
- * @throws Error with a numeric `status` property set to 401 or 403 when the request is unauthorized or forbidden.
+ * @throws Error with a numeric `status` property equal to `401` or `403` when the request is unauthorized or forbidden.
  * @throws Error when the response has a non-OK status (message includes status and statusText).
  * @throws Error when the response body is not an array as expected.
  */

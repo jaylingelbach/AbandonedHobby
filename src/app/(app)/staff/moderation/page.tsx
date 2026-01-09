@@ -38,14 +38,12 @@ import RemovedRow from './removed-row';
 /**
  * Render the moderation inbox page for staff to review listings reported by the community.
  *
- * Fetches moderation inbox items on the client and preserves the current path when redirecting
- * unauthenticated users to the sign-in page. While redirecting or while the initial query is in
- * flight the component renders nothing to avoid flashing UI. Renders a forbidden state for 403
- * responses, an error state showing the error message for other errors, an empty state when there
- * are no items, or a list of ModerationRow entries when items are present.
+ * Displays a tabbed interface for "Waiting review" (inbox), "Removed for policy", and "Open Appeals".
+ * Redirects to the sign-in page when the primary inbox fetch indicates the user is unauthenticated.
+ * Shows per-tab authorization, loading, error, empty, or list states. The "Removed for policy" tab
+ * loads in parallel and does not block access to the page.
  *
- * The "Removed for policy" tab loads in parallel but never gates the entire page; it has its own
- * lightweight loading, error, and empty states.
+ * @returns The JSX element for the moderation inbox page.
  */
 export default function ModerationInboxPage() {
   const router = useRouter();

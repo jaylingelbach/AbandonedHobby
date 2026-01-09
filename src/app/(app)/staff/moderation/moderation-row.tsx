@@ -37,12 +37,14 @@ interface ModerationRowProps {
   item: ModerationInboxItem;
 }
 /**
- * Renders a moderation row for a single moderation inbox item, displaying product and reporter metadata and providing controls to approve or remove the listing with an optional internal moderation note.
+ * Render a moderation row showing a reported listing and controls to approve or remove it.
  *
- * The component shows product/shop information, reporter comments (if any), and three actions: "Meets standards" (approve), "Remove for policy" (remove), and "View listing". Approve/remove actions open confirmation dialogs that accept an optional internal moderation note; confirming sends a POST to the corresponding moderation API endpoint, shows success or error toasts, and invalidates the moderation inbox query to refresh data.
+ * Displays product and shop metadata, reporter comments (if any), and action controls:
+ * confirmation dialogs for approving or removing the listing (each accepts an optional internal moderation note),
+ * plus links to view the listing and its payload. Successful moderation actions show a toast and trigger related query invalidation.
  *
- * @param item - The moderation inbox item to display (product, tenant, flag reason, reporter text, and timestamps).
- * @returns The rendered moderation row element.
+ * @param item - ModerationInboxItem containing id, product and tenant fields, flag reason text, thumbnail, and reported timestamp label
+ * @returns The rendered moderation row element
  */
 export default function ModerationRow({ item }: ModerationRowProps) {
   const {
@@ -61,6 +63,18 @@ export default function ModerationRow({ item }: ModerationRowProps) {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  /**
+   * Submit a moderation action for the current item and update UI state.
+   *
+   * Sends the specified action ('approve' or 'remove') for the item identified in the component,
+   * attaching `note` as an optional internal moderation note. Shows a success toast and clears
+   * the note on success, and invalidates the moderation inbox queries (and the removed-items
+   * query when `action` is 'remove'). On failure shows an error toast using the server-provided
+   * message or a status-based fallback. Manages the `isSubmitting` state for the duration of the request.
+   *
+   * @param action - The moderation action to perform: `'approve'` or `'remove'`.
+   * @param note - Optional internal moderator note to include with the action.
+   */
   async function handleModerationAction(
     action: 'approve' | 'remove',
     note: string

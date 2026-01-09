@@ -11,6 +11,15 @@ interface RemovedRowProps {
   item: ModerationInboxItem;
 }
 
+/**
+ * Renders a moderation "removed" list row showing product, shop, flag reason, reporter comments, and action links.
+ *
+ * Conditionally displays a thumbnail (or a "Photo" placeholder) and reporter comments when present, and includes
+ * buttons linking to the public listing and the admin payload for the product.
+ *
+ * @param item - Moderation item containing `id`, `productName`, `tenantName`, `tenantSlug`, `flagReasonLabel`, `flagReasonOtherText`, `thumbnailUrl`, and `reportedAtLabel`
+ * @returns A React element representing the moderation removed row
+ */
 export default function RemovedRow({ item }: RemovedRowProps) {
   const {
     id,
