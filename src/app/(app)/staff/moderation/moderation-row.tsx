@@ -240,7 +240,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 variant="secondary"
               >
                 <ShieldOff className="mr-2 h-4 w-4" />
-                {isSubmitting ? 'Removing ' : 'Remove for policy'}
+                {isSubmitting ? 'Removing...' : 'Remove for policy'}
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent>
