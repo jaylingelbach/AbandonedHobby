@@ -23,25 +23,28 @@ export function getErrorStatus(error: unknown): number | undefined {
 }
 
 /**
- * Load moderation inbox items from the server.
+ * Loads a moderation-related resource from the specified endpoint and returns its items.
  *
- * Fetches the moderation inbox endpoint and returns the parsed items.
- *
- * @returns An array of `ModerationInboxItem` representing the moderation inbox entries.
- * @throws Error with a numeric `status` property set to 401 or 403 when the request is unauthorized or forbidden.
- * @throws Error when the response has a non-OK status (message includes status and statusText).
- * @throws Error when the response body is not an array as expected.
+ * @param endpoint - The HTTP GET endpoint to request.
+ * @param resourceName - Human-readable resource name used in error messages.
+ * @returns An array of ModerationInboxItem parsed from the response JSON.
+ * @throws Error when the request is unauthorized (401 or 403); the thrown error includes a numeric `status` property.
+ * @throws Error when the response status is not OK (non-2xx).
+ * @throws Error when the response JSON is not an array.
  */
-export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
-  const response = await fetch('/api/inbox', {
+async function fetchModerationResource(
+  endpoint: string,
+  resourceName: string
+): Promise<ModerationInboxItem[]> {
+  const response = await fetch(endpoint, {
     method: 'GET',
     credentials: 'include'
   });
 
-  // Auth / authz handling
+  // Auth
   if (response.status === 401 || response.status === 403) {
     const error = new Error(
-      'Not authorized to view moderation inbox'
+      `Not authorized to view ${resourceName}`
     ) as Error & {
       status?: number;
     };
@@ -51,7 +54,7 @@ export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
 
   if (!response.ok) {
     throw new Error(
-      `Failed to load moderation inbox: ${response.status} ${response.statusText}`
+      `Failed to load ${resourceName}: ${response.status} ${response.statusText}`
     );
   }
 
@@ -59,8 +62,36 @@ export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
 
   // Minimal runtime guard so we don't blindly trust the shape
   if (!Array.isArray(json)) {
-    throw new Error('Unexpected moderation inbox response shape');
+    throw new Error(`Unexpected ${resourceName} response shape`);
   }
 
   return json as ModerationInboxItem[];
+}
+
+/**
+ * Load moderation inbox items from the server.
+ *
+ * Fetches the moderation inbox endpoint and returns the parsed items.
+ *
+ * @returns An array of `ModerationInboxItem` representing the moderation inbox entries.
+ * @throws Error with a numeric `status` property set to 401 or 403 when the request is unauthorized or forbidden.
+ * @throws Error when the response has a non-OK status (message includes status and statusText).
+ * @throws Error when the response body is not an array as expected.
+ */
+
+export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
+  return fetchModerationResource('/api/inbox', 'moderation inbox');
+}
+
+/**
+ * Load the removed moderation items from the server.
+ *
+ * @returns An array of `ModerationInboxItem` representing the removed items.
+ * @throws Error with a numeric `status` property equal to `401` or `403` when the request is unauthorized or forbidden.
+ * @throws Error when the response has a non-OK status (message includes status and statusText).
+ * @throws Error when the response body is not an array as expected.
+ */
+
+export async function fetchRemovedItems(): Promise<ModerationInboxItem[]> {
+  return fetchModerationResource('/api/removed', 'removed items');
 }

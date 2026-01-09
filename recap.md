@@ -6437,3 +6437,42 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/lib/sendEmail.ts
   - Implemented new sendRemovalEmail export that validates recipient, constructs Postmark template model with name/item/reason/support details, and dispatches removal policy email via Postmark.
+
+# Moderation - Removed for policy view 01/08/26
+
+## Walkthrough
+
+- Extends the moderation dashboard with a tabbed interface to browse inbox, removed-for-policy, and open-appeals items. Adds a new API endpoint for fetching removed items, introduces a new RemovedRow component for display, refactors shared fetch logic, and implements query invalidation for cache management.
+
+## New Features
+
+- Added tabbed moderation dashboard with "Inbox," "Removed," and "Open Appeals" sections for better organization.
+- New "Removed for policy" tab displays items removed from listings with product details and action buttons to view the listing or admin panel.
+
+## Improvements
+
+- Action buttons now disable while processing to prevent duplicate submissions.
+- Added loading indicators for improved feedback during data fetches.
+
+## File changes
+
+### Constants & Query Keys
+
+- src/app/(app)/staff/moderation/constants.ts, src/app/(app)/staff/moderation/queryKeys.ts Added moderationInboxTabs constant tuple with type definition; extracted BASE_LISTING_CLASS to shared constant. Restructured moderationInboxQueryKey from single to two-element tuple; introduced new removedItemsQueryKey.
+
+### Moderation Row Component
+
+- src/app/(app)/staff/moderation/moderation-row.tsx
+  - Imported constants and query keys; added disabled={isSubmitting} states to action buttons; invalidate removedItemsQueryKey on remove action; updated button labels to show "Approving..." and "Removing..." states during submission.
+
+### Moderation Page & UI
+
+- src/app/(app)/staff/moderation/page.tsx, src/app/(app)/staff/moderation/removed-row.tsx, src/app/(app)/staff/moderation/ui-state/ui-state.tsx
+  - Restructured page with tabbed UI (inbox, removed, open_appeals); added parallel fetchRemovedItems query; implemented per-tab rendering with separate loading/error handling.
+  - Added new RemovedRow component for removed items display.
+  - Introduced InlineLoadingState component for per-tab loading skeleton.
+
+### Utilities & API
+
+- src/app/(app)/staff/moderation/utils.ts, src/app/api/(moderation)/removed/route.ts
+  - Refactored shared fetch logic via fetchModerationResource helper; added fetchRemovedItems() function. New GET endpoint /api/moderation/removed queries products collection with policy-removal filters, transforms to ModerationInboxItem, includes auth checks and comprehensive error handling.
