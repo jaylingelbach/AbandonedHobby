@@ -15,6 +15,16 @@ import {
   resolveThumbnailUrl
 } from '@/app/api/(moderation)/inbox/utils';
 
+/**
+ * Retrieve a list of products that were removed for policy for moderation by super-admins.
+ *
+ * Authenticates the request via Payload CMS and, for users with the `super-admin` role,
+ * returns up to 50 products that are flagged, removed for policy, and archived, sorted by most recently updated.
+ *
+ * @param request - The incoming Next.js request used for authentication and header forwarding
+ * @returns An array of ModerationInboxItem representing removed products (id, productName, tenantName, tenantSlug, flagReasonLabel, optional flagReasonOtherText, thumbnailUrl, reportedAtLabel)
+ * @throws Responds with HTTP 401 if authentication fails, 403 if the authenticated user is not a `super-admin`, or 500 on server error (error message is generic in production)
+ */
 export async function GET(request: NextRequest) {
   let removedItems: ModerationInboxItem[] = [];
 

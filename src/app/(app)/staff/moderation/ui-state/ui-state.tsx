@@ -68,6 +68,14 @@ export function ErrorState({ message }: { message?: string }) {
   );
 }
 
+/**
+ * Renders the full-page loading skeleton UI for the Moderation inbox.
+ *
+ * Displays a header with disabled placeholder filters, an "At a glance" skeleton strip,
+ * and a list of animated skeleton rows that mimic moderation items.
+ *
+ * @returns A JSX element containing the loading skeleton and disabled placeholder controls
+ */
 export function LoadingState() {
   return (
     <main className="min-h-screen bg-background">
