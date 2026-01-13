@@ -20,7 +20,7 @@ import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/
 import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
 import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
 import { ProductModerationCtx } from './utils/utils';
-import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
+// import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
 
 /**
  * Clears shippingFlatFee when shippingMode is not 'flat'
@@ -48,8 +48,8 @@ export const Products: CollectionConfig = {
     afterChange: [
       updateTenantCountsOnMove,
       captureProductAnalytics,
-      autoArchiveOrUnarchiveOnInventoryChange,
-      createModerationActionFromIntent
+      autoArchiveOrUnarchiveOnInventoryChange
+      // createModerationActionFromIntent
     ],
     afterDelete: [decrementTenantCountOnDelete],
     beforeValidate: [
@@ -480,7 +480,9 @@ export const Products: CollectionConfig = {
       },
       access: {
         // Hide from API reads.
-        read: () => false
+        read: () => false,
+        create: () => false,
+        update: () => false
       },
       jsonSchema: {
         fileMatch: ['*'],
