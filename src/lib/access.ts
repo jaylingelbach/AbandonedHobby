@@ -32,6 +32,10 @@ export const mustBeStripeVerified: Access = async ({ req }) => {
   }
 };
 
-export const isSuperAdmin = (user: User | ClientUser | null) => {
-  return Boolean(user?.roles?.includes('super-admin'));
-};
+export const isSuperAdmin = (user: User | ClientUser | null): boolean =>
+  Array.isArray(user?.roles) && user.roles?.includes('super-admin');
+
+export const isStaff = (user: User | ClientUser | null): boolean =>
+  Array.isArray(user?.roles)
+    ? user.roles.includes('super-admin') || user.roles.includes('support')
+    : false;

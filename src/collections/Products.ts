@@ -3,7 +3,6 @@ import { CollectionConfig } from 'payload';
 
 // ─── Project Constants / Types ───────────────────────────────────────────────
 import { flagReasonLabels, moderationFlagReasons } from '@/constants';
-import { Product } from '@/payload-types';
 import { ShippingMode } from '@/modules/orders/types';
 
 // ─── Access Control ──────────────────────────────────────────────────────────
@@ -20,10 +19,8 @@ import { forceTrackInventoryTrueForNonAdmins } from '@/lib/server/products/hooks
 import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/resolve-tenant-and-require-stripe-ready';
 import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
 import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
-
-type ProductModerationCtx = {
-  siblingData?: Partial<Product>;
-};
+import { ProductModerationCtx } from './utils/utils';
+import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
 
 /**
  * Clears shippingFlatFee when shippingMode is not 'flat'
@@ -51,7 +48,8 @@ export const Products: CollectionConfig = {
     afterChange: [
       updateTenantCountsOnMove,
       captureProductAnalytics,
-      autoArchiveOrUnarchiveOnInventoryChange
+      autoArchiveOrUnarchiveOnInventoryChange,
+      createModerationActionFromIntent
     ],
     afterDelete: [decrementTenantCountOnDelete],
     beforeValidate: [
@@ -391,7 +389,7 @@ export const Products: CollectionConfig = {
       required: false,
       admin: {
         description:
-          'Internal note for moderators (visible only to staff). Use this to document what action was taken and why.',
+          'Internal note for support (visible only to staff). Use this to document what action was taken and why.',
         condition: (_data, siblingData) => siblingData?.isFlagged === true
       },
       access: {
@@ -413,6 +411,105 @@ export const Products: CollectionConfig = {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
         read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'flaggedAt',
+      type: 'date',
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        description: 'Set when user flagged listing as violating standards.'
+      }
+    },
+
+    {
+      name: 'approvedAt',
+      label: 'Approved At',
+      type: 'date',
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        description:
+          'Set when staff marks a flagged listing as Meets standards (unflags it). Used for moderation history and reporting.'
+      }
+    },
+    {
+      name: 'removedAt',
+      label: 'Removed At',
+      type: 'date',
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        description:
+          'Set when staff selects Remove for policy. Indicates when the listing was taken down (archived + removed for policy).'
+      }
+    },
+    {
+      name: 'reinstatedAt',
+      label: 'Reinstated At',
+      type: 'date',
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      admin: {
+        description:
+          'Set when staff selects Reinstate after a policy removal. Reinstatement returns the listing to a private, non-public state.'
+      }
+    },
+    {
+      name: 'moderationIntent',
+      label: 'Moderation Intent (system)',
+      type: 'json',
+      required: false,
+      admin: {
+        hidden: true,
+        description:
+          'System-only: ephemeral marker used by hooks to create ModerationActions. Do not edit manually.'
+      },
+      access: {
+        // Hide from API reads.
+        read: () => false
+      },
+      jsonSchema: {
+        fileMatch: ['*'],
+        uri: 'moderationIntent',
+        schema: {
+          type: 'object',
+          additionalProperties: false,
+          properties: {
+            // Where did this update come from?
+            source: {
+              type: 'string',
+              enum: ['staff_trpc', 'admin_ui', 'system']
+            },
+
+            // What moderation action is being attempted?
+            actionType: {
+              type: 'string',
+              enum: ['approved', 'removed', 'reinstated']
+            },
+
+            // Required for removed + reinstated (per your decision)
+            reason: { type: 'string' },
+            note: { type: 'string' },
+
+            // Optional: a simple "safety" marker you can use to detect stale/duplicate intents
+            createdAt: { type: 'string' }
+          },
+          required: ['source', 'actionType', 'reason', 'note', 'createdAt']
+        }
       }
     }
   ]
