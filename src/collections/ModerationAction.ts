@@ -33,18 +33,50 @@ export const ModerationActions: CollectionConfig = {
   slug: 'moderation-actions',
   access: {
     create: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),
-    read: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user)
+    read: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),
+    update: () => false,
+    delete: () => false
   },
   admin: {
     description: 'Moderation Actions'
   },
   hooks: {
+    beforeValidate: [
+      ({ data, req, operation }) => {
+        if (operation !== 'create') return data;
+
+        const user = req.user as User | ClientUser | null;
+        if (!user) throw new Error('Not authenticated');
+
+        if (!(isSuperAdmin(user) || isStaff(user))) {
+          throw new Error('Forbidden');
+        }
+
+        // Ensure required fields exist before validation runs
+        if (!data.actor) {
+          data.actor = user.id;
+        }
+
+        // Optional: also prefill snapshots so they’re present during validation
+        // (beforeChange will still overwrite/enforce anyway)
+        if (!data.actorEmailSnapshot) data.actorEmailSnapshot = user.email;
+        if (!data.actorUsernameSnapshot)
+          data.actorUsernameSnapshot = user.username;
+        if (!data.actorRoleSnapshot) data.actorRoleSnapshot = user.roles;
+
+        if (!data.source) {
+          data.source = 'admin_ui';
+        }
+
+        return data;
+      }
+    ],
     beforeChange: [
       ({ data, req, operation }) => {
         if (operation !== 'create') return data;
         const user = req.user as User | ClientUser | null;
         if (!user) throw new Error('Not authenticated');
-        if (data.actor && data.actor != user.id) {
+        if (data.actor && data.actor !== user.id) {
           console.error(
             'Suspicious activity. Actor is not the same as user id'
           );
