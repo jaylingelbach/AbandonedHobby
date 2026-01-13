@@ -110,3 +110,5 @@ export const moderationIntentReasons = [
   'admin_ui',
   'system'
 ] as const;
+
+export type ModerationIntentSource = (typeof moderationIntentReasons)[number];
