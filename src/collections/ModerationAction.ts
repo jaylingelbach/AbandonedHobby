@@ -218,10 +218,10 @@ export const ModerationActions: CollectionConfig = {
         value: string | undefined | null,
         { siblingData }: ModerationActionCtx
       ) => {
-        if (
-          (siblingData?.actionType === 'removed' && !value) ||
-          (siblingData?.actionType === 'reinstated' && !value)
-        ) {
+        const requiresDetail =
+          siblingData?.actionType === 'removed' ||
+          siblingData?.actionType === 'reinstated';
+        if (requiresDetail && !value) {
           return 'Note is required when removing or reinstating.';
         }
         return true;
