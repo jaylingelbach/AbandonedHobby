@@ -6,6 +6,7 @@ import {
 } from '@/app/(app)/staff/moderation/constants';
 import {
   moderationFlagReasons,
+  moderationIntentReasons,
   moderationReinstateReasons,
   moderationSelectOptions,
   moderationSelectOptionsLabel
@@ -187,10 +188,16 @@ export const ModerationActions: CollectionConfig = {
       },
       filterOptions: ({ siblingData }) => {
         if (siblingData?.actionType === 'reinstated') {
-          return [...moderationReinstateReasons];
+          return moderationReinstateReasons.map((value) => ({
+            label: moderationSelectOptionsLabel[value],
+            value
+          }));
         }
         if (siblingData?.actionType === 'removed') {
-          return [...moderationFlagReasons];
+          return moderationFlagReasons.map((value) => ({
+            label: moderationSelectOptionsLabel[value],
+            value
+          }));
         }
         return [];
       }
@@ -262,7 +269,7 @@ export const ModerationActions: CollectionConfig = {
       name: 'source',
       type: 'select',
       index: true,
-      options: ['staff_trpc', 'admin_ui', 'system'],
+      options: [...moderationIntentReasons],
       defaultValue: 'admin_ui',
       access: {
         read: ({ req: { user } }) => isSuperAdmin(user)
