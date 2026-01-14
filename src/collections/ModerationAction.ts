@@ -53,6 +53,8 @@ export const ModerationActions: CollectionConfig = {
           throw new Error('Forbidden');
         }
 
+        if (!data) return data;
+
         // Ensure required fields exist before validation runs
         if (!data.actor) {
           data.actor = user.id;
