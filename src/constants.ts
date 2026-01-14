@@ -21,6 +21,34 @@ export const FALLBACK_TENANT_NAME = 'An Abandoned Hobby Shop';
 
 export const CART_QUERY_LIMIT = 50;
 
+export const moderationReinstateReasons = [
+  'appeal_approved',
+  'evidence_insufficient',
+  'mistaken_removal',
+  'policy_updated',
+  'seller_remediated',
+  'duplicate_case',
+  'automated_false_positive',
+  'admin_error'
+] as const;
+
+export type ModerationReinstatementReasons =
+  (typeof moderationReinstateReasons)[number];
+
+export const reinstateReasonLabels: Record<
+  ModerationReinstatementReasons,
+  string
+> = {
+  appeal_approved: 'Appeal approved',
+  evidence_insufficient: 'Insufficient evidence',
+  mistaken_removal: 'Mistaken removal',
+  policy_updated: 'Policy updated / clarified',
+  seller_remediated: 'Seller fixed the issue (relisted compliantly)',
+  duplicate_case: 'Duplicate case / merged',
+  automated_false_positive: 'False positive (automated/system)',
+  admin_error: 'Staff error'
+};
+
 export const moderationFlagReasons = [
   'spam',
   'scam_or_fraud',
@@ -55,3 +83,32 @@ export const flagReasonLabelsEmail: Record<FlagReasons, string> = {
   duplicate_listing: 'duplicating another listing on the marketplace',
   other: 'not meeting our marketplace guidelines'
 };
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Derived union: this keeps in sync automatically
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type ModerationSelectOptions =
+  | FlagReasons
+  | ModerationReinstatementReasons;
+
+export const moderationSelectOptions = [
+  ...moderationFlagReasons,
+  ...moderationReinstateReasons
+] as const satisfies readonly ModerationSelectOptions[];
+
+export const moderationSelectOptionsLabel: Record<
+  ModerationSelectOptions,
+  string
+> = {
+  ...flagReasonLabels,
+  ...reinstateReasonLabels
+};
+
+export const moderationIntentReasons = [
+  'staff_trpc',
+  'admin_ui',
+  'system'
+] as const;
+
+export type ModerationIntentSource = (typeof moderationIntentReasons)[number];

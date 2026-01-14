@@ -72,6 +72,7 @@ export interface Config {
     conversations: Conversation;
     media: Media;
     messages: Message;
+    'moderation-actions': ModerationAction;
     orders: Order;
     'pending-checkout-attempts': PendingCheckoutAttempt;
     products: Product;
@@ -97,6 +98,7 @@ export interface Config {
     conversations: ConversationsSelect<false> | ConversationsSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     messages: MessagesSelect<false> | MessagesSelect<true>;
+    'moderation-actions': ModerationActionsSelect<false> | ModerationActionsSelect<true>;
     orders: OrdersSelect<false> | OrdersSelect<true>;
     'pending-checkout-attempts': PendingCheckoutAttemptsSelect<false> | PendingCheckoutAttemptsSelect<true>;
     products: ProductsSelect<false> | ProductsSelect<true>;
@@ -181,7 +183,7 @@ export interface User {
   lastName: string;
   username: string;
   welcomeEmailSent: boolean;
-  roles?: ('super-admin' | 'user')[] | null;
+  roles?: ('super-admin' | 'user' | 'support')[] | null;
   tenants?:
     | {
         tenant: string | Tenant;
@@ -425,13 +427,36 @@ export interface Product {
    */
   flagReasonOtherText?: string | null;
   /**
-   * Internal note for moderators (visible only to staff). Use this to document what action was taken and why.
+   * Internal note for support (visible only to staff). Use this to document what action was taken and why.
    */
   moderationNote?: string | null;
   /**
    * Indicates that this product has been removed for a policy violation
    */
   isRemovedForPolicy?: boolean | null;
+  /**
+   * Set when user flagged listing as violating standards.
+   */
+  flaggedAt?: string | null;
+  /**
+   * Set when staff marks a flagged listing as Meets standards (unflags it). Used for moderation history and reporting.
+   */
+  approvedAt?: string | null;
+  /**
+   * Set when staff selects Remove for policy. Indicates when the listing was taken down (archived + removed for policy).
+   */
+  removedAt?: string | null;
+  /**
+   * Set when staff selects Reinstate after a policy removal. Reinstatement returns the listing to a private, non-public state.
+   */
+  reinstatedAt?: string | null;
+  moderationIntent?: {
+    source: 'staff_trpc' | 'admin_ui' | 'system';
+    actionType: 'approved' | 'removed' | 'reinstated';
+    reason: string;
+    note: string;
+    createdAt: string;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -489,6 +514,69 @@ export interface Message {
   content: string;
   product?: (string | null) | Product;
   read?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * Moderation Actions
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "moderation-actions".
+ */
+export interface ModerationAction {
+  id: string;
+  /**
+   * Product id
+   */
+  product: string | Product;
+  /**
+   * The authenticated staff user who performed this action. Set automatically.
+   */
+  actor: string | User;
+  /**
+   * Actions available to be taken for moderation
+   */
+  actionType: 'approved' | 'removed' | 'reinstated';
+  /**
+   * Reason used by staff for this moderation action. required for removals or reinstatements).
+   */
+  reason?:
+    | (
+        | 'spam'
+        | 'scam_or_fraud'
+        | 'inappropriate_or_nsfw'
+        | 'prohibited_item'
+        | 'misleading_or_false'
+        | 'copyright_or_ip'
+        | 'duplicate_listing'
+        | 'other'
+        | 'appeal_approved'
+        | 'evidence_insufficient'
+        | 'mistaken_removal'
+        | 'policy_updated'
+        | 'seller_remediated'
+        | 'duplicate_case'
+        | 'automated_false_positive'
+        | 'admin_error'
+      )
+    | null;
+  /**
+   * Internal note for support (visible only to staff). Use this to document the action taken and reason why. Required for removals or reinstatements
+   */
+  note?: string | null;
+  /**
+   * Snapshot of the actor’s roles at the moment this action was performed. Set automatically.
+   */
+  actorRoleSnapshot?: ('super-admin' | 'support' | 'user')[] | null;
+  /**
+   * Historical data for email at time of action.
+   */
+  actorEmailSnapshot?: string | null;
+  /**
+   * Historical data for username at time of action.
+   */
+  actorUsernameSnapshot?: string | null;
+  source?: ('staff_trpc' | 'admin_ui' | 'system') | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -800,6 +888,10 @@ export interface PayloadLockedDocument {
         value: string | Message;
       } | null)
     | ({
+        relationTo: 'moderation-actions';
+        value: string | ModerationAction;
+      } | null)
+    | ({
         relationTo: 'orders';
         value: string | Order;
       } | null)
@@ -994,6 +1086,23 @@ export interface MessagesSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "moderation-actions_select".
+ */
+export interface ModerationActionsSelect<T extends boolean = true> {
+  product?: T;
+  actor?: T;
+  actionType?: T;
+  reason?: T;
+  note?: T;
+  actorRoleSnapshot?: T;
+  actorEmailSnapshot?: T;
+  actorUsernameSnapshot?: T;
+  source?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "orders_select".
  */
 export interface OrdersSelect<T extends boolean = true> {
@@ -1158,6 +1267,11 @@ export interface ProductsSelect<T extends boolean = true> {
   flagReasonOtherText?: T;
   moderationNote?: T;
   isRemovedForPolicy?: T;
+  flaggedAt?: T;
+  approvedAt?: T;
+  removedAt?: T;
+  reinstatedAt?: T;
+  moderationIntent?: T;
   updatedAt?: T;
   createdAt?: T;
 }

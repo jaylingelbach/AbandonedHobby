@@ -29,6 +29,7 @@ import { isSuperAdmin } from './lib/access';
 
 import type { Config } from './payload-types';
 import { Cart } from './collections/Carts';
+import { ModerationActions } from './collections/ModerationAction';
 
 const filename = fileURLToPath(import.meta.url);
 const dirname = path.dirname(filename);
@@ -93,6 +94,7 @@ export default buildConfig({
     Conversations,
     Media,
     Messages,
+    ModerationActions,
     Orders,
     PendingCheckoutAttempts,
     Products,
