@@ -69,7 +69,9 @@ export async function GET(request: NextRequest) {
           : 'Unknown',
         flagReasonOtherText: product.flagReasonOtherText ?? undefined,
         thumbnailUrl,
-        flaggedAt: product.flaggedAt ?? ''
+        reportedAtLabel: product.flaggedAt
+          ? new Date(product.flaggedAt).toLocaleDateString()
+          : 'Unknown'
       };
     });
   } catch (error) {
