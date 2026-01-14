@@ -68,6 +68,9 @@ export const moderationRouter = createTRPCRouter({
           }
         });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -149,6 +152,9 @@ export const moderationRouter = createTRPCRouter({
         };
       });
     } catch (error) {
+      if (error instanceof TRPCError) {
+        throw error;
+      }
       const message = error instanceof Error ? error.message : String(error);
       if (process.env.NODE_ENV !== 'production') {
         console.error(
@@ -220,6 +226,9 @@ export const moderationRouter = createTRPCRouter({
           }
         });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -297,6 +306,9 @@ export const moderationRouter = createTRPCRouter({
           }
         });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -371,6 +383,9 @@ export const moderationRouter = createTRPCRouter({
           }
         });
       } catch (error) {
+        if (error instanceof TRPCError) {
+          throw error;
+        }
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
