@@ -145,7 +145,7 @@ export const moderationRouter = createTRPCRouter({
               : 'Unknown',
           flagReasonOtherText: product.flagReasonOtherText ?? undefined,
           thumbnailUrl,
-          flaggedAt: product.flaggedAt ?? '',
+          reportedAt: product.flaggedAt ?? '',
           reportedAtLabel: product.flaggedAt
             ? new Date(product.flaggedAt).toLocaleDateString()
             : ''
