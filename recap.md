@@ -6517,3 +6517,64 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/payload.config.ts
   - Imports and registers ModerationActions in the Payload buildConfig collections array.
+
+# Moderation - Card B 01/14/26
+
+## Walkthrough
+
+- Adds a Moderation feature: documentation and roadmap; Next.js API routes for reporting, approving, removing, and inbox/removed listing; Zod request schemas and inbox helpers; a tRPC moderation router; ModerationAction collection access and hooks changes; a product after-change hook creating moderation audit entries; and a date-format utility.
+
+## New Features
+
+- Staff moderation API: report/flag listings, approve, remove, and reinstate actions; staff inbox listing added.
+
+## Documentation
+
+- Comprehensive moderation docs: contracts, workflows, error taxonomy, roadmap, and rate-limiting guidance and checklist.
+
+## Bug Fixes / Reliability
+
+- Removal notification attempted on removals; improved date formatting.
+- Hardened admin controls and automatic capture of moderator details for consistent audit records.
+
+## File Changes
+
+### Documentation
+
+- docs/moderation/README.md, docs/moderation/contracts.md, docs/moderation/rate-limiting.md, docs/moderation/roadmap.md, recap.md
+  - New and expanded moderation docs: README, contracts/specs, rate-limiting guidance, V2 roadmap, and a minor recap date tweak.
+
+### Next.js API Routes
+
+- src/app/\_api/(moderation)/[productId]/route.ts, src/app/\_api/(moderation)/[productId]/approve/route.ts, src/app/\_api/(moderation)/[productId]/remove/route.ts, src/app/\_api/(moderation)/inbox/route.ts, src/app/\_api/(moderation)/removed/route.ts
+  - New endpoints for report/flag, approve (unflag), remove (archive + removed-for-policy + tenant email attempt), and inbox/removed listing. Include Zod validation, auth/role checks, state transition checks, and env-aware error responses. (removed/route.ts is currently a commented skeleton.)
+
+### Schemas & Inbox Helpers
+
+- src/app/\_api/(moderation)/[productId]/schema.ts, src/app/\_api/(moderation)/inbox/utils.ts
+  - Zod request schemas and TS types for report/approve/remove; utilities: tenant population type guard and thumbnail URL resolver.
+
+### tRPC Router / Server Procedures
+
+- src/modules/moderation/server/procedures.ts
+  -     New moderationRouter with procedures: flagListing, listInbox, approveListing, removeListing, reinstateListing — validation, auth/role checks, state transitions, mappings, and TRPC error signaling.
+
+### Collection: ModerationAction
+
+- src/collections/ModerationAction.ts
+  - Access gating made production-aware; isArrayOfStrings now a type predicate; actor field reworked (relationship, required, admin conditions); beforeValidate hook auto-populates actor snapshots and source default.
+
+### Product Hook
+
+- src/lib/server/products/hooks/create-moderation-action-from-intent.ts
+  - New after-change hook that converts product.moderationIntent into a ModerationAction audit record, with role checks, validation, recursion guard, overrideAccess usage, and clearing of the intent.
+
+### Utilities
+
+- src/lib/utils.ts
+  - Added formatDate(dateString) helper for locale-aware short-date rendering and safe fallback.
+
+### Payload Types
+
+- src/payload-types.ts
+  - ModerationAction.actor widened to optional `(string
