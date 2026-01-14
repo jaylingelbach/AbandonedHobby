@@ -530,10 +530,6 @@ export interface ModerationAction {
    */
   product: string | Product;
   /**
-   * The authenticated staff user who performed this action. Set automatically.
-   */
-  actor: string | User;
-  /**
    * Actions available to be taken for moderation
    */
   actionType: 'approved' | 'removed' | 'reinstated';
@@ -564,6 +560,10 @@ export interface ModerationAction {
    * Internal note for support (visible only to staff). Use this to document the action taken and reason why. Required for removals or reinstatements
    */
   note?: string | null;
+  /**
+   * The authenticated staff user who performed this action. Set automatically.
+   */
+  actor?: (string | null) | User;
   /**
    * Snapshot of the actor’s roles at the moment this action was performed. Set automatically.
    */
@@ -1090,10 +1090,10 @@ export interface MessagesSelect<T extends boolean = true> {
  */
 export interface ModerationActionsSelect<T extends boolean = true> {
   product?: T;
-  actor?: T;
   actionType?: T;
   reason?: T;
   note?: T;
+  actor?: T;
   actorRoleSnapshot?: T;
   actorEmailSnapshot?: T;
   actorUsernameSnapshot?: T;

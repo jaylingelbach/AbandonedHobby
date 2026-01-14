@@ -21,7 +21,7 @@ import { User } from '@/payload-types';
  * @param value The value to check.
  * @returns {boolean} True if the value is a string array, false otherwise.
  */
-function isArrayOfStrings(value: unknown): boolean {
+function isArrayOfStrings(value: unknown): value is string[] {
   // First, check if the value is an array
   if (!Array.isArray(value)) {
     return false;
@@ -30,13 +30,16 @@ function isArrayOfStrings(value: unknown): boolean {
   // Then, check if every element in the array is a string
   return value.every((item) => typeof item === 'string');
 }
+
+const isProd: boolean = process.env.NODE_ENV === 'production';
+
 export const ModerationActions: CollectionConfig = {
   slug: 'moderation-actions',
   access: {
     create: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),
     read: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),
-    update: () => false,
-    delete: () => false
+    update: ({ req: { user } }) => !isProd && isSuperAdmin(user),
+    delete: ({ req: { user } }) => !isProd && isSuperAdmin(user)
   },
   admin: {
     description: 'Moderation Actions'
@@ -54,18 +57,10 @@ export const ModerationActions: CollectionConfig = {
         }
 
         if (!data) return data;
-
-        // Ensure required fields exist before validation runs
-        if (!data.actor) {
-          data.actor = user.id;
-        }
-
-        // Optional: also prefill snapshots so they’re present during validation
-        // (beforeChange will still overwrite/enforce anyway)
-        if (!data.actorEmailSnapshot) data.actorEmailSnapshot = user.email;
-        if (!data.actorUsernameSnapshot)
-          data.actorUsernameSnapshot = user.username;
-        if (!data.actorRoleSnapshot) data.actorRoleSnapshot = user.roles;
+        data.actor = user.id;
+        data.actorEmailSnapshot = user.email;
+        data.actorUsernameSnapshot = user.username;
+        data.actorRoleSnapshot = user.roles;
 
         if (!data.source) {
           data.source = 'admin_ui';
@@ -114,38 +109,6 @@ export const ModerationActions: CollectionConfig = {
       }
     },
     // needs to be super-admin, currently no staff table.
-    {
-      name: 'actor',
-      label: 'Actor',
-      type: 'relationship',
-      relationTo: 'users',
-      hasMany: false,
-      required: true,
-      admin: {
-        description:
-          'The authenticated staff user who performed this action. Set automatically.'
-      },
-      access: {
-        read: ({ req: { user } }) => isSuperAdmin(user)
-      },
-      filterOptions: ({ user }) => {
-        if (!user) return false;
-        if (isArrayOfStrings(user.roles)) {
-          if (
-            user.roles?.includes('super-admin') ||
-            user.roles?.includes('support')
-          ) {
-            return {
-              or: [
-                { roles: { contains: 'super-admin' } },
-                { roles: { contains: 'support' } }
-              ]
-            };
-          }
-        }
-        return false;
-      }
-    },
     {
       name: 'actionType',
       label: 'Action Type',
@@ -230,6 +193,40 @@ export const ModerationActions: CollectionConfig = {
       }
     },
     {
+      name: 'actor',
+      label: 'Actor',
+      type: 'relationship',
+      relationTo: 'users',
+      hasMany: false,
+      required: true,
+      admin: {
+        description:
+          'The authenticated staff user who performed this action. Set automatically.',
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
+      },
+      access: {
+        read: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => !isProd && isSuperAdmin(user)
+      },
+      filterOptions: ({ user }) => {
+        if (!user) return false;
+        if (isArrayOfStrings(user.roles)) {
+          if (
+            user.roles?.includes('super-admin') ||
+            user.roles?.includes('support')
+          ) {
+            return {
+              or: [
+                { roles: { contains: 'super-admin' } },
+                { roles: { contains: 'support' } }
+              ]
+            };
+          }
+        }
+        return false;
+      }
+    },
+    {
       name: 'actorRoleSnapshot',
       label: 'Actor Role Snapshot',
       type: 'select',
@@ -242,7 +239,8 @@ export const ModerationActions: CollectionConfig = {
         read: ({ req: { user } }) => isSuperAdmin(user)
       },
       admin: {
-        description: `Snapshot of the actor’s roles at the moment this action was performed. Set automatically.`
+        description: `Snapshot of the actor’s roles at the moment this action was performed. Set automatically.`,
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
       }
     },
     {
@@ -250,10 +248,13 @@ export const ModerationActions: CollectionConfig = {
       label: 'Actor Email Snapshot',
       type: 'email',
       access: {
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        create: ({ req: { user } }) => !isProd && isSuperAdmin(user),
+        read: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => !isProd && isSuperAdmin(user)
       },
       admin: {
-        description: 'Historical data for email at time of action.'
+        description: 'Historical data for email at time of action.',
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
       }
     },
     {
@@ -264,11 +265,13 @@ export const ModerationActions: CollectionConfig = {
         read: ({ req: { user } }) => isSuperAdmin(user)
       },
       admin: {
-        description: 'Historical data for username at time of action.'
+        description: 'Historical data for username at time of action.',
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
       }
     },
     {
       name: 'source',
+      label: 'Source',
       type: 'select',
       index: true,
       options: [...moderationIntentReasons],
