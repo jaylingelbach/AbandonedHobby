@@ -1,4 +1,4 @@
-import { ModerationActionTypes } from '@/app/(app)/staff/moderation/constants';
+import { ActionType } from '@/app/(app)/staff/moderation/constants';
 import { Product } from '@/payload-types';
 
 export type ProductModerationCtx = {
@@ -7,6 +7,6 @@ export type ProductModerationCtx = {
 
 export type ModerationActionCtx = {
   siblingData?: {
-    actionType?: ModerationActionTypes;
+    actionType?: ActionType;
   };
 };
