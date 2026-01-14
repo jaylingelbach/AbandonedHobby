@@ -37,13 +37,22 @@ function isUserRoleArray(value: unknown): value is readonly string[] {
 
 function assertStaffUser(user: User | null): asserts user is User {
   if (!user) {
-    throw new Error('Not authenticated');
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Not authenticated'
+    });
   }
   if (!isUserRoleArray(user.roles)) {
-    throw new Error('User roles are not available');
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'User roles are not available'
+    });
   }
   if (!(isSuperAdmin(user) || isStaff(user))) {
-    throw new Error('Forbidden');
+    throw new TRPCError({
+      code: 'FORBIDDEN',
+      message: 'Forbidden'
+    });
   }
 }
 
