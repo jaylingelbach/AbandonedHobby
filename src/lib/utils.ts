@@ -582,3 +582,16 @@ export const isStringValue = (value: unknown): value is string =>
 
 export const isNumber = (value: unknown): value is number =>
   typeof value === 'number' && Number.isFinite(value);
+
+export const formatDate = (dateString: string | null | undefined): string => {
+  if (!isNonEmptyString(dateString)) return '-';
+
+  const parsedDate = new Date(dateString);
+  if (Number.isNaN(parsedDate.getTime())) return '-';
+
+  return parsedDate.toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric'
+  });
+};

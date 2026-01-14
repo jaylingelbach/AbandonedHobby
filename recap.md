@@ -6477,7 +6477,7 @@ src/collections/Carts.ts, src/payload.config.ts
 - src/app/(app)/staff/moderation/utils.ts, src/app/api/(moderation)/removed/route.ts
   - Refactored shared fetch logic via fetchModerationResource helper; added fetchRemovedItems() function. New GET endpoint /api/moderation/removed queries products collection with policy-removal filters, transforms to ModerationInboxItem, includes auth checks and comprehensive error handling.
 
-# Moderation - Data structure updates 01/13/2026
+# Moderation - Data structure updates 01/13/26
 
 ## Walkthrough
 
