@@ -130,7 +130,13 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
       actorEmailSnapshot: user.email,
       actorUsernameSnapshot: user.username,
       actorRoleSnapshot: user.roles,
-      source: intent.source
+      source: intent.source,
+      ...(intent.actionType === 'approved' && intent.note
+        ? { note: intent.note }
+        : {}),
+      ...(intent.actionType !== 'approved'
+        ? { reason: intent.reason, note: intent.note }
+        : {})
     },
     overrideAccess: true,
     req
