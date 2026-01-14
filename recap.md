@@ -6476,3 +6476,44 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/app/(app)/staff/moderation/utils.ts, src/app/api/(moderation)/removed/route.ts
   - Refactored shared fetch logic via fetchModerationResource helper; added fetchRemovedItems() function. New GET endpoint /api/moderation/removed queries products collection with policy-removal filters, transforms to ModerationInboxItem, includes auth checks and comprehensive error handling.
+
+# Moderation - Data structure updates 01/13/2026
+
+## Walkthrough
+
+- Adds a new ModerationAction collection with access controls, validation hooks, and auto-populated actor snapshots; extends Product with moderation timestamps and a moderationIntent object; introduces support role and isStaff helper; adds moderation constants/types and registers the collection in the payload config.
+
+## New Features
+
+- Added a moderation actions system to record approvals, removals, and reinstatements with reasons, notes, and source.
+- Products now show moderation timestamps (flagged, approved, removed, reinstated) and a moderation intent record.
+- Actor snapshots (role, email, username) are captured for moderation events to improve auditability.
+- Expanded moderation reason options including new reinstatement reasons.
+- Added a "support" role to support moderation workflows.
+
+## File changes
+
+### New Moderation Collection
+
+- src/collections/ModerationAction.ts
+  - New moderation-actions collection: role-based access (staff/super-admin create/read), lifecycle hooks (beforeValidate, beforeChange) enforcing auth and actor consistency, auto-populated actor snapshots and source, dynamic select/filterOptions, and validation for reason/note based on actionType.
+
+### Product Collection Updates
+
+- src/collections/Products.ts
+  - Imports ProductModerationCtx, adds moderation timestamps (flaggedAt, approvedAt, removedAt, reinstatedAt), introduces moderationIntent JSON system field (hidden), updates moderationNote description, and wires an afterChange integration point for creating moderation actions from intent.
+
+### User Roles & Access Helpers
+
+- src/collections/Users.ts, src/lib/access.ts
+  - Adds 'support' to Users.roles options; tightens isSuperAdmin type/logic and adds isStaff helper that checks for 'super-admin' or 'support'.
+
+### Constants & Types
+
+- src/constants.ts, src/collections/utils/utils.ts, src/payload-types.ts
+  - Adds reinstate reasons, combined moderation select options and labels, moderationIntentReasons, new ProductModerationCtx and ModerationActionCtx types, and auto-generated payload types for ModerationAction and product moderation fields.
+
+### Registration
+
+- src/payload.config.ts
+  - Imports and registers ModerationActions in the Payload buildConfig collections array.
