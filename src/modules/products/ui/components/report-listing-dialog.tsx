@@ -45,6 +45,15 @@ interface ReportListingProps {
   disabled: boolean;
 }
 
+/**
+ * Renders a "Report Listing" dialog that lets users select a reason and submit a report for a product.
+ *
+ * The dialog validates an "other" reason requires at least 10 characters, and submits the selected reason (and optional text) when the user confirms.
+ *
+ * @param productId - The ID of the product being reported
+ * @param disabled - Whether the report control should be disabled
+ * @returns The Report Listing dialog React element
+ */
 export function ReportListingDialog({
   productId,
   disabled

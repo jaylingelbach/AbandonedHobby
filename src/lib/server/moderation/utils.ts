@@ -1,18 +1,33 @@
 import { Media, Product, Tenant } from '@/payload-types';
 import { TRPCError } from '@trpc/server';
 
+/**
+ * Determines whether a Product.tenant value is a populated Tenant object.
+ *
+ * @param value - The tenant value to check
+ * @returns `true` if `value` is a populated `Tenant` (object with a `slug`), `false` otherwise.
+ */
 export function isPopulatedTenant(value: Product['tenant']): value is Tenant {
   return !!value && typeof value === 'object' && 'slug' in value;
 }
 
-// Narrow the media relationship (upload)
+/**
+ * Determines whether a value is a Media-like object that includes an `id` property.
+ *
+ * @returns `true` if `value` is a non-null object that has an `id` property, `false` otherwise.
+ */
 export function isMedia(value: unknown): value is Media {
   return (
     !!value && typeof value === 'object' && 'id' in (value as { id?: unknown })
   );
 }
 
-// Get a thumbnail URL from the product's first image (if present)
+/**
+ * Extracts a thumbnail URL from a product's first image when available.
+ *
+ * @param product - The product whose images will be inspected
+ * @returns The first image's `url` if that image is a populated `Media` with a non-empty URL, `undefined` otherwise
+ */
 export function resolveThumbnailUrl(product: Product): string | undefined {
   const firstImage = product.images?.[0];
   if (!firstImage) return undefined;
@@ -39,7 +54,7 @@ export function resolveThumbnailUrl(product: Product): string | undefined {
 }
 
 /**
- * Generate a new RFC 4122 version 4 UUID.
+ * Generates an RFC 4122 version 4 UUID.
  *
  * @returns A UUID string conforming to RFC 4122 version 4.
  */
@@ -81,9 +96,9 @@ export function normalizeRequiredNote(value: string, minLength = 10): string {
 }
 
 /**
- * Verifies the caller is an authenticated staff user with either the `super-admin` or `support` role.
+ * Ensure the caller is an authenticated staff user with the `super-admin` or `support` role.
  *
- * @param user - The session user object; expected to have a `roles` array of strings.
+ * @param user - Session user object that may include a `roles` array of strings.
  * @throws TRPCError with code `UNAUTHORIZED` if `user` is null or undefined.
  * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if `user.roles` is missing or not an array of strings.
  * @throws TRPCError with code `FORBIDDEN` if `user.roles` does not include `super-admin` or `support`.
