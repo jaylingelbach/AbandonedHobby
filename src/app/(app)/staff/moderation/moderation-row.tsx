@@ -3,7 +3,7 @@
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
 import { CheckCircle2, ShieldOff } from 'lucide-react';
@@ -91,6 +91,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
   const [removalReason, setRemovalReason] = useState<FlagReasons>(
     item.flagReason
   );
+
+  useEffect(() => {
+    setRemovalReason(item.flagReason);
+  }, [item.flagReason]);
 
   const approveListing = useMutation(
     trpc.moderation.approveListing.mutationOptions({

@@ -1,6 +1,16 @@
+// ─── Node / Built-ins ────────────────────────────────────────────────────────
 import { headers as getHeaders } from 'next/headers';
+
+// ─── External Libraries ──────────────────────────────────────────────────────
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
+
+// ─── tRPC Setup ──────────────────────────────────────────────────────────────
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure
+} from '@/trpc/init';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { formatDate } from '@/lib/utils';
@@ -20,88 +30,15 @@ import {
   moderationReinstateReasons
 } from '@/constants';
 
-// ─── Project Functions ───────────────────────────────────────────────────────
+// ─── Project Server Logic ────────────────────────────────────────────────────
 import {
+  ensureStaff,
+  generateUuid,
   isPopulatedTenant,
+  normalizeOptionalNote,
+  normalizeRequiredNote,
   resolveThumbnailUrl
-} from '@/app/_api/(moderation)/inbox/utils';
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
-
-/**
- * Generate a new RFC 4122 version 4 UUID.
- *
- * @returns A UUID string conforming to RFC 4122 version 4.
- */
-function generateUuid(): string {
-  return crypto.randomUUID();
-}
-
-/**
- * Normalizes an optional note by trimming whitespace and treating empty or non-string values as absent.
- *
- * @param value - The input note to normalize.
- * @returns The trimmed note if it contains characters, `undefined` otherwise.
- */
-function normalizeOptionalNote(value: string | undefined): string | undefined {
-  if (typeof value !== 'string') return undefined;
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-}
-
-/**
- * Validate and trim a required moderation note, enforcing a minimum length.
- *
- * @param value - The note text to validate and trim
- * @param minLength - Minimum allowed length in characters (defaults to 10)
- * @returns The trimmed note string
- * @throws TRPCError - `BAD_REQUEST` when the trimmed note is shorter than `minLength`
- */
-function normalizeRequiredNote(value: string, minLength = 10): string {
-  const trimmed = value.trim();
-  if (trimmed.length < minLength) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: `Note must be at least ${minLength} characters.`
-    });
-  }
-  return trimmed;
-}
-
-/**
- * Verifies the caller is an authenticated staff user with either the `super-admin` or `support` role.
- *
- * @param user - The session user object; expected to have a `roles` array of strings.
- * @throws TRPCError with code `UNAUTHORIZED` if `user` is null or undefined.
- * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if `user.roles` is missing or not an array of strings.
- * @throws TRPCError with code `FORBIDDEN` if `user.roles` does not include `super-admin` or `support`.
- */
-function ensureStaff(
-  user: { roles?: string[] | readonly string[] | null } | null
-) {
-  const roles = user?.roles;
-  const isRoleArray =
-    Array.isArray(roles) && roles.every((role) => typeof role === 'string');
-
-  if (!user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Authentication failed.'
-    });
-  }
-  if (!isRoleArray) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'User roles are not available.'
-    });
-  }
-  if (!(roles.includes('super-admin') || roles.includes('support'))) {
-    throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
-  }
-}
+} from '@/lib/server/moderation/utils';
 
 const defaultReason = moderationFlagReasons[0];
 
@@ -149,6 +86,7 @@ export const moderationRouter = createTRPCRouter({
         await ctx.db.update({
           collection: 'products',
           id: input.productId,
+          user,
           overrideAccess: true,
           data: {
             isFlagged: true,
@@ -543,7 +481,8 @@ export const moderationRouter = createTRPCRouter({
           });
         }
 
-        // Idempotency: already reinstated (not removed for policy).
+        // Idempotency: already reinstated (i.e. not removed for policy anymore).
+        // NOTE: "reinstated" does NOT mean "live" — it just clears the policy removal.
         if (product.isRemovedForPolicy !== true) {
           return { ok: true };
         }
@@ -561,7 +500,12 @@ export const moderationRouter = createTRPCRouter({
           overrideAccess: true,
           user,
           data: {
+            // ✅ Intentional invariant:
+            // Reinstatement clears policy removal but keeps the listing archived,
+            // so it does NOT go live automatically. Seller must explicitly relist / unarchive
+            // through the normal flow (inventory + archive toggle).
             isArchived: true,
+
             isFlagged: false,
             isRemovedForPolicy: false,
             reinstatedAt: new Date().toISOString(),

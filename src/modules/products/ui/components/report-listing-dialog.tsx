@@ -1,4 +1,8 @@
+'use client';
+
 import { useState } from 'react';
+import { toast } from 'sonner';
+import { useMutation } from '@tanstack/react-query';
 
 import {
   Tooltip,
@@ -15,8 +19,8 @@ import {
   DialogTitle,
   DialogTrigger
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
 import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
@@ -30,102 +34,90 @@ import { Textarea } from '@/components/ui/textarea';
 
 import {
   flagReasonLabels,
-  FlagReasons,
-  moderationFlagReasons
+  moderationFlagReasons,
+  type FlagReasons
 } from '@/constants';
 import { isNonEmptyString } from '@/lib/utils';
-import { toast } from 'sonner';
+import { useTRPC } from '@/trpc/client';
 
 interface ReportListingProps {
   productId: string;
   disabled: boolean;
 }
-export const ReportListingDialog = ({
+
+export function ReportListingDialog({
   productId,
   disabled
-}: ReportListingProps) => {
+}: ReportListingProps) {
+  const trpc = useTRPC();
+
+  const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<FlagReasons | ''>('');
-  const [otherText, setOtherText] = useState<string>('');
-  const [otherTextError, setOtherTextError] = useState<string>('');
-  const [open, setOpen] = useState<boolean>(false);
-  const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [otherText, setOtherText] = useState('');
+  const [otherTextError, setOtherTextError] = useState('');
 
-  const isBtnDisabled = Boolean(
-    disabled ||
-      reason === '' ||
-      isSubmitting ||
-      (reason === 'other' &&
-        (!isNonEmptyString(otherText) || otherText.length < 10))
-  );
-
-  const resetState = () => {
+  const reset = () => {
     setReason('');
     setOtherText('');
     setOtherTextError('');
   };
 
-  const validateOtherText = (reason: FlagReasons, otherText: string) => {
-    if (reason !== 'other') {
-      return;
-    }
-    if (!isNonEmptyString(otherText)) {
-      return 'Reason required.';
-    }
-    if (otherText.length < 10) {
-      return 'Must be at least 10 characters long.';
-    }
-  };
-  const handleSubmit = async (reason: FlagReasons, otherText: string) => {
-    const errorMessage = validateOtherText(reason, otherText);
-    if (errorMessage) {
-      setOtherTextError(errorMessage);
-      return;
-    }
-
-    const data = reason === 'other' ? { reason, otherText } : { reason };
-
-    setIsSubmitting(true);
-    try {
-      const response = await fetch(`/api/${productId}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-      });
-
-      if (response.ok) {
+  const flagListing = useMutation(
+    trpc.moderation.flagListing.mutationOptions({
+      onSuccess: () => {
         toast.success('Successfully submitted a report, thank you.');
-        resetState();
+        reset();
         setOpen(false);
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          errorData?.error ||
-          (response.status === 401
+      },
+      onError: (error) => {
+        const fallback = 'Failed to submit, please try again.';
+        const message =
+          error.message ||
+          (error.data?.code === 'UNAUTHORIZED'
             ? 'Please log in to report'
-            : response.status === 404
+            : error.data?.code === 'NOT_FOUND'
               ? 'Product not found'
-              : response.status === 409
+              : error.data?.code === 'CONFLICT'
                 ? 'This listing cannot be reported'
-                : 'Failed to submit, please try again');
-        toast.error(errorMessage);
+                : fallback);
+        toast.error(message);
       }
-    } catch (error) {
-      console.error(`[moderation dialog] error: ${error}`);
-      toast.error('Something went wrong, please try again.');
-    } finally {
-      setIsSubmitting(false);
+    })
+  );
+
+  const handleSubmit = () => {
+    if (reason === 'other') {
+      if (!isNonEmptyString(otherText)) {
+        setOtherTextError('Reason required.');
+        return;
+      }
+      if (otherText.length < 10) {
+        setOtherTextError('Must be at least 10 characters long.');
+        return;
+      }
     }
+
+    flagListing.mutate({
+      productId,
+      reason: reason as FlagReasons,
+      otherText: reason === 'other' ? otherText : undefined
+    });
   };
+
+  const isSubmitDisabled =
+    disabled ||
+    flagListing.isPending ||
+    reason === '' ||
+    (reason === 'other' &&
+      (!isNonEmptyString(otherText) || otherText.length < 10));
+
   return (
     <div className="text-center text-sm font-bold">
       <Tooltip>
         <Dialog
           open={open}
           onOpenChange={(nextOpen) => {
-            if (disabled && nextOpen) return;
-            setOpen(nextOpen);
+            if (!disabled || !nextOpen) setOpen(nextOpen);
           }}
         >
           <DialogTrigger asChild>
@@ -133,25 +125,27 @@ export const ReportListingDialog = ({
               <button
                 type="button"
                 disabled={disabled}
-                className="disabled:opacity-50 disabled:cursor-not-allowed"
+                className="disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
               >
                 Report Listing
               </button>
             </TooltipTrigger>
           </DialogTrigger>
+
           <DialogContent className="sm:max-w-[425px]">
             <DialogHeader>
               <DialogTitle>Report Listing</DialogTitle>
               <DialogDescription>
-                Report a listing for community standards violations here. Click
-                submit when you&apos;re done.
+                Report a listing for community standards violations. Click
+                submit when done.
               </DialogDescription>
             </DialogHeader>
+
             <div className="grid gap-4">
               <div className="grid gap-3">
                 <Select
-                  onValueChange={(value) => setReason(value as FlagReasons)}
                   value={reason}
+                  onValueChange={(val) => setReason(val as FlagReasons)}
                 >
                   <SelectTrigger className="w-full">
                     <SelectValue placeholder="Select a reason" />
@@ -161,58 +155,57 @@ export const ReportListingDialog = ({
                       <SelectLabel>
                         Tell us why it violates our community standards
                       </SelectLabel>
-                      {moderationFlagReasons.map((modReason) => (
-                        <SelectItem key={modReason} value={modReason}>
-                          {flagReasonLabels[modReason]}
+                      {moderationFlagReasons.map((value) => (
+                        <SelectItem key={value} value={value}>
+                          {flagReasonLabels[value]}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   </SelectContent>
                 </Select>
               </div>
+
               {reason === 'other' && (
                 <div className="grid gap-3">
-                  <Label htmlFor="other-1">Other reason:</Label>
+                  <Label htmlFor="other-text">Other reason:</Label>
                   <Textarea
-                    id="other-1"
-                    name="otherReason"
+                    id="other-text"
                     placeholder="Why does this violate our standards?"
                     value={otherText}
-                    onChange={(event) => {
-                      setOtherText(event.target.value);
+                    onChange={(e) => {
+                      setOtherText(e.target.value);
                       setOtherTextError('');
                     }}
                   />
                   {otherTextError && (
-                    <p className="text-red-500">{otherTextError}</p>
+                    <p className="text-red-500 text-sm">{otherTextError}</p>
                   )}
                 </div>
               )}
             </div>
+
             <DialogFooter>
               <DialogClose asChild>
-                <Button variant="outline" onClick={() => resetState()}>
+                <Button variant="outline" onClick={reset}>
                   Cancel
                 </Button>
               </DialogClose>
               <Button
                 type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitDisabled}
                 className="hover:text-black hover:bg-pink-500"
-                onClick={() => {
-                  if (!reason || isSubmitting) return;
-                  handleSubmit(reason, otherText);
-                }}
-                disabled={isBtnDisabled}
               >
-                {isSubmitting ? 'Submitting...' : 'Submit'}
+                {flagListing.isPending ? 'Submitting...' : 'Submit'}
               </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
+
         <TooltipContent>
           Does this violate our community standards? Click to report.
         </TooltipContent>
       </Tooltip>
     </div>
   );
-};
+}

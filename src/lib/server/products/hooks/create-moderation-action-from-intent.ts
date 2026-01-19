@@ -95,7 +95,7 @@ async function clearModerationIntent(params: {
   await req.payload.update({
     collection: 'products',
     id: productId,
-    data: { moderationIntent: undefined },
+    data: { moderationIntent: null },
     overrideAccess: true,
     req
   });

@@ -490,7 +490,7 @@ export const Products: CollectionConfig = {
       type: 'json',
       required: false,
       admin: {
-        hidden: true,
+        hidden: false,
         description:
           'System-only: ephemeral marker used by hooks to create ModerationActions. Do not edit manually.'
       },
@@ -504,23 +504,28 @@ export const Products: CollectionConfig = {
         fileMatch: ['*'],
         uri: 'moderationIntent',
         schema: {
-          type: 'object',
-          additionalProperties: false,
-          properties: {
-            source: {
-              type: 'string',
-              enum: ['staff_trpc', 'admin_ui', 'system']
+          anyOf: [
+            {
+              type: 'object',
+              additionalProperties: false,
+              properties: {
+                source: {
+                  type: 'string',
+                  enum: ['staff_trpc', 'admin_ui', 'system']
+                },
+                actionType: {
+                  type: 'string',
+                  enum: ['approved', 'removed', 'reinstated']
+                },
+                reason: { type: 'string' },
+                note: { type: 'string' },
+                createdAt: { type: 'string' },
+                intentId: { type: 'string' }
+              },
+              required: ['source', 'actionType', 'createdAt', 'intentId']
             },
-            actionType: {
-              type: 'string',
-              enum: ['approved', 'removed', 'reinstated']
-            },
-            reason: { type: 'string' },
-            note: { type: 'string' },
-            createdAt: { type: 'string' },
-            intentId: { type: 'string' }
-          },
-          required: ['source', 'actionType', 'createdAt', 'intentId']
+            { type: 'null' }
+          ]
         }
       }
     }
