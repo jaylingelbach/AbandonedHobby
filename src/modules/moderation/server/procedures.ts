@@ -34,8 +34,15 @@ function normalizeOptionalNote(value: string | undefined): string | undefined {
   return trimmed.length > 0 ? trimmed : undefined;
 }
 
-function normalizeRequiredNote(value: string): string {
-  return value.trim();
+function normalizeRequiredNote(value: string, minLength = 10): string {
+  const trimmed = value.trim();
+  if (trimmed.length < minLength) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: `Note must be at least ${minLength} characters.`
+    });
+  }
+  return trimmed;
 }
 
 function ensureStaff(
@@ -387,7 +394,7 @@ export const moderationRouter = createTRPCRouter({
 
       ensureStaff(user);
 
-      const normalizedNote = normalizeRequiredNote(input.note);
+      const normalizedNote = normalizeRequiredNote(input.note, 10);
 
       let product: Product;
 
@@ -478,7 +485,7 @@ export const moderationRouter = createTRPCRouter({
 
       ensureStaff(user);
 
-      const normalizedNote = normalizeRequiredNote(input.note);
+      const normalizedNote = normalizeRequiredNote(input.note, 10);
 
       let product: Product;
 
