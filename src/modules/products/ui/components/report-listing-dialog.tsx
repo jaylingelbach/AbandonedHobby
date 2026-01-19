@@ -71,15 +71,14 @@ export function ReportListingDialog({
       },
       onError: (error) => {
         const fallback = 'Failed to submit, please try again.';
+        const codeMessages: Record<string, string> = {
+          UNAUTHORIZED: 'Please log in to report',
+          NOT_FOUND: 'Product not found',
+          CONFLICT: 'This listing cannot be reported'
+        };
+        const code = error.data?.code;
         const message =
-          error.message ||
-          (error.data?.code === 'UNAUTHORIZED'
-            ? 'Please log in to report'
-            : error.data?.code === 'NOT_FOUND'
-              ? 'Product not found'
-              : error.data?.code === 'CONFLICT'
-                ? 'This listing cannot be reported'
-                : fallback);
+          (code && codeMessages[code]) || error.message || fallback;
         toast.error(message);
       }
     })

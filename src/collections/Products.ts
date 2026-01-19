@@ -490,7 +490,7 @@ export const Products: CollectionConfig = {
       type: 'json',
       required: false,
       admin: {
-        hidden: false,
+        hidden: true,
         description:
           'System-only: ephemeral marker used by hooks to create ModerationActions. Do not edit manually.'
       },
