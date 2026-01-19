@@ -1,5 +1,10 @@
 import { CollectionAfterChangeHook } from 'payload';
+
 import { incTenantProductCount, swapTenantCountsAtomic } from '../../utils';
+
+type HookContext = {
+  skipSideEffects?: boolean;
+};
 
 // When tenant changes (A→B / A→null / null→B), atomically swap or increment/decrement counts.
 export const updateTenantCountsOnMove: CollectionAfterChangeHook = async ({
@@ -8,6 +13,10 @@ export const updateTenantCountsOnMove: CollectionAfterChangeHook = async ({
   previousDoc,
   operation
 }) => {
+  // Internal cleanup writes (e.g., clearing moderationIntent) should not trigger side effects.
+  const context = (req.context ?? {}) as HookContext;
+  if (context.skipSideEffects) return;
+
   const previousTenantId =
     typeof previousDoc?.tenant === 'string'
       ? previousDoc.tenant

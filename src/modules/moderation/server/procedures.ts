@@ -8,7 +8,10 @@ import { headers as getHeaders } from 'next/headers';
 import { TRPCError } from '@trpc/server';
 import { Product } from '@/payload-types';
 import { isNotFound } from '@/lib/server/utils';
-import { ModerationInboxItem } from '@/app/(app)/staff/moderation/types';
+import {
+  ModerationInboxItem,
+  ModerationRemovedItemDTO
+} from '@/app/(app)/staff/moderation/types';
 import {
   flagReasonLabels,
   moderationFlagReasons,
@@ -18,6 +21,44 @@ import {
   isPopulatedTenant,
   resolveThumbnailUrl
 } from '@/app/_api/(moderation)/inbox/utils';
+
+function generateUuid(): string {
+  return crypto.randomUUID();
+}
+
+function normalizeOptionalNote(value: string | undefined): string | undefined {
+  if (typeof value !== 'string') return undefined;
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function normalizeRequiredNote(value: string): string {
+  return value.trim();
+}
+
+function ensureStaff(
+  user: { roles?: string[] | readonly string[] | null } | null
+) {
+  const roles = user?.roles;
+  const isRoleArray =
+    Array.isArray(roles) && roles.every((role) => typeof role === 'string');
+
+  if (!user) {
+    throw new TRPCError({
+      code: 'UNAUTHORIZED',
+      message: 'Authentication failed.'
+    });
+  }
+  if (!isRoleArray) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'User roles are not available.'
+    });
+  }
+  if (!(roles.includes('super-admin') || roles.includes('support'))) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
+  }
+}
 
 export const moderationRouter = createTRPCRouter({
   flagListing: baseProcedure
@@ -39,13 +80,16 @@ export const moderationRouter = createTRPCRouter({
           message: 'Authentication failed.'
         });
       }
+
       let product: Product;
+
       try {
         product = await ctx.db.findByID({
           collection: 'products',
           id: input.productId,
           overrideAccess: true
         });
+
         if (
           product.isArchived ||
           product.isRemovedForPolicy ||
@@ -56,6 +100,7 @@ export const moderationRouter = createTRPCRouter({
             message: `Listing can not be flagged in its current state.`
           });
         }
+
         await ctx.db.update({
           collection: 'products',
           id: input.productId,
@@ -68,9 +113,7 @@ export const moderationRouter = createTRPCRouter({
           }
         });
       } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        if (error instanceof TRPCError) throw error;
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -87,29 +130,18 @@ export const moderationRouter = createTRPCRouter({
           message: 'An error occurred while processing the request'
         });
       }
+
       return { ok: true };
     }),
+
   listInbox: protectedProcedure.query(async ({ ctx }) => {
     const headers = await getHeaders();
     const session = await ctx.db.auth({ headers });
     const user = session?.user;
     let moderationInboxItems: ModerationInboxItem[] = [];
 
-    if (!user) {
-      throw new TRPCError({
-        code: 'UNAUTHORIZED',
-        message: 'Authentication failed.'
-      });
-    }
+    ensureStaff(user);
 
-    if (
-      !(user.roles?.includes('super-admin') || user.roles?.includes('support'))
-    ) {
-      throw new TRPCError({
-        code: 'FORBIDDEN',
-        message: 'Not authorized'
-      });
-    }
     try {
       const result = await ctx.db.find({
         collection: 'products',
@@ -124,6 +156,7 @@ export const moderationRouter = createTRPCRouter({
         limit: 50,
         sort: '-updatedAt'
       });
+
       moderationInboxItems = result.docs.map((product) => {
         const tenant = product.tenant;
 
@@ -152,9 +185,7 @@ export const moderationRouter = createTRPCRouter({
         };
       });
     } catch (error) {
-      if (error instanceof TRPCError) {
-        throw error;
-      }
+      if (error instanceof TRPCError) throw error;
       const message = error instanceof Error ? error.message : String(error);
       if (process.env.NODE_ENV !== 'production') {
         console.error(
@@ -167,12 +198,78 @@ export const moderationRouter = createTRPCRouter({
         message: 'An error occurred while processing the request'
       });
     }
+
     return { items: moderationInboxItems, ok: true };
   }),
+  listRemoved: protectedProcedure.query(async ({ ctx }) => {
+    const headers = await getHeaders();
+    const session = await ctx.db.auth({ headers });
+    const user = session?.user;
+    let removedItems: ModerationRemovedItemDTO[] = [];
+
+    ensureStaff(user);
+
+    try {
+      const result = await ctx.db.find({
+        collection: 'products',
+        depth: 1,
+        where: {
+          and: [
+            { isFlagged: { equals: false } },
+            { isRemovedForPolicy: { not_equals: false } },
+            { isArchived: { not_equals: false } }
+          ]
+        },
+        limit: 50,
+        sort: '-updatedAt'
+      });
+
+      removedItems = result.docs.map((product) => {
+        const tenant = product.tenant;
+
+        const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
+        const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
+
+        const thumbnailUrl = resolveThumbnailUrl(product);
+
+        return {
+          id: product.id,
+          productName: product.name,
+          tenantName,
+          tenantSlug,
+          flagReasonLabel: product.flagReason
+            ? flagReasonLabels[product.flagReason]
+            : 'Unknown',
+          flagReasonOtherText: product.flagReasonOtherText ?? undefined,
+          thumbnailUrl,
+          flaggedAt: product.flaggedAt ?? null,
+          note: product.moderationNote ?? undefined,
+          removedAt: product.removedAt ?? '',
+          reasonLabel: product.flagReason ?? 'Unknown'
+        };
+      });
+    } catch (error) {
+      if (error instanceof TRPCError) throw error;
+      const message = error instanceof Error ? error.message : String(error);
+      if (process.env.NODE_ENV !== 'production') {
+        console.error(
+          `[Moderation] there was a problem getting removed items:`,
+          message
+        );
+      }
+      throw new TRPCError({
+        code: 'INTERNAL_SERVER_ERROR',
+        message: 'An error occurred while processing the request'
+      });
+    }
+
+    return { items: removedItems, ok: true };
+  }),
+
   approveListing: protectedProcedure
     .input(
       z.object({
-        note: z.string().min(1),
+        note: z.string().min(1).optional(),
         productId: z.string().min(1)
       })
     )
@@ -181,30 +278,35 @@ export const moderationRouter = createTRPCRouter({
       const session = await ctx.db.auth({ headers });
       const user = session?.user;
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Authentication failed.'
-        });
-      }
+      ensureStaff(user);
 
-      if (
-        !(
-          user.roles?.includes('super-admin') || user.roles?.includes('support')
-        )
-      ) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized'
-        });
-      }
+      const normalizedNote = normalizeOptionalNote(input.note);
+
       let product: Product;
+
       try {
         product = await ctx.db.findByID({
           collection: 'products',
           id: input.productId,
           overrideAccess: true
         });
+
+        // If another moderation action is already in-flight, don't overwrite the marker.
+        if (product.moderationIntent) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'This listing already has a moderation action in progress.'
+          });
+        }
+
+        // Idempotency: already cleared from inbox.
+        if (
+          product.isFlagged === false &&
+          product.isRemovedForPolicy !== true
+        ) {
+          return { ok: true };
+        }
+
         if (
           product.isArchived ||
           product.isRemovedForPolicy ||
@@ -215,20 +317,27 @@ export const moderationRouter = createTRPCRouter({
             message: `Listing can not be unflagged in its current state.`
           });
         }
+
         await ctx.db.update({
           collection: 'products',
           id: input.productId,
           overrideAccess: true,
+          user,
           data: {
             isFlagged: false,
             isRemovedForPolicy: false,
-            approvedAt: new Date().toISOString()
+            approvedAt: new Date().toISOString(),
+            moderationIntent: {
+              source: 'staff_trpc',
+              actionType: 'approved',
+              createdAt: new Date().toISOString(),
+              intentId: generateUuid(),
+              ...(normalizedNote ? { note: normalizedNote } : {})
+            }
           }
         });
       } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        if (error instanceof TRPCError) throw error;
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -245,13 +354,16 @@ export const moderationRouter = createTRPCRouter({
           message: 'An error occurred while processing the request'
         });
       }
+
       return { ok: true };
     }),
+
   removeListing: protectedProcedure
     .input(
       z.object({
         note: z.string().min(1),
-        productId: z.string().min(1)
+        productId: z.string().min(1),
+        reason: z.enum(moderationFlagReasons)
       })
     )
     .mutation(async ({ input, ctx }) => {
@@ -259,30 +371,31 @@ export const moderationRouter = createTRPCRouter({
       const session = await ctx.db.auth({ headers });
       const user = session?.user;
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Authentication failed.'
-        });
-      }
+      ensureStaff(user);
 
-      if (
-        !(
-          user.roles?.includes('super-admin') || user.roles?.includes('support')
-        )
-      ) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized'
-        });
-      }
+      const normalizedNote = normalizeRequiredNote(input.note);
+
       let product: Product;
+
       try {
         product = await ctx.db.findByID({
           collection: 'products',
           id: input.productId,
           overrideAccess: true
         });
+
+        if (product.moderationIntent) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'This listing already has a moderation action in progress.'
+          });
+        }
+
+        // Idempotency: already removed.
+        if (product.isRemovedForPolicy === true) {
+          return { ok: true };
+        }
+
         if (
           product.isArchived ||
           product.isRemovedForPolicy ||
@@ -298,17 +411,24 @@ export const moderationRouter = createTRPCRouter({
           collection: 'products',
           id: input.productId,
           overrideAccess: true,
+          user,
           data: {
             isArchived: true,
             isFlagged: false,
             isRemovedForPolicy: true,
-            removedAt: new Date().toISOString()
+            removedAt: new Date().toISOString(),
+            moderationIntent: {
+              source: 'staff_trpc',
+              actionType: 'removed',
+              createdAt: new Date().toISOString(),
+              intentId: generateUuid(),
+              reason: input.reason,
+              note: normalizedNote
+            }
           }
         });
       } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        if (error instanceof TRPCError) throw error;
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -325,12 +445,14 @@ export const moderationRouter = createTRPCRouter({
           message: 'An error occurred while processing the request'
         });
       }
+
       return { ok: true };
     }),
+
   reinstateListing: protectedProcedure
     .input(
       z.object({
-        note: z.string().min(1),
+        note: z.string().min(10),
         productId: z.string().min(1),
         reason: z.enum(moderationReinstateReasons)
       })
@@ -340,30 +462,31 @@ export const moderationRouter = createTRPCRouter({
       const session = await ctx.db.auth({ headers });
       const user = session?.user;
 
-      if (!user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Authentication failed.'
-        });
-      }
+      ensureStaff(user);
 
-      if (
-        !(
-          user.roles?.includes('super-admin') || user.roles?.includes('support')
-        )
-      ) {
-        throw new TRPCError({
-          code: 'FORBIDDEN',
-          message: 'Not authorized'
-        });
-      }
+      const normalizedNote = normalizeRequiredNote(input.note);
+
       let product: Product;
+
       try {
         product = await ctx.db.findByID({
           collection: 'products',
           id: input.productId,
           overrideAccess: true
         });
+
+        if (product.moderationIntent) {
+          throw new TRPCError({
+            code: 'CONFLICT',
+            message: 'This listing already has a moderation action in progress.'
+          });
+        }
+
+        // Idempotency: already reinstated (not removed for policy).
+        if (product.isRemovedForPolicy !== true) {
+          return { ok: true };
+        }
+
         if (!product.isArchived || !product.isRemovedForPolicy) {
           throw new TRPCError({
             code: 'CONFLICT',
@@ -375,17 +498,24 @@ export const moderationRouter = createTRPCRouter({
           collection: 'products',
           id: input.productId,
           overrideAccess: true,
+          user,
           data: {
             isArchived: true,
             isFlagged: false,
             isRemovedForPolicy: false,
-            reinstatedAt: new Date().toISOString()
+            reinstatedAt: new Date().toISOString(),
+            moderationIntent: {
+              source: 'staff_trpc',
+              actionType: 'reinstated',
+              createdAt: new Date().toISOString(),
+              intentId: generateUuid(),
+              reason: input.reason,
+              note: normalizedNote
+            }
           }
         });
       } catch (error) {
-        if (error instanceof TRPCError) {
-          throw error;
-        }
+        if (error instanceof TRPCError) throw error;
         if (isNotFound(error)) {
           throw new TRPCError({
             code: 'NOT_FOUND',
@@ -402,6 +532,7 @@ export const moderationRouter = createTRPCRouter({
           message: 'An error occurred while processing the request'
         });
       }
+
       return { ok: true };
     })
 });

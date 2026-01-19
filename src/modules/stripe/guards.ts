@@ -1,8 +1,7 @@
 import Stripe from 'stripe';
 
-import { isUniqueViolation } from '@/app/(app)/api/stripe/webhooks/utils/utils';
-
 import type { Payload } from 'payload';
+import { isUniqueViolation } from '@/lib/server/errors/errors';
 
 /**
  * A Checkout line item where price.product is expanded and has metadata.

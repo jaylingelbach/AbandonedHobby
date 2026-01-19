@@ -6577,4 +6577,4 @@ src/collections/Carts.ts, src/payload.config.ts
 ### Payload Types
 
 - src/payload-types.ts
-  - ModerationAction.actor widened to optional `(string
+  - ModerationAction.actor widened to optional string

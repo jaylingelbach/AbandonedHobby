@@ -15,12 +15,8 @@ import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
-import {
-  getErrorStatus,
-  fetchModerationInbox,
-  fetchRemovedItems
-} from './utils';
-import { moderationInboxQueryKey, removedItemsQueryKey } from './queryKeys';
+import { getErrorStatus, fetchRemovedItems } from './utils';
+import { removedItemsQueryKey } from './queryKeys';
 import { ModerationInboxTabs } from './constants';
 
 // ─── Project Components ──────────────────────────────────────────────────────
@@ -34,6 +30,7 @@ import {
 } from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
+import { useTRPC } from '@/trpc/client';
 
 /**
  * Render the moderation inbox page for staff to review listings reported by the community.
@@ -47,13 +44,15 @@ import RemovedRow from './removed-row';
  */
 export default function ModerationInboxPage() {
   const router = useRouter();
+  const trpc = useTRPC();
+
   const [showLoading, setShowLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ModerationInboxTabs>('inbox');
 
   // Primary inbox query – this is the one that gates the page
   const { data, isError, error } = useQuery({
-    queryKey: moderationInboxQueryKey,
-    queryFn: fetchModerationInbox,
+    ...trpc.moderation.listInbox.queryOptions(),
+    select: (response) => response.items,
     enabled: typeof window !== 'undefined' // gate query
   });
 
@@ -64,8 +63,8 @@ export default function ModerationInboxPage() {
     error: removedError,
     isPending: isRemovedPending
   } = useQuery({
-    queryKey: removedItemsQueryKey,
-    queryFn: fetchRemovedItems,
+    ...trpc.moderation.listRemoved.queryOptions(),
+    select: (response) => response.items,
     enabled: typeof window !== 'undefined' // gate query
   });
 
@@ -140,7 +139,9 @@ export default function ModerationInboxPage() {
       return isForbidden ? (
         <NotAllowedState />
       ) : (
-        <ErrorState message={(error as Error | undefined)?.message} />
+        <ErrorState
+          message={(error as unknown as Error | undefined)?.message}
+        />
       );
     }
 
@@ -166,7 +167,9 @@ export default function ModerationInboxPage() {
       return isRemovedUnauthorized ? (
         <NotAllowedState />
       ) : (
-        <ErrorState message={(removedError as Error | undefined)?.message} />
+        <ErrorState
+          message={(removedError as unknown as Error | undefined)?.message}
+        />
       );
     }
 

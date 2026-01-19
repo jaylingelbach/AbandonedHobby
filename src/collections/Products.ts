@@ -20,7 +20,7 @@ import { resolveTenantAndRequireStripeReady } from '@/lib/server/products/hooks/
 import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-tenant-counts-on-move';
 import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
 import { ProductModerationCtx } from './utils/utils';
-// import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
+import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
 
 /**
  * Clears shippingFlatFee when shippingMode is not 'flat'
@@ -48,8 +48,8 @@ export const Products: CollectionConfig = {
     afterChange: [
       updateTenantCountsOnMove,
       captureProductAnalytics,
-      autoArchiveOrUnarchiveOnInventoryChange
-      // createModerationActionFromIntent
+      autoArchiveOrUnarchiveOnInventoryChange,
+      createModerationActionFromIntent
     ],
     afterDelete: [decrementTenantCountOnDelete],
     beforeValidate: [
@@ -60,8 +60,17 @@ export const Products: CollectionConfig = {
     beforeChange: [resolveTenantAndRequireStripeReady, clearFlatFeeWhenNotFlat]
   },
   fields: [
-    { name: 'name', type: 'text', required: true },
-    { name: 'description', type: 'richText' },
+    {
+      name: 'name',
+      label: 'Name',
+      type: 'text',
+      required: true
+    },
+    {
+      name: 'description',
+      label: 'Description',
+      type: 'richText'
+    },
     {
       name: 'price',
       type: 'number',
@@ -111,7 +120,6 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-
     // Top-level Category (parents only)
     {
       name: 'category',
@@ -153,15 +161,23 @@ export const Products: CollectionConfig = {
         return true;
       }
     },
-    { name: 'tags', type: 'relationship', relationTo: 'tags', hasMany: true },
+    {
+      name: 'tags',
+      label: 'Tags',
+      type: 'relationship',
+      relationTo: 'tags',
+      hasMany: true
+    },
     {
       name: 'refundPolicy',
+      label: 'Refund Policy',
       type: 'select',
       options: ['30 day', '14 day', '7 day', '1 day', 'no refunds'],
       defaultValue: '30 day'
     },
     {
       name: 'content',
+      label: 'Content',
       type: 'richText',
       access: {
         read: ({ req }) => isSuperAdmin(req.user),
@@ -210,12 +226,11 @@ export const Products: CollectionConfig = {
           'Check this box if you want to hide this item from the marketplace and only show in your personal storefront.'
       }
     },
-
     // Inventory
     {
       name: 'trackInventory',
-      type: 'checkbox',
       label: 'Track inventory',
+      type: 'checkbox',
       defaultValue: true,
       access: {
         // Only super admins can create/update this flag
@@ -232,8 +247,8 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'stockQuantity',
-      type: 'number',
       label: 'Quantity in stock',
+      type: 'number',
       min: 0,
       required: true,
       defaultValue: 1,
@@ -251,8 +266,8 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'maxPerOrder',
-      type: 'number',
       label: 'Max per order',
+      type: 'number',
       admin: {
         description:
           'Optional cap on units a single order can buy. Hidden from sellers for now.',
@@ -271,8 +286,8 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'images',
-      type: 'array',
       label: 'Images (first = primary)',
+      type: 'array',
       admin: { description: 'Reorder to change the primary image' },
       maxRows: 10,
       fields: [
@@ -415,6 +430,7 @@ export const Products: CollectionConfig = {
     },
     {
       name: 'flaggedAt',
+      label: 'Flagged At',
       type: 'date',
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
@@ -491,26 +507,20 @@ export const Products: CollectionConfig = {
           type: 'object',
           additionalProperties: false,
           properties: {
-            // Where did this update come from?
             source: {
               type: 'string',
               enum: ['staff_trpc', 'admin_ui', 'system']
             },
-
-            // What moderation action is being attempted?
             actionType: {
               type: 'string',
               enum: ['approved', 'removed', 'reinstated']
             },
-
-            // Required for removed + reinstated (per your decision)
             reason: { type: 'string' },
             note: { type: 'string' },
-
-            // Optional: a simple "safety" marker you can use to detect stale/duplicate intents
-            createdAt: { type: 'string' }
+            createdAt: { type: 'string' },
+            intentId: { type: 'string' }
           },
-          required: ['source', 'actionType', 'reason', 'note', 'createdAt']
+          required: ['source', 'actionType', 'createdAt', 'intentId']
         }
       }
     }

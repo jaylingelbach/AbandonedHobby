@@ -2,13 +2,13 @@
 
 import { Button } from '@/components/ui/button';
 // ─── Project Types / Features ────────────────────────────────────────────────
-import { ModerationInboxItem } from './types';
+import { ModerationRemovedItemDTO } from './types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BASE_LISTING_CLASS } from './constants';
 
 interface RemovedRowProps {
-  item: ModerationInboxItem;
+  item: ModerationRemovedItemDTO;
 }
 
 /**
