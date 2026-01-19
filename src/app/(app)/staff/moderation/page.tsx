@@ -15,8 +15,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
-import { getErrorStatus, fetchRemovedItems } from './utils';
-import { removedItemsQueryKey } from './queryKeys';
+import { getErrorStatus } from './utils';
 import { ModerationInboxTabs } from './constants';
 
 // ─── Project Components ──────────────────────────────────────────────────────
