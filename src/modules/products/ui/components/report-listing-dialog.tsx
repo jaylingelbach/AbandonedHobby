@@ -54,7 +54,8 @@ export function ReportListingDialog({
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState<FlagReasons | ''>('');
   const [otherText, setOtherText] = useState('');
-  const [otherTextError, setOtherTextError] = useState('');
+  const [otherTextError, setOtherTextError] = useState('');\
+  const trimmedOtherText = otherText.trim();
 
   const reset = () => {
     setReason('');
@@ -86,11 +87,11 @@ export function ReportListingDialog({
 
   const handleSubmit = () => {
     if (reason === 'other') {
-      if (!isNonEmptyString(otherText)) {
+       if (!isNonEmptyString(trimmedOtherText)) {
         setOtherTextError('Reason required.');
         return;
       }
-      if (otherText.length < 10) {
+      if (trimmedOtherText.length < 10) {
         setOtherTextError('Must be at least 10 characters long.');
         return;
       }
@@ -99,7 +100,7 @@ export function ReportListingDialog({
     flagListing.mutate({
       productId,
       reason: reason as FlagReasons,
-      otherText: reason === 'other' ? otherText : undefined
+      otherText: reason === 'other' ? trimmedOtherText : undefined
     });
   };
 
@@ -108,7 +109,7 @@ export function ReportListingDialog({
     flagListing.isPending ||
     reason === '' ||
     (reason === 'other' &&
-      (!isNonEmptyString(otherText) || otherText.length < 10));
+     (!isNonEmptyString(trimmedOtherText) || trimmedOtherText.length < 10));
 
   return (
     <div className="text-center text-sm font-bold">
