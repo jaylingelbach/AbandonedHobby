@@ -145,7 +145,6 @@ export default function ModerationRow({ item }: ModerationRowProps) {
       const message =
         error instanceof Error ? error.message : 'Something went wrong.';
       console.error('[moderation dialog] error:', message);
-      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
