@@ -242,7 +242,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
 
               <div className="mt-4 space-y-2">
                 <Label htmlFor={`moderation-note-approve-${id}`}>
-                  Internal moderation note (required, min 10 characters)
+                  Internal moderation note
                 </Label>
                 <Textarea
                   id={`moderation-note-approve-${id}`}
