@@ -203,8 +203,10 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
     });
   } catch (error) {
     if (!isUniqueViolation(error)) {
+      const message = error instanceof Error ? error.message : String(error);
       throw new Error(
-        '[Moderation Actions] Failed to create moderation action'
+        `[Moderation Actions] Failed to create moderation action: ${message}`,
+        { cause: error }
       );
     }
 
