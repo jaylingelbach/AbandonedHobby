@@ -14,11 +14,11 @@ export type ModerationRemovedItemDTO = {
   productName: string;
   tenantName: string;
   tenantSlug: string;
-  thumbnailUrl?: string;
+  thumbnailUrl?: string | null;
   removedAt: string; // ISO string for sorting
   removedAtLabel: string;
   flagReasonLabel: string; // human label for the removal reason
-  flagReasonOtherText?: string | undefined;
+  flagReasonOtherText?: string;
   reportedAtLabel?: string;
   note?: string; // internal moderation note (what you required)
   actionId?: string; // moderation-actions doc id
