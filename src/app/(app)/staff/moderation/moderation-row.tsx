@@ -61,9 +61,9 @@ function getReasonLabel(reason: FlagReasons): string {
 }
 
 /**
- * Render a moderation inbox row for a single ModerationInboxItem with UI and actions to approve or remove the listing.
+ * Render a moderation inbox row for a single moderation item.
  *
- * Renders product and reporter context, reporter comments, and controls that open confirmation dialogs to either approve the listing (optional internal note) or remove the listing (required removal reason and internal note). Actions invoke TRPC mutations, surface success/error toasts, and invalidate moderation-related queries so the inbox and removed lists refresh.
+ * Displays product and reporter context, reporter comments, and action controls to approve or remove the listing.
  *
  * @param item - The ModerationInboxItem to display and act on
  * @returns A JSX element representing the moderation row UI
