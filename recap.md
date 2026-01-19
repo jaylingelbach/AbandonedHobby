@@ -6578,3 +6578,71 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/payload-types.ts
   - ModerationAction.actor widened to optional string
+
+# Moderation - Intent Marker 01/19/26
+
+## Walkthrough
+
+- Fixes ModerationAction.actor typing; introduces intentId across moderation payloads and collection; moves isUniqueViolation to a shared errors module; migrates moderation inbox/removal flows from REST routes to TRPC with new procedures and UI mutations; adds skipSideEffects guards and idempotency/dedupe handling in product hooks.
+
+## New Features
+
+- Staff can view a “Removed” items section and a new moderation API for listing and managing removed content.
+- Moderation actions now include an intentId for dedupe/intent tracking.
+
+## Improvements
+
+- Improved moderation UI: clearer approve/remove dialogs, required removal notes/reasons, reporter context, and success/error toasts.
+- Switched moderation flows to mutation-driven interactions with stronger idempotency and side-effect guards.
+- Fixed moderation actor type to be optional in payloads.
+
+## Bug Fixes
+
+- Centralized unique-violation detection to reduce race-condition duplicates.
+
+## File changes
+
+### Type fixes & payloads
+
+- src/payload-types.ts
+  - Correct ModerationAction.actor to optional string; add intentId fields and make moderationIntent note/reason optional where applicable.
+
+### Centralized error helper
+
+- src/lib/server/errors/errors.ts, src/app/(app)/api/stripe/webhooks/route.ts, src/modules/stripe/guards.ts, src/modules/cart/server/utils.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts
+  - Add/export isUniqueViolation in errors.ts; remove local duplicate-key helpers and update imports to use centralized helper.
+
+### Moderation TRPC & procedures
+
+- src/modules/moderation/server/procedures.ts, src/trpc/routers/\_app.ts
+  - Add moderation procedures (approve/remove/reinstate) with intent payloads, new listRemoved query, helper utilities (UUID, note normalizers, ensureStaff); register moderation router on app router.
+
+### Moderation UI (TRPC) & deleted REST routes
+
+- src/app/(app)/staff/moderation/moderation-row.tsx, src/app/(app)/staff/moderation/page.tsx, src/app/api/(moderation)/inbox/route.ts (deleted), src/app/api/(moderation)/removed/route.ts (deleted)
+  - Replace fetch-based inbox/removed flows with TRPC queries/mutations; add local note/reason state, validation, mutation handlers and query invalidation; delete prior Next.js API inbox/removed route handlers.
+
+### Removed-items DTO & UI
+
+- src/app/(app)/staff/moderation/types.tsx, src/app/(app)/staff/moderation/removed-row.tsx
+  - Add ModerationRemovedItemDTO; update RemovedRow props and rendering to show reported and removed timestamps and related metadata.
+
+### Collections & constants
+
+- src/collections/ModerationAction.ts, src/collections/Products.ts, src/constants.ts
+  - Add intentId field to ModerationAction collection; rename moderationIntentReasons → moderationSource and ModerationSource type; enable post-change hook to create moderation action from intent and add intentId to moderationIntent schema.
+
+### Product hooks: side-effect guards & intent handling
+
+- src/lib/server/products/hooks/\*, src/lib/server/products/hooks/create-moderation-action-from-intent.ts
+  - Add HookContext.skipSideEffects guard in multiple hooks; update createModerationActionFromIntent to accept previousDoc, validate intentId, ensure idempotency, clear moderationIntent, and use centralized isUniqueViolation for duplicate handling.
+
+### Cart & webhook updates
+
+- src/modules/cart/server/utils.ts, src/app/(app)/api/stripe/webhooks/route.ts, src/app/(app)/api/stripe/webhooks/utils/utils.ts
+  - Replace local Mongo duplicate checks with isUniqueViolation usage; streamline webhook utils imports.
+
+### Miscellaneous
+
+- src/app/(app)/recap.md, recap.md
+  - Documentation/recap updates reflecting the above changes.
