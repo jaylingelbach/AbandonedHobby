@@ -1,82 +1,129 @@
 import { z } from 'zod';
 
-import { isStaff, isSuperAdmin } from '@/lib/access';
+// ─── Types ───────────────────────────────────────────────────────────────────
+import type { CollectionAfterChangeHook, PayloadRequest } from 'payload';
 import type { Product, User } from '@/payload-types';
-import { CollectionAfterChangeHook } from 'payload';
-import { TRPCError } from '@trpc/server';
-import { moderationIntentReasons, moderationSelectOptions } from '@/constants';
+
+// ─── Access Control ──────────────────────────────────────────────────────────
+import { isStaff, isSuperAdmin } from '@/lib/access';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+import { moderationSelectOptions, moderationSource } from '@/constants';
+
+// ─── Server Utilities ────────────────────────────────────────────────────────
+import { isUniqueViolation } from '@/lib/server/errors/errors';
 
 const moderationIntentSchema = z.discriminatedUnion('actionType', [
   z.object({
     actionType: z.literal('approved'),
-    source: z.enum(moderationIntentReasons),
+    source: z.enum(moderationSource),
     note: z.string().min(1).optional(),
-    createdAt: z.string().min(1)
+    createdAt: z.string().min(1),
+    intentId: z.string().uuid()
   }),
   z.object({
     actionType: z.literal('removed'),
-    source: z.enum(moderationIntentReasons),
+    source: z.enum(moderationSource),
     reason: z.enum(moderationSelectOptions),
     note: z.string().min(1),
-    createdAt: z.string().min(1)
+    createdAt: z.string().min(1),
+    intentId: z.string().uuid()
   }),
   z.object({
     actionType: z.literal('reinstated'),
-    source: z.enum(moderationIntentReasons),
+    source: z.enum(moderationSource),
     reason: z.enum(moderationSelectOptions),
     note: z.string().min(1),
-    createdAt: z.string().min(1)
+    createdAt: z.string().min(1),
+    intentId: z.string().uuid()
   })
 ]);
 
+/**
+ * Determines whether a value is an array whose elements are all strings.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is an array and every element is a `string`, `false` otherwise.
+ */
 function isUserRoleArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === 'string')
   );
 }
 
+/**
+ * Asserts that a user is authenticated and has either a staff or super-admin role.
+ *
+ * @param user - The user to validate; may be null.
+ * @throws Error('Not authenticated') if `user` is null or undefined.
+ * @throws Error('User roles are not available') if `user.roles` is not an array of strings.
+ * @throws Error('Forbidden') if the user is authenticated but is neither staff nor super-admin.
+ */
 function assertStaffUser(user: User | null): asserts user is User {
-  if (!user) {
-    throw new TRPCError({
-      code: 'UNAUTHORIZED',
-      message: 'Not authenticated'
-    });
-  }
-  if (!isUserRoleArray(user.roles)) {
-    throw new TRPCError({
-      code: 'INTERNAL_SERVER_ERROR',
-      message: 'User roles are not available'
-    });
-  }
-  if (!(isSuperAdmin(user) || isStaff(user))) {
-    throw new TRPCError({
-      code: 'FORBIDDEN',
-      message: 'Forbidden'
-    });
-  }
+  if (!user) throw new Error('Not authenticated');
+  if (!isUserRoleArray(user.roles))
+    throw new Error('User roles are not available');
+  if (!(isSuperAdmin(user) || isStaff(user))) throw new Error('Forbidden');
 }
 
 type HookContext = {
   skipModerationIntentHook?: boolean;
+  skipSideEffects?: boolean;
 };
+
+/**
+ * Clears the moderationIntent marker from a product and prevents moderation-related hooks and side effects for the current request.
+ *
+ * Sets `req.context.skipModerationIntentHook` and `req.context.skipSideEffects` to true and then updates the specified product to remove its `moderationIntent`.
+ *
+ * @param productId - The ID of the product whose `moderationIntent` should be cleared
+ */
+async function clearModerationIntent(params: {
+  req: PayloadRequest;
+  productId: string;
+}): Promise<void> {
+  const { req, productId } = params;
+
+  const nextContext = {
+    ...(req.context ?? {}),
+    skipModerationIntentHook: true,
+    skipSideEffects: true
+  } satisfies HookContext;
+
+  req.context = nextContext as unknown as PayloadRequest['context'];
+
+  await req.payload.update({
+    collection: 'products',
+    id: productId,
+    data: { moderationIntent: undefined },
+    overrideAccess: true,
+    req
+  });
+}
 
 /**
  * After-change hook for Products:
  * - If `moderationIntent` is present, create a ModerationAction audit row.
  * - Then clear `moderationIntent` (with a recursion guard).
+ *
+ * Idempotency:
+ * - ModerationActions.intentId is unique.
+ * - If a duplicate intentId is detected, treat it as "already written" and proceed to clear the marker.
+ *
+ * Transition checks:
+ * - We validate using previousDoc -> doc, because doc alone cannot tell if this was already done.
  */
 export const createModerationActionFromIntent: CollectionAfterChangeHook<
   Product
-> = async ({ doc, req }) => {
-  const user = req.user;
-  if (!user)
-    throw new TRPCError({
-      code: 'UNAUTHORIZED'
-    });
+> = async ({ doc, req, previousDoc }) => {
+  const user = req.user as User | null;
+  if (!user) throw new Error('Not authenticated');
+
   const context = (req.context ?? {}) as HookContext;
 
-  // Recursion guard: our own "clear intent" update will re-trigger hooks.
-  if (context.skipModerationIntentHook) {
+  // Recursion / internal-cleanup guard:
+  // our "clear intent" update will re-trigger product hooks, but should do no side effects.
+  if (context.skipModerationIntentHook || context.skipSideEffects) {
     return doc;
   }
 
@@ -84,13 +131,10 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
     doc as unknown as { moderationIntent?: unknown }
   ).moderationIntent;
 
-  if (!maybeIntent) {
-    return doc;
-  }
+  if (!maybeIntent) return doc;
 
   const parsed = moderationIntentSchema.safeParse(maybeIntent);
   if (!parsed.success) {
-    // Fail loudly: intent markers should always be well-formed
     throw new Error(
       `Invalid moderationIntent: ${parsed.error.issues
         .map((issue) => issue.message)
@@ -100,63 +144,108 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
 
   const intent = parsed.data;
 
-  // For system-generated intents, you can choose whether to allow no-user.
-  // Today: enforce authenticated staff to create an audit row.
-  assertStaffUser(req.user as User | null);
+  // Enforce authenticated staff to create an audit row.
+  assertStaffUser(user);
 
-  // Optional sanity checks (prevents stale/incorrect intents)
+  // Previous-state values (defensive: previousDoc can be undefined in some operations)
+  const prevRemoved = Boolean(previousDoc?.isRemovedForPolicy);
+  const nextRemoved = Boolean(doc.isRemovedForPolicy);
+
+  const prevFlagged = Boolean(previousDoc?.isFlagged);
+  const nextFlagged = Boolean(doc.isFlagged);
+
+  // -----------------------------
+  // Transition sanity checks
+  // -----------------------------
   if (intent.actionType === 'removed') {
-    if (doc.isRemovedForPolicy !== true) {
+    // Ideal: false -> true
+    if (prevRemoved && nextRemoved) {
+      // Already removed; treat as idempotent success: clear marker and exit.
+      await clearModerationIntent({ req, productId: doc.id });
+      return doc;
+    }
+
+    if (!nextRemoved) {
       throw new Error(
-        'Intent mismatch: removed but product isRemovedForPolicy is not true'
+        'Intent mismatch: actionType=removed but product isRemovedForPolicy is not true'
       );
     }
   }
+
   if (intent.actionType === 'reinstated') {
-    if (doc.isRemovedForPolicy === true) {
+    // Ideal: true -> false
+    if (!prevRemoved && !nextRemoved) {
+      // Already reinstated (or never removed); treat as idempotent success: clear marker and exit.
+      await clearModerationIntent({ req, productId: doc.id });
+      return doc;
+    }
+
+    if (nextRemoved) {
       throw new Error(
-        'Intent mismatch: reinstated but product isRemovedForPolicy is still true'
+        'Intent mismatch: actionType=reinstated but product isRemovedForPolicy is still true'
       );
     }
   }
 
+  if (intent.actionType === 'approved') {
+    // Ideal: true -> false
+    if (!prevFlagged && !nextFlagged) {
+      // Already cleared from inbox; treat as idempotent success.
+      await clearModerationIntent({ req, productId: doc.id });
+      return doc;
+    }
+
+    if (nextFlagged) {
+      // Regardless of previous value, if it's still flagged after this write, intent didn't apply.
+      throw new Error(
+        'Intent mismatch: actionType=approved but product isFlagged is still true'
+      );
+    }
+  }
+
+  // -----------------------------
   // Create audit row (append-only log)
-  await req.payload.create({
-    collection: 'moderation-actions',
-    data: {
-      product: doc.id,
-      actionType: intent.actionType,
-      actor: user.id,
-      actorEmailSnapshot: user.email,
-      actorUsernameSnapshot: user.username,
-      actorRoleSnapshot: user.roles,
-      source: intent.source,
-      ...(intent.actionType === 'approved' && intent.note
-        ? { note: intent.note }
-        : {}),
-      ...(intent.actionType !== 'approved'
-        ? { reason: intent.reason, note: intent.note }
-        : {})
-    },
-    overrideAccess: true,
-    req
-  });
+  // -----------------------------
+  try {
+    await req.payload.create({
+      collection: 'moderation-actions',
+      data: {
+        product: doc.id,
+        actionType: intent.actionType,
+        actor: user.id,
+        actorEmailSnapshot: user.email,
+        actorUsernameSnapshot: user.username,
+        actorRoleSnapshot: user.roles,
+        source: intent.source,
+        ...(intent.actionType === 'approved' && intent.note
+          ? { note: intent.note }
+          : {}),
+        ...(intent.actionType !== 'approved'
+          ? { reason: intent.reason, note: intent.note }
+          : {}),
+        intentId: intent.intentId
+      },
+      overrideAccess: true,
+      req
+    });
+  } catch (error) {
+    if (!isUniqueViolation(error)) {
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `[Moderation Actions] Failed to create moderation action: ${message}`,
+        { cause: error }
+      );
+    }
 
-  // Clear the intent marker (and avoid re-triggering this hook)
-  req.context = {
-    ...(req.context ?? {}),
-    skipModerationIntentHook: true
-  } satisfies HookContext;
+    if (process.env.NODE_ENV !== 'production') {
+      console.warn(
+        '[Moderation-Actions] duplicate intentId detected; action already recorded.'
+      );
+    }
+  }
 
-  await req.payload.update({
-    collection: 'products',
-    id: doc.id,
-    data: {
-      moderationIntent: undefined
-    },
-    overrideAccess: true,
-    req
-  });
+  // Always clear marker at the end (and suppress side effects on the cleanup write).
+  await clearModerationIntent({ req, productId: doc.id });
 
   return doc;
 };

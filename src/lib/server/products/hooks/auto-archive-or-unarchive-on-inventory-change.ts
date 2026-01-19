@@ -1,9 +1,18 @@
 import { CollectionAfterChangeHook } from 'payload';
+
 import { getDraftStatus } from '../../utils';
+
+type HookContext = {
+  skipSideEffects?: boolean;
+};
 
 // If tracking inventory: archive when quantity hits 0; unarchive when increased above 0.
 export const autoArchiveOrUnarchiveOnInventoryChange: CollectionAfterChangeHook =
   async ({ req, doc, previousDoc, operation }) => {
+    // Internal cleanup writes (e.g., clearing moderationIntent) should not trigger side effects.
+    const context = (req.context ?? {}) as HookContext;
+    if (context.skipSideEffects) return;
+
     // Prevent loop if we've already set archived in this request
     if (req.context?.ahSkipAutoArchive) return;
 

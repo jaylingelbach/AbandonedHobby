@@ -6,7 +6,7 @@ import {
 } from '@/app/(app)/staff/moderation/constants';
 import {
   moderationFlagReasons,
-  moderationIntentReasons,
+  moderationSource,
   moderationReinstateReasons,
   moderationSelectOptions,
   moderationSelectOptionsLabel
@@ -274,10 +274,26 @@ export const ModerationActions: CollectionConfig = {
       label: 'Source',
       type: 'select',
       index: true,
-      options: [...moderationIntentReasons],
+      options: [...moderationSource],
       defaultValue: 'admin_ui',
       access: {
         read: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'intentId',
+      label: 'Intent ID',
+      type: 'text',
+      unique: true,
+      index: true,
+      admin: {
+        description: 'Dedupe id',
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
+      },
+      access: {
+        read: ({ req: { user } }) => isSuperAdmin(user),
+        create: () => false,
+        update: ({ req: { user } }) => isSuperAdmin(user)
       }
     }
   ]

@@ -33,12 +33,7 @@ import type { Product, User } from '@/payload-types';
 
 import { OrderItemOutput } from '@/modules/stripe/build-order-items';
 
-import {
-  toQtyMap,
-  getProductsModel,
-  isUniqueViolation,
-  tryCall
-} from './utils/utils';
+import { toQtyMap, getProductsModel, tryCall } from './utils/utils';
 import {
   parseStripeMetadata,
   captureAnalyticsEvent,
@@ -49,6 +44,7 @@ import {
   recomputeRefundState,
   toLocalRefundStatus
 } from '@/modules/refunds/utils';
+import { isUniqueViolation } from '@/lib/server/errors/errors';
 
 export const runtime = 'nodejs';
 

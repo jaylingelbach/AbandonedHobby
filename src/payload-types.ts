@@ -453,9 +453,10 @@ export interface Product {
   moderationIntent?: {
     source: 'staff_trpc' | 'admin_ui' | 'system';
     actionType: 'approved' | 'removed' | 'reinstated';
-    reason: string;
-    note: string;
+    reason?: string;
+    note?: string;
     createdAt: string;
+    intentId: string;
   };
   updatedAt: string;
   createdAt: string;
@@ -577,6 +578,10 @@ export interface ModerationAction {
    */
   actorUsernameSnapshot?: string | null;
   source?: ('staff_trpc' | 'admin_ui' | 'system') | null;
+  /**
+   * Dedupe id
+   */
+  intentId?: string | null;
   updatedAt: string;
   createdAt: string;
 }
@@ -1098,6 +1103,7 @@ export interface ModerationActionsSelect<T extends boolean = true> {
   actorEmailSnapshot?: T;
   actorUsernameSnapshot?: T;
   source?: T;
+  intentId?: T;
   updatedAt?: T;
   createdAt?: T;
 }

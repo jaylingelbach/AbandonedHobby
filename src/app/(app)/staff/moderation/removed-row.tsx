@@ -2,13 +2,13 @@
 
 import { Button } from '@/components/ui/button';
 // ─── Project Types / Features ────────────────────────────────────────────────
-import { ModerationInboxItem } from './types';
+import { ModerationRemovedItemDTO } from './types';
 import Image from 'next/image';
 import Link from 'next/link';
 import { BASE_LISTING_CLASS } from './constants';
 
 interface RemovedRowProps {
-  item: ModerationInboxItem;
+  item: ModerationRemovedItemDTO;
 }
 
 /**
@@ -29,7 +29,8 @@ export default function RemovedRow({ item }: RemovedRowProps) {
     flagReasonLabel,
     flagReasonOtherText,
     thumbnailUrl,
-    reportedAtLabel
+    reportedAtLabel,
+    removedAtLabel
   } = item;
 
   return (
@@ -62,8 +63,14 @@ export default function RemovedRow({ item }: RemovedRowProps) {
                 {tenantName} ({tenantSlug})
               </span>
             </p>
-            <p className="text-xs text-muted-foreground">{reportedAtLabel}</p>
-
+            <div className="text-xs text-muted-foreground space-y-0.5">
+              <p>
+                <span className="font-medium">Reported:</span> {reportedAtLabel}
+              </p>
+              <p>
+                <span className="font-medium">Removed:</span> {removedAtLabel}
+              </p>
+            </div>
             <div className="mt-2 inline-flex items-center gap-2 text-xs">
               <span className="rounded-full border border-black bg-yellow-200 px-2 py-0.5 font-semibold uppercase tracking-wide">
                 {flagReasonLabel}

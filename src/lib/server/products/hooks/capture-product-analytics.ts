@@ -2,12 +2,20 @@ import { captureProductListed, ph } from '@/lib/analytics/ph-utils/ph-server';
 import { User } from '@/payload-types';
 import { CollectionAfterChangeHook } from 'payload';
 
+type HookContext = {
+  skipSideEffects?: boolean;
+};
+
 // Fire productListed analytics on create (with optional group identify).
 export const captureProductAnalytics: CollectionAfterChangeHook = async ({
   req,
   doc,
   operation
 }) => {
+  // Internal cleanup writes (e.g., clearing moderationIntent) should not trigger side effects.
+  const context = (req.context ?? {}) as HookContext;
+  if (context.skipSideEffects) return;
+
   // fire only when a product is first created
   if (operation !== 'create') return;
 

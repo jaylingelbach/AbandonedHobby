@@ -1,18 +1,22 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
+import { useState } from 'react';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
 import { CheckCircle2, ShieldOff } from 'lucide-react';
-import { useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { toast } from 'sonner';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
+import { useTRPC } from '@/trpc/client';
 
 // ─── Project Components ──────────────────────────────────────────────────────
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -24,27 +28,45 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 // ─── Project Types / Features ────────────────────────────────────────────────
-import { moderationInboxQueryKey, removedItemsQueryKey } from './queryKeys';
-import { ModerationInboxItem } from './types';
-import Image from 'next/image';
+import {
+  flagReasonLabels,
+  moderationFlagReasons,
+  type FlagReasons
+} from '@/constants';
 import { BASE_LISTING_CLASS } from './constants';
+import { ModerationInboxItem } from './types';
+
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
+
 /**
- * Render a moderation row showing a reported listing and controls to approve or remove it.
+ * Return a human-readable label for a flag reason.
  *
- * Displays product and shop metadata, reporter comments (if any), and action controls:
- * confirmation dialogs for approving or removing the listing (each accepts an optional internal moderation note),
- * plus links to view the listing and its payload. Successful moderation actions show a toast and trigger related query invalidation.
+ * @param reason - The flag reason identifier to look up
+ * @returns The label from `flagReasonLabels` for `reason`, or `reason` if no label is defined
+ */
+function getReasonLabel(reason: FlagReasons): string {
+  return flagReasonLabels[reason] ?? reason;
+}
+
+/**
+ * Render a moderation inbox row for a single ModerationInboxItem with UI and actions to approve or remove the listing.
  *
- * @param item - ModerationInboxItem containing id, product and tenant fields, flag reason text, thumbnail, and reported timestamp label
- * @returns The rendered moderation row element
+ * Renders product and reporter context, reporter comments, and controls that open confirmation dialogs to either approve the listing (optional internal note) or remove the listing (required removal reason and internal note). Actions invoke TRPC mutations, surface success/error toasts, and invalidate moderation-related queries so the inbox and removed lists refresh.
+ *
+ * @param item - The ModerationInboxItem to display and act on
+ * @returns A JSX element representing the moderation row UI
  */
 export default function ModerationRow({ item }: ModerationRowProps) {
   const {
@@ -57,65 +79,86 @@ export default function ModerationRow({ item }: ModerationRowProps) {
     thumbnailUrl,
     reportedAtLabel
   } = item;
+
+  const trpc = useTRPC();
   const queryClient = useQueryClient();
 
   const [moderationNote, setModerationNote] = useState<string>('');
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  /**
-   * Submit a moderation action for the current item and update UI state.
-   *
-   * Sends the specified action ('approve' or 'remove') for the item identified in the component,
-   * attaching `note` as an optional internal moderation note. Shows a success toast and clears
-   * the note on success, and invalidates the moderation inbox queries (and the removed-items
-   * query when `action` is 'remove'). On failure shows an error toast using the server-provided
-   * message or a status-based fallback. Manages the `isSubmitting` state for the duration of the request.
-   *
-   * @param action - The moderation action to perform: `'approve'` or `'remove'`.
-   * @param note - Optional internal moderator note to include with the action.
-   */
+  // If your DTO guarantees item.flagReason exists (recommended), this is perfect.
+  // If it's optional, change this to `item.flagReason ?? 'other'` and update the DTO type.
+  const [removalReason, setRemovalReason] = useState<FlagReasons>(
+    item.flagReason
+  );
+
+  const approveListing = useMutation(
+    trpc.moderation.approveListing.mutationOptions({
+      onSuccess: () => {
+        toast.success(
+          'Listing has been approved and removed from the moderation queue.'
+        );
+        setModerationNote('');
+        queryClient.invalidateQueries({
+          queryKey: trpc.moderation.listInbox.queryKey()
+        });
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error ? error.message : 'Failed to approve listing.';
+        toast.error(message);
+      }
+    })
+  );
+
+  const removeListing = useMutation(
+    trpc.moderation.removeListing.mutationOptions({
+      onSuccess: () => {
+        toast.success('Item has been removed from the marketplace.');
+        setModerationNote('');
+        queryClient.invalidateQueries({
+          queryKey: trpc.moderation.listInbox.queryKey()
+        });
+        queryClient.invalidateQueries({
+          queryKey: trpc.moderation.listRemoved.queryKey()
+        });
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error ? error.message : 'Failed to remove listing.';
+        toast.error(message);
+      }
+    })
+  );
+
   async function handleModerationAction(
     action: 'approve' | 'remove',
     note: string
-  ) {
-    const data = note ? { moderationNote: note } : {};
+  ): Promise<void> {
+    if (isSubmitting) return;
+
+    const trimmedNote = note.trim();
+
     setIsSubmitting(true);
     try {
-      const response = await fetch(`/api/${id}/${action}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data)
-      });
-      if (response.ok) {
-        toast.success(
-          action === 'approve'
-            ? 'Listing has been approved and removed from the moderation queue.'
-            : 'Item has been removed from the marketplace.'
-        );
-        setModerationNote('');
-        queryClient.invalidateQueries({ queryKey: moderationInboxQueryKey });
-        if (action === 'remove') {
-          queryClient.invalidateQueries({ queryKey: removedItemsQueryKey });
-        }
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        const errorMessage =
-          errorData?.error ||
-          (response.status === 401
-            ? 'Authentication required. Please sign in again.'
-            : response.status === 403
-              ? 'Not authorized'
-              : response.status === 404
-                ? 'Product not found'
-                : response.status === 409
-                  ? 'This listing cannot be moderated in its current state'
-                  : 'Failed to submit, please try again');
-        toast.error(errorMessage);
+      if (action === 'approve') {
+        await approveListing.mutateAsync({
+          productId: id,
+          note: trimmedNote.length > 0 ? trimmedNote : undefined
+        });
+        return;
       }
+
+      await removeListing.mutateAsync({
+        productId: id,
+        note: trimmedNote,
+        reason: removalReason
+      });
     } catch (error) {
-      console.error(`[moderation dialog] error: ${error}`);
-      toast.error('Something went wrong, please try again.');
+      // Most errors already toast via onError; keep a safe fallback.
+      const message =
+        error instanceof Error ? error.message : 'Something went wrong.';
+      console.error('[moderation dialog] error:', message);
     } finally {
       setIsSubmitting(false);
     }
@@ -151,6 +194,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {tenantName} ({tenantSlug})
               </span>
             </p>
+
             <p className="text-xs text-muted-foreground">{reportedAtLabel}</p>
 
             <div className="mt-2 inline-flex items-center gap-2 text-xs">
@@ -161,7 +205,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
           </div>
         </div>
 
-        {/* Middle: “Other” text / notes */}
+        {/* Middle: reporter comments */}
         <div className="flex-1 lg:px-4">
           {flagReasonOtherText ? (
             <div className="rounded-md border border-dashed border-black bg-muted px-3 py-2 text-xs leading-relaxed">
@@ -179,7 +223,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
 
         {/* Actions */}
         <div className="flex flex-col items-stretch gap-2 min-w-45">
-          {/* Approve / meets standards */}
+          {/* Approve */}
           <AlertDialog
             onOpenChange={(open) => {
               if (!open) setModerationNote('');
@@ -198,6 +242,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {isSubmitting ? 'Approving...' : 'Meets standards'}
               </Button>
             </AlertDialogTrigger>
+
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -208,10 +253,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                   queue.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              {/* Optional internal note for approve */}
+
               <div className="mt-4 space-y-2">
                 <Label htmlFor={`moderation-note-approve-${id}`}>
-                  Internal moderation note (optional)
+                  Internal moderation note
                 </Label>
                 <Textarea
                   id={`moderation-note-approve-${id}`}
@@ -221,8 +266,11 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                   className="text-xs"
                 />
               </div>
+
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel disabled={isSubmitting}>
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction
                   className={cn(
                     'border-2 border-black bg-black text-white',
@@ -238,10 +286,14 @@ export default function ModerationRow({ item }: ModerationRowProps) {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
-          {/* Remove / violates standards */}
+
+          {/* Remove */}
           <AlertDialog
             onOpenChange={(open) => {
-              if (!open) setModerationNote('');
+              if (!open) {
+                setModerationNote('');
+                setRemovalReason(item.flagReason);
+              }
             }}
           >
             <AlertDialogTrigger asChild>
@@ -257,6 +309,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {isSubmitting ? 'Removing...' : 'Remove for policy'}
               </Button>
             </AlertDialogTrigger>
+
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -267,27 +320,73 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                   policy violation.
                 </AlertDialogDescription>
               </AlertDialogHeader>
-              {/* Strongly encouraged note for remove */}
-              <div className="mt-4 space-y-2">
-                <Label htmlFor={`moderation-note-remove-${id}`}>
-                  Internal moderation note (optional)
-                </Label>
-                <Textarea
-                  id={`moderation-note-remove-${id}`}
-                  placeholder="Optional: briefly explain why this listing is being removed."
-                  value={moderationNote}
-                  onChange={(event) => setModerationNote(event.target.value)}
-                  className="text-xs"
-                />
+
+              {/* Reported vs Removal reason */}
+              <div className="mt-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Reported reason
+                  </p>
+                  <div className="inline-flex items-center gap-2 text-xs">
+                    <span className="rounded-full border border-black bg-yellow-200 px-2 py-0.5 font-semibold uppercase tracking-wide">
+                      {flagReasonLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`remove-reason-${id}`}>
+                    Removal reason (required)
+                  </Label>
+                  <Select
+                    value={removalReason}
+                    onValueChange={(nextValue) =>
+                      setRemovalReason(nextValue as FlagReasons)
+                    }
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id={`remove-reason-${id}`}>
+                      <SelectValue placeholder="Select a reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {moderationFlagReasons.map((reason) => (
+                        <SelectItem key={reason} value={reason}>
+                          {getReasonLabel(reason)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <p className="text-xs text-muted-foreground">
+                    This is the reason that will be saved to the listing and
+                    attached to the moderation action.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`moderation-note-remove-${id}`}>
+                    Internal moderation note (required)
+                  </Label>
+                  <Textarea
+                    id={`moderation-note-remove-${id}`}
+                    placeholder="Briefly explain why this listing is being removed."
+                    value={moderationNote}
+                    onChange={(event) => setModerationNote(event.target.value)}
+                    className="text-xs"
+                  />
+                </div>
               </div>
+
               <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogCancel disabled={isSubmitting}>
+                  Cancel
+                </AlertDialogCancel>
                 <AlertDialogAction
                   className={cn(
                     'border-2 border-black bg-black text-white',
                     'hover:bg-red-500 hover:text-primary'
                   )}
-                  disabled={isSubmitting}
+                  disabled={isSubmitting || moderationNote.trim().length < 10}
                   onClick={() =>
                     handleModerationAction('remove', moderationNote)
                   }
@@ -306,6 +405,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
               View listing
             </Link>
           </Button>
+
           <Button asChild className={BASE_LISTING_CLASS} variant="ghost">
             <Link
               href={`/admin/collections/products/${id}`}

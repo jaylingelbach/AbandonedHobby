@@ -105,10 +105,6 @@ export const moderationSelectOptionsLabel: Record<
   ...reinstateReasonLabels
 };
 
-export const moderationIntentReasons = [
-  'staff_trpc',
-  'admin_ui',
-  'system'
-] as const;
+export const moderationSource = ['staff_trpc', 'admin_ui', 'system'] as const;
 
-export type ModerationIntentSource = (typeof moderationIntentReasons)[number];
+export type ModerationSource = (typeof moderationSource)[number];
