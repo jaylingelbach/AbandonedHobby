@@ -32,14 +32,11 @@ import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
 
 /**
- * Render the moderation inbox page for staff to review listings reported by the community.
+ * Render the staff moderation inbox with tabs for Waiting review, Removed for policy, and Open Appeals.
  *
- * Displays a tabbed interface for "Waiting review" (inbox), "Removed for policy", and "Open Appeals".
- * Redirects to the sign-in page when the primary inbox fetch indicates the user is unauthenticated.
- * Shows per-tab authorization, loading, error, empty, or list states. The "Removed for policy" tab
- * loads in parallel and does not block access to the page.
+ * Shows per-tab loading, empty, error, and authorization states; redirects unauthenticated users to sign-in when the primary inbox query returns 401. The "Removed for policy" tab loads in parallel and does not block access to the page.
  *
- * @returns The JSX element for the moderation inbox page.
+ * @returns The JSX element for the moderation inbox page
  */
 export default function ModerationInboxPage() {
   const router = useRouter();

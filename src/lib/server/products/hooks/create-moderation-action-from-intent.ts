@@ -39,12 +39,26 @@ const moderationIntentSchema = z.discriminatedUnion('actionType', [
   })
 ]);
 
+/**
+ * Determines whether a value is an array whose elements are all strings.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is an array and every element is a `string`, `false` otherwise.
+ */
 function isUserRoleArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === 'string')
   );
 }
 
+/**
+ * Asserts that a user is authenticated and has either a staff or super-admin role.
+ *
+ * @param user - The user to validate; may be null.
+ * @throws Error('Not authenticated') if `user` is null or undefined.
+ * @throws Error('User roles are not available') if `user.roles` is not an array of strings.
+ * @throws Error('Forbidden') if the user is authenticated but is neither staff nor super-admin.
+ */
 function assertStaffUser(user: User | null): asserts user is User {
   if (!user) throw new Error('Not authenticated');
   if (!isUserRoleArray(user.roles))
@@ -57,6 +71,13 @@ type HookContext = {
   skipSideEffects?: boolean;
 };
 
+/**
+ * Clears the moderationIntent marker from a product and prevents moderation-related hooks and side effects for the current request.
+ *
+ * Sets `req.context.skipModerationIntentHook` and `req.context.skipSideEffects` to true and then updates the specified product to remove its `moderationIntent`.
+ *
+ * @param productId - The ID of the product whose `moderationIntent` should be cleared
+ */
 async function clearModerationIntent(params: {
   req: PayloadRequest;
   productId: string;

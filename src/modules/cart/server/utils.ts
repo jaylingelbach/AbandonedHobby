@@ -329,12 +329,13 @@ export async function findAllActiveCartsForMergeGuestToUser(
 }
 
 /**
- * Ensures there is an active cart for the given identity within the specified tenant, creating one if none exists.
+ * Ensures an active cart exists for the given identity within the specified tenant, creating one if none exists.
  *
- * @param identity - The cart owner identity (user or guest) used to locate or create the cart
+ * @param identity - The cart owner identity; when `kind` is `'user'` a cart is tied to `buyer` (userId), when `kind` is `'guest'` a cart is tied to `guestSessionId`
  * @param tenantId - The seller tenant id the cart should belong to
- * @returns The active Cart document for the identity and tenant, either an existing cart or a newly created one
- * @throws TRPCError If the identity kind is not 'user' or 'guest'
+ * @returns The active Cart document for the identity and tenant (existing or newly created)
+ * @throws TRPCError with code `BAD_REQUEST` if `identity.kind` is not `'user'` or `'guest'`
+ * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if cart creation fails due to a detected race condition
  */
 export async function getOrCreateActiveCart(
   ctx: Context,
