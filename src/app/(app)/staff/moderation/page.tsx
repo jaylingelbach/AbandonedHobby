@@ -6,20 +6,21 @@ import { useRouter } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
 import { Flag } from 'lucide-react';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger
-} from '@/components/ui/tooltip';
 import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
 import { getErrorStatus } from './utils';
 import { ModerationInboxTabs } from './constants';
+import { useTRPC } from '@/trpc/client';
 
 // ─── Project Components ──────────────────────────────────────────────────────
 import { Button } from '@/components/ui/button';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger
+} from '@/components/ui/tooltip';
 import {
   ErrorState,
   EmptyState,
@@ -29,7 +30,6 @@ import {
 } from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
-import { useTRPC } from '@/trpc/client';
 
 /**
  * Render the moderation inbox page for staff to review listings reported by the community.

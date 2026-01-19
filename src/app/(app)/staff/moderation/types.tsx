@@ -1,8 +1,11 @@
+import type { FlagReasons } from '@/constants';
+
 export type ModerationInboxItem = {
   id: string;
   productName: string;
   tenantName: string;
   tenantSlug: string;
+  flagReason: FlagReasons;
   flagReasonLabel: string;
   flagReasonOtherText?: string;
   thumbnailUrl?: string | null;

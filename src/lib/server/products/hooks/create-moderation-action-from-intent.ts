@@ -1,10 +1,16 @@
 import { z } from 'zod';
 
+// ─── Types ───────────────────────────────────────────────────────────────────
 import type { CollectionAfterChangeHook, PayloadRequest } from 'payload';
-
-import { isStaff, isSuperAdmin } from '@/lib/access';
 import type { Product, User } from '@/payload-types';
-import { moderationSource, moderationSelectOptions } from '@/constants';
+
+// ─── Access Control ──────────────────────────────────────────────────────────
+import { isStaff, isSuperAdmin } from '@/lib/access';
+
+// ─── Constants ───────────────────────────────────────────────────────────────
+import { moderationSelectOptions, moderationSource } from '@/constants';
+
+// ─── Server Utilities ────────────────────────────────────────────────────────
 import { isUniqueViolation } from '@/lib/server/errors/errors';
 
 const moderationIntentSchema = z.discriminatedUnion('actionType', [

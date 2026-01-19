@@ -1,9 +1,9 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useState } from 'react';
-import Link from 'next/link';
 import Image from 'next/image';
+import Link from 'next/link';
+import { useState } from 'react';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
 import { CheckCircle2, ShieldOff } from 'lucide-react';
@@ -15,6 +15,8 @@ import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
 // ─── Project Components ──────────────────────────────────────────────────────
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -26,29 +28,32 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
-import { Label } from '@/components/ui/label';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 
 // ─── Project Types / Features ────────────────────────────────────────────────
-import { removedItemsQueryKey } from './queryKeys';
-import { ModerationInboxItem } from './types';
+import {
+  flagReasonLabels,
+  moderationFlagReasons,
+  type FlagReasons
+} from '@/constants';
 import { BASE_LISTING_CLASS } from './constants';
+import { ModerationInboxItem } from './types';
 
 interface ModerationRowProps {
   item: ModerationInboxItem;
 }
 
-/**
- * Render a moderation row showing a reported listing and controls to approve or remove it.
- *
- * Displays product and shop metadata, reporter comments (if any), and action controls:
- * confirmation dialogs for approving or removing the listing (each accepts an optional internal moderation note),
- * plus links to view the listing and its payload. Successful moderation actions show a toast and trigger related query invalidation.
- *
- * @param item - ModerationInboxItem containing id, product and tenant fields, flag reason text, thumbnail, and reported timestamp label
- * @returns The rendered moderation row element
- */
+function getReasonLabel(reason: FlagReasons): string {
+  return flagReasonLabels[reason] ?? reason;
+}
+
 export default function ModerationRow({ item }: ModerationRowProps) {
   const {
     id,
@@ -66,6 +71,12 @@ export default function ModerationRow({ item }: ModerationRowProps) {
 
   const [moderationNote, setModerationNote] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // If your DTO guarantees item.flagReason exists (recommended), this is perfect.
+  // If it's optional, change this to `item.flagReason ?? 'other'` and update the DTO type.
+  const [removalReason, setRemovalReason] = useState<FlagReasons>(
+    item.flagReason
+  );
 
   const approveListing = useMutation(
     trpc.moderation.approveListing.mutationOptions({
@@ -94,7 +105,9 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         queryClient.invalidateQueries({
           queryKey: trpc.moderation.listInbox.queryKey()
         });
-        queryClient.invalidateQueries({ queryKey: removedItemsQueryKey });
+        queryClient.invalidateQueries({
+          queryKey: trpc.moderation.listRemoved.queryKey()
+        });
       },
       onError: (error) => {
         const message =
@@ -104,21 +117,10 @@ export default function ModerationRow({ item }: ModerationRowProps) {
     })
   );
 
-  /**
-   * Submit a moderation action for the current item and update UI state.
-   *
-   * Sends the specified action ('approve' or 'remove') for the item identified in the component,
-   * attaching `note` as an optional internal moderation note. Shows a success toast and clears
-   * the note on success, and invalidates the moderation inbox queries (and the removed-items
-   * query when `action` is 'remove'). On failure shows an error toast.
-   *
-   * @param action - The moderation action to perform: `'approve'` or `'remove'`.
-   * @param note - Optional internal moderator note to include with the action.
-   */
   async function handleModerationAction(
     action: 'approve' | 'remove',
     note: string
-  ) {
+  ): Promise<void> {
     if (isSubmitting) return;
 
     const trimmedNote = note.trim();
@@ -133,17 +135,13 @@ export default function ModerationRow({ item }: ModerationRowProps) {
         return;
       }
 
-      // Temporary default until you add a reason picker to the UI.
-      // Must be one of `moderationFlagReasons`.
-      const temporaryReason = 'spam' as const;
-
       await removeListing.mutateAsync({
         productId: id,
         note: trimmedNote,
-        reason: temporaryReason
+        reason: removalReason
       });
     } catch (error) {
-      // Most errors will already have been toasted by onError, but keep a safe fallback.
+      // Most errors already toast via onError; keep a safe fallback.
       const message =
         error instanceof Error ? error.message : 'Something went wrong.';
       console.error('[moderation dialog] error:', message);
@@ -183,6 +181,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {tenantName} ({tenantSlug})
               </span>
             </p>
+
             <p className="text-xs text-muted-foreground">{reportedAtLabel}</p>
 
             <div className="mt-2 inline-flex items-center gap-2 text-xs">
@@ -193,7 +192,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
           </div>
         </div>
 
-        {/* Middle: “Other” text / notes */}
+        {/* Middle: reporter comments */}
         <div className="flex-1 lg:px-4">
           {flagReasonOtherText ? (
             <div className="rounded-md border border-dashed border-black bg-muted px-3 py-2 text-xs leading-relaxed">
@@ -211,7 +210,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
 
         {/* Actions */}
         <div className="flex flex-col items-stretch gap-2 min-w-45">
-          {/* Approve / meets standards */}
+          {/* Approve */}
           <AlertDialog
             onOpenChange={(open) => {
               if (!open) setModerationNote('');
@@ -230,6 +229,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {isSubmitting ? 'Approving...' : 'Meets standards'}
               </Button>
             </AlertDialogTrigger>
+
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -241,10 +241,9 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
-              {/* Optional internal note for approve */}
               <div className="mt-4 space-y-2">
                 <Label htmlFor={`moderation-note-approve-${id}`}>
-                  Internal moderation note (optional)
+                  Internal moderation note (required, min 10 characters)
                 </Label>
                 <Textarea
                   id={`moderation-note-approve-${id}`}
@@ -275,10 +274,13 @@ export default function ModerationRow({ item }: ModerationRowProps) {
             </AlertDialogContent>
           </AlertDialog>
 
-          {/* Remove / violates standards */}
+          {/* Remove */}
           <AlertDialog
             onOpenChange={(open) => {
-              if (!open) setModerationNote('');
+              if (!open) {
+                setModerationNote('');
+                setRemovalReason(item.flagReason);
+              }
             }}
           >
             <AlertDialogTrigger asChild>
@@ -294,6 +296,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 {isSubmitting ? 'Removing...' : 'Remove for policy'}
               </Button>
             </AlertDialogTrigger>
+
             <AlertDialogContent>
               <AlertDialogHeader>
                 <AlertDialogTitle>
@@ -305,18 +308,60 @@ export default function ModerationRow({ item }: ModerationRowProps) {
                 </AlertDialogDescription>
               </AlertDialogHeader>
 
-              {/* Strongly encouraged note for remove */}
-              <div className="mt-4 space-y-2">
-                <Label htmlFor={`moderation-note-remove-${id}`}>
-                  Internal moderation note (required)
-                </Label>
-                <Textarea
-                  id={`moderation-note-remove-${id}`}
-                  placeholder="Briefly explain why this listing is being removed."
-                  value={moderationNote}
-                  onChange={(event) => setModerationNote(event.target.value)}
-                  className="text-xs"
-                />
+              {/* Reported vs Removal reason */}
+              <div className="mt-4 space-y-4">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                    Reported reason
+                  </p>
+                  <div className="inline-flex items-center gap-2 text-xs">
+                    <span className="rounded-full border border-black bg-yellow-200 px-2 py-0.5 font-semibold uppercase tracking-wide">
+                      {flagReasonLabel}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`remove-reason-${id}`}>
+                    Removal reason (required)
+                  </Label>
+                  <Select
+                    value={removalReason}
+                    onValueChange={(nextValue) =>
+                      setRemovalReason(nextValue as FlagReasons)
+                    }
+                    disabled={isSubmitting}
+                  >
+                    <SelectTrigger id={`remove-reason-${id}`}>
+                      <SelectValue placeholder="Select a reason" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {moderationFlagReasons.map((reason) => (
+                        <SelectItem key={reason} value={reason}>
+                          {getReasonLabel(reason)}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+
+                  <p className="text-xs text-muted-foreground">
+                    This is the reason that will be saved to the listing and
+                    attached to the moderation action.
+                  </p>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor={`moderation-note-remove-${id}`}>
+                    Internal moderation note (required)
+                  </Label>
+                  <Textarea
+                    id={`moderation-note-remove-${id}`}
+                    placeholder="Briefly explain why this listing is being removed."
+                    value={moderationNote}
+                    onChange={(event) => setModerationNote(event.target.value)}
+                    className="text-xs"
+                  />
+                </div>
               </div>
 
               <AlertDialogFooter>
@@ -347,6 +392,7 @@ export default function ModerationRow({ item }: ModerationRowProps) {
               View listing
             </Link>
           </Button>
+
           <Button asChild className={BASE_LISTING_CLASS} variant="ghost">
             <Link
               href={`/admin/collections/products/${id}`}

@@ -1,28 +1,35 @@
-import { z } from 'zod';
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
 import { headers as getHeaders } from 'next/headers';
 import { TRPCError } from '@trpc/server';
-import { Product } from '@/payload-types';
-import { isNotFound } from '@/lib/server/utils';
-import { formatDate } from '@/lib/utils';
+import { z } from 'zod';
 
+// ─── Project Utilities ───────────────────────────────────────────────────────
+import { formatDate } from '@/lib/utils';
+import { isNotFound } from '@/lib/server/utils';
+
+// ─── Project Types ───────────────────────────────────────────────────────────
+import { Product } from '@/payload-types';
 import {
   ModerationInboxItem,
   ModerationRemovedItemDTO
 } from '@/app/(app)/staff/moderation/types';
+
+// ─── Project Constants ───────────────────────────────────────────────────────
 import {
   flagReasonLabels,
   moderationFlagReasons,
   moderationReinstateReasons
 } from '@/constants';
+
+// ─── Project Functions ───────────────────────────────────────────────────────
 import {
   isPopulatedTenant,
   resolveThumbnailUrl
 } from '@/app/_api/(moderation)/inbox/utils';
+import {
+  baseProcedure,
+  createTRPCRouter,
+  protectedProcedure
+} from '@/trpc/init';
 
 function generateUuid(): string {
   return crypto.randomUUID();
@@ -68,6 +75,8 @@ function ensureStaff(
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
   }
 }
+
+const defaultReason = moderationFlagReasons[0];
 
 export const moderationRouter = createTRPCRouter({
   flagListing: baseProcedure
@@ -179,6 +188,11 @@ export const moderationRouter = createTRPCRouter({
           productName: product.name,
           tenantName,
           tenantSlug,
+          flagReason:
+            product.flagReason &&
+            moderationFlagReasons.includes(product.flagReason)
+              ? product.flagReason
+              : defaultReason,
           flagReasonLabel:
             product.flagReason && product.flagReason in flagReasonLabels
               ? flagReasonLabels[
@@ -244,7 +258,6 @@ export const moderationRouter = createTRPCRouter({
           productName: product.name,
           tenantName,
           tenantSlug,
-
           flagReasonLabel:
             product.flagReason && product.flagReason in flagReasonLabels
               ? flagReasonLabels[
