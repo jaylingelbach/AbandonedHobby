@@ -72,11 +72,11 @@ type HookContext = {
 };
 
 /**
- * Clears the moderationIntent marker from a product and prevents moderation-related hooks and side effects for the current request.
+ * Clear a product's moderationIntent and disable moderation hooks/side effects for the current request.
  *
- * Sets `req.context.skipModerationIntentHook` and `req.context.skipSideEffects` to true and then updates the specified product to remove its `moderationIntent`.
+ * Sets flags on `req.context` to skip the moderation-intent hook and other side effects, then updates the product to set `moderationIntent` to `null`.
  *
- * @param productId - The ID of the product whose `moderationIntent` should be cleared
+ * @param productId - ID of the product whose moderationIntent will be cleared
  */
 async function clearModerationIntent(params: {
   req: PayloadRequest;
@@ -95,7 +95,7 @@ async function clearModerationIntent(params: {
   await req.payload.update({
     collection: 'products',
     id: productId,
-    data: { moderationIntent: undefined },
+    data: { moderationIntent: null },
     overrideAccess: true,
     req
   });

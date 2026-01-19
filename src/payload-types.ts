@@ -457,7 +457,7 @@ export interface Product {
     note?: string;
     createdAt: string;
     intentId: string;
-  };
+  } | null;
   updatedAt: string;
   createdAt: string;
 }
