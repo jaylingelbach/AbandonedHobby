@@ -50,10 +50,24 @@ interface ModerationRowProps {
   item: ModerationInboxItem;
 }
 
+/**
+ * Return a human-readable label for a flag reason.
+ *
+ * @param reason - The flag reason identifier to look up
+ * @returns The label from `flagReasonLabels` for `reason`, or `reason` if no label is defined
+ */
 function getReasonLabel(reason: FlagReasons): string {
   return flagReasonLabels[reason] ?? reason;
 }
 
+/**
+ * Render a moderation inbox row for a single ModerationInboxItem with UI and actions to approve or remove the listing.
+ *
+ * Renders product and reporter context, reporter comments, and controls that open confirmation dialogs to either approve the listing (optional internal note) or remove the listing (required removal reason and internal note). Actions invoke TRPC mutations, surface success/error toasts, and invalidate moderation-related queries so the inbox and removed lists refresh.
+ *
+ * @param item - The ModerationInboxItem to display and act on
+ * @returns A JSX element representing the moderation row UI
+ */
 export default function ModerationRow({ item }: ModerationRowProps) {
   const {
     id,
