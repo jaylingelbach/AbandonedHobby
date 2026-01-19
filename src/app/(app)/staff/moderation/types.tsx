@@ -16,6 +16,7 @@ export type ModerationRemovedItemDTO = {
   tenantSlug: string;
   thumbnailUrl?: string;
   removedAt: string; // ISO string for sorting
+  removedAtLabel: string;
   flagReasonLabel: string; // human label for the removal reason
   flagReasonOtherText?: string | undefined;
   reportedAtLabel?: string;

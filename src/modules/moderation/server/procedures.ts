@@ -8,6 +8,8 @@ import { headers as getHeaders } from 'next/headers';
 import { TRPCError } from '@trpc/server';
 import { Product } from '@/payload-types';
 import { isNotFound } from '@/lib/server/utils';
+import { formatDate } from '@/lib/utils';
+
 import {
   ModerationInboxItem,
   ModerationRemovedItemDTO
@@ -179,9 +181,7 @@ export const moderationRouter = createTRPCRouter({
           flagReasonOtherText: product.flagReasonOtherText ?? undefined,
           thumbnailUrl,
           reportedAt: product.flaggedAt ?? '',
-          reportedAtLabel: product.flaggedAt
-            ? new Date(product.flaggedAt).toLocaleDateString()
-            : ''
+          reportedAtLabel: formatDate(product.flaggedAt)
         };
       });
     } catch (error) {
@@ -237,15 +237,29 @@ export const moderationRouter = createTRPCRouter({
           productName: product.name,
           tenantName,
           tenantSlug,
-          flagReasonLabel: product.flagReason
-            ? flagReasonLabels[product.flagReason]
-            : 'Unknown',
+
+          flagReasonLabel:
+            product.flagReason && product.flagReason in flagReasonLabels
+              ? flagReasonLabels[
+                  product.flagReason as keyof typeof flagReasonLabels
+                ]
+              : 'Unknown',
+
           flagReasonOtherText: product.flagReasonOtherText ?? undefined,
           thumbnailUrl,
           flaggedAt: product.flaggedAt ?? null,
-          note: product.moderationNote ?? undefined,
           removedAt: product.removedAt ?? '',
-          reasonLabel: product.flagReason ?? 'Unknown'
+          reportedAtLabel: formatDate(product.flaggedAt),
+
+          removedAtLabel: formatDate(product.removedAt),
+
+          reasonLabel:
+            product.flagReason && product.flagReason in flagReasonLabels
+              ? flagReasonLabels[
+                  product.flagReason as keyof typeof flagReasonLabels
+                ]
+              : 'Unknown',
+          note: product.moderationNote ?? undefined
         };
       });
     } catch (error) {
