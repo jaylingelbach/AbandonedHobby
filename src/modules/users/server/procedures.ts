@@ -4,6 +4,13 @@ import { z } from 'zod';
 import { OnboardingStepEnum, UIState, UIStateSchema } from '@/hooks/types';
 import { computeOnboarding } from '@/modules/onboarding/server/utils';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import { isSuperAdmin } from '@/lib/access';
+
+function isStringArray(value: unknown): value is readonly string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === 'string')
+  );
+}
 
 export const usersRouter = createTRPCRouter({
   getOne: protectedProcedure
@@ -29,11 +36,12 @@ export const usersRouter = createTRPCRouter({
 
   me: protectedProcedure.query(async ({ ctx }) => {
     const id = ctx.session.user?.id;
-    if (!id)
+    if (!id) {
       throw new TRPCError({
         code: 'UNAUTHORIZED',
         message: 'No ID found for user'
       });
+    }
 
     const dbUser = await ctx.db.findByID({
       collection: 'users',
@@ -48,20 +56,25 @@ export const usersRouter = createTRPCRouter({
       });
     }
 
-    type MaybeVerified = {
+    type MaybeUser = {
       _verified?: boolean | null;
       _verifiedAt?: string | Date | null;
       tenants?: unknown[] | null;
-      uiState: unknown;
+      uiState?: unknown;
+      roles?: unknown;
     };
 
-    const u = dbUser as MaybeVerified;
+    const u = dbUser as MaybeUser;
 
-    // consider either boolean true OR a non-null verifiedAt as verified
     const verified = u._verified === true || !!u._verifiedAt;
 
     const parsed = UIStateSchema.safeParse(u.uiState ?? {});
     const uiState: UIState = parsed.success ? parsed.data : {};
+
+    const roles = Array.isArray(u.roles) ? u.roles : [];
+    const canReinstate =
+      roles.every((role) => typeof role === 'string') &&
+      roles.includes('super-admin');
 
     const user = {
       id: String(dbUser.id),
@@ -71,7 +84,8 @@ export const usersRouter = createTRPCRouter({
     };
 
     const onboarding = computeOnboarding(user);
-    return { user, onboarding };
+
+    return { user, onboarding, canReinstate };
   }),
 
   dismissOnboardingBanner: protectedProcedure
@@ -92,15 +106,15 @@ export const usersRouter = createTRPCRouter({
         depth: 0
       });
 
-      if (!current)
+      if (!current) {
         throw new TRPCError({ code: 'NOT_FOUND', message: 'User not found' });
+      }
 
       const rawPrev = ((current as { uiState?: unknown }).uiState ??
         {}) as Record<string, unknown>;
       const parsed = UIStateSchema.safeParse(rawPrev);
       const prev: UIState = parsed.success ? parsed.data : {};
 
-      // Persist only the “forever” preference; session-only dismiss happens client-side
       if (input.forever === true && prev.hideOnboardingBanner !== true) {
         await ctx.db.update({
           collection: 'users',
