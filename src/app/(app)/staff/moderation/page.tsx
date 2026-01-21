@@ -31,6 +31,15 @@ import {
 import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
 
+/**
+ * Render the staff Moderation Inbox page with tabs for waiting review, removed items, and open appeals.
+ *
+ * The component fetches the primary inbox (which gates access) and the removed-items list, shows a delayed
+ * loading indicator to avoid flicker, and redirects to the sign-in page if the primary inbox query returns 401.
+ * The removed-items data also exposes a `canReinstate` flag used when rendering removed rows.
+ *
+ * @returns The page's React element.
+ */
 export default function ModerationInboxPage() {
   const router = useRouter();
   const trpc = useTRPC();

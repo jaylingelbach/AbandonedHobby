@@ -128,10 +128,11 @@ export function ensureStaff(
 }
 
 /**
- * Ensure the caller is an authenticated staff user with the `super-admin` role.
+ * Ensures the caller is an authenticated staff user with the `super-admin` role.
  *
- * @throws TRPCError with code `UNAUTHORIZED` if `user` is null or undefined.
- * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if `user.roles` is missing or invalid.
+ * @param user - The caller's user object, or `null`/`undefined` if unauthenticated.
+ * @throws TRPCError with code `UNAUTHORIZED` if `user` is `null` or `undefined`.
+ * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if `user.roles` is missing or not an array of strings.
  * @throws TRPCError with code `FORBIDDEN` if `user.roles` does not include `super-admin`.
  */
 export function ensureSuperAdmin(
