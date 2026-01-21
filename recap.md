@@ -6579,7 +6579,7 @@ src/collections/Carts.ts, src/payload.config.ts
 - src/payload-types.ts
   - ModerationAction.actor widened to optional string
 
-# Moderation - Intent Marker 01/19/26
+# Moderation: Intent Marker 01/19/26
 
 ## Walkthrough
 
@@ -6646,3 +6646,47 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/app/(app)/recap.md, recap.md
   - Documentation/recap updates reflecting the above changes.
+
+# Moderation: Removed reinstate 01/20/26
+
+## Walkthrough
+
+- The diff propagates a new canReinstate capability through the moderation stack: user payload and listRemoved API now expose canReinstate (computed from roles/super-admin), server-side listRemoved data assembly is reworked, RemovedRow receives a new prop, and the moderation UI loading and tab logic are adjusted.
+
+## New Features
+
+- Reinstate actions in the Removed tab are now permission-gated — eligible users see reinstate controls.
+- Removed items show richer context (timestamps, reasons, reporter notes, thumbnails) for clearer moderation decisions.
+
+## Bug Fixes / UX
+
+- Simplified loading behavior with a short delayed spinner for smoother experience.
+
+- Minor UI text and tab label tweaks for clarity.
+
+## File changes
+
+### Moderation UI page
+
+- src/app/(app)/staff/moderation/page.tsx
+  - Computes removedItems and canReinstate from removed-tab data, passes canReinstate to RemovedRow, simplifies loading with a 300ms delayed showLoading flag, and updates tab labels/comments.
+
+### RemovedRow component
+
+- src/app/(app)/staff/moderation/removed-row.tsx
+  - Component props expanded to accept canReinstate?: boolean; signature and rendering updated to conditionally enable reinstate UI/flows.
+
+### Moderation server logic
+
+- src/modules/moderation/server/procedures.ts
+  - listRemoved restructured to build product rows then bulk-fetch latest moderation actions, enrich items (removedAt, actionId, note, flagReasonLabel), and now returns { items, ok, canReinstate } with canReinstate derived from roles.
+
+### User server procedures
+
+- src/modules/users/server/procedures.ts
+  - 'me' response now includes canReinstate computed from normalized roles (checks for 'super-admin'); internal type renamed to MaybeUser and roles normalized.
+
+### Moderation utils
+
+- src/lib/server/moderation/utils.ts
+  - New ensureSuperAdmin(user) helper added to enforce super-admin role (throws FORBIDDEN / INTERNAL_SERVER_ERROR on violations).
