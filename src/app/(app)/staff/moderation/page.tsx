@@ -75,7 +75,7 @@ export default function ModerationInboxPage() {
   const [inboxPage, setInboxPage] = useState<number>(1);
   const [removedPage, setRemovedPage] = useState<number>(1);
 
-  // Optional: per-tab page size
+  // Per-tab page size
   const [inboxLimit, setInboxLimit] = useState<number>(DEFAULT_LIMIT);
   const [removedLimit, setRemovedLimit] = useState<number>(DEFAULT_LIMIT);
 
@@ -112,6 +112,7 @@ export default function ModerationInboxPage() {
 
   const inboxItems = inboxData?.items ?? [];
   const removedItems = removedData?.items ?? [];
+  const canReinstate = removedData?.canReinstate === true;
 
   const inboxMeta: PageMeta | null =
     inboxData && inboxData.page !== undefined
@@ -147,7 +148,6 @@ export default function ModerationInboxPage() {
   const hasInboxItems = inboxItems.length > 0;
   const hasRemovedItems = removedItems.length > 0;
 
-  // ✅ MUST be before any early returns (Rules of Hooks)
   const inboxCountLabel = useMemo(() => {
     if (isInboxError) return '—';
     if (!inboxMeta) return String(inboxItems.length);
@@ -358,7 +358,7 @@ export default function ModerationInboxPage() {
       <div>
         <div className="space-y-4">
           {removedItems.map((item) => (
-            <RemovedRow key={item.id} item={item} />
+            <RemovedRow key={item.id} item={item} canReinstate={canReinstate} />
           ))}
         </div>
 

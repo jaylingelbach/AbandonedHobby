@@ -40,6 +40,7 @@ import {
   normalizeRequiredNote,
   resolveThumbnailUrl
 } from '@/lib/server/moderation/utils';
+import { isSuperAdmin } from '@/lib/access';
 
 const defaultReason = moderationFlagReasons[0];
 
@@ -226,8 +227,8 @@ export const moderationRouter = createTRPCRouter({
       const headers = await getHeaders();
       const session = await ctx.db.auth({ headers });
       const user = session?.user;
-
-      ensureSuperAdmin(user);
+      ensureStaff(user);
+      const canReinstate = isSuperAdmin(user);
 
       const page = input?.page ?? 1;
       const limit = input?.limit ?? 25;
@@ -284,11 +285,12 @@ export const moderationRouter = createTRPCRouter({
             totalDocs: result.totalDocs,
             totalPages: result.totalPages,
             hasNextPage: result.hasNextPage,
-            hasPrevPage: result.hasPrevPage
+            hasPrevPage: result.hasPrevPage,
+            canReinstate
           };
         }
 
-        // ✅ Per-product latest removed action (correct for THIS page)
+        // Per-product latest removed action (correct for THIS page)
         const latestRemovedPairs = await Promise.all(
           productIds.map(async (productId) => {
             const actionResult = await ctx.db.find({
@@ -370,6 +372,7 @@ export const moderationRouter = createTRPCRouter({
           ok: true,
           page: result.page,
           limit: result.limit,
+          canReinstate,
           totalDocs: result.totalDocs,
           totalPages: result.totalPages,
           hasNextPage: result.hasNextPage,
@@ -628,7 +631,7 @@ export const moderationRouter = createTRPCRouter({
           overrideAccess: true,
           user,
           data: {
-            // ✅ Intentional invariant:
+            // Intentional invariant:
             // Reinstatement clears policy removal but keeps the listing archived,
             // so it does NOT go live automatically. Seller must explicitly relist / unarchive
             // through the normal flow (inventory + archive toggle).
