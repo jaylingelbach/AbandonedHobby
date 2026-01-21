@@ -27,3 +27,12 @@ export type ModerationRemovedItemDTO = {
   actionId?: string; // moderation-actions doc id
   intentId?: string; // dedupe id that created the ModerationAction
 };
+
+export type PageMeta = {
+  page: number;
+  limit: number;
+  totalDocs: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+};

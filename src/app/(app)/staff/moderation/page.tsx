@@ -10,7 +10,7 @@ import { useQuery } from '@tanstack/react-query';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { cn } from '@/lib/utils';
-import { getErrorStatus } from './utils';
+import { buildRangeLabel, clampPage, getErrorStatus } from './utils';
 import { ModerationInboxTabs } from './constants';
 import { useTRPC } from '@/trpc/client';
 
@@ -30,13 +30,15 @@ import {
 } from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
+import { PageMeta } from './types';
+
+const DEFAULT_LIMIT = 25;
 
 /**
  * Render the staff Moderation Inbox page with tabs for waiting review, removed items, and open appeals.
  *
  * The component fetches the primary inbox (which gates access) and the removed-items list, shows a delayed
  * loading indicator to avoid flicker, and redirects to the sign-in page if the primary inbox query returns 401.
- * The removed-items data also exposes a `canReinstate` flag used when rendering removed rows.
  *
  * @returns The page's React element.
  */
@@ -47,45 +49,82 @@ export default function ModerationInboxPage() {
   const [showLoading, setShowLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ModerationInboxTabs>('inbox');
 
+  // Per-tab pagination state
+  const [inboxPage, setInboxPage] = useState<number>(1);
+  const [removedPage, setRemovedPage] = useState<number>(1);
+
   // Primary inbox query – gates the page
-  const { data, isError, error } = useQuery({
-    ...trpc.moderation.listInbox.queryOptions(),
-    select: (response) => response.items,
+  const {
+    data: inboxData,
+    isError: isInboxError,
+    error: inboxError
+  } = useQuery({
+    ...trpc.moderation.listInbox.queryOptions({
+      page: inboxPage,
+      limit: DEFAULT_LIMIT
+    }),
     enabled: typeof window !== 'undefined'
   });
 
-  // Removed tab query – keep full response (items + canReinstate)
+  // Removed tab query (does NOT gate page)
   const {
     data: removedData,
     isError: isRemovedError,
     error: removedError,
     isPending: isRemovedPending
   } = useQuery({
-    ...trpc.moderation.listRemoved.queryOptions(),
+    ...trpc.moderation.listRemoved.queryOptions({
+      page: removedPage,
+      limit: DEFAULT_LIMIT
+    }),
     enabled: typeof window !== 'undefined'
   });
 
+  const inboxItems = inboxData?.items ?? [];
   const removedItems = removedData?.items ?? [];
-  const canReinstate = removedData?.canReinstate === true;
 
-  const errorStatus = getErrorStatus(error);
+  const inboxMeta: PageMeta | null =
+    inboxData && inboxData.page !== undefined
+      ? {
+          page: inboxData.page,
+          limit: inboxData.limit,
+          totalDocs: inboxData.totalDocs,
+          totalPages: inboxData.totalPages,
+          hasNextPage: inboxData.hasNextPage,
+          hasPrevPage: inboxData.hasPrevPage
+        }
+      : null;
+
+  const removedMeta: PageMeta | null =
+    removedData && removedData.page !== undefined
+      ? {
+          page: removedData.page,
+          limit: removedData.limit,
+          totalDocs: removedData.totalDocs,
+          totalPages: removedData.totalPages,
+          hasNextPage: removedData.hasNextPage,
+          hasPrevPage: removedData.hasPrevPage
+        }
+      : null;
+
+  const inboxErrorStatus = getErrorStatus(inboxError);
   const removedErrorStatus = getErrorStatus(removedError);
 
-  const isForbidden = errorStatus === 403;
+  const isForbidden = inboxErrorStatus === 403;
   const isRemovedUnauthorized =
     removedErrorStatus === 401 || removedErrorStatus === 403;
 
   // Redirect completely if not authenticated (401) for the primary inbox.
   useEffect(() => {
-    if (errorStatus === 401 && typeof window !== 'undefined') {
+    if (inboxErrorStatus === 401 && typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?next=${encodeURIComponent(currentPath)}`);
     }
-  }, [errorStatus, router]);
+  }, [inboxErrorStatus, router]);
 
   // Delayed loading state (avoid flashing staff UI for logged-out)
   useEffect(() => {
-    if (!data && !isError) {
+    if (!inboxData && !isInboxError) {
       const timeoutId = window.setTimeout(() => {
         setShowLoading(true);
       }, 300);
@@ -97,41 +136,125 @@ export default function ModerationInboxPage() {
     }
 
     setShowLoading(false);
-  }, [data, isError]);
+  }, [inboxData, isInboxError]);
 
-  if (errorStatus === 401) {
+  // If we hit a 401 on the primary inbox, we're redirecting in useEffect — render nothing
+  if (inboxErrorStatus === 401) {
     return null;
   }
 
-  if (!data && !isError) {
+  // While inbox query is in-flight (no data, no error yet), render nothing at first,
+  // then <LoadingState /> after 300ms.
+  if (!inboxData && !isInboxError) {
     if (!showLoading) return null;
     return <LoadingState />;
   }
 
-  const moderationInboxItems = data ?? [];
-  const hasItems = moderationInboxItems.length > 0;
+  const hasInboxItems = inboxItems.length > 0;
   const hasRemovedItems = removedItems.length > 0;
 
+  // “Big number” on tab reflects totalDocs when we have it (NO useMemo → no hook-order issues)
+  const inboxCountLabel = isInboxError
+    ? '—'
+    : inboxMeta
+      ? String(inboxMeta.totalDocs)
+      : String(inboxItems.length);
+
+  const removedCountLabel =
+    isRemovedPending && !removedData && !isRemovedError
+      ? 'Loading…'
+      : isRemovedError
+        ? '—'
+        : removedMeta
+          ? String(removedMeta.totalDocs)
+          : hasRemovedItems
+            ? String(removedItems.length)
+            : '-';
+
+  const renderPaginationControls = (options: {
+    meta: PageMeta | null;
+    itemsCount: number;
+    onPrev: () => void;
+    onNext: () => void;
+    disabled?: boolean;
+  }) => {
+    const { meta, itemsCount, onPrev, onNext, disabled } = options;
+
+    if (!meta) return null;
+
+    const rangeLabel = buildRangeLabel(meta, itemsCount);
+
+    return (
+      <div className="mt-5 flex flex-col gap-3 rounded-lg border-2 border-black bg-card p-3 shadow-[4px_4px_0_0_rgba(0,0,0,1)] sm:flex-row sm:items-center sm:justify-between">
+        <div className="space-y-0.5">
+          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            Page {meta.page} of {meta.totalPages}
+          </p>
+          <p className="text-xs text-muted-foreground">{rangeLabel}</p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
+              'hover:bg-black hover:text-white'
+            )}
+            disabled={disabled === true || meta.hasPrevPage !== true}
+            onClick={onPrev}
+          >
+            Previous
+          </Button>
+
+          <Button
+            type="button"
+            variant="outline"
+            className={cn(
+              'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
+              'hover:bg-black hover:text-white'
+            )}
+            disabled={disabled === true || meta.hasNextPage !== true}
+            onClick={onNext}
+          >
+            Next
+          </Button>
+        </div>
+      </div>
+    );
+  };
+
   const renderInboxContent = () => {
-    if (isError) {
+    if (isInboxError) {
       return isForbidden ? (
         <NotAllowedState />
       ) : (
         <ErrorState
-          message={(error as unknown as Error | undefined)?.message}
+          message={
+            inboxError ? (inboxError as unknown as Error).message : undefined
+          }
         />
       );
     }
 
-    if (!hasItems) {
+    if (!hasInboxItems) {
       return <EmptyState />;
     }
 
     return (
-      <div className="space-y-4">
-        {moderationInboxItems.map((item) => (
-          <ModerationRow key={item.id} item={item} />
-        ))}
+      <div>
+        <div className="space-y-4">
+          {inboxItems.map((item) => (
+            <ModerationRow key={item.id} item={item} />
+          ))}
+        </div>
+
+        {renderPaginationControls({
+          meta: inboxMeta,
+          itemsCount: inboxItems.length,
+          onPrev: () => setInboxPage((prev) => clampPage(prev - 1)),
+          onNext: () => setInboxPage((prev) => clampPage(prev + 1))
+        })}
       </div>
     );
   };
@@ -156,10 +279,19 @@ export default function ModerationInboxPage() {
     }
 
     return (
-      <div className="space-y-4">
-        {removedItems.map((item) => (
-          <RemovedRow key={item.id} item={item} canReinstate={canReinstate} />
-        ))}
+      <div>
+        <div className="space-y-4">
+          {removedItems.map((item) => (
+            <RemovedRow key={item.id} item={item} />
+          ))}
+        </div>
+
+        {renderPaginationControls({
+          meta: removedMeta,
+          itemsCount: removedItems.length,
+          onPrev: () => setRemovedPage((prev) => clampPage(prev - 1)),
+          onNext: () => setRemovedPage((prev) => clampPage(prev + 1))
+        })}
       </div>
     );
   };
@@ -167,23 +299,23 @@ export default function ModerationInboxPage() {
   return (
     <main className="min-h-screen bg-background">
       {/* Top bar */}
-      <section className="border-b bg-muted px-4 lg:px-12 py-6 flex flex-col gap-3">
+      <section className="border-b bg-muted px-4 py-6 lg:px-12 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
-            <h1 className="inline-flex items-center gap-3 text-2xl lg:text-3xl font-semibold">
+            <h1 className="inline-flex items-center gap-3 text-2xl font-semibold lg:text-3xl">
               <span className="inline-flex size-9 items-center justify-center rounded-full border-2 border-black bg-white">
                 <Flag className="h-4 w-4" />
               </span>
               Moderation inbox
             </h1>
-            <p className="max-w-2xl text-sm text-muted-foreground mt-1">
+            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
               Listings that have been reported by the community and are waiting
               for review. Approve safe items or remove those that violate our
               marketplace guidelines.
             </p>
           </div>
 
-          <div className="hidden md:flex items-center gap-2">
+          <div className="hidden items-center gap-2 md:flex">
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -226,7 +358,7 @@ export default function ModerationInboxPage() {
 
         {/* Tabs */}
         <div
-          className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3"
+          className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-3"
           role="tablist"
           aria-label="Moderation sections"
         >
@@ -253,9 +385,7 @@ export default function ModerationInboxPage() {
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   Waiting review
                 </p>
-                <p className="text-xl font-semibold">
-                  {moderationInboxItems.length}
-                </p>
+                <p className="text-xl font-semibold">{inboxCountLabel}</p>
               </div>
             </div>
           </button>
@@ -283,15 +413,16 @@ export default function ModerationInboxPage() {
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   Removed for policy
                 </p>
-                {hasRemovedItems ? (
-                  <p className="text-xl font-semibold">{removedItems.length}</p>
-                ) : isRemovedPending ? (
-                  <p className="text-sm font-medium text-muted-foreground">
-                    Loading…
-                  </p>
-                ) : (
-                  <p className="text-xl font-semibold">-</p>
-                )}
+                <p
+                  className={cn(
+                    typeof removedCountLabel === 'string' &&
+                      removedCountLabel.includes('Loading')
+                      ? 'text-sm font-medium text-muted-foreground'
+                      : 'text-xl font-semibold'
+                  )}
+                >
+                  {removedCountLabel}
+                </p>
               </div>
             </div>
           </button>
@@ -327,7 +458,7 @@ export default function ModerationInboxPage() {
       </section>
 
       {/* Main list area */}
-      <section className="px-4 lg:px-12 py-8">
+      <section className="px-4 py-8 lg:px-12">
         {activeTab === 'inbox' && renderInboxContent()}
         {activeTab === 'removed' && renderRemovedContent()}
         {activeTab === 'open_appeals' && (

@@ -1,4 +1,4 @@
-import { ModerationInboxItem } from './types';
+import { ModerationInboxItem, PageMeta } from './types';
 
 /**
  * Extracts a numeric status code from an error-like value, if present.
@@ -94,4 +94,22 @@ export async function fetchModerationInbox(): Promise<ModerationInboxItem[]> {
 
 export async function fetchRemovedItems(): Promise<ModerationInboxItem[]> {
   return fetchModerationResource('/api/removed', 'removed items');
+}
+
+export function clampPage(nextPage: number): number {
+  if (!Number.isFinite(nextPage)) return 1;
+  if (nextPage < 1) return 1;
+  return Math.floor(nextPage);
+}
+
+export function buildRangeLabel(
+  meta: PageMeta | null,
+  itemsCount: number
+): string {
+  if (!meta) return '';
+  if (meta.totalDocs <= 0 || itemsCount <= 0) return 'Showing 0 of 0';
+
+  const start = (meta.page - 1) * meta.limit + 1;
+  const end = Math.min(meta.totalDocs, start + itemsCount - 1);
+  return `Showing ${start}–${end} of ${meta.totalDocs}`;
 }

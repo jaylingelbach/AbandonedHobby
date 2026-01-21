@@ -35,6 +35,22 @@ const isProd: boolean = process.env.NODE_ENV === 'production';
 
 export const ModerationActions: CollectionConfig = {
   slug: 'moderation-actions',
+  /**
+   * Compound indexes for hot queries
+   *
+   * Removed tab query shape is:
+   * - where: { actionType: 'removed', product: { in: [...] } }
+   * - sort: '-createdAt'
+   *
+   * This index supports:
+   * - filtering by actionType + product
+   * - reading results already ordered by createdAt desc
+   */
+  indexes: [
+    {
+      fields: ['actionType', 'product', 'createdAt']
+    }
+  ],
   access: {
     create: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),
     read: ({ req: { user } }) => isSuperAdmin(user) || isStaff(user),

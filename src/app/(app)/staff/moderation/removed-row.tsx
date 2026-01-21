@@ -48,7 +48,6 @@ import type { ModerationRemovedItemDTO } from './types';
 
 interface RemovedRowProps {
   item: ModerationRemovedItemDTO;
-  canReinstate: boolean;
 }
 
 /**
@@ -60,9 +59,8 @@ interface RemovedRowProps {
  * a reason and providing an internal note (minimum 10 characters).
  *
  * @param item - The removed listing data to display
- * @param canReinstate - Whether the current user is allowed to reinstate the listing; when true the reinstate dialog is available
  */
-export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
+export default function RemovedRow({ item }: RemovedRowProps) {
   const {
     id,
     productName,
@@ -106,9 +104,7 @@ export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
   );
 
   const isReinstateDisabled =
-    !canReinstate ||
-    reinstateListing.isPending ||
-    reinstateNote.trim().length < 10;
+    reinstateListing.isPending || reinstateNote.trim().length < 10;
 
   return (
     <article className="rounded-lg border-2 border-black bg-card p-4 lg:p-5 shadow-[4px_4px_0_0_rgba(0,0,0,1)]">
@@ -195,102 +191,101 @@ export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
         {/* Right: actions / links */}
         <div className="flex min-w-45 flex-col items-stretch gap-2">
           {/* Reinstate (super-admin only) */}
-          {canReinstate ? (
-            <AlertDialog
-              onOpenChange={(open) => {
-                if (!open) {
-                  setReinstateNote('');
-                  setReinstateReason(moderationReinstateReasons[0]);
-                }
-              }}
-            >
-              <AlertDialogTrigger asChild>
-                <Button
-                  variant="secondary"
-                  className={cn(
-                    'w-full justify-center rounded-none border-2 border-black bg-white text-sm font-semibold',
-                    'hover:bg-green-500 hover:text-white'
-                  )}
+
+          <AlertDialog
+            onOpenChange={(open) => {
+              if (!open) {
+                setReinstateNote('');
+                setReinstateReason(moderationReinstateReasons[0]);
+              }
+            }}
+          >
+            <AlertDialogTrigger asChild>
+              <Button
+                variant="secondary"
+                className={cn(
+                  'w-full justify-center rounded-none border-2 border-black bg-white text-sm font-semibold',
+                  'hover:bg-green-500 hover:text-white'
+                )}
+                disabled={reinstateListing.isPending}
+              >
+                <RotateCcw className="mr-2 h-4 w-4" />
+                {reinstateListing.isPending ? 'Reinstating…' : 'Reinstate'}
+              </Button>
+            </AlertDialogTrigger>
+
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Reinstate this listing?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This clears the “removed for policy” state. Your current
+                  semantics keep the listing archived (not public) until you
+                  decide to unarchive it later.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+
+              <div className="mt-4 space-y-2">
+                <Label htmlFor={`reinstate-reason-${id}`}>
+                  Reinstate reason
+                </Label>
+                <Select
+                  value={reinstateReason}
+                  onValueChange={(nextValue) =>
+                    setReinstateReason(
+                      nextValue as ModerationReinstatementReasons
+                    )
+                  }
                   disabled={reinstateListing.isPending}
                 >
-                  <RotateCcw className="mr-2 h-4 w-4" />
-                  {reinstateListing.isPending ? 'Reinstating…' : 'Reinstate'}
-                </Button>
-              </AlertDialogTrigger>
+                  <SelectTrigger id={`reinstate-reason-${id}`}>
+                    <SelectValue placeholder="Select a reason" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {moderationReinstateReasons.map((reason) => (
+                      <SelectItem key={reason} value={reason}>
+                        {reinstateReasonLabels[reason]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
 
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Reinstate this listing?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    This clears the “removed for policy” state. Your current
-                    semantics keep the listing archived (not public) until you
-                    decide to unarchive it later.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
+              <div className="mt-4 space-y-2">
+                <Label htmlFor={`reinstate-note-${id}`}>
+                  Internal note (required)
+                </Label>
+                <Textarea
+                  id={`reinstate-note-${id}`}
+                  placeholder="Explain why you’re reinstating (min 10 characters)."
+                  value={reinstateNote}
+                  onChange={(event) => setReinstateNote(event.target.value)}
+                  className="text-xs"
+                />
+              </div>
 
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor={`reinstate-reason-${id}`}>
-                    Reinstate reason
-                  </Label>
-                  <Select
-                    value={reinstateReason}
-                    onValueChange={(nextValue) =>
-                      setReinstateReason(
-                        nextValue as ModerationReinstatementReasons
-                      )
-                    }
-                    disabled={reinstateListing.isPending}
-                  >
-                    <SelectTrigger id={`reinstate-reason-${id}`}>
-                      <SelectValue placeholder="Select a reason" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {moderationReinstateReasons.map((reason) => (
-                        <SelectItem key={reason} value={reason}>
-                          {reinstateReasonLabels[reason]}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="mt-4 space-y-2">
-                  <Label htmlFor={`reinstate-note-${id}`}>
-                    Internal note (required)
-                  </Label>
-                  <Textarea
-                    id={`reinstate-note-${id}`}
-                    placeholder="Explain why you’re reinstating (min 10 characters)."
-                    value={reinstateNote}
-                    onChange={(event) => setReinstateNote(event.target.value)}
-                    className="text-xs"
-                  />
-                </div>
-
-                <AlertDialogFooter>
-                  <AlertDialogCancel disabled={reinstateListing.isPending}>
-                    Cancel
-                  </AlertDialogCancel>
-                  <AlertDialogAction
-                    className={cn(
-                      'border-2 border-black bg-black text-white',
-                      'hover:bg-green-500 hover:text-primary'
-                    )}
-                    disabled={isReinstateDisabled}
-                    onClick={() => {
-                      reinstateListing.mutate({
-                        productId: id,
-                        reason: reinstateReason,
-                        note: reinstateNote.trim()
-                      });
-                    }}
-                  >
-                    Confirm reinstate
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          ) : null}
+              <AlertDialogFooter>
+                <AlertDialogCancel disabled={reinstateListing.isPending}>
+                  Cancel
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  className={cn(
+                    'border-2 border-black bg-black text-white',
+                    'hover:bg-green-500 hover:text-primary'
+                  )}
+                  disabled={isReinstateDisabled}
+                  onClick={() => {
+                    reinstateListing.mutate({
+                      productId: id,
+                      reason: reinstateReason,
+                      note: reinstateNote.trim()
+                    });
+                  }}
+                >
+                  Confirm reinstate
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           {/* Payload admin link */}
           <Button asChild className={BASE_LISTING_CLASS} variant="ghost">
