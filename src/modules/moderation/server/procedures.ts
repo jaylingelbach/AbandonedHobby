@@ -290,31 +290,27 @@ export const moderationRouter = createTRPCRouter({
           };
         }
 
-        // Per-product latest removed action (correct for THIS page)
-        const latestRemovedPairs = await Promise.all(
-          productIds.map(async (productId) => {
-            const actionResult = await ctx.db.find({
-              collection: 'moderation-actions',
-              depth: 0,
-              where: {
-                and: [
-                  { product: { equals: productId } },
-                  { actionType: { equals: 'removed' } }
-                ]
-              },
-              sort: '-createdAt',
-              limit: 1
-            });
-
-            return { productId, latestAction: actionResult.docs[0] };
-          })
-        );
+        const actionResult = await ctx.db.find({
+          collection: 'moderation-actions',
+          depth: 0,
+          where: {
+            and: [
+              { product: { in: productIds } },
+              { actionType: { equals: 'removed' } }
+            ]
+          },
+          sort: '-createdAt',
+          pagination: false
+        });
 
         const latestRemovedByProductId = new Map<string, ModerationAction>();
-        for (let index = 0; index < latestRemovedPairs.length; index += 1) {
-          const pair = latestRemovedPairs[index];
-          if (!pair?.latestAction) continue;
-          latestRemovedByProductId.set(pair.productId, pair.latestAction);
+        for (const action of actionResult.docs) {
+          const productId =
+            typeof action.product === 'string'
+              ? action.product
+              : action.product?.id;
+          if (!productId || latestRemovedByProductId.has(productId)) continue;
+          latestRemovedByProductId.set(productId, action);
         }
 
         const removedItems: ModerationRemovedItemDTO[] = productRows.map(
