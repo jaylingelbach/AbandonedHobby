@@ -1,7 +1,7 @@
 'use client';
 
 // ─── React / Next.js Built-ins ───────────────────────────────────────────────
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
 
 // ─── Third-party Libraries ───────────────────────────────────────────────────
@@ -25,23 +25,45 @@ import {
   ErrorState,
   EmptyState,
   NotAllowedState,
-  LoadingState,
-  InlineLoadingState
+  LoadingState
 } from './ui-state/ui-state';
 import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
-import { PageMeta } from './types';
+import type { PageMeta } from './types';
+
+// ─── shadcn Select ───────────────────────────────────────────────────────────
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from '@/components/ui/select';
 
 const DEFAULT_LIMIT = 25;
+const LIMIT_OPTIONS = [10, 25, 50] as const;
 
-/**
- * Render the staff Moderation Inbox page with tabs for waiting review, removed items, and open appeals.
- *
- * The component fetches the primary inbox (which gates access) and the removed-items list, shows a delayed
- * loading indicator to avoid flicker, and redirects to the sign-in page if the primary inbox query returns 401.
- *
- * @returns The page's React element.
- */
+function ModerationListSkeleton({ rows = 6 }: { rows?: number }) {
+  const items = Array.from({ length: rows });
+  return (
+    <div className="space-y-4">
+      {items.map((_, index) => (
+        <div
+          // index is fine for static skeleton placeholders
+          key={`skeleton-${index}`}
+          className="rounded-lg border-2 border-black bg-card p-4 shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+        >
+          <div className="animate-pulse space-y-3">
+            <div className="h-4 w-1/3 rounded bg-muted" />
+            <div className="h-3 w-1/2 rounded bg-muted" />
+            <div className="h-3 w-2/3 rounded bg-muted" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 export default function ModerationInboxPage() {
   const router = useRouter();
   const trpc = useTRPC();
@@ -53,17 +75,24 @@ export default function ModerationInboxPage() {
   const [inboxPage, setInboxPage] = useState<number>(1);
   const [removedPage, setRemovedPage] = useState<number>(1);
 
+  // Optional: per-tab page size
+  const [inboxLimit, setInboxLimit] = useState<number>(DEFAULT_LIMIT);
+  const [removedLimit, setRemovedLimit] = useState<number>(DEFAULT_LIMIT);
+
   // Primary inbox query – gates the page
   const {
     data: inboxData,
     isError: isInboxError,
-    error: inboxError
+    error: inboxError,
+    isFetching: isInboxFetching
   } = useQuery({
     ...trpc.moderation.listInbox.queryOptions({
       page: inboxPage,
-      limit: DEFAULT_LIMIT
+      limit: inboxLimit
     }),
-    enabled: typeof window !== 'undefined'
+    enabled: typeof window !== 'undefined',
+    // keep previous page visible while fetching the next one
+    placeholderData: (previous) => previous
   });
 
   // Removed tab query (does NOT gate page)
@@ -71,13 +100,14 @@ export default function ModerationInboxPage() {
     data: removedData,
     isError: isRemovedError,
     error: removedError,
-    isPending: isRemovedPending
+    isFetching: isRemovedFetching
   } = useQuery({
     ...trpc.moderation.listRemoved.queryOptions({
       page: removedPage,
-      limit: DEFAULT_LIMIT
+      limit: removedLimit
     }),
-    enabled: typeof window !== 'undefined'
+    enabled: typeof window !== 'undefined',
+    placeholderData: (previous) => previous
   });
 
   const inboxItems = inboxData?.items ?? [];
@@ -114,6 +144,23 @@ export default function ModerationInboxPage() {
   const isRemovedUnauthorized =
     removedErrorStatus === 401 || removedErrorStatus === 403;
 
+  const hasInboxItems = inboxItems.length > 0;
+  const hasRemovedItems = removedItems.length > 0;
+
+  // ✅ MUST be before any early returns (Rules of Hooks)
+  const inboxCountLabel = useMemo(() => {
+    if (isInboxError) return '—';
+    if (!inboxMeta) return String(inboxItems.length);
+    return String(inboxMeta.totalDocs);
+  }, [inboxItems.length, inboxMeta, isInboxError]);
+
+  const removedCountLabel = useMemo(() => {
+    if (isRemovedError) return '—';
+    if (!removedMeta)
+      return hasRemovedItems ? String(removedItems.length) : '-';
+    return String(removedMeta.totalDocs);
+  }, [hasRemovedItems, isRemovedError, removedItems.length, removedMeta]);
+
   // Redirect completely if not authenticated (401) for the primary inbox.
   useEffect(() => {
     if (inboxErrorStatus === 401 && typeof window !== 'undefined') {
@@ -138,38 +185,14 @@ export default function ModerationInboxPage() {
     setShowLoading(false);
   }, [inboxData, isInboxError]);
 
-  // If we hit a 401 on the primary inbox, we're redirecting in useEffect — render nothing
   if (inboxErrorStatus === 401) {
     return null;
   }
 
-  // While inbox query is in-flight (no data, no error yet), render nothing at first,
-  // then <LoadingState /> after 300ms.
   if (!inboxData && !isInboxError) {
     if (!showLoading) return null;
     return <LoadingState />;
   }
-
-  const hasInboxItems = inboxItems.length > 0;
-  const hasRemovedItems = removedItems.length > 0;
-
-  // “Big number” on tab reflects totalDocs when we have it (NO useMemo → no hook-order issues)
-  const inboxCountLabel = isInboxError
-    ? '—'
-    : inboxMeta
-      ? String(inboxMeta.totalDocs)
-      : String(inboxItems.length);
-
-  const removedCountLabel =
-    isRemovedPending && !removedData && !isRemovedError
-      ? 'Loading…'
-      : isRemovedError
-        ? '—'
-        : removedMeta
-          ? String(removedMeta.totalDocs)
-          : hasRemovedItems
-            ? String(removedItems.length)
-            : '-';
 
   const renderPaginationControls = (options: {
     meta: PageMeta | null;
@@ -177,8 +200,18 @@ export default function ModerationInboxPage() {
     onPrev: () => void;
     onNext: () => void;
     disabled?: boolean;
+    pageSize: number;
+    onPageSizeChange: (nextLimit: number) => void;
   }) => {
-    const { meta, itemsCount, onPrev, onNext, disabled } = options;
+    const {
+      meta,
+      itemsCount,
+      onPrev,
+      onNext,
+      disabled,
+      pageSize,
+      onPageSizeChange
+    } = options;
 
     if (!meta) return null;
 
@@ -193,32 +226,61 @@ export default function ModerationInboxPage() {
           <p className="text-xs text-muted-foreground">{rangeLabel}</p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
-              'hover:bg-black hover:text-white'
-            )}
-            disabled={disabled === true || meta.hasPrevPage !== true}
-            onClick={onPrev}
-          >
-            Previous
-          </Button>
+        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+          {/* Page size */}
+          <div className="flex items-center gap-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Page size
+            </p>
+            <Select
+              value={String(pageSize)}
+              onValueChange={(value) => {
+                const parsed = Number(value);
+                if (Number.isFinite(parsed)) onPageSizeChange(parsed);
+              }}
+              disabled={disabled === true}
+            >
+              <SelectTrigger className="h-9 w-[110px] rounded-none border-2 border-black bg-white text-xs font-semibold">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {LIMIT_OPTIONS.map((limitValue) => (
+                  <SelectItem key={limitValue} value={String(limitValue)}>
+                    {limitValue}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          <Button
-            type="button"
-            variant="outline"
-            className={cn(
-              'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
-              'hover:bg-black hover:text-white'
-            )}
-            disabled={disabled === true || meta.hasNextPage !== true}
-            onClick={onNext}
-          >
-            Next
-          </Button>
+          {/* Prev/Next */}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
+                'hover:bg-black hover:text-white'
+              )}
+              disabled={disabled === true || meta.hasPrevPage !== true}
+              onClick={onPrev}
+            >
+              Previous
+            </Button>
+
+            <Button
+              type="button"
+              variant="outline"
+              className={cn(
+                'rounded-none border-2 border-black bg-white text-xs font-semibold uppercase tracking-wide',
+                'hover:bg-black hover:text-white'
+              )}
+              disabled={disabled === true || meta.hasNextPage !== true}
+              onClick={onNext}
+            >
+              Next
+            </Button>
+          </div>
         </div>
       </div>
     );
@@ -241,6 +303,8 @@ export default function ModerationInboxPage() {
       return <EmptyState />;
     }
 
+    const isInboxPaging = isInboxFetching && Boolean(inboxData);
+
     return (
       <div>
         <div className="space-y-4">
@@ -252,18 +316,20 @@ export default function ModerationInboxPage() {
         {renderPaginationControls({
           meta: inboxMeta,
           itemsCount: inboxItems.length,
+          disabled: isInboxPaging,
           onPrev: () => setInboxPage((prev) => clampPage(prev - 1)),
-          onNext: () => setInboxPage((prev) => clampPage(prev + 1))
+          onNext: () => setInboxPage((prev) => clampPage(prev + 1)),
+          pageSize: inboxLimit,
+          onPageSizeChange: (nextLimit) => {
+            setInboxLimit(nextLimit);
+            setInboxPage(1);
+          }
         })}
       </div>
     );
   };
 
   const renderRemovedContent = () => {
-    if (isRemovedPending && !removedData && !isRemovedError) {
-      return <InlineLoadingState />;
-    }
-
     if (isRemovedError) {
       return isRemovedUnauthorized ? (
         <NotAllowedState />
@@ -274,9 +340,19 @@ export default function ModerationInboxPage() {
       );
     }
 
+    // Skeleton instead of InlineLoadingState:
+    // - if first load has no data yet, or
+    // - if we're paging (we still keep previous page visible via placeholderData)
+    const isRemovedFirstLoad = !removedData && !isRemovedError;
+    if (isRemovedFirstLoad) {
+      return <ModerationListSkeleton rows={6} />;
+    }
+
     if (!hasRemovedItems) {
       return <EmptyState />;
     }
+
+    const isRemovedPaging = isRemovedFetching && Boolean(removedData);
 
     return (
       <div>
@@ -289,8 +365,14 @@ export default function ModerationInboxPage() {
         {renderPaginationControls({
           meta: removedMeta,
           itemsCount: removedItems.length,
+          disabled: isRemovedPaging,
           onPrev: () => setRemovedPage((prev) => clampPage(prev - 1)),
-          onNext: () => setRemovedPage((prev) => clampPage(prev + 1))
+          onNext: () => setRemovedPage((prev) => clampPage(prev + 1)),
+          pageSize: removedLimit,
+          onPageSizeChange: (nextLimit) => {
+            setRemovedLimit(nextLimit);
+            setRemovedPage(1);
+          }
         })}
       </div>
     );
@@ -413,16 +495,7 @@ export default function ModerationInboxPage() {
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground">
                   Removed for policy
                 </p>
-                <p
-                  className={cn(
-                    typeof removedCountLabel === 'string' &&
-                      removedCountLabel.includes('Loading')
-                      ? 'text-sm font-medium text-muted-foreground'
-                      : 'text-xl font-semibold'
-                  )}
-                >
-                  {removedCountLabel}
-                </p>
+                <p className="text-xl font-semibold">{removedCountLabel}</p>
               </div>
             </div>
           </button>
