@@ -33,6 +33,7 @@ import {
 // ─── Project Server Logic ────────────────────────────────────────────────────
 import {
   ensureStaff,
+  ensureSuperAdmin,
   generateUuid,
   isPopulatedTenant,
   normalizeOptionalNote,
@@ -192,7 +193,7 @@ export const moderationRouter = createTRPCRouter({
     const session = await ctx.db.auth({ headers });
     const user = session?.user;
 
-    ensureStaff(user);
+    ensureSuperAdmin(user);
 
     const canReinstate =
       Array.isArray(user?.roles) && user.roles.includes('super-admin');
