@@ -218,10 +218,7 @@ export const moderationRouter = createTRPCRouter({
         sort: '-updatedAt'
       });
 
-      const productIds: string[] = [];
       const productRows = result.docs.map((product) => {
-        productIds.push(product.id);
-
         const tenant = product.tenant;
         const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
         const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
@@ -234,37 +231,39 @@ export const moderationRouter = createTRPCRouter({
         };
       });
 
+      const productIds = productRows.map((row) => row.product.id);
+
       if (productIds.length === 0) {
         return { items: [], ok: true, canReinstate };
       }
 
-      const actionRes = await ctx.db.find({
-        collection: 'moderation-actions',
-        where: {
-          and: [
-            { product: { in: productIds } },
-            { actionType: { equals: 'removed' } }
-          ]
-        },
-        sort: '-createdAt',
-        limit: 500
-      });
+      const latestRemovedPairs = await Promise.all(
+        productIds.map(async (productId) => {
+          const actionResult = await ctx.db.find({
+            collection: 'moderation-actions',
+            depth: 0,
+            where: {
+              and: [
+                { product: { equals: productId } },
+                { actionType: { equals: 'removed' } }
+              ]
+            },
+            sort: '-createdAt',
+            limit: 1
+          });
+
+          const latestAction = actionResult.docs[0];
+          return { productId, latestAction };
+        })
+      );
 
       const latestRemovedByProductId = new Map<string, ModerationAction>();
 
-      for (let index = 0; index < actionRes.docs.length; index += 1) {
-        const action = actionRes.docs[index];
-        if (!action) continue;
-
-        const productId =
-          typeof action.product === 'string'
-            ? action.product
-            : action.product?.id;
-
-        if (!productId) continue;
-        if (latestRemovedByProductId.has(productId)) continue;
-
-        latestRemovedByProductId.set(productId, action);
+      for (let index = 0; index < latestRemovedPairs.length; index += 1) {
+        const pair = latestRemovedPairs[index];
+        if (!pair) continue;
+        if (!pair.latestAction) continue;
+        latestRemovedByProductId.set(pair.productId, pair.latestAction);
       }
 
       const removedItems: ModerationRemovedItemDTO[] = productRows.map(
