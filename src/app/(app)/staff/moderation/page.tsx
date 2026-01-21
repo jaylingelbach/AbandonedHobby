@@ -32,11 +32,13 @@ import ModerationRow from './moderation-row';
 import RemovedRow from './removed-row';
 
 /**
- * Render the staff moderation inbox with tabs for Waiting review, Removed for policy, and Open Appeals.
+ * Render the staff Moderation Inbox page with tabs for waiting review, removed items, and open appeals.
  *
- * Shows per-tab loading, empty, error, and authorization states; redirects unauthenticated users to sign-in when the primary inbox query returns 401. The "Removed for policy" tab loads in parallel and does not block access to the page.
+ * The component fetches the primary inbox (which gates access) and the removed-items list, shows a delayed
+ * loading indicator to avoid flicker, and redirects to the sign-in page if the primary inbox query returns 401.
+ * The removed-items data also exposes a `canReinstate` flag used when rendering removed rows.
  *
- * @returns The JSX element for the moderation inbox page
+ * @returns The page's React element.
  */
 export default function ModerationInboxPage() {
   const router = useRouter();
@@ -45,14 +47,14 @@ export default function ModerationInboxPage() {
   const [showLoading, setShowLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ModerationInboxTabs>('inbox');
 
-  // Primary inbox query – this is the one that gates the page
+  // Primary inbox query – gates the page
   const { data, isError, error } = useQuery({
     ...trpc.moderation.listInbox.queryOptions(),
     select: (response) => response.items,
-    enabled: typeof window !== 'undefined' // gate query
+    enabled: typeof window !== 'undefined'
   });
 
-  // Secondary query for "Removed for policy" tab
+  // Removed tab query – keep full response (items + canReinstate)
   const {
     data: removedData,
     isError: isRemovedError,
@@ -60,9 +62,11 @@ export default function ModerationInboxPage() {
     isPending: isRemovedPending
   } = useQuery({
     ...trpc.moderation.listRemoved.queryOptions(),
-    select: (response) => response.items,
-    enabled: typeof window !== 'undefined' // gate query
+    enabled: typeof window !== 'undefined'
   });
+
+  const removedItems = removedData?.items ?? [];
+  const canReinstate = removedData?.canReinstate === true;
 
   const errorStatus = getErrorStatus(error);
   const removedErrorStatus = getErrorStatus(removedError);
@@ -72,7 +76,6 @@ export default function ModerationInboxPage() {
     removedErrorStatus === 401 || removedErrorStatus === 403;
 
   // Redirect completely if not authenticated (401) for the primary inbox.
-  // We only use the inbox query for deciding whether the overall page is allowed.
   useEffect(() => {
     if (errorStatus === 401 && typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
@@ -80,12 +83,7 @@ export default function ModerationInboxPage() {
     }
   }, [errorStatus, router]);
 
-  /**
-   * Delayed loading state for authenticated staff:
-   * - While inbox query is in-flight (no data, no error), start a 300ms timer.
-   * - After 300ms, show <LoadingState /> (full-page skeleton).
-   * - If data or error arrives sooner, cancel and hide loading.
-   */
+  // Delayed loading state (avoid flashing staff UI for logged-out)
   useEffect(() => {
     if (!data && !isError) {
       const timeoutId = window.setTimeout(() => {
@@ -98,37 +96,21 @@ export default function ModerationInboxPage() {
       };
     }
 
-    // Once we have data or an error, ensure loading is off
     setShowLoading(false);
   }, [data, isError]);
 
-  // If we hit a 401 on the primary inbox, we're redirecting in useEffect — render nothing
   if (errorStatus === 401) {
     return null;
   }
 
-  /**
-   * While the inbox query is in-flight (no data, no error yet),
-   * render nothing at first, then <LoadingState /> after 300ms.
-   * This ensures logged-out users never see the staff UI flash.
-   */
   if (!data && !isError) {
-    if (!showLoading) {
-      return null;
-    }
+    if (!showLoading) return null;
     return <LoadingState />;
   }
 
-  // At this point, the inbox query has either:
-  // - data (success), or
-  // - isError = true (error path handled per-tab)
   const moderationInboxItems = data ?? [];
   const hasItems = moderationInboxItems.length > 0;
-
-  const removedItems = removedData ?? [];
   const hasRemovedItems = removedItems.length > 0;
-
-  // ─── Tab render helpers ────────────────────────────────────────────────────
 
   const renderInboxContent = () => {
     if (isError) {
@@ -176,7 +158,7 @@ export default function ModerationInboxPage() {
     return (
       <div className="space-y-4">
         {removedItems.map((item) => (
-          <RemovedRow key={item.id} item={item} />
+          <RemovedRow key={item.id} item={item} canReinstate={canReinstate} />
         ))}
       </div>
     );
@@ -184,7 +166,7 @@ export default function ModerationInboxPage() {
 
   return (
     <main className="min-h-screen bg-background">
-      {/* Top bar – echoes SearchFilters header */}
+      {/* Top bar */}
       <section className="border-b bg-muted px-4 lg:px-12 py-6 flex flex-col gap-3">
         <div className="flex items-center justify-between gap-4">
           <div className="space-y-1">
@@ -201,7 +183,6 @@ export default function ModerationInboxPage() {
             </p>
           </div>
 
-          {/* Room for future filters (reason, tenant, status) */}
           <div className="hidden md:flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
@@ -221,6 +202,7 @@ export default function ModerationInboxPage() {
               </TooltipTrigger>
               <TooltipContent>Coming soon...</TooltipContent>
             </Tooltip>
+
             <Tooltip>
               <TooltipTrigger asChild>
                 <span className="inline-flex">
@@ -242,13 +224,13 @@ export default function ModerationInboxPage() {
           </div>
         </div>
 
-        {/* “At a glance” strip – tabs for moderation sections */}
+        {/* Tabs */}
         <div
           className="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-3"
           role="tablist"
           aria-label="Moderation sections"
         >
-          {/* Waiting review / Inbox */}
+          {/* Waiting review */}
           <button
             type="button"
             role="tab"

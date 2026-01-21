@@ -126,3 +126,32 @@ export function ensureStaff(
     throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
   }
 }
+
+/**
+ * Ensures the caller is an authenticated staff user with the `super-admin` role.
+ *
+ * @param user - The caller's user object, or `null`/`undefined` if unauthenticated.
+ * @throws TRPCError with code `UNAUTHORIZED` if `user` is `null` or `undefined`.
+ * @throws TRPCError with code `INTERNAL_SERVER_ERROR` if `user.roles` is missing or not an array of strings.
+ * @throws TRPCError with code `FORBIDDEN` if `user.roles` does not include `super-admin`.
+ */
+export function ensureSuperAdmin(
+  user: { roles?: string[] | readonly string[] | null } | null
+) {
+  ensureStaff(user);
+
+  const roles = user?.roles;
+  const isRoleArray =
+    Array.isArray(roles) && roles.every((role) => typeof role === 'string');
+
+  if (!isRoleArray) {
+    throw new TRPCError({
+      code: 'INTERNAL_SERVER_ERROR',
+      message: 'User roles are not available.'
+    });
+  }
+
+  if (!roles.includes('super-admin')) {
+    throw new TRPCError({ code: 'FORBIDDEN', message: 'Not authorized' });
+  }
+}

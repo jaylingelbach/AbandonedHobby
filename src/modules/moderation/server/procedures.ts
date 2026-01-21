@@ -17,7 +17,7 @@ import { formatDate } from '@/lib/utils';
 import { isNotFound } from '@/lib/server/utils';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
-import { Product } from '@/payload-types';
+import type { ModerationAction, Product } from '@/payload-types';
 import {
   ModerationInboxItem,
   ModerationRemovedItemDTO
@@ -33,6 +33,7 @@ import {
 // ─── Project Server Logic ────────────────────────────────────────────────────
 import {
   ensureStaff,
+  ensureSuperAdmin,
   generateUuid,
   isPopulatedTenant,
   normalizeOptionalNote,
@@ -191,9 +192,17 @@ export const moderationRouter = createTRPCRouter({
     const headers = await getHeaders();
     const session = await ctx.db.auth({ headers });
     const user = session?.user;
-    let removedItems: ModerationRemovedItemDTO[] = [];
 
-    ensureStaff(user);
+    ensureSuperAdmin(user);
+
+    const canReinstate =
+      Array.isArray(user?.roles) && user.roles.includes('super-admin');
+
+    const toIsoString = (value: unknown): string | undefined => {
+      if (typeof value === 'string' && value.length > 0) return value;
+      if (value instanceof Date) return value.toISOString();
+      return undefined;
+    };
 
     try {
       const result = await ctx.db.find({
@@ -202,53 +211,116 @@ export const moderationRouter = createTRPCRouter({
         where: {
           and: [
             { isFlagged: { equals: false } },
-            { isRemovedForPolicy: { not_equals: false } },
-            { isArchived: { not_equals: false } }
+            { isRemovedForPolicy: { equals: true } },
+            { isArchived: { equals: true } }
           ]
         },
         limit: 50,
         sort: '-updatedAt'
       });
 
-      removedItems = result.docs.map((product) => {
+      const productRows = result.docs.map((product) => {
         const tenant = product.tenant;
-
         const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
         const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
 
-        const thumbnailUrl = resolveThumbnailUrl(product);
-
         return {
-          id: product.id,
-          productName: product.name,
+          product,
           tenantName,
           tenantSlug,
-          flagReasonLabel:
-            product.flagReason && product.flagReason in flagReasonLabels
-              ? flagReasonLabels[
-                  product.flagReason as keyof typeof flagReasonLabels
-                ]
-              : 'Unknown',
-
-          flagReasonOtherText: product.flagReasonOtherText ?? undefined,
-          thumbnailUrl,
-          flaggedAt: product.flaggedAt ?? null,
-          removedAt: product.removedAt ?? '',
-          reportedAtLabel: formatDate(product.flaggedAt),
-
-          removedAtLabel: formatDate(product.removedAt),
-
-          reasonLabel:
-            product.flagReason && product.flagReason in flagReasonLabels
-              ? flagReasonLabels[
-                  product.flagReason as keyof typeof flagReasonLabels
-                ]
-              : 'Unknown',
-          note: product.moderationNote ?? undefined
+          thumbnailUrl: resolveThumbnailUrl(product)
         };
       });
+
+      const productIds = productRows.map((row) => row.product.id);
+
+      if (productIds.length === 0) {
+        return { items: [], ok: true, canReinstate };
+      }
+
+      const latestRemovedPairs = await Promise.all(
+        productIds.map(async (productId) => {
+          const actionResult = await ctx.db.find({
+            collection: 'moderation-actions',
+            depth: 0,
+            where: {
+              and: [
+                { product: { equals: productId } },
+                { actionType: { equals: 'removed' } }
+              ]
+            },
+            sort: '-createdAt',
+            limit: 1
+          });
+
+          const latestAction = actionResult.docs[0];
+          return { productId, latestAction };
+        })
+      );
+
+      const latestRemovedByProductId = new Map<string, ModerationAction>();
+
+      for (let index = 0; index < latestRemovedPairs.length; index += 1) {
+        const pair = latestRemovedPairs[index];
+        if (!pair) continue;
+        if (!pair.latestAction) continue;
+        latestRemovedByProductId.set(pair.productId, pair.latestAction);
+      }
+
+      const removedItems: ModerationRemovedItemDTO[] = productRows.map(
+        (row) => {
+          const product = row.product;
+          const latestAction = latestRemovedByProductId.get(product.id);
+
+          const removedAtIso =
+            toIsoString(latestAction?.createdAt) ??
+            toIsoString(product.removedAt) ??
+            '';
+
+          const enforcementReason = latestAction?.reason;
+
+          const enforcementReasonLabel =
+            enforcementReason && enforcementReason in flagReasonLabels
+              ? flagReasonLabels[
+                  enforcementReason as keyof typeof flagReasonLabels
+                ]
+              : (enforcementReason ?? 'Unknown');
+
+          const note =
+            typeof latestAction?.note === 'string' &&
+            latestAction.note.trim().length > 0
+              ? latestAction.note
+              : undefined;
+
+          return {
+            id: product.id,
+            productName: product.name,
+            tenantName: row.tenantName,
+            tenantSlug: row.tenantSlug,
+            thumbnailUrl: row.thumbnailUrl,
+
+            // reporter context (still product-based)
+            flagReasonOtherText: product.flagReasonOtherText ?? undefined,
+            reportedAtLabel: product.flaggedAt
+              ? formatDate(product.flaggedAt)
+              : undefined,
+
+            // enforcement context (action-based)
+            removedAt: removedAtIso,
+            removedAtLabel: formatDate(removedAtIso),
+            flagReasonLabel: enforcementReasonLabel,
+            note,
+
+            actionId: latestAction?.id,
+            intentId: latestAction?.intentId ?? undefined
+          };
+        }
+      );
+
+      return { items: removedItems, ok: true, canReinstate };
     } catch (error) {
       if (error instanceof TRPCError) throw error;
+
       const message = error instanceof Error ? error.message : String(error);
       if (process.env.NODE_ENV !== 'production') {
         console.error(
@@ -256,13 +328,12 @@ export const moderationRouter = createTRPCRouter({
           message
         );
       }
+
       throw new TRPCError({
         code: 'INTERNAL_SERVER_ERROR',
         message: 'An error occurred while processing the request'
       });
     }
-
-    return { items: removedItems, ok: true };
   }),
 
   approveListing: protectedProcedure
