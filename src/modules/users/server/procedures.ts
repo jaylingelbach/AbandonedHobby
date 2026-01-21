@@ -6,6 +6,12 @@ import { computeOnboarding } from '@/modules/onboarding/server/utils';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { isSuperAdmin } from '@/lib/access';
 
+/**
+ * Checks whether the provided value is an array containing only strings.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is a readonly array whose every element is a `string`, `false` otherwise
+ */
 function isStringArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === 'string')

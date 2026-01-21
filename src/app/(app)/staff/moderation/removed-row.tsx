@@ -52,16 +52,15 @@ interface RemovedRowProps {
 }
 
 /**
- * Removed tab row:
- * - product + shop
- * - reportedAt + removedAt
- * - enforcement reason (flagReasonLabel)
- * - reporter comments (flagReasonOtherText)
- * - internal note (note)
+ * Render a card row displaying a removed listing's details and available actions.
  *
- * Notes:
- * - We intentionally do NOT include "View listing" because removed listings are archived.
- * - Reinstate UI is gated via `canReinstate` (server-computed signal).
+ * Shows product and shop information, reported/removed timestamps, enforcement reason,
+ * reporter comments, and internal moderation note. Includes a link to view the item in
+ * the Payload admin and, when permitted, a gated reinstate flow that requires selecting
+ * a reason and providing an internal note (minimum 10 characters).
+ *
+ * @param item - The removed listing data to display
+ * @param canReinstate - Whether the current user is allowed to reinstate the listing; when true the reinstate dialog is available
  */
 export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
   const {
