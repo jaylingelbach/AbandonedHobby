@@ -6690,3 +6690,55 @@ src/collections/Carts.ts, src/payload.config.ts
 
 - src/lib/server/moderation/utils.ts
   - New ensureSuperAdmin(user) helper added to enforce super-admin role (throws FORBIDDEN / INTERNAL_SERVER_ERROR on violations).
+
+# Moderation: Pagination inbox removed 01/21/26
+
+## Walkthrough
+
+- Per-tab pagination and page-size controls added to the staff moderation UI (inbox and removed); server procedures updated to accept page/limit and return PageMeta; reinstate authorization elevated to super-admin; new PageMeta utilities and DB compound index added.
+
+## New Features
+
+- Per-tab pagination for Inbox and Removed with page navigation, adjustable page-size controls, stable placeholder data during paging, range labels, and loading skeleton for Removed.
+
+## Changes
+
+- Backend list endpoints now accept page/limit and return pagination metadata; input validation added.
+- Reinstate action now requires super-admin authorization.
+- Per-tab error and count handling for clearer header/tab status.
+
+## Bug Fixes
+
+Removed obsolete reinstate prop from removed-item UI; reinstate disabled until valid input and pending actions complete.
+
+## File changes
+
+### Client: Moderation page & UI
+
+- src/app/(app)/staff/moderation/page.tsx Adds per-tab pagination state and limits, placeholderData usage to avoid flicker during paging, per-tab loading/error labels, ModerationListSkeleton, page-size Select controls, and shared renderPaginationControls.
+
+### Client: Removed row component
+
+- src/app/(app)/staff/moderation/removed-row.tsx
+  - Removes canReinstate prop from RemovedRow; isReinstateDisabled now depends only on mutation pending state and note length.
+
+### Types & Utilities
+
+- src/app/(app)/staff/moderation/types.tsx, src/app/(app)/staff/moderation/utils.ts
+  - Adds PageMeta type and exported helpers clampPage and buildRangeLabel for pagination UI.
+
+### Server: Moderation procedures
+
+- src/modules/moderation/server/procedures.ts
+  - listInbox and listRemoved now accept optional { page, limit } inputs and return pagination metadata (page, limit, totalDocs, totalPages, hasNextPage, hasPrevPage); reinstateListing authorization changed to super-admin.
+
+### Server: User procedures
+
+- src/modules/users/server/procedures.ts
+  - Removes canReinstate from me procedure return shape; import of ensureSuperAdmin added.
+
+### Database: Index
+
+- src/collections/ModerationAction.ts
+  - Adds compound index on ['actionType','product','createdAt'] for filtered/ordered moderation queries.
+    g

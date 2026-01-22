@@ -40,6 +40,7 @@ import {
   normalizeRequiredNote,
   resolveThumbnailUrl
 } from '@/lib/server/moderation/utils';
+import { isSuperAdmin } from '@/lib/access';
 
 const defaultReason = moderationFlagReasons[0];
 
@@ -118,223 +119,278 @@ export const moderationRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  listInbox: protectedProcedure.query(async ({ ctx }) => {
-    const headers = await getHeaders();
-    const session = await ctx.db.auth({ headers });
-    const user = session?.user;
-    let moderationInboxItems: ModerationInboxItem[] = [];
-
-    ensureStaff(user);
-
-    try {
-      const result = await ctx.db.find({
-        collection: 'products',
-        depth: 1,
-        where: {
-          and: [
-            { isFlagged: { equals: true } },
-            { isRemovedForPolicy: { not_equals: true } },
-            { isArchived: { not_equals: true } }
-          ]
-        },
-        limit: 50,
-        sort: '-updatedAt'
-      });
-
-      moderationInboxItems = result.docs.map((product) => {
-        const tenant = product.tenant;
-
-        const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
-        const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
-
-        const thumbnailUrl = resolveThumbnailUrl(product);
-
-        return {
-          id: product.id,
-          productName: product.name,
-          tenantName,
-          tenantSlug,
-          flagReason:
-            product.flagReason &&
-            moderationFlagReasons.includes(product.flagReason)
-              ? product.flagReason
-              : defaultReason,
-          flagReasonLabel:
-            product.flagReason && product.flagReason in flagReasonLabels
-              ? flagReasonLabels[
-                  product.flagReason as keyof typeof flagReasonLabels
-                ]
-              : 'Unknown',
-          flagReasonOtherText: product.flagReasonOtherText ?? undefined,
-          thumbnailUrl,
-          reportedAt: product.flaggedAt ?? '',
-          reportedAtLabel: formatDate(product.flaggedAt)
-        };
-      });
-    } catch (error) {
-      if (error instanceof TRPCError) throw error;
-      const message = error instanceof Error ? error.message : String(error);
-      if (process.env.NODE_ENV !== 'production') {
-        console.error(
-          `[Moderation] there was a problem getting inbox items:`,
-          message
-        );
-      }
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'An error occurred while processing the request'
-      });
-    }
-
-    return { items: moderationInboxItems, ok: true };
-  }),
-  listRemoved: protectedProcedure.query(async ({ ctx }) => {
-    const headers = await getHeaders();
-    const session = await ctx.db.auth({ headers });
-    const user = session?.user;
-
-    ensureSuperAdmin(user);
-
-    const canReinstate =
-      Array.isArray(user?.roles) && user.roles.includes('super-admin');
-
-    const toIsoString = (value: unknown): string | undefined => {
-      if (typeof value === 'string' && value.length > 0) return value;
-      if (value instanceof Date) return value.toISOString();
-      return undefined;
-    };
-
-    try {
-      const result = await ctx.db.find({
-        collection: 'products',
-        depth: 1,
-        where: {
-          and: [
-            { isFlagged: { equals: false } },
-            { isRemovedForPolicy: { equals: true } },
-            { isArchived: { equals: true } }
-          ]
-        },
-        limit: 50,
-        sort: '-updatedAt'
-      });
-
-      const productRows = result.docs.map((product) => {
-        const tenant = product.tenant;
-        const tenantName = isPopulatedTenant(tenant) ? (tenant.name ?? '') : '';
-        const tenantSlug = isPopulatedTenant(tenant) ? (tenant.slug ?? '') : '';
-
-        return {
-          product,
-          tenantName,
-          tenantSlug,
-          thumbnailUrl: resolveThumbnailUrl(product)
-        };
-      });
-
-      const productIds = productRows.map((row) => row.product.id);
-
-      if (productIds.length === 0) {
-        return { items: [], ok: true, canReinstate };
-      }
-
-      const latestRemovedPairs = await Promise.all(
-        productIds.map(async (productId) => {
-          const actionResult = await ctx.db.find({
-            collection: 'moderation-actions',
-            depth: 0,
-            where: {
-              and: [
-                { product: { equals: productId } },
-                { actionType: { equals: 'removed' } }
-              ]
-            },
-            sort: '-createdAt',
-            limit: 1
-          });
-
-          const latestAction = actionResult.docs[0];
-          return { productId, latestAction };
+  listInbox: protectedProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).optional(),
+          limit: z.number().int().min(1).max(50).optional()
         })
-      );
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const headers = await getHeaders();
+      const session = await ctx.db.auth({ headers });
+      const user = session?.user;
 
-      const latestRemovedByProductId = new Map<string, ModerationAction>();
+      ensureStaff(user);
 
-      for (let index = 0; index < latestRemovedPairs.length; index += 1) {
-        const pair = latestRemovedPairs[index];
-        if (!pair) continue;
-        if (!pair.latestAction) continue;
-        latestRemovedByProductId.set(pair.productId, pair.latestAction);
-      }
+      const page = input?.page ?? 1;
+      const limit = input?.limit ?? 25;
 
-      const removedItems: ModerationRemovedItemDTO[] = productRows.map(
-        (row) => {
-          const product = row.product;
-          const latestAction = latestRemovedByProductId.get(product.id);
+      try {
+        const result = await ctx.db.find({
+          collection: 'products',
+          depth: 1,
+          where: {
+            and: [
+              { isFlagged: { equals: true } },
+              { isRemovedForPolicy: { not_equals: true } },
+              { isArchived: { not_equals: true } }
+            ]
+          },
+          pagination: true,
+          limit,
+          page,
+          sort: '-updatedAt'
+        });
 
-          const removedAtIso =
-            toIsoString(latestAction?.createdAt) ??
-            toIsoString(product.removedAt) ??
-            '';
+        const moderationInboxItems = result.docs.map((product) => {
+          const tenant = product.tenant;
 
-          const enforcementReason = latestAction?.reason;
+          const tenantName = isPopulatedTenant(tenant)
+            ? (tenant.name ?? '')
+            : '';
+          const tenantSlug = isPopulatedTenant(tenant)
+            ? (tenant.slug ?? '')
+            : '';
 
-          const enforcementReasonLabel =
-            enforcementReason && enforcementReason in flagReasonLabels
-              ? flagReasonLabels[
-                  enforcementReason as keyof typeof flagReasonLabels
-                ]
-              : (enforcementReason ?? 'Unknown');
-
-          const note =
-            typeof latestAction?.note === 'string' &&
-            latestAction.note.trim().length > 0
-              ? latestAction.note
-              : undefined;
+          const thumbnailUrl = resolveThumbnailUrl(product);
 
           return {
             id: product.id,
             productName: product.name,
-            tenantName: row.tenantName,
-            tenantSlug: row.tenantSlug,
-            thumbnailUrl: row.thumbnailUrl,
-
-            // reporter context (still product-based)
+            tenantName,
+            tenantSlug,
+            flagReason:
+              product.flagReason &&
+              moderationFlagReasons.includes(product.flagReason)
+                ? product.flagReason
+                : defaultReason,
+            flagReasonLabel:
+              product.flagReason && product.flagReason in flagReasonLabels
+                ? flagReasonLabels[
+                    product.flagReason as keyof typeof flagReasonLabels
+                  ]
+                : 'Unknown',
             flagReasonOtherText: product.flagReasonOtherText ?? undefined,
-            reportedAtLabel: product.flaggedAt
-              ? formatDate(product.flaggedAt)
-              : undefined,
+            thumbnailUrl,
+            reportedAt: product.flaggedAt ?? '',
+            reportedAtLabel: formatDate(product.flaggedAt)
+          };
+        });
+        return {
+          items: moderationInboxItems,
+          ok: true,
+          page: result.page,
+          limit: result.limit,
+          totalDocs: result.totalDocs,
+          totalPages: result.totalPages,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            `[Moderation] there was a problem getting inbox items:`,
+            message
+          );
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An error occurred while processing the request'
+        });
+      }
+    }),
+  listRemoved: protectedProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(1).optional(),
+          limit: z.number().int().min(1).max(50).optional()
+        })
+        .optional()
+    )
+    .query(async ({ ctx, input }) => {
+      const headers = await getHeaders();
+      const session = await ctx.db.auth({ headers });
+      const user = session?.user;
+      ensureStaff(user);
+      const canReinstate = isSuperAdmin(user);
 
-            // enforcement context (action-based)
-            removedAt: removedAtIso,
-            removedAtLabel: formatDate(removedAtIso),
-            flagReasonLabel: enforcementReasonLabel,
-            note,
+      const page = input?.page ?? 1;
+      const limit = input?.limit ?? 25;
 
-            actionId: latestAction?.id,
-            intentId: latestAction?.intentId ?? undefined
+      const toIsoString = (value: unknown): string | undefined => {
+        if (typeof value === 'string' && value.length > 0) return value;
+        if (value instanceof Date) return value.toISOString();
+        return undefined;
+      };
+
+      try {
+        const result = await ctx.db.find({
+          collection: 'products',
+          depth: 1,
+          where: {
+            and: [
+              { isFlagged: { equals: false } },
+              { isRemovedForPolicy: { equals: true } },
+              { isArchived: { equals: true } }
+            ]
+          },
+          pagination: true,
+          limit,
+          page,
+          sort: '-updatedAt'
+        });
+
+        const productRows = result.docs.map((product) => {
+          const tenant = product.tenant;
+          const tenantName = isPopulatedTenant(tenant)
+            ? (tenant.name ?? '')
+            : '';
+          const tenantSlug = isPopulatedTenant(tenant)
+            ? (tenant.slug ?? '')
+            : '';
+
+          return {
+            product,
+            tenantName,
+            tenantSlug,
+            thumbnailUrl: resolveThumbnailUrl(product)
+          };
+        });
+
+        const productIds = productRows.map((row) => row.product.id);
+
+        // Always return pagination meta (even if empty)
+        if (productIds.length === 0) {
+          return {
+            items: [],
+            ok: true,
+            page: result.page,
+            limit: result.limit,
+            totalDocs: result.totalDocs,
+            totalPages: result.totalPages,
+            hasNextPage: result.hasNextPage,
+            hasPrevPage: result.hasPrevPage,
+            canReinstate
           };
         }
-      );
 
-      return { items: removedItems, ok: true, canReinstate };
-    } catch (error) {
-      if (error instanceof TRPCError) throw error;
+        const actionResult = await ctx.db.find({
+          collection: 'moderation-actions',
+          depth: 0,
+          where: {
+            and: [
+              { product: { in: productIds } },
+              { actionType: { equals: 'removed' } }
+            ]
+          },
+          sort: '-createdAt',
+          pagination: false
+        });
 
-      const message = error instanceof Error ? error.message : String(error);
-      if (process.env.NODE_ENV !== 'production') {
-        console.error(
-          `[Moderation] there was a problem getting removed items:`,
-          message
+        const latestRemovedByProductId = new Map<string, ModerationAction>();
+        for (const action of actionResult.docs) {
+          const productId =
+            typeof action.product === 'string'
+              ? action.product
+              : action.product?.id;
+          if (!productId || latestRemovedByProductId.has(productId)) continue;
+          latestRemovedByProductId.set(productId, action);
+        }
+
+        const removedItems: ModerationRemovedItemDTO[] = productRows.map(
+          (row) => {
+            const product = row.product;
+            const latestAction = latestRemovedByProductId.get(product.id);
+
+            const removedAtIso =
+              toIsoString(latestAction?.createdAt) ??
+              toIsoString(product.removedAt) ??
+              '';
+
+            const enforcementReason = latestAction?.reason;
+
+            const enforcementReasonLabel =
+              enforcementReason && enforcementReason in flagReasonLabels
+                ? flagReasonLabels[
+                    enforcementReason as keyof typeof flagReasonLabels
+                  ]
+                : (enforcementReason ?? 'Unknown');
+
+            const note =
+              typeof latestAction?.note === 'string' &&
+              latestAction.note.trim().length > 0
+                ? latestAction.note
+                : undefined;
+
+            return {
+              id: product.id,
+              productName: product.name,
+              tenantName: row.tenantName,
+              tenantSlug: row.tenantSlug,
+              thumbnailUrl: row.thumbnailUrl,
+
+              // reporter context (product-based)
+              flagReasonOtherText: product.flagReasonOtherText ?? undefined,
+              reportedAtLabel: product.flaggedAt
+                ? formatDate(product.flaggedAt)
+                : undefined,
+
+              // enforcement context (action-based)
+              removedAt: removedAtIso,
+              removedAtLabel: formatDate(removedAtIso),
+              flagReasonLabel: enforcementReasonLabel,
+              note,
+
+              actionId: latestAction?.id,
+              intentId: latestAction?.intentId ?? undefined
+            };
+          }
         );
-      }
 
-      throw new TRPCError({
-        code: 'INTERNAL_SERVER_ERROR',
-        message: 'An error occurred while processing the request'
-      });
-    }
-  }),
+        return {
+          items: removedItems,
+          ok: true,
+          page: result.page,
+          limit: result.limit,
+          canReinstate,
+          totalDocs: result.totalDocs,
+          totalPages: result.totalPages,
+          hasNextPage: result.hasNextPage,
+          hasPrevPage: result.hasPrevPage
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error(
+            `[Moderation] there was a problem getting removed items:`,
+            message
+          );
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An error occurred while processing the request'
+        });
+      }
+    }),
 
   approveListing: protectedProcedure
     .input(
@@ -532,7 +588,7 @@ export const moderationRouter = createTRPCRouter({
       const session = await ctx.db.auth({ headers });
       const user = session?.user;
 
-      ensureStaff(user);
+      ensureSuperAdmin(user);
 
       const normalizedNote = normalizeRequiredNote(input.note, 10);
 
@@ -571,7 +627,7 @@ export const moderationRouter = createTRPCRouter({
           overrideAccess: true,
           user,
           data: {
-            // ✅ Intentional invariant:
+            // Intentional invariant:
             // Reinstatement clears policy removal but keeps the listing archived,
             // so it does NOT go live automatically. Seller must explicitly relist / unarchive
             // through the normal flow (inventory + archive toggle).

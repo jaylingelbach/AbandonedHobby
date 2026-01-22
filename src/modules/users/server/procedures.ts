@@ -5,6 +5,7 @@ import { OnboardingStepEnum, UIState, UIStateSchema } from '@/hooks/types';
 import { computeOnboarding } from '@/modules/onboarding/server/utils';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 import { isSuperAdmin } from '@/lib/access';
+import { ensureSuperAdmin } from '@/lib/server/moderation/utils';
 
 /**
  * Checks whether the provided value is an array containing only strings.
@@ -77,11 +78,6 @@ export const usersRouter = createTRPCRouter({
     const parsed = UIStateSchema.safeParse(u.uiState ?? {});
     const uiState: UIState = parsed.success ? parsed.data : {};
 
-    const roles = Array.isArray(u.roles) ? u.roles : [];
-    const canReinstate =
-      roles.every((role) => typeof role === 'string') &&
-      roles.includes('super-admin');
-
     const user = {
       id: String(dbUser.id),
       _verified: verified,
@@ -91,7 +87,7 @@ export const usersRouter = createTRPCRouter({
 
     const onboarding = computeOnboarding(user);
 
-    return { user, onboarding, canReinstate };
+    return { user, onboarding };
   }),
 
   dismissOnboardingBanner: protectedProcedure
