@@ -43,6 +43,12 @@ import {
 const DEFAULT_LIMIT = 25;
 const LIMIT_OPTIONS = [10, 25, 50] as const;
 
+/**
+ * Render a vertical list of skeleton placeholder cards for moderation rows.
+ *
+ * @param rows - Number of placeholder rows to render (defaults to 6)
+ * @returns A JSX element containing the skeleton list of placeholder cards
+ */
 function ModerationListSkeleton({ rows = 6 }: { rows?: number }) {
   const items = Array.from({ length: rows });
   return (
@@ -64,6 +70,13 @@ function ModerationListSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
+/**
+ * Displays the moderation inbox page with tabs for waiting review, removed items, and open appeals.
+ *
+ * Renders per-tab pagination, page-size controls, loading and error states, and lists of moderation items.
+ *
+ * @returns A React element representing the moderation inbox page.
+ */
 export default function ModerationInboxPage() {
   const router = useRouter();
   const trpc = useTRPC();
