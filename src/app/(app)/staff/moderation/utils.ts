@@ -96,12 +96,27 @@ export async function fetchRemovedItems(): Promise<ModerationInboxItem[]> {
   return fetchModerationResource('/api/removed', 'removed items');
 }
 
+/**
+ * Normalize a requested page number into a sensible positive integer.
+ *
+ * If the input is not a finite number or is less than 1, this returns 1; otherwise it returns the input rounded down to the nearest integer.
+ *
+ * @param nextPage - The requested page number (may be non-integer or invalid)
+ * @returns The page number clamped to an integer greater than or equal to 1
+ */
 export function clampPage(nextPage: number): number {
   if (!Number.isFinite(nextPage)) return 1;
   if (nextPage < 1) return 1;
   return Math.floor(nextPage);
 }
 
+/**
+ * Produces a human-readable pagination range label for the current page.
+ *
+ * @param meta - Pagination metadata (page number, limit, totalDocs). If `null`, an empty string is returned.
+ * @param itemsCount - Number of items on the current page; used to compute the end index.
+ * @returns A label like "Showing 1–10 of 42", "Showing 0 of 0" when there are no items, or an empty string when `meta` is `null`.
+ */
 export function buildRangeLabel(
   meta: PageMeta | null,
   itemsCount: number

@@ -52,14 +52,15 @@ interface RemovedRowProps {
 }
 
 /**
- * Render a card row displaying a removed listing's details and available actions.
+ * Render a card row showing a removed listing's details and available actions.
  *
- * Shows product and shop information, reported/removed timestamps, enforcement reason,
- * reporter comments, and internal moderation note. Includes a link to view the item in
- * the Payload admin and, when permitted, a gated reinstate flow that requires selecting
- * a reason and providing an internal note (minimum 10 characters).
+ * Displays product and shop information, reported/removed timestamps, enforcement reason,
+ * reporter comments, and internal moderation note. When `canReinstate` is true, exposes a
+ * guarded reinstate flow that requires selecting a reason and providing an internal note
+ * of at least 10 characters.
  *
  * @param item - The removed listing data to display
+ * @param canReinstate - Whether the reinstate action and confirmation dialog are shown
  */
 export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
   const {
