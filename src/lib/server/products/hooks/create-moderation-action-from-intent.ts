@@ -438,7 +438,11 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
         note: intent.note,
         source: intent.source,
         actorId: user.id,
-        actorRoleSnapshot: Array.isArray(user.roles) ? [...user.roles] : [],
+        actorRoleSnapshot: Array.isArray(user.roles)
+          ? user.roles.filter((role): role is (typeof roleTypes)[number] =>
+              roleTypes.includes(role as (typeof roleTypes)[number])
+            )
+          : [],
         actorEmailSnapshot: user.email ?? null,
         actorUsernameSnapshot: user.username ?? null
       }
