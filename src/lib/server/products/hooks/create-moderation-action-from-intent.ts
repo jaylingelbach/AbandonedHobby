@@ -11,12 +11,12 @@ import { isStaff, isSuperAdmin } from '@/lib/access';
 import {
   moderationFlagReasons,
   moderationReinstateReasons,
-  moderationSource
+  moderationSource,
+  roleTypes
 } from '@/constants';
 
 // ─── Server Utilities ────────────────────────────────────────────────────────
 import { isUniqueViolation } from '@/lib/server/errors/errors';
-import { roleTypes } from '@/app/(app)/staff/moderation/constants';
 
 type HookContext = {
   skipModerationIntentHook?: boolean;

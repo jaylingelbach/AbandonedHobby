@@ -108,3 +108,23 @@ export const moderationSelectOptionsLabel: Record<
 export const moderationSource = ['staff_trpc', 'admin_ui', 'system'] as const;
 
 export type ModerationSource = (typeof moderationSource)[number];
+
+export const roleTypes = ['super-admin', 'support', 'user'] as const;
+
+export type RoleType = (typeof roleTypes)[number];
+
+export const roleLabels: Record<RoleType, string> = {
+  'super-admin': 'Super Admin',
+  support: 'Support',
+  user: 'User'
+};
+
+export const actionTypes = ['approved', 'removed', 'reinstated'] as const;
+
+export type ActionType = (typeof actionTypes)[number];
+
+export const actionTypeLabels: Record<ActionType, string> = {
+  approved: 'Approved',
+  removed: 'Removed',
+  reinstated: 'Reinstated'
+};

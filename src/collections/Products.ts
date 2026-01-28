@@ -5,7 +5,9 @@ import { CollectionConfig } from 'payload';
 import {
   flagReasonLabels,
   moderationFlagReasons,
-  moderationSource
+  moderationSource,
+  roleLabels,
+  roleTypes
 } from '@/constants';
 import { ShippingMode } from '@/modules/orders/types';
 
@@ -25,7 +27,6 @@ import { updateTenantCountsOnMove } from '@/lib/server/products/hooks/update-ten
 import { validateCategoryPercentage } from '@/lib/server/products/hooks/validate-category-parentage';
 import { ProductModerationCtx } from './utils/utils';
 import { createModerationActionFromIntent } from '@/lib/server/products/hooks/create-moderation-action-from-intent';
-import { roleLabels, roleTypes } from '@/app/(app)/staff/moderation/constants';
 
 /**
  * Clears shippingFlatFee when shippingMode is not 'flat'
