@@ -47,16 +47,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
-
-      if (!user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Authentication failed.'
-        });
-      }
+      const user = ctx.session.user;
 
       let product: Product;
 
@@ -123,9 +114,7 @@ export const moderationRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -218,9 +207,7 @@ export const moderationRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
       ensureStaff(user);
       const canReinstate = isSuperAdmin(user);
 
@@ -369,9 +356,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -462,9 +447,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -553,9 +536,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureSuperAdmin(user);
 
