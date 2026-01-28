@@ -104,6 +104,7 @@ async function runInternalProductWrite(params: {
 }): Promise<void> {
   const { req, run } = params;
 
+  const originalContext = req.context;
   const previousContext = (req.context ?? {}) as HookContext;
 
   const nextContext = {
@@ -117,7 +118,7 @@ async function runInternalProductWrite(params: {
   try {
     await run();
   } finally {
-    req.context = previousContext as unknown as PayloadRequest['context'];
+    req.context = originalContext as PayloadRequest['context'];
   }
 }
 
