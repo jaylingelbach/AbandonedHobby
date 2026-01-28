@@ -495,15 +495,15 @@ export const Products: CollectionConfig = {
       type: 'json',
       required: false,
       admin: {
-        hidden: false,
+        hidden: true,
         description:
           'System-only: ephemeral marker used by hooks to create ModerationActions. Do not edit manually.'
       },
       access: {
         // Hide from API reads.
-        read: () => true,
+        read: () => false,
         create: () => false,
-        update: () => true
+        update: () => false
       },
       jsonSchema: {
         fileMatch: ['*'],
