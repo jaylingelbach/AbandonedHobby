@@ -6,11 +6,7 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 // ─── tRPC Setup ──────────────────────────────────────────────────────────────
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { formatDate } from '@/lib/utils';
