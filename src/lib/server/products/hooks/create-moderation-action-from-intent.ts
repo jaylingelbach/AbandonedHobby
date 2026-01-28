@@ -246,21 +246,26 @@ async function writeLatestRemovalSummary(params: {
 async function findModerationActionByIntentId(params: {
   req: PayloadRequest;
   intentId: string;
+  productId: string;
 }): Promise<ModerationAction | null> {
-  const { req, intentId } = params;
+  const { req, intentId, productId } = params;
 
   const result = await req.payload.find({
     collection: 'moderation-actions',
     depth: 0,
     overrideAccess: true,
     req,
-    where: { intentId: { equals: intentId } },
+    where: {
+      and: [
+        { intentId: { equals: intentId } },
+        { product: { equals: productId } }
+      ]
+    },
     limit: 1,
     pagination: false
   });
 
-  const first = result.docs[0];
-  return first ?? null;
+  return result.docs[0] ?? null;
 }
 
 /**
@@ -301,7 +306,8 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
   if (prevIntentId && nextIntentId && prevIntentId === nextIntentId) {
     const existing = await findModerationActionByIntentId({
       req,
-      intentId: nextIntentId
+      intentId: nextIntentId,
+      productId: doc.id
     });
     if (existing) {
       await clearModerationIntent({ req, productId: doc.id });
@@ -418,7 +424,8 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
 
     const existing = await findModerationActionByIntentId({
       req,
-      intentId: intent.intentId
+      intentId: intent.intentId,
+      productId: doc.id
     });
 
     if (!existing) {
