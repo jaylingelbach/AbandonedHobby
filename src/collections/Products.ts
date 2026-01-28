@@ -2,11 +2,17 @@
 import { CollectionConfig } from 'payload';
 
 // ─── Project Constants / Types ───────────────────────────────────────────────
-import { flagReasonLabels, moderationFlagReasons } from '@/constants';
+import {
+  flagReasonLabels,
+  moderationFlagReasons,
+  moderationSource,
+  roleLabels,
+  roleTypes
+} from '@/constants';
 import { ShippingMode } from '@/modules/orders/types';
 
 // ─── Access Control ──────────────────────────────────────────────────────────
-import { isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
+import { isStaff, isSuperAdmin, mustBeStripeVerified } from '@/lib/access';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { getCategoryIdFromSibling } from '@/lib/server/utils';
@@ -204,7 +210,7 @@ export const Products: CollectionConfig = {
          *   so they can't un-archive / resurrect a policy-removed listing.
          */
         condition: (_data, siblingData, { user }) => {
-          if (isSuperAdmin(user)) {
+          if (isStaff(user)) {
             return true;
           }
 
@@ -237,7 +243,7 @@ export const Products: CollectionConfig = {
         create: ({ req }) => isSuperAdmin(req.user),
         update: ({ req }) => isSuperAdmin(req.user),
         // Read: I don't want normal users to see it in API responses:
-        read: ({ req }) => isSuperAdmin(req.user)
+        read: ({ req }) => isStaff(req.user)
       },
       admin: {
         // This ensures it never renders in the admin UI for non-super-admins
@@ -317,9 +323,9 @@ export const Products: CollectionConfig = {
           'Indicates that this product has been flagged for moderation review under our marketplace guidelines.'
       },
       access: {
-        create: ({ req: { user } }) => isSuperAdmin(user),
-        update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        create: ({ req: { user } }) => isStaff(user),
+        update: ({ req: { user } }) => isStaff(user),
+        read: ({ req: { user } }) => isStaff(user)
       }
     },
     {
@@ -338,7 +344,7 @@ export const Products: CollectionConfig = {
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        read: ({ req: { user } }) => isStaff(user)
       },
       validate: (
         value: unknown,
@@ -371,7 +377,7 @@ export const Products: CollectionConfig = {
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        read: ({ req: { user } }) => isStaff(user)
       },
       validate: (
         value: unknown,
@@ -410,7 +416,7 @@ export const Products: CollectionConfig = {
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        read: ({ req: { user } }) => isStaff(user)
       }
     },
     {
@@ -423,9 +429,9 @@ export const Products: CollectionConfig = {
           'Indicates that this product has been removed for a policy violation'
       },
       access: {
-        create: ({ req: { user } }) => isSuperAdmin(user),
-        update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        create: ({ req: { user } }) => isStaff(user),
+        update: ({ req: { user } }) => isStaff(user),
+        read: ({ req: { user } }) => isStaff(user)
       }
     },
     {
@@ -435,7 +441,7 @@ export const Products: CollectionConfig = {
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        read: ({ req: { user } }) => isStaff(user)
       },
       admin: {
         description: 'Set when user flagged listing as violating standards.'
@@ -447,9 +453,9 @@ export const Products: CollectionConfig = {
       label: 'Approved At',
       type: 'date',
       access: {
-        create: ({ req: { user } }) => isSuperAdmin(user),
-        update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        create: ({ req: { user } }) => isStaff(user),
+        update: ({ req: { user } }) => isStaff(user),
+        read: ({ req: { user } }) => isStaff(user)
       },
       admin: {
         description:
@@ -461,9 +467,9 @@ export const Products: CollectionConfig = {
       label: 'Removed At',
       type: 'date',
       access: {
-        create: ({ req: { user } }) => isSuperAdmin(user),
-        update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        create: ({ req: { user } }) => isStaff(user),
+        update: ({ req: { user } }) => isStaff(user),
+        read: ({ req: { user } }) => isStaff(user)
       },
       admin: {
         description:
@@ -477,7 +483,7 @@ export const Products: CollectionConfig = {
       access: {
         create: ({ req: { user } }) => isSuperAdmin(user),
         update: ({ req: { user } }) => isSuperAdmin(user),
-        read: ({ req: { user } }) => isSuperAdmin(user)
+        read: ({ req: { user } }) => isStaff(user)
       },
       admin: {
         description:
@@ -528,6 +534,136 @@ export const Products: CollectionConfig = {
           ]
         }
       }
+    },
+    {
+      name: 'latestRemovalSummary',
+      label: 'Latest Removal Summary',
+      type: 'group',
+      admin: {
+        // System cache written by hooks; keep it out of the admin UI by default.
+        condition: (_data, _siblingData, { user }) => isSuperAdmin(user)
+      },
+      access: {
+        // No one should write this directly (hook is sole writer)
+        create: () => false,
+        update: () => false,
+        // Staff can read it (support + super-admin) so Removed tab can use it
+        read: ({ req: { user } }) => isStaff(user)
+      },
+      validate: (value): true | string => {
+        if (typeof value !== 'object' || value === null) {
+          return true;
+        }
+
+        const group = value as {
+          intentId?: unknown;
+          reason: unknown;
+          removedAt: unknown;
+          source: unknown;
+        };
+
+        // Define “summary exists” using only anchor fields.
+        const hasSummary = Boolean(group.intentId) || Boolean(group.removedAt);
+
+        if (hasSummary) {
+          const hasFields: boolean =
+            Boolean(group.reason) &&
+            Boolean(group.removedAt) &&
+            Boolean(group.source);
+
+          return hasFields ? true : 'All fields required.';
+        }
+
+        return true;
+      },
+      fields: [
+        {
+          name: 'actionId',
+          label: 'Action ID',
+          type: 'text',
+          admin: {
+            description:
+              'Optional pointer to the ModerationAction row; may be empty'
+          }
+        },
+        {
+          name: 'intentId',
+          label: 'Intent ID',
+          type: 'text'
+        },
+        {
+          name: 'removedAt',
+          label: 'Removed At',
+          type: 'date'
+        },
+        {
+          name: 'reason',
+          label: 'Reason',
+          type: 'select',
+          options: moderationFlagReasons.map((value) => ({
+            label: flagReasonLabels[value],
+            value
+          })),
+          admin: {
+            description:
+              'Removal reason snapshot (system-written). Required when a removal summary exists.'
+          }
+        },
+        {
+          name: 'note',
+          label: 'Note',
+          type: 'textarea',
+          admin: {
+            description: 'Internal note snapshot (system-written).'
+          }
+        },
+        {
+          name: 'actorId',
+          label: 'Actor ID',
+          type: 'text',
+          admin: {
+            description:
+              'ID of the authenticated staff user who performed this action. Stored to avoid joins.'
+          }
+        },
+        {
+          name: 'actorRoleSnapshot',
+          label: 'Actor Role Snapshot',
+          type: 'select',
+          hasMany: true,
+          options: roleTypes.map((value) => ({
+            label: roleLabels[value] ?? value,
+            value
+          })),
+          admin: {
+            description:
+              'Snapshot of the actor’s roles at the moment of action. Set automatically.'
+          }
+        },
+        {
+          name: 'actorEmailSnapshot',
+          label: 'Actor Email Snapshot',
+          type: 'email',
+          admin: {
+            description: 'Historical email snapshot at time of action.'
+          }
+        },
+        {
+          name: 'actorUsernameSnapshot',
+          label: 'Actor Username Snapshot',
+          type: 'text',
+          admin: {
+            description: 'Historical username snapshot at time of action.'
+          }
+        },
+        {
+          name: 'source',
+          label: 'Source',
+          type: 'select',
+          options: [...moderationSource]
+          // Intentionally no defaultValue: the hook/backfill should set the true source explicitly.
+        }
+      ]
     }
   ]
 };

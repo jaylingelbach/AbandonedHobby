@@ -4,20 +4,6 @@ import { z } from 'zod';
 import { OnboardingStepEnum, UIState, UIStateSchema } from '@/hooks/types';
 import { computeOnboarding } from '@/modules/onboarding/server/utils';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import { isSuperAdmin } from '@/lib/access';
-import { ensureSuperAdmin } from '@/lib/server/moderation/utils';
-
-/**
- * Checks whether the provided value is an array containing only strings.
- *
- * @param value - The value to test
- * @returns `true` if `value` is a readonly array whose every element is a `string`, `false` otherwise
- */
-function isStringArray(value: unknown): value is readonly string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === 'string')
-  );
-}
 
 export const usersRouter = createTRPCRouter({
   getOne: protectedProcedure

@@ -1,4 +1,4 @@
-import { ActionType } from '@/app/(app)/staff/moderation/constants';
+import { ActionType } from '@/constants';
 import { Product } from '@/payload-types';
 
 export type ProductModerationCtx = {

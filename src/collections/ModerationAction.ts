@@ -3,7 +3,7 @@ import {
   actionTypes,
   roleLabels,
   roleTypes
-} from '@/app/(app)/staff/moderation/constants';
+} from '@/constants';
 import {
   moderationFlagReasons,
   moderationSource,

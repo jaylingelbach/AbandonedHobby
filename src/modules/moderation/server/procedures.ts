@@ -6,22 +6,15 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 // ─── tRPC Setup ──────────────────────────────────────────────────────────────
-import {
-  baseProcedure,
-  createTRPCRouter,
-  protectedProcedure
-} from '@/trpc/init';
+import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { formatDate } from '@/lib/utils';
 import { isNotFound } from '@/lib/server/utils';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
-import type { ModerationAction, Product } from '@/payload-types';
-import {
-  ModerationInboxItem,
-  ModerationRemovedItemDTO
-} from '@/app/(app)/staff/moderation/types';
+import type { Product } from '@/payload-types';
+import { ModerationRemovedItemDTO } from '@/app/(app)/staff/moderation/types';
 
 // ─── Project Constants ───────────────────────────────────────────────────────
 import {
@@ -45,7 +38,7 @@ import { isSuperAdmin } from '@/lib/access';
 const defaultReason = moderationFlagReasons[0];
 
 export const moderationRouter = createTRPCRouter({
-  flagListing: baseProcedure
+  flagListing: protectedProcedure
     .input(
       z.object({
         reason: z.enum(moderationFlagReasons),
@@ -54,16 +47,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
-
-      if (!user) {
-        throw new TRPCError({
-          code: 'UNAUTHORIZED',
-          message: 'Authentication failed.'
-        });
-      }
+      const user = ctx.session.user;
 
       let product: Product;
 
@@ -88,8 +72,8 @@ export const moderationRouter = createTRPCRouter({
         await ctx.db.update({
           collection: 'products',
           id: input.productId,
-          user,
           overrideAccess: true,
+          user,
           data: {
             isFlagged: true,
             flagReason: input.reason,
@@ -107,7 +91,8 @@ export const moderationRouter = createTRPCRouter({
         }
         if (process.env.NODE_ENV !== 'production') {
           console.error(
-            `[Moderation] there was a problem flagging productId: ${input.productId}`
+            `[Moderation] there was a problem flagging productId: ${input.productId}`,
+            error
           );
         }
         throw new TRPCError({
@@ -129,9 +114,7 @@ export const moderationRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -224,9 +207,7 @@ export const moderationRouter = createTRPCRouter({
         .optional()
     )
     .query(async ({ ctx, input }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
       ensureStaff(user);
       const canReinstate = isSuperAdmin(user);
 
@@ -273,10 +254,8 @@ export const moderationRouter = createTRPCRouter({
           };
         });
 
-        const productIds = productRows.map((row) => row.product.id);
-
         // Always return pagination meta (even if empty)
-        if (productIds.length === 0) {
+        if (productRows.length === 0) {
           return {
             items: [],
             ok: true,
@@ -290,40 +269,17 @@ export const moderationRouter = createTRPCRouter({
           };
         }
 
-        const actionResult = await ctx.db.find({
-          collection: 'moderation-actions',
-          depth: 0,
-          where: {
-            and: [
-              { product: { in: productIds } },
-              { actionType: { equals: 'removed' } }
-            ]
-          },
-          sort: '-createdAt',
-          pagination: false
-        });
-
-        const latestRemovedByProductId = new Map<string, ModerationAction>();
-        for (const action of actionResult.docs) {
-          const productId =
-            typeof action.product === 'string'
-              ? action.product
-              : action.product?.id;
-          if (!productId || latestRemovedByProductId.has(productId)) continue;
-          latestRemovedByProductId.set(productId, action);
-        }
-
         const removedItems: ModerationRemovedItemDTO[] = productRows.map(
           (row) => {
             const product = row.product;
-            const latestAction = latestRemovedByProductId.get(product.id);
+            const latestAction = product.latestRemovalSummary;
 
             const removedAtIso =
-              toIsoString(latestAction?.createdAt) ??
+              toIsoString(latestAction?.removedAt) ??
               toIsoString(product.removedAt) ??
               '';
 
-            const enforcementReason = latestAction?.reason;
+            const enforcementReason = product.latestRemovalSummary?.reason;
 
             const enforcementReasonLabel =
               enforcementReason && enforcementReason in flagReasonLabels
@@ -354,10 +310,10 @@ export const moderationRouter = createTRPCRouter({
               // enforcement context (action-based)
               removedAt: removedAtIso,
               removedAtLabel: formatDate(removedAtIso),
-              flagReasonLabel: enforcementReasonLabel,
+              enforcementReasonLabel: enforcementReasonLabel,
               note,
 
-              actionId: latestAction?.id,
+              actionId: latestAction?.actionId ?? undefined,
               intentId: latestAction?.intentId ?? undefined
             };
           }
@@ -400,9 +356,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -493,9 +447,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureStaff(user);
 
@@ -584,9 +536,7 @@ export const moderationRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const headers = await getHeaders();
-      const session = await ctx.db.auth({ headers });
-      const user = session?.user;
+      const user = ctx.session.user;
 
       ensureSuperAdmin(user);
 

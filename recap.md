@@ -6741,4 +6741,54 @@ Removed obsolete reinstate prop from removed-item UI; reinstate disabled until v
 
 - src/collections/ModerationAction.ts
   - Adds compound index on ['actionType','product','createdAt'] for filtered/ordered moderation queries.
-    g
+
+# Moderation: Remove tab, single query 01/28/26
+
+## Walkthrough
+
+- Adds a denormalized latestRemovalSummary on Product records, renames flagReasonLabel → enforcementReasonLabel across types, UI, and procedures, broadens staff-level access checks, and refactors the moderation-intent hook to create/find ModerationAction rows and maintain/clear the removal summary.
+
+## New Features
+
+- Products include a system-written removal summary (timestamp, reason, notes, actor info, action/intent IDs, source).
+
+## Changes
+
+- Removed-item listing label updated to "Enforcement".
+- Listing responses now prefer the latest removal summary for action, note and reason data.
+
+## Access
+
+- Moderation/flagging reads and writes broadened to staff roles; listing endpoints require authenticated staff access.
+
+## File changes
+
+### Product collection & payload types
+
+- src/collections/Products.ts, src/payload-types.ts
+  - Add latestRemovalSummary group/field (actionId, intentId, removedAt, reason, note, actor snapshots, source) with validation and staff read access; add latestRemovalSummary to Product types.
+
+### Moderation action hook
+
+- src/lib/server/products/hooks/create-moderation-action-from-intent.ts
+  - Major refactor: idempotency/guards, internal write helpers (runInternalProductWrite, clearModerationIntent, writeLatestRemovalSummary, clearLatestRemovalSummary, findModerationActionByIntentId), best-effort intentId extraction, stricter auth/role checks, and logic to create/find ModerationAction and maintain latestRemovalSummary.
+
+### Moderation procedures / router
+
+- src/modules/moderation/server/procedures.ts
+  - flagListing converted from baseProcedure → protectedProcedure; derive action data from product.latestRemovalSummary; rename returned DTO field flagReasonLabel → enforcementReasonLabel; adapt actionId/note sources and imports/exports.
+
+### Constants & imports
+
+- src/constants.ts, src/app/(app)/staff/moderation/constants.ts, src/collections/ModerationAction.ts, src/collections/utils/utils.ts
+  - Move role/action enums and labels into centralized src/constants.ts; remove duplicate exports from module constants; update import paths accordingly.
+
+### UI memoization
+
+- src/app/(app)/staff/moderation/page.tsx
+  - Replace eager PageMeta construction with useMemo for inboxMeta and removedMeta.
+
+### Misc cleanup
+
+- src/modules/users/server/procedures.ts
+  - Remove unused imports/helpers (e.g., isSuperAdmin, ensureSuperAdmin, isStringArray).

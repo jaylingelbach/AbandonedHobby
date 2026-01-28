@@ -71,7 +71,7 @@ export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
     thumbnailUrl,
     reportedAtLabel,
     removedAtLabel,
-    flagReasonLabel,
+    enforcementReasonLabel,
     flagReasonOtherText,
     note
   } = item;
@@ -155,7 +155,7 @@ export default function RemovedRow({ item, canReinstate }: RemovedRowProps) {
 
             <div className="mt-2 inline-flex items-center gap-2 text-xs">
               <span className="rounded-full border border-black bg-red-200 px-2 py-0.5 font-semibold uppercase tracking-wide">
-                Enforcement: {flagReasonLabel}
+                Enforcement: {enforcementReasonLabel}
               </span>
             </div>
           </div>

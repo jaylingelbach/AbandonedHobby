@@ -127,29 +127,31 @@ export default function ModerationInboxPage() {
   const removedItems = removedData?.items ?? [];
   const canReinstate = removedData?.canReinstate === true;
 
-  const inboxMeta: PageMeta | null =
-    inboxData && inboxData.page !== undefined
-      ? {
-          page: inboxData.page,
-          limit: inboxData.limit,
-          totalDocs: inboxData.totalDocs,
-          totalPages: inboxData.totalPages,
-          hasNextPage: inboxData.hasNextPage,
-          hasPrevPage: inboxData.hasPrevPage
-        }
-      : null;
+  const inboxMeta: PageMeta | null = useMemo(() => {
+    if (!inboxData || inboxData.page === undefined) return null;
 
-  const removedMeta: PageMeta | null =
-    removedData && removedData.page !== undefined
-      ? {
-          page: removedData.page,
-          limit: removedData.limit,
-          totalDocs: removedData.totalDocs,
-          totalPages: removedData.totalPages,
-          hasNextPage: removedData.hasNextPage,
-          hasPrevPage: removedData.hasPrevPage
-        }
-      : null;
+    return {
+      page: inboxData.page,
+      limit: inboxData.limit,
+      totalDocs: inboxData.totalDocs,
+      totalPages: inboxData.totalPages,
+      hasNextPage: inboxData.hasNextPage,
+      hasPrevPage: inboxData.hasPrevPage
+    };
+  }, [inboxData]);
+
+  const removedMeta: PageMeta | null = useMemo(() => {
+    if (!removedData || removedData.page === undefined) return null;
+
+    return {
+      page: removedData.page,
+      limit: removedData.limit,
+      totalDocs: removedData.totalDocs,
+      totalPages: removedData.totalPages,
+      hasNextPage: removedData.hasNextPage,
+      hasPrevPage: removedData.hasPrevPage
+    };
+  }, [removedData]);
 
   const inboxErrorStatus = getErrorStatus(inboxError);
   const removedErrorStatus = getErrorStatus(removedError);
