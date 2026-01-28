@@ -100,11 +100,9 @@ export const moderationRouter = createTRPCRouter({
         }
         if (process.env.NODE_ENV !== 'production') {
           console.error(
-            `[Moderation] there was a problem flagging productId: ${input.productId}`
+            `[Moderation] there was a problem flagging productId: ${input.productId}`,
+            error
           );
-        }
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[Moderation] flagListing failed', error);
         }
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
