@@ -308,7 +308,7 @@ export const moderationRouter = createTRPCRouter({
             const note =
               typeof latestAction?.note === 'string' &&
               latestAction.note.trim().length > 0
-                ? (product.latestRemovalSummary?.note ?? undefined)
+                ? latestAction.note
                 : undefined;
 
             return {
