@@ -299,8 +299,14 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
   const nextIntentId = getIntentId(nextIntentRaw);
 
   if (prevIntentId && nextIntentId && prevIntentId === nextIntentId) {
-    await clearModerationIntent({ req, productId: doc.id });
-    return doc;
+    const existing = await findModerationActionByIntentId({
+      req,
+      intentId: nextIntentId
+    });
+    if (existing) {
+      await clearModerationIntent({ req, productId: doc.id });
+      return doc;
+    }
   }
 
   const parsed = moderationIntentSchema.safeParse(nextIntentRaw);
