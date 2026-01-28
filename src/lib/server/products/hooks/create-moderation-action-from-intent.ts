@@ -51,12 +51,26 @@ const moderationIntentSchema = z.discriminatedUnion('actionType', [
   })
 ]);
 
+/**
+ * Determines whether a value is an array of strings.
+ *
+ * @param value - The value to test
+ * @returns `true` if `value` is an array whose elements are all strings, `false` otherwise
+ */
 function isUserRoleArray(value: unknown): value is readonly string[] {
   return (
     Array.isArray(value) && value.every((item) => typeof item === 'string')
   );
 }
 
+/**
+ * Asserts that the provided user is authenticated and has a staff or super-admin role.
+ *
+ * @param user - The user to verify.
+ * @throws Error 'Not authenticated' if `user` is null or undefined.
+ * @throws Error 'User roles are not available' if `user.roles` is not a string array.
+ * @throws Error 'Forbidden' if the user is neither a super-admin nor staff.
+ */
 function assertStaffUser(user: User | null): asserts user is User {
   if (!user) throw new Error('Not authenticated');
   if (!isUserRoleArray(user.roles))
@@ -65,8 +79,11 @@ function assertStaffUser(user: User | null): asserts user is User {
 }
 
 /**
- * Extract a best-effort intentId from an unknown moderationIntent object.
- * We intentionally do NOT fully validate here — we just need a stable key to compare prev vs next.
+ * Extract a best-effort intent identifier from a moderation-intent-like value.
+ *
+ * Performs a minimal, non-exhaustive check and does not validate the full intent shape.
+ *
+ * @returns The `intentId` string if present and a string, `null` otherwise.
  */
 function getIntentId(value: unknown): string | null {
   if (typeof value !== 'object' || value === null) return null;
@@ -76,8 +93,10 @@ function getIntentId(value: unknown): string | null {
 }
 
 /**
- * Run an internal Product write using the same request, but with recursion/side-effect guards.
- * Restores previous req.context afterwards.
+ * Execute a provided write callback with the request context modified to disable moderation intent hooks and side effects, and restore the original context afterwards.
+ *
+ * @param params.req - The request whose context will be temporarily overridden.
+ * @param params.run - Callback to execute while the guarded context is active; if it throws, the original context is still restored.
  */
 async function runInternalProductWrite(params: {
   req: PayloadRequest;
@@ -102,6 +121,11 @@ async function runInternalProductWrite(params: {
   }
 }
 
+/**
+ * Clears the moderation intent marker for a product by setting its `moderationIntent` to `null`.
+ *
+ * @param productId - The ID of the product whose moderation intent will be cleared
+ */
 async function clearModerationIntent(params: {
   req: PayloadRequest;
   productId: string;
@@ -122,6 +146,11 @@ async function clearModerationIntent(params: {
   });
 }
 
+/**
+ * Remove the latest removal summary from the specified product.
+ *
+ * @param params.productId - The ID of the product whose latest removal summary will be cleared
+ */
 async function clearLatestRemovalSummary(params: {
   req: PayloadRequest;
   productId: string;
@@ -145,6 +174,21 @@ async function clearLatestRemovalSummary(params: {
   });
 }
 
+/**
+ * Write the provided removal summary to the product's `latestRemovalSummary` field.
+ *
+ * @param params.productId - ID of the product to update.
+ * @param params.summary - Removal summary details to store on the product.
+ *   - `actionId` (optional): ID of the created moderation action, if available.
+ *   - `intentId`: Moderation intent identifier (UUID).
+ *   - `removedAt`: ISO 8601 datetime string when the removal occurred.
+ *   - `reason`: Removal reason (one of `moderationFlagReasons`).
+ *   - `note`: Moderator-provided note explaining the removal.
+ *   - `source`: Origin of the moderation action (one of `moderationSource`).
+ *   - `actorId`: ID of the actor who performed the action.
+ *   - `actorRoleSnapshot`: Snapshot of the actor's role(s) at the time of action.
+ *   - `actorEmailSnapshot` / `actorUsernameSnapshot` (optional): Actor contact/username snapshots or `null`.
+ */
 async function writeLatestRemovalSummary(params: {
   req: PayloadRequest;
   productId: string;
@@ -190,6 +234,14 @@ async function writeLatestRemovalSummary(params: {
   });
 }
 
+/**
+ * Retrieve the first moderation action that matches a given intent ID.
+ *
+ * Queries the `moderation-actions` collection for a document whose `intentId` equals the provided value and returns the first match.
+ *
+ * @param intentId - The intent identifier to search for
+ * @returns The matching `ModerationAction` if found, `null` otherwise
+ */
 async function findModerationActionByIntentId(params: {
   req: PayloadRequest;
   intentId: string;
