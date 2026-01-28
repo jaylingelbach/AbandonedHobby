@@ -269,10 +269,8 @@ export const moderationRouter = createTRPCRouter({
           };
         });
 
-        const productIds = productRows.map((row) => row.product.id);
-
         // Always return pagination meta (even if empty)
-        if (productIds.length === 0) {
+        if (productRows.length === 0) {
           return {
             items: [],
             ok: true,
