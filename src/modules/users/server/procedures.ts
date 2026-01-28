@@ -4,8 +4,6 @@ import { z } from 'zod';
 import { OnboardingStepEnum, UIState, UIStateSchema } from '@/hooks/types';
 import { computeOnboarding } from '@/modules/onboarding/server/utils';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
-import { isSuperAdmin } from '@/lib/access';
-import { ensureSuperAdmin } from '@/lib/server/moderation/utils';
 
 /**
  * Checks whether the provided value is an array containing only strings.
