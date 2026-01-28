@@ -281,13 +281,13 @@ async function findModerationActionByIntentId(params: {
 export const createModerationActionFromIntent: CollectionAfterChangeHook<
   Product
 > = async ({ doc, req, previousDoc }) => {
-  const user = req.user as User | null;
-  if (!user) throw new Error('Not authenticated');
-
   const context = (req.context ?? {}) as HookContext;
   if (context.skipModerationIntentHook || context.skipSideEffects) {
     return doc;
   }
+
+  const user = req.user as User | null;
+  if (!user) throw new Error('Not authenticated');
 
   const nextIntentRaw: unknown = (
     doc as unknown as { moderationIntent?: unknown }
