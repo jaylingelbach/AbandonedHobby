@@ -290,20 +290,6 @@ export const moderationRouter = createTRPCRouter({
           };
         }
 
-        // Remove moderation actions call. moving to single call.
-        const actionResult = await ctx.db.find({
-          collection: 'moderation-actions',
-          depth: 0,
-          where: {
-            and: [
-              { product: { in: productIds } },
-              { actionType: { equals: 'removed' } }
-            ]
-          },
-          sort: '-createdAt',
-          pagination: false
-        });
-
         const removedItems: ModerationRemovedItemDTO[] = productRows.map(
           (row) => {
             const product = row.product;
