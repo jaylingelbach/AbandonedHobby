@@ -6742,7 +6742,7 @@ Removed obsolete reinstate prop from removed-item UI; reinstate disabled until v
 - src/collections/ModerationAction.ts
   - Adds compound index on ['actionType','product','createdAt'] for filtered/ordered moderation queries.
 
-# Moderation: Remove tab, single query
+# Moderation: Remove tab, single query 01/28/26
 
 ## Walkthrough
 
