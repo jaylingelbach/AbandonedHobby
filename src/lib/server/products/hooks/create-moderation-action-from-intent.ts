@@ -415,7 +415,16 @@ export const createModerationActionFromIntent: CollectionAfterChangeHook<
       intentId: intent.intentId
     });
 
-    createdActionId = existing?.id;
+    if (!existing) {
+      await clearModerationIntent({ req, productId: doc.id });
+      const message = error instanceof Error ? error.message : String(error);
+      throw new Error(
+        `[Moderation Actions] Unique violation without existing intentId: ${message}`,
+        { cause: error }
+      );
+    }
+
+    createdActionId = existing.id;
 
     if (process.env.NODE_ENV !== 'production') {
       console.warn(
