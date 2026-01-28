@@ -458,6 +458,50 @@ export interface Product {
     createdAt: string;
     intentId: string;
   } | null;
+  latestRemovalSummary?: {
+    /**
+     * Optional pointer to the ModerationAction row; may be empty
+     */
+    actionId?: string | null;
+    intentId?: string | null;
+    removedAt?: string | null;
+    /**
+     * Removal reason snapshot (system-written). Required when a removal summary exists.
+     */
+    reason?:
+      | (
+          | 'spam'
+          | 'scam_or_fraud'
+          | 'inappropriate_or_nsfw'
+          | 'prohibited_item'
+          | 'misleading_or_false'
+          | 'copyright_or_ip'
+          | 'duplicate_listing'
+          | 'other'
+        )
+      | null;
+    /**
+     * Internal note snapshot (system-written).
+     */
+    note?: string | null;
+    /**
+     * ID of the authenticated staff user who performed this action. Stored to avoid joins.
+     */
+    actorId?: string | null;
+    /**
+     * Snapshot of the actor’s roles at the moment of action. Set automatically.
+     */
+    actorRoleSnapshot?: ('super-admin' | 'support' | 'user')[] | null;
+    /**
+     * Historical email snapshot at time of action.
+     */
+    actorEmailSnapshot?: string | null;
+    /**
+     * Historical username snapshot at time of action.
+     */
+    actorUsernameSnapshot?: string | null;
+    source?: ('staff_trpc' | 'admin_ui' | 'system') | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1278,6 +1322,20 @@ export interface ProductsSelect<T extends boolean = true> {
   removedAt?: T;
   reinstatedAt?: T;
   moderationIntent?: T;
+  latestRemovalSummary?:
+    | T
+    | {
+        actionId?: T;
+        intentId?: T;
+        removedAt?: T;
+        reason?: T;
+        note?: T;
+        actorId?: T;
+        actorRoleSnapshot?: T;
+        actorEmailSnapshot?: T;
+        actorUsernameSnapshot?: T;
+        source?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

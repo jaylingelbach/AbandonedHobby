@@ -20,10 +20,10 @@ export type ModerationRemovedItemDTO = {
   thumbnailUrl?: string | null;
   removedAt: string; // ISO string for sorting
   removedAtLabel: string;
-  flagReasonLabel: string; // human label for the removal reason
+  enforcementReasonLabel: string; // human label for the removal reason
   flagReasonOtherText?: string;
   reportedAtLabel?: string;
-  note?: string; // internal moderation note (what you required)
+  note?: string; // internal moderation note (from summary)
   actionId?: string; // moderation-actions doc id
   intentId?: string; // dedupe id that created the ModerationAction
 };

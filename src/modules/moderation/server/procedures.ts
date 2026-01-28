@@ -17,11 +17,8 @@ import { formatDate } from '@/lib/utils';
 import { isNotFound } from '@/lib/server/utils';
 
 // ─── Project Types ───────────────────────────────────────────────────────────
-import type { ModerationAction, Product } from '@/payload-types';
-import {
-  ModerationInboxItem,
-  ModerationRemovedItemDTO
-} from '@/app/(app)/staff/moderation/types';
+import type { Product } from '@/payload-types';
+import { ModerationRemovedItemDTO } from '@/app/(app)/staff/moderation/types';
 
 // ─── Project Constants ───────────────────────────────────────────────────────
 import {
@@ -45,7 +42,7 @@ import { isSuperAdmin } from '@/lib/access';
 const defaultReason = moderationFlagReasons[0];
 
 export const moderationRouter = createTRPCRouter({
-  flagListing: baseProcedure
+  flagListing: protectedProcedure
     .input(
       z.object({
         reason: z.enum(moderationFlagReasons),
@@ -88,8 +85,8 @@ export const moderationRouter = createTRPCRouter({
         await ctx.db.update({
           collection: 'products',
           id: input.productId,
-          user,
           overrideAccess: true,
+          user,
           data: {
             isFlagged: true,
             flagReason: input.reason,
@@ -109,6 +106,9 @@ export const moderationRouter = createTRPCRouter({
           console.error(
             `[Moderation] there was a problem flagging productId: ${input.productId}`
           );
+        }
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[Moderation] flagListing failed', error);
         }
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
@@ -290,6 +290,7 @@ export const moderationRouter = createTRPCRouter({
           };
         }
 
+        // Remove moderation actions call. moving to single call.
         const actionResult = await ctx.db.find({
           collection: 'moderation-actions',
           depth: 0,
@@ -303,27 +304,17 @@ export const moderationRouter = createTRPCRouter({
           pagination: false
         });
 
-        const latestRemovedByProductId = new Map<string, ModerationAction>();
-        for (const action of actionResult.docs) {
-          const productId =
-            typeof action.product === 'string'
-              ? action.product
-              : action.product?.id;
-          if (!productId || latestRemovedByProductId.has(productId)) continue;
-          latestRemovedByProductId.set(productId, action);
-        }
-
         const removedItems: ModerationRemovedItemDTO[] = productRows.map(
           (row) => {
             const product = row.product;
-            const latestAction = latestRemovedByProductId.get(product.id);
+            const latestAction = product.latestRemovalSummary;
 
             const removedAtIso =
-              toIsoString(latestAction?.createdAt) ??
+              toIsoString(latestAction?.removedAt) ??
               toIsoString(product.removedAt) ??
               '';
 
-            const enforcementReason = latestAction?.reason;
+            const enforcementReason = product.latestRemovalSummary?.reason;
 
             const enforcementReasonLabel =
               enforcementReason && enforcementReason in flagReasonLabels
@@ -335,7 +326,7 @@ export const moderationRouter = createTRPCRouter({
             const note =
               typeof latestAction?.note === 'string' &&
               latestAction.note.trim().length > 0
-                ? latestAction.note
+                ? (product.latestRemovalSummary?.note ?? undefined)
                 : undefined;
 
             return {
@@ -354,10 +345,10 @@ export const moderationRouter = createTRPCRouter({
               // enforcement context (action-based)
               removedAt: removedAtIso,
               removedAtLabel: formatDate(removedAtIso),
-              flagReasonLabel: enforcementReasonLabel,
+              enforcementReasonLabel: enforcementReasonLabel,
               note,
 
-              actionId: latestAction?.id,
+              actionId: latestAction?.actionId ?? undefined,
               intentId: latestAction?.intentId ?? undefined
             };
           }
