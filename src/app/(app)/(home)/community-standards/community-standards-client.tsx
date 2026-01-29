@@ -681,6 +681,7 @@ export default function CommunityStandardsClient() {
             <Card
               key={section.id}
               id={section.id}
+              tabIndex={-1}
               className={cn(
                 'scroll-mt-24 rounded-3xl border-4 border-black bg-white shadow-[10px_10px_0_#000]'
               )}
