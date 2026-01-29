@@ -593,9 +593,16 @@ export default function CommunityStandardsClient() {
     const scrollToHash = () => {
       const hash = window.location.hash.replace('#', '').trim();
       if (!hash) return;
-      document
-        .getElementById(hash)
-        ?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      const target = document.getElementById(hash) as HTMLElement | null;
+      if (!target) return;
+      const prefersReducedMotion = window.matchMedia(
+        '(prefers-reduced-motion: reduce)'
+      ).matches;
+      target.scrollIntoView({
+        behavior: prefersReducedMotion ? 'auto' : 'smooth',
+        block: 'start'
+      });
+      target.focus({ preventScroll: true });
     };
 
     scrollToHash();
