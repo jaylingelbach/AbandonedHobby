@@ -611,7 +611,7 @@ export default function CommunityStandardsClient() {
   }, []);
 
   return (
-    <main className="min-h-[100svh] bg-[#F4F4F0]">
+    <main className="min-h-svh bg-[#F4F4F0]">
       <section className="border-b-4 border-black">
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-12">
           <div className="nb-card rounded-3xl border-4 border-black bg-white p-6 shadow-[12px_12px_0_#000]">
@@ -665,7 +665,7 @@ export default function CommunityStandardsClient() {
                 <a
                   key={link.id}
                   href={`#${link.id}`}
-                  className="rounded-xl border-4 border-black bg-white px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[4px_4px_0_#000]"
+                  className="rounded-xl border-4 border-black bg-white px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-[4px_4px_0_#000]"
                 >
                   {link.label}
                 </a>
@@ -720,7 +720,7 @@ export default function CommunityStandardsClient() {
               <div className="mt-3">
                 <Link
                   href="/report"
-                  className="inline-flex rounded-xl border-4 border-black bg-yellow-200 px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[4px_4px_0_#000]"
+                  className="inline-flex rounded-xl border-4 border-black bg-yellow-200 px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-[4px_4px_0_#000]"
                 >
                   Go to Report →
                 </Link>
@@ -740,7 +740,7 @@ export default function CommunityStandardsClient() {
               <div className="mt-3">
                 <Link
                   href="/support"
-                  className="inline-flex rounded-xl border-4 border-black bg-sky-200 px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-[1px] hover:translate-y-[1px] hover:shadow-[4px_4px_0_#000]"
+                  className="inline-flex rounded-xl border-4 border-black bg-sky-200 px-3 py-2 text-xs font-black shadow-[6px_6px_0_#000] transition-transform hover:translate-x-px hover:translate-y-px hover:shadow-[4px_4px_0_#000]"
                 >
                   Go to Support →
                 </Link>

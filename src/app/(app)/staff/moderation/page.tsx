@@ -255,7 +255,7 @@ export default function ModerationInboxPage() {
               }}
               disabled={disabled === true}
             >
-              <SelectTrigger className="h-9 w-[110px] rounded-none border-2 border-black bg-white text-xs font-semibold">
+              <SelectTrigger className="h-9 w-27.5 rounded-none border-2 border-black bg-white text-xs font-semibold">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

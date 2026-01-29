@@ -141,7 +141,7 @@ export function ReportListingDialog({
             </TooltipTrigger>
           </DialogTrigger>
 
-          <DialogContent className="sm:max-w-[425px]">
+          <DialogContent className="sm:max-w-106.25">
             <DialogHeader>
               <DialogTitle>Report Listing</DialogTitle>
               <DialogDescription>
