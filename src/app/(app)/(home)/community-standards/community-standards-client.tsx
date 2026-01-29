@@ -37,7 +37,8 @@ type Section = {
 };
 
 export default function CommunityStandardsClient() {
-  const lastUpdatedText = 'Month Day, Year'; // TODO
+  const lastUpdatedDate = '2026-01-29';
+  const lastUpdatedText = 'January 29, 2026';
 
   const jumpLinks: JumpLink[] = useMemo(
     () => [
@@ -632,9 +633,12 @@ export default function CommunityStandardsClient() {
             </p>
 
             <div className="mt-4 flex flex-wrap items-center gap-2">
-              <span className="rounded-md border-2 border-black bg-yellow-200 px-2 py-1 text-xs font-black">
+              <time
+                dateTime={lastUpdatedDate}
+                className="rounded-md border-2 border-black bg-yellow-200 px-2 py-1 text-xs font-black"
+              >
                 Last updated: {lastUpdatedText}
-              </span>
+              </time>
               <span className="rounded-md border-2 border-black bg-sky-200 px-2 py-1 text-xs font-black">
                 Linkable: /community-standards#section
               </span>
