@@ -276,7 +276,7 @@ export default function SupportClient() {
   }, [buyerFaqs, sellerFaqs]);
 
   return (
-    <main className="min-h-[100svh] bg-[#F4F4F0]">
+    <main className="min-h-svh bg-[#F4F4F0]">
       {/* Hero */}
       <section className="border-b-4 border-black">
         <div className="mx-auto max-w-6xl px-4 pb-10 pt-12">
@@ -317,7 +317,7 @@ export default function SupportClient() {
                   {searchable.map((s) => (
                     <li key={`${s.type}::${s.title}`}>
                       <Link href={s.href} className="group">
-                        <div className="flex items-center justify-between rounded-xl border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0_#000] transition-transform group-hover:translate-x-[1px] group-hover:translate-y-[1px] group-hover:shadow-[4px_4px_0_#000]">
+                        <div className="flex items-center justify-between rounded-xl border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0_#000] transition-transform group-hover:translate-x-px group-hover:translate-y-px group-hover:shadow-[4px_4px_0_#000]">
                           <div className="truncate">
                             <span className="mr-2 rounded-md border-2 border-black bg-yellow-200 px-1 text-xs font-bold">
                               {s.type}
@@ -345,7 +345,7 @@ export default function SupportClient() {
           {actions.map((a) => (
             <Link key={a.label} href={a.href} className="group">
               <Card
-                className={`rounded-3xl border-4 border-black ${a.color} transition-transform shadow-[10px_10px_0_#000] group-hover:translate-x-[2px] group-hover:translate-y-[2px] group-hover:shadow-[8px_8px_0_#000]`}
+                className={`rounded-3xl border-4 border-black ${a.color} transition-transform shadow-[10px_10px_0_#000] group-hover:translate-x-0.5px group-hover:translate-y-0.5px group-hover:shadow-[8px_8px_0_#000]`}
               >
                 <CardHeader className="flex flex-row items-center gap-3 pb-2">
                   <div className="rounded-2xl border-4 border-black bg-white p-2 shadow-[4px_4px_0_#000]">
