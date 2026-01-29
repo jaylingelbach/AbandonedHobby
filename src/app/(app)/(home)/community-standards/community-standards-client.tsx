@@ -36,6 +36,13 @@ type Section = {
   content: React.ReactNode;
 };
 
+/**
+ * Render the Community Standards page with jump links, detailed sections, and reporting/support CTAs.
+ *
+ * Renders a data-driven list of policy sections (baseline expectations, prohibited/restricted items, enforcement, appeals, etc.), a quick-jump toolbar, last-updated metadata, and cards linking to report and support flows. On mount the component scrolls to and focuses any anchor matching the URL hash, respecting the user's reduced-motion preference.
+ *
+ * @returns The JSX element for the Community Standards page.
+ */
 export default function CommunityStandardsClient() {
   const lastUpdatedDate = '2026-01-29';
   const lastUpdatedText = 'January 29, 2026';
