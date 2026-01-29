@@ -1,6 +1,3 @@
-// ─── Node / Built-ins ────────────────────────────────────────────────────────
-import { headers as getHeaders } from 'next/headers';
-
 // ─── External Libraries ──────────────────────────────────────────────────────
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
