@@ -44,8 +44,8 @@ type Section = {
  * @returns The JSX element for the Community Standards page.
  */
 export default function CommunityStandardsClient() {
-  const lastUpdatedDate = '2026-01-29';
-  const lastUpdatedText = 'January 29, 2026';
+  const lastUpdatedDate = '2026-03-17';
+  const lastUpdatedText = 'March 17, 2026';
 
   const jumpLinks: JumpLink[] = useMemo(
     () => [
@@ -653,9 +653,6 @@ export default function CommunityStandardsClient() {
               >
                 Last updated: {lastUpdatedText}
               </time>
-              <span className="rounded-md border-2 border-black bg-sky-200 px-2 py-1 text-xs font-black">
-                Linkable: /community-standards#section
-              </span>
             </div>
 
             <Separator className="my-6 bg-black" />

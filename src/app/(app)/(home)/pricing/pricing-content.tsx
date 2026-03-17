@@ -13,16 +13,10 @@ export interface Callout {
   title: string;
   body: string;
   icon: 'card' | 'wallet' | 'receipt';
-  bgClass: string; // tailwind bg- color class (kept lean & typed as string)
+  bgClass: string; // tailwind bg- color class.
 }
 
 export const faqItems: FaqItem[] = [
-  {
-    id: 'buyer-fees',
-    question: 'Do buyers pay any extra Abandoned Hobby fees?',
-    answer:
-      'No. Buyers only pay the item price, shipping, and applicable taxes. We do not add a separate buyer service fee.'
-  },
   {
     id: 'how-fees',
     question: 'How are fees handled on a sale?',
@@ -53,8 +47,7 @@ export const faqItems: FaqItem[] = [
   {
     id: 'platform-fee',
     question: "What is Abandoned Hobby's marketplace fee?",
-    answer:
-      'A small percentage of the order amount (tax excluded when applicable). It’s automatically deducted from the seller’s payout and shown in order details.'
+    answer: `${PLATFORM_FEE_PERCENTAGE}% of the order amount (tax and shipping excluded when applicable). It’s automatically deducted from the seller’s payout and shown in order details.`
   },
   {
     id: 'example',
@@ -104,11 +97,7 @@ export const faqItems: FaqItem[] = [
       <div>
         <p>
           Buyers get their money back; Stripe’s processing fees are generally
-          not returned by Stripe. Our marketplace fee is refunded proportionally
-          only when you choose to include it in the refund.
-        </p>
-        <p className="mt-2 text-sm opacity-90">
-          Partial refunds prorate fees accordingly.
+          not returned by Stripe.
         </p>
       </div>
     )
