@@ -345,7 +345,7 @@ export default function SupportClient() {
           {actions.map((a) => (
             <Link key={a.label} href={a.href} className="group">
               <Card
-                className={`rounded-3xl border-4 border-black ${a.color} transition-transform shadow-[10px_10px_0_#000] group-hover:translate-x-0.5px group-hover:translate-y-0.5px group-hover:shadow-[8px_8px_0_#000]`}
+                className={`rounded-3xl border-4 border-black ${a.color} transition-transform shadow-[10px_10px_0_#000] group-hover:translate-x-px group-hover:translate-y-px group-hover:shadow-[8px_8px_0_#000]`}
               >
                 <CardHeader className="flex flex-row items-center gap-3 pb-2">
                   <div className="rounded-2xl border-4 border-black bg-white p-2 shadow-[4px_4px_0_#000]">
