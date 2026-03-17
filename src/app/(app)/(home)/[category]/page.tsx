@@ -1,4 +1,3 @@
-
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
 import { notFound } from 'next/navigation';
 
@@ -22,13 +21,20 @@ const Page = async ({ params, searchParams }: Props) => {
   const filters = await loadProductFilters(searchParams);
 
   const queryClient = getQueryClient();
+
+  const input = {
+    ...filters,
+    category,
+    limit: DEFAULT_LIMIT
+  };
+
   void queryClient.prefetchInfiniteQuery(
-    trpc.products.getMany.infiniteQueryOptions({
-      ...filters,
-      category,
-      limit: DEFAULT_LIMIT
+    trpc.products.getMany.infiniteQueryOptions(input, {
+      getNextPageParam: (lastPage) =>
+        lastPage.docs.length > 0 ? lastPage.nextPage : undefined
     })
   );
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <ProductListView category={category} />

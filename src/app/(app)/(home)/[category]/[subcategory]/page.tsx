@@ -20,17 +20,19 @@ export default async function Page({ params, searchParams }: Props) {
 
   const queryClient = getQueryClient();
 
-  // Prefetch with BOTH slugs
+  const input = {
+    ...filters,
+    category,
+    subcategory,
+    limit: DEFAULT_LIMIT
+  };
+
   void queryClient.prefetchInfiniteQuery(
-    trpc.products.getMany.infiniteQueryOptions({
-      ...filters,
-      category,
-      subcategory,
-      limit: DEFAULT_LIMIT,
-      cursor: 1
+    trpc.products.getMany.infiniteQueryOptions(input, {
+      getNextPageParam: (lastPage) =>
+        lastPage.docs.length > 0 ? lastPage.nextPage : undefined
     })
   );
-
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <ProductListView category={category} subcategory={subcategory} />
