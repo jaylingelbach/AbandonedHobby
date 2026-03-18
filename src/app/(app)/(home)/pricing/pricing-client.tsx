@@ -99,15 +99,12 @@ function Tldr() {
         Quick TL;DR
       </h2>
       <ul className="mt-3 list-disc space-y-1 pl-6">
-        <li>Buyers don’t pay extra platform fees.</li>
+        <li>Buyers don’t pay platform fees.</li>
         <li>
           Sellers pay Stripe processing + a small Abandoned Hobby fee (both
           deducted from payout).
         </li>
-        <li>
-          Refunds: Stripe usually keeps processing fees; our fee can be refunded
-          if you choose.
-        </li>
+        <li>Refunds: Stripe usually keeps processing fees.</li>
         <li>Disputes are handled by the seller’s Stripe account.</li>
       </ul>
     </section>

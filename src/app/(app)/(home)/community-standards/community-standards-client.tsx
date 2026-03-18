@@ -36,6 +36,22 @@ type Section = {
   content: React.ReactNode;
 };
 
+const JUMP_LINKS: JumpLink[] = [
+  {
+    id: 'if-your-listing-was-removed',
+    label: 'If your listing was removed'
+  },
+  { id: 'prohibited-items', label: 'Prohibited items' },
+  { id: 'restricted-items', label: 'Restricted items' },
+  { id: 'accuracy-condition', label: 'Accuracy & condition' },
+  { id: 'fraud-off-platform', label: 'Fraud & off-platform' },
+  { id: 'harassment-hate', label: 'Harassment & hate' },
+  { id: 'intellectual-property', label: 'Intellectual property' },
+  { id: 'privacy-personal-info', label: 'Privacy & personal info' },
+  { id: 'enforcement', label: 'Enforcement' },
+  { id: 'appeals', label: 'Appeals' }
+];
+
 /**
  * Render the Community Standards page with jump links, detailed sections, and reporting/support CTAs.
  *
@@ -44,27 +60,10 @@ type Section = {
  * @returns The JSX element for the Community Standards page.
  */
 export default function CommunityStandardsClient() {
-  const lastUpdatedDate = '2026-01-29';
-  const lastUpdatedText = 'January 29, 2026';
+  const lastUpdatedDate = '2026-03-17';
+  const lastUpdatedText = 'March 17, 2026';
 
-  const jumpLinks: JumpLink[] = useMemo(
-    () => [
-      {
-        id: 'if-your-listing-was-removed',
-        label: 'If your listing was removed'
-      },
-      { id: 'prohibited-items', label: 'Prohibited items' },
-      { id: 'restricted-items', label: 'Restricted items' },
-      { id: 'accuracy-condition', label: 'Accuracy & condition' },
-      { id: 'fraud-off-platform', label: 'Fraud & off-platform' },
-      { id: 'harassment-hate', label: 'Harassment & hate' },
-      { id: 'intellectual-property', label: 'Intellectual property' },
-      { id: 'privacy-personal-info', label: 'Privacy & personal info' },
-      { id: 'enforcement', label: 'Enforcement' },
-      { id: 'appeals', label: 'Appeals' }
-    ],
-    []
-  );
+  const jumpLinks = JUMP_LINKS;
 
   const sections: Section[] = useMemo(
     () => [
@@ -653,9 +652,6 @@ export default function CommunityStandardsClient() {
               >
                 Last updated: {lastUpdatedText}
               </time>
-              <span className="rounded-md border-2 border-black bg-sky-200 px-2 py-1 text-xs font-black">
-                Linkable: /community-standards#section
-              </span>
             </div>
 
             <Separator className="my-6 bg-black" />

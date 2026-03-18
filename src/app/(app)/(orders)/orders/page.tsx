@@ -6,7 +6,6 @@ import LibraryView from '@/modules/library/ui/views/library-view';
 import { getQueryClient, trpc } from '@/trpc/server';
 import { caller } from '@/trpc/server';
 
-
 export const dynamic = 'force-dynamic';
 
 const Page = async () => {
@@ -18,9 +17,13 @@ const Page = async () => {
   }
   /* ─── Server-side prefetch ───────────────────────────────────────────── */
   const queryClient = getQueryClient();
+  const input = {
+    limit: DEFAULT_LIMIT
+  };
   void queryClient.prefetchInfiniteQuery(
-    trpc.library.getMany.infiniteQueryOptions({
-      limit: DEFAULT_LIMIT
+    trpc.library.getMany.infiniteQueryOptions(input, {
+      getNextPageParam: (lastPage) =>
+        lastPage.docs.length > 0 ? lastPage.nextPage : undefined
     })
   );
   return (
