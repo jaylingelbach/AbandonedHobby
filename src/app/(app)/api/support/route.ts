@@ -17,7 +17,8 @@ const schema = z.object({
   ]),
   reference: z.string().max(500).optional().default(''),
   email: z.string().email(),
-  description: z.string().min(10).max(5000)
+  description: z.string().min(10).max(5000),
+  website: z.string().min(1).max(500).optional()
 });
 
 const postmark = new ServerClient(process.env.POSTMARK_SERVER_TOKEN!);
@@ -30,6 +31,12 @@ function getEnv(...names: string[]) {
   throw new Error(`Missing env: ${names.join(' or ')}`);
 }
 
+/**
+ * Handle incoming POST support requests: validate the payload, short-circuit spam via a honeypot, send a Postmark templated email, and return a support case ID.
+ *
+ * @param req - HTTP request whose JSON body must match the expected support schema (fields include `role`, `topic`, `email`, `description`, optional `reference`, and optional honeypot `website`)
+ * @returns On success, `{ ok: true, caseId }` with HTTP 200; when the honeypot `website` is present, returns `{ ok: true, caseId: 'SPAM' }` with HTTP 200. On validation failure returns `{ ok: false, error }` with HTTP 400. If the configured template ID is not numeric returns `{ ok: false, error: 'Template ID must be numeric' }` with HTTP 500. On unexpected send errors returns `{ ok: false }` with HTTP 502.
+ */
 export async function POST(req: Request) {
   const body = await req.json();
   const parsed = schema.safeParse(body);
@@ -40,6 +47,11 @@ export async function POST(req: Request) {
     );
   }
   const data = parsed.data;
+
+  // Honeypot: bots fill hidden fields, humans don't
+  if (data.website) {
+    return NextResponse.json({ ok: true, caseId: 'SPAM' }, { status: 200 });
+  }
 
   try {
     getEnv('POSTMARK_SERVER_TOKEN');
