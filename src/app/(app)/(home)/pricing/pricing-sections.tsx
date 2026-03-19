@@ -108,7 +108,7 @@ export function Hero() {
             see; sellers see a clear breakdown on every order.
           </p>
         </div>
-        <div className="flex gap-3" aria-label="Page highlights">
+        <div className="flex gap-3" role="group" aria-label="Page highlights">
           <span className={nbBadge}>No buyer fee</span>
           <span className={`${nbBadge} bg-orange-300`}>Seller-friendly</span>
         </div>
