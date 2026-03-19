@@ -42,6 +42,11 @@ export async function POST(req: Request) {
   }
   const data = parsed.data;
 
+  // Honeypot: bots fill hidden fields, humans don't
+  if (data.website) {
+    return NextResponse.json({ ok: true, caseId: 'SPAM' }, { status: 200 });
+  }
+
   try {
     getEnv('POSTMARK_SERVER_TOKEN');
     const FROM = getEnv('POSTMARK_SUPPORT_FROM_EMAIL', 'POSTMARK_SUPPORT_FROM');

@@ -15,7 +15,6 @@ export default function SupportContactForm() {
     e.preventDefault();
     setSubmitting(true);
     const form = new FormData(e.currentTarget);
-    // TODO: Wire this to your endpoint (e.g., /api/support). This is a friendly stub.
     try {
       const payload = Object.fromEntries(form.entries());
       if (process.env.NODE_ENV !== 'production') {
