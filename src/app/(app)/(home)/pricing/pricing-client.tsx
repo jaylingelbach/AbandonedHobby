@@ -7,11 +7,9 @@ import {
   CalloutsSection,
   FaqSection,
   Hero,
-  Tldr
+  Tldr,
+  nbButton
 } from '@/app/(app)/(home)/pricing/pricing-sections';
-
-const nbButton =
-  'rounded-2xl border-4 border-black px-4 py-2 font-semibold shadow-[4px_4px_0_#000] bg-white transition-transform motion-reduce:transition-none hover:translate-x-[1px] hover:translate-y-[1px] motion-reduce:hover:transform-none focus-visible:outline focus-visible:outline-4 focus-visible:outline-black';
 
 function SkipLink() {
   return (
