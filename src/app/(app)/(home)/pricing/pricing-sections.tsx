@@ -19,6 +19,17 @@ function IconFromKey({ keyName }: { keyName: Callout['icon'] }) {
   return <ReceiptText className="size-5" aria-hidden="true" />;
 }
 
+/**
+ * Renders a labeled grid of callout cards from an array of callout items.
+ *
+ * Each callout card displays an icon (determined by the item's `icon` key),
+ * a title, and a body. If an item provides `bgClass`, it will be applied to
+ * the card's container. The section is accessible via `aria-labelledby` and
+ * includes a visually hidden heading for screen readers.
+ *
+ * @param items - Array of `Callout` objects. Each object is expected to contain `id`, `icon`, `title`, `body`, and optionally `bgClass`.
+ * @returns The section element containing the grid of callout cards.
+ */
 export function CalloutsSection({ items }: { items: Callout[] }) {
   return (
     <section
@@ -41,6 +52,12 @@ export function CalloutsSection({ items }: { items: Callout[] }) {
   );
 }
 
+/**
+ * Renders the "Fees & Payouts — FAQ" section with a list of collapsible question-and-answer items.
+ *
+ * @param items - An array of FAQ entries; each item is rendered as a collapsible `<details>` with the question shown in the summary and the answer shown when expanded.
+ * @returns The FAQ section containing a heading and a grid of collapsible FAQ items.
+ */
 export function FaqSection({ items }: { items: FaqItem[] }) {
   return (
     <section aria-labelledby="faq-heading" className="space-y-4">
@@ -70,6 +87,11 @@ export function FaqSection({ items }: { items: FaqItem[] }) {
   );
 }
 
+/**
+ * Displays a compact "Quick TL;DR" callout summarizing key pricing points.
+ *
+ * @returns A section element with an accessible heading and a bulleted list of four concise pricing statements.
+ */
 export function Tldr() {
   return (
     <section
@@ -92,6 +114,11 @@ export function Tldr() {
   );
 }
 
+/**
+ * Renders the Pricing & Fees page header with title, descriptive text, and highlight badges.
+ *
+ * @returns The header element containing the page title, a brief description, and two prominence badges grouped for accessibility.
+ */
 export function Hero() {
   return (
     <header className={`${nbHeader} bg-yellow-300`}>

@@ -11,6 +11,11 @@ import {
   nbButton
 } from '@/app/(app)/(home)/pricing/pricing-sections';
 
+/**
+ * Renders a "Skip to content" anchor that links to `#main` and becomes visible when focused.
+ *
+ * @returns A JSX `<a>` element linking to `#main` with classes that keep it visually hidden off-screen by default and bring it into view on focus.
+ */
 function SkipLink() {
   return (
     <a
@@ -22,6 +27,15 @@ function SkipLink() {
   );
 }
 
+/**
+ * Render the pricing page client component composed of the hero, callouts, TL;DR, FAQ, and footer actions.
+ *
+ * The component includes an accessible skip link and a main region with id "main" and aria-labelledby="page-title".
+ * It renders `Hero`, `CalloutsSection` (with `callouts`), `Tldr`, and `FaqSection` (with `faqItems`), followed by a footer
+ * containing support and terms navigation links.
+ *
+ * @returns The React element for the pricing page, ready to be mounted in a client-rendered Next.js route.
+ */
 export function PricingClient() {
   return (
     <>

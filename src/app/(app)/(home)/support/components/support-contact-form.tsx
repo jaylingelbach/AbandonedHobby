@@ -6,6 +6,13 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
+/**
+ * Render a support request form that collects user role, topic, order/item reference, contact email, and a description, and submits the data to the server.
+ *
+ * On submission, the form validates required fields, sends a POST request to /api/support, displays a success or error toast, resets inputs on success, and restores initial component state.
+ *
+ * @returns A JSX element containing the support contact form.
+ */
 export default function SupportContactForm() {
   const [submitting, setSubmitting] = useState(false);
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
