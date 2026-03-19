@@ -6792,3 +6792,27 @@ Removed obsolete reinstate prop from removed-item UI; reinstate disabled until v
 
 - src/modules/users/server/procedures.ts
   - Remove unused imports/helpers (e.g., isSuperAdmin, ensureSuperAdmin, isStringArray).
+
+# Refactor pricing client
+
+## Walkthrough
+
+The PR refactors the pricing page by extracting UI components and type definitions into separate modules for better organization, updates pricing content with dynamic data interpolation, and adds spam detection to the support form API endpoint to filter out submissions containing website URLs.
+
+## Improvements
+
+- Pricing page marketplace section now displays the platform fee percentage dynamically for greater transparency.
+- Support contact form enhanced with spam detection to filter out suspicious submissions.
+
+## File changes
+
+### Pricing Page Refactoring
+
+- src/app/(app)/(home)/pricing/pricing-client.tsx, src/app/(app)/(home)/pricing/pricing-sections.tsx, src/app/(app)/(home)/pricing/pricing-content.tsx, src/app/(app)/(home)/pricing/types.ts
+  - Extracted UI components (Hero, CalloutsSection, FaqSection, Tldr, icon mapping) from pricing-client.tsx into new pricing-sections.tsx module. Moved FaqItem and Callout type definitions from pricing-content.tsx into new types.ts file. Updated marketplace callout body to use template literal with PLATFORM_FEE_PERCENTAGE variable.
+
+### Support Form Spam Detection
+
+- src/app/(app)/api/support/route.ts, src/app/(app)/support/components/support-contact-form.tsx
+  - Added optional website field validation (1–500 characters) to support form request schema.
+  - Added early return in POST handler that responds with { ok: true, caseId: 'SPAM' } when website field is present. - Removed TODO comment from support form component.
