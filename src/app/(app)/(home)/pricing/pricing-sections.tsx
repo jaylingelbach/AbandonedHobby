@@ -7,7 +7,7 @@ const nbHeader =
   'rounded-2xl border-4 border-black shadow-[6px_6px_0_#000] p-6 focus-within:outline focus-within:outline-4 focus-within:outline-black';
 const nbBadge =
   'inline-block rounded-full border-4 border-black px-3 py-1 text-sm font-semibold shadow-[4px_4px_0_#000] bg-white';
-const nbButton =
+export const nbButton =
   'rounded-2xl border-4 border-black px-4 py-2 font-semibold shadow-[4px_4px_0_#000] bg-white transition-transform motion-reduce:transition-none hover:translate-x-[1px] hover:translate-y-[1px] motion-reduce:hover:transform-none focus-visible:outline focus-visible:outline-4 focus-visible:outline-black';
 const srOnly = 'sr-only';
 
@@ -29,7 +29,7 @@ export function CalloutsSection({ items }: { items: Callout[] }) {
         Key points
       </h2>
       {items.map((c) => (
-        <div key={c.id} className={`${nbCard} ${c.bgClass}`}>
+        <div key={c.id} className={`${nbCard} ${c.bgClass ?? ''}`}>
           <div className="flex items-center gap-3">
             <IconFromKey keyName={c.icon} />
             <h3 className="text-lg font-bold">{c.title}</h3>
