@@ -2,12 +2,9 @@
 
 import Link from 'next/link';
 import { CreditCard, Wallet, ReceiptText, HelpCircle } from 'lucide-react';
-import {
-  faqItems,
-  callouts,
-  type FaqItem,
-  type Callout
-} from './pricing-content';
+import { faqItems, callouts } from './pricing-content';
+
+import type { FaqItem, Callout } from '@/app/(app)/(home)/pricing/types';
 
 const nbCard =
   'rounded-2xl border-4 border-black shadow-[6px_6px_0_#000] bg-white p-6 focus-within:outline focus-within:outline-4 focus-within:outline-black';

@@ -15,9 +15,10 @@ const schema = z.object({
     'Bug',
     'Abuse/Report'
   ]),
-  reference: z.string().max(500).optional().default(''),
+  reference: z.string().max(500).optional().default(''), // is this safe again malicious attacks?
   email: z.string().email(),
-  description: z.string().min(10).max(5000)
+  description: z.string().min(10).max(5000),
+  website: z.string().min(1).max(500).optional()
 });
 
 const postmark = new ServerClient(process.env.POSTMARK_SERVER_TOKEN!);

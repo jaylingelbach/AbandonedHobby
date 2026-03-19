@@ -1,20 +1,5 @@
+import type { FaqItem, Callout } from '@/app/(app)/(home)/pricing/types';
 import { PLATFORM_FEE_PERCENTAGE } from '@/constants';
-import type { ReactElement } from 'react';
-
-export interface FaqItem {
-  id: string;
-  question: string;
-  // Keep answers flexible for small rich fragments while still typed
-  answer: string | ReactElement;
-}
-
-export interface Callout {
-  id: string;
-  title: string;
-  body: string;
-  icon: 'card' | 'wallet' | 'receipt';
-  bgClass: string; // tailwind bg- color class.
-}
 
 export const faqItems: FaqItem[] = [
   {
@@ -146,7 +131,7 @@ export const callouts: Callout[] = [
   {
     id: 'marketplace',
     title: 'Marketplace Fee',
-    body: 'A small percentage supporting hosting, security, support, and ongoing improvements.',
+    body: `A ${PLATFORM_FEE_PERCENTAGE}% fee for sellers supporting hosting, security, support, and ongoing improvements.`,
     icon: 'wallet',
     bgClass: 'bg-purple-200'
   },
