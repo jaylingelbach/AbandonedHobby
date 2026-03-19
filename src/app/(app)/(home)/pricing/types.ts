@@ -12,5 +12,10 @@ export interface Callout {
   title: string;
   body: string;
   icon: 'card' | 'wallet' | 'receipt';
-  bgClass: string; // tailwind bg- color class.
+  bgClass:
+    | 'bg-blue-50'
+    | 'bg-green-50'
+    | 'bg-purple-50'
+    | 'bg-orange-50'
+    | 'bg-red-50'; // tailwind bg- color class.
 }
