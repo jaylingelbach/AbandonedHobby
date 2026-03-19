@@ -11,12 +11,6 @@ export const nbButton =
   'rounded-2xl border-4 border-black px-4 py-2 font-semibold shadow-[4px_4px_0_#000] bg-white transition-transform motion-reduce:transition-none hover:translate-x-[1px] hover:translate-y-[1px] motion-reduce:hover:transform-none focus-visible:outline focus-visible:outline-4 focus-visible:outline-black';
 const srOnly = 'sr-only';
 
-/**
- * Selects and returns an icon component corresponding to the supplied callout key.
- *
- * @param keyName - The callout icon key; expected values include `'card'`, `'wallet'`, or other keys which map to a default icon.
- * @returns The matching icon component: `CreditCard` for `'card'`, `Wallet` for `'wallet'`, and `ReceiptText` for any other value.
- */
 function IconFromKey({ keyName }: { keyName: Callout['icon'] }) {
   if (keyName === 'card')
     return <CreditCard className="size-5" aria-hidden="true" />;
