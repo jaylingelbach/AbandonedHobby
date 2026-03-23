@@ -6,7 +6,7 @@ export const Reviews: CollectionConfig = {
   slug: 'reviews',
   access: {
     read: ({ req: { user } }) => isSuperAdmin(user),
-    create: ({ req: { user } }) => isSuperAdmin(user),
+    create: ({ req: { user } }) => Boolean(user),
     update: ({ req: { user } }) => isSuperAdmin(user),
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },

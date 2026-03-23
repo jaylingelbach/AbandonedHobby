@@ -39,6 +39,7 @@ import {
   computeFlatShippingCentsForCart
 } from './utils';
 import { CheckoutProductsNotFoundError } from './errors';
+import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const runtime = 'nodejs';
 
@@ -131,9 +132,27 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const user = ctx.session.user;
+      const id = ctx.session.user?.id;
+      if (!id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'No ID found for user'
+        });
+      }
+
+      const user = await ctx.db.findByID({
+        collection: 'users',
+        id
+      });
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
+      const buyerTenantIds = getTenantIdsFromUser(user);
+
+      const fart = user.tenants?.map((tenant) => {
+        return tenant.id;
+      });
+
+      console.log(`Simple buyer tenant ids: ${fart}`);
       /**
        * Normalize incoming lines into a map of productId -> quantity.
        * This:
@@ -229,6 +248,13 @@ export const checkoutRouter = createTRPCRouter({
 
       // Load seller tenant
       const sellerTenantId = Array.from(tenantIds)[0]!;
+      if (buyerTenantIds?.includes(sellerTenantId)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You can not purchase a product that you sell'
+        });
+      }
+
       const sellerTenant = await ctx.db.findByID({
         collection: 'tenants',
         id: sellerTenantId
