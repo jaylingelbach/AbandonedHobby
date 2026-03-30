@@ -93,7 +93,7 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      if (orderRes.buyer !== user.id) {
+      if (getRelId(orderRes.buyer) !== user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
           message: 'The order must belong to you' // rework message?
