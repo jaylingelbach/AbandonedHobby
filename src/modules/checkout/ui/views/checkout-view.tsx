@@ -166,7 +166,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   );
 
   const isBusy = purchase.isPending || isFetching;
-  const disableResume = !lastCheckoutLinesRef.current || isBusy;
 
   // When user clicks "Checkout" for a specific seller
   const handleCheckoutGroup = (group: TenantCheckoutGroup) => {
