@@ -753,15 +753,15 @@ export function getTenantId(
   if (!tenant) {
     throw new TRPCError({
       code: 'BAD_REQUEST',
-      message: 'Product is missing a tenant reference'
+      message: 'Missing tenant reference.'
     });
   }
   if (typeof tenant === 'string') return tenant;
-  if (tenant && typeof tenant === 'object' && typeof tenant.id === 'string') {
+  if (typeof tenant.id === 'string') {
     return tenant.id;
   }
   throw new TRPCError({
     code: 'BAD_REQUEST',
-    message: 'Product is missing a valid tenant reference.'
+    message: 'Invalid tenant reference.'
   });
 }
