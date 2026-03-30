@@ -57,8 +57,9 @@ export const Reviews: CollectionConfig = {
       required: true
     },
     {
-      name: 'orderId',
-      type: 'text',
+      name: 'order',
+      type: 'relationship',
+      relationTo: 'orders',
       required: true
     },
     {

@@ -136,51 +136,46 @@ export const reviewsRouter = createTRPCRouter({
 
       const fulfillmentStatus = orderRes.fulfillmentStatus;
 
-      // Conceptually this is flawed, bc it's not required to add. But POC. I guess I can add a manual checkbox?
-      if (fulfillmentStatus === 'delivered') {
-        // Real protection is the unique index + this try/catch
-        try {
-          const review = await ctx.db.create({
-            collection: 'reviews',
-            data: {
-              user: user.id,
-              rating: input.rating,
-              description: input.description,
-              orderId: input.orderId,
-              tenant: sellerTenantId,
-              product: product.id
-            }
-          });
-          return review;
-        } catch (err) {
-          const e = err as { code?: number | string; message?: string };
-
-          // Mongo duplicate key (E11000) or Postgres unique violation (23505)
-          const isMongoDup =
-            e?.code === 11000 ||
-            (typeof e?.message === 'string' && e.message.includes('E11000'));
-          const isPostgresDup =
-            e?.code === '23505' ||
-            (typeof e?.message === 'string' &&
-              /duplicate key/i.test(e.message));
-
-          if (isMongoDup || isPostgresDup) {
-            throw new TRPCError({
-              code: 'BAD_REQUEST',
-              message: 'You have already left a review for this product'
-            });
-          }
-
-          // Unknown error -> bubble up as 500
-          throw new TRPCError({
-            code: 'INTERNAL_SERVER_ERROR',
-            message: 'Could not create review'
-          });
-        }
-      } else {
+      if (fulfillmentStatus !== 'delivered') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'You can only leave a review after delivery'
+        });
+      }
+      // Real protection is the unique index + this try/catch
+      try {
+        const review = await ctx.db.create({
+          collection: 'reviews',
+          data: {
+            user: user.id,
+            rating: input.rating,
+            description: input.description,
+            order: input.orderId,
+            tenant: sellerTenantId,
+            product: product.id
+          }
+        });
+        return review;
+      } catch (err) {
+        const e = err as { code?: number | string; message?: string };
+
+        const isMongoDup =
+          e?.code === 11000 ||
+          (typeof e?.message === 'string' && e.message.includes('E11000'));
+        const isPostgresDup =
+          e?.code === '23505' ||
+          (typeof e?.message === 'string' && /duplicate key/i.test(e.message));
+
+        if (isMongoDup || isPostgresDup) {
+          throw new TRPCError({
+            code: 'BAD_REQUEST',
+            message: 'You have already left a review for this product'
+          });
+        }
+
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'Could not create review'
         });
       }
     }),

@@ -812,7 +812,7 @@ export interface Review {
   rating: number;
   product?: (string | null) | Product;
   user: string | User;
-  orderId: string;
+  order: string | Order;
   tenant: string | Tenant;
   updatedAt: string;
   createdAt: string;
@@ -1396,7 +1396,7 @@ export interface ReviewsSelect<T extends boolean = true> {
   rating?: T;
   product?: T;
   user?: T;
-  orderId?: T;
+  order?: T;
   tenant?: T;
   updatedAt?: T;
   createdAt?: T;
