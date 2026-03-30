@@ -2,6 +2,8 @@ import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
+import { getRelId, getTenantId } from '@/lib/server/utils';
+import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const reviewsRouter = createTRPCRouter({
   getOne: protectedProcedure
@@ -14,6 +16,7 @@ export const reviewsRouter = createTRPCRouter({
         collection: 'products',
         id: input.productId
       });
+
       if (!product) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -21,12 +24,14 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
+      const sellerTenantId = getTenantId(product.tenant);
+
       const reviewsData = await ctx.db.find({
         collection: 'reviews',
         limit: 1,
         where: {
           and: [
-            { product: { equals: input.productId } },
+            { tenant: { equals: sellerTenantId } },
             { user: { equals: user.id } }
           ]
         }
@@ -44,11 +49,24 @@ export const reviewsRouter = createTRPCRouter({
           .int()
           .min(1, { message: 'Rating is required.' })
           .max(5),
-        description: z.string().min(3, { message: 'Description is required.' })
+        description: z.string().min(3, { message: 'Description is required.' }),
+        orderId: z.string().min(1)
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const user = ctx.session.user;
+      const id = ctx.session?.user?.id;
+      if (!id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'No ID found for user'
+        });
+      }
+
+      const user = await ctx.db.findByID({
+        collection: 'users',
+        id
+      });
+
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
       const product = await ctx.db.findByID({
@@ -62,13 +80,49 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
+      // 1) Ensure this user has an order for the product (handles legacy + items[])
+      const orderRes = await ctx.db.findByID({
+        collection: 'orders',
+        id: input.orderId
+      });
+
+      if (!orderRes) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: `Order not found with the id of ${input.orderId}`
+        });
+      }
+
+      if (orderRes.buyer !== user.id) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'The order must belong to you' // rework message?
+        });
+      }
+      const hasOrder = getRelId(orderRes?.product ?? null) === product.id;
+
+      if (!hasOrder) {
+        throw new TRPCError({ code: 'NOT_FOUND', message: 'No order found' });
+      }
+
+      // Ensure buyer is not the seller
+      const buyerTenantIds = getTenantIdsFromUser(user);
+      const sellerTenantId = getTenantId(product.tenant);
+
+      if (buyerTenantIds?.includes(sellerTenantId)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You cannot review your own shop'
+        });
+      }
+
       // Optional UX pre-check (not sufficient against races, but keeps messages friendly)
       const existing = await ctx.db.find({
         collection: 'reviews',
         limit: 1,
         where: {
           and: [
-            { product: { equals: input.productId } },
+            { tenant: { equals: sellerTenantId } },
             { user: { equals: user.id } }
           ]
         }
@@ -80,40 +134,53 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // Real protection is the unique index + this try/catch
-      try {
-        const review = await ctx.db.create({
-          collection: 'reviews',
-          data: {
-            user: user.id,
-            product: product.id,
-            rating: input.rating,
-            description: input.description
+      const fulfillmentStatus = orderRes.fulfillmentStatus;
+
+      // Conceptually this is flawed, bc it's not required to add. But POC. I guess I can add a manual checkbox?
+      if (fulfillmentStatus === 'delivered') {
+        // Real protection is the unique index + this try/catch
+        try {
+          const review = await ctx.db.create({
+            collection: 'reviews',
+            data: {
+              user: user.id,
+              rating: input.rating,
+              description: input.description,
+              orderId: input.orderId,
+              tenant: sellerTenantId,
+              product: product.id
+            }
+          });
+          return review;
+        } catch (err) {
+          const e = err as { code?: number | string; message?: string };
+
+          // Mongo duplicate key (E11000) or Postgres unique violation (23505)
+          const isMongoDup =
+            e?.code === 11000 ||
+            (typeof e?.message === 'string' && e.message.includes('E11000'));
+          const isPostgresDup =
+            e?.code === '23505' ||
+            (typeof e?.message === 'string' &&
+              /duplicate key/i.test(e.message));
+
+          if (isMongoDup || isPostgresDup) {
+            throw new TRPCError({
+              code: 'BAD_REQUEST',
+              message: 'You have already left a review for this product'
+            });
           }
-        });
-        return review;
-      } catch (err) {
-        const e = err as { code?: number | string; message?: string };
 
-        // Mongo duplicate key (E11000) or Postgres unique violation (23505)
-        const isMongoDup =
-          e?.code === 11000 ||
-          (typeof e?.message === 'string' && e.message.includes('E11000'));
-        const isPostgresDup =
-          e?.code === '23505' ||
-          (typeof e?.message === 'string' && /duplicate key/i.test(e.message));
-
-        if (isMongoDup || isPostgresDup) {
+          // Unknown error -> bubble up as 500
           throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'You have already left a review for this product'
+            code: 'INTERNAL_SERVER_ERROR',
+            message: 'Could not create review'
           });
         }
-
-        // Unknown error -> bubble up as 500
+      } else {
         throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'Could not create review'
+          code: 'BAD_REQUEST',
+          message: 'You can only leave a review after delivery'
         });
       }
     }),
@@ -162,7 +229,6 @@ export const reviewsRouter = createTRPCRouter({
           description: input.description
         }
       });
-
       return updatedReview;
     })
 });

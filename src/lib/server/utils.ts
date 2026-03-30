@@ -744,3 +744,24 @@ export function extractErrorDetails(err: unknown) {
 
   return out;
 }
+/**
+ * Extracts a tenant ID from a Tenant object or tenant ID string.
+ */
+export function getTenantId(
+  tenant: Tenant | string | null | undefined
+): string {
+  if (!tenant) {
+    throw new TRPCError({
+      code: 'BAD_REQUEST',
+      message: 'Product is missing a tenant reference'
+    });
+  }
+  if (typeof tenant === 'string') return tenant;
+  if (tenant && typeof tenant === 'object' && typeof tenant.id === 'string') {
+    return tenant.id;
+  }
+  throw new TRPCError({
+    code: 'BAD_REQUEST',
+    message: 'Product is missing a valid tenant reference.'
+  });
+}

@@ -241,7 +241,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
           {/* 3) Reviews */}
           <Card className={neoBrut}>
             <CardHeader className="pb-2">
-              <CardTitle className="text-base">Reviews</CardTitle>
+              <CardTitle className="text-base">Review your seller</CardTitle>
             </CardHeader>
             <CardContent>
               <Suspense fallback={<ReviewFormSkeleton />}>

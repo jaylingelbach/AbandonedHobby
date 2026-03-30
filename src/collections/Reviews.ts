@@ -5,7 +5,7 @@ import type { CollectionConfig } from 'payload';
 export const Reviews: CollectionConfig = {
   slug: 'reviews',
   access: {
-    read: ({ req: { user } }) => isSuperAdmin(user),
+    read: ({ req: { user } }) => Boolean(user),
     create: ({ req: { user } }) => Boolean(user),
     update: ({ req: { user } }) => isSuperAdmin(user),
     delete: ({ req: { user } }) => isSuperAdmin(user)
@@ -16,7 +16,7 @@ export const Reviews: CollectionConfig = {
   },
   indexes: [
     {
-      fields: ['user', 'product'],
+      fields: ['user', 'tenant'],
       unique: true
     }
   ],
@@ -37,14 +37,24 @@ export const Reviews: CollectionConfig = {
       name: 'product',
       type: 'relationship',
       relationTo: 'products',
+      required: false
+    },
+    {
+      name: 'user', // buyer
+      type: 'relationship',
+      relationTo: 'users',
       hasMany: false,
       required: true
     },
     {
-      name: 'user',
+      name: 'orderId',
+      type: 'text',
+      required: true
+    },
+    {
+      name: 'tenant', // seller
       type: 'relationship',
-      relationTo: 'users',
-      hasMany: false,
+      relationTo: 'tenants',
       required: true
     }
   ]

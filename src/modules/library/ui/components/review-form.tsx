@@ -1,8 +1,8 @@
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -35,6 +35,8 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const params = useParams();
+  const orderId = params.orderId as string | undefined;
   const createReview = useMutation(
     trpc.reviews.create.mutationOptions({
       onSuccess: () => {
@@ -79,10 +81,16 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
         description: values.description
       });
     } else {
+      if (!orderId) {
+        toast.error('Missing order ID');
+        return;
+      }
+
       createReview.mutate({
         productId,
         rating: values.rating,
-        description: values.description
+        description: values.description,
+        orderId
       });
     }
   };
@@ -92,8 +100,11 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
         className="flex flex-col gap-y-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        {/* TODO: Instead of give the seller a rating personalize it to the shop name. i.e. “How was your experience with Jay’s Store?” */}
         <p className="font-medium">
-          {isPreview ? 'Your rating: ' : 'Liked it? Give it a rating'}
+          {isPreview
+            ? 'Your rating: '
+            : 'Tell us how it went. Give the seller a rating.'}
         </p>
         <FormField
           control={form.control}

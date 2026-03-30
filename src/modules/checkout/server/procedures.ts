@@ -12,7 +12,7 @@ import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { flushIfNeeded } from '@/lib/server/analytics';
 import { posthogServer } from '@/lib/server/posthog-server';
-import { asId } from '@/lib/server/utils';
+import { asId, getTenantId } from '@/lib/server/utils';
 import { generateTenantURL } from '@/lib/utils';
 import { usdToCents } from '@/lib/money';
 import { stripe } from '@/lib/stripe';
@@ -148,11 +148,6 @@ export const checkoutRouter = createTRPCRouter({
 
       const buyerTenantIds = getTenantIdsFromUser(user);
 
-      const fart = user.tenants?.map((tenant) => {
-        return tenant.id;
-      });
-
-      console.log(`Simple buyer tenant ids: ${fart}`);
       /**
        * Normalize incoming lines into a map of productId -> quantity.
        * This:
@@ -187,30 +182,6 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       const productIds = Array.from(quantityByProductId.keys());
-
-      /**
-       * Extracts a tenant ID from a Tenant object or tenant ID string.
-       */
-      function getTenantId(tenant: Tenant | string | null | undefined): string {
-        if (!tenant) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Product is missing a tenant reference'
-          });
-        }
-        if (typeof tenant === 'string') return tenant;
-        if (
-          tenant &&
-          typeof tenant === 'object' &&
-          typeof tenant.id === 'string'
-        ) {
-          return tenant.id;
-        }
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Product is missing a valid tenant reference.'
-        });
-      }
 
       const productsRes = await ctx.db.find({
         collection: 'products',

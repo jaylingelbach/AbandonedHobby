@@ -810,8 +810,10 @@ export interface Review {
   id: string;
   description: string;
   rating: number;
-  product: string | Product;
+  product?: (string | null) | Product;
   user: string | User;
+  orderId: string;
+  tenant: string | Tenant;
   updatedAt: string;
   createdAt: string;
 }
@@ -1394,6 +1396,8 @@ export interface ReviewsSelect<T extends boolean = true> {
   rating?: T;
   product?: T;
   user?: T;
+  orderId?: T;
+  tenant?: T;
   updatedAt?: T;
   createdAt?: T;
 }
