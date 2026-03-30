@@ -6,6 +6,9 @@ import { getRelId, getTenantId } from '@/lib/server/utils';
 import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const reviewsRouter = createTRPCRouter({
+  /**
+   * Get a single review for a product in a specific order
+   */
   getOne: protectedProcedure
     .input(z.object({ productId: z.string(), orderId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
@@ -26,6 +29,7 @@ export const reviewsRouter = createTRPCRouter({
 
       const sellerTenantId = getTenantId(product.tenant);
 
+      // Product-scoped lookup prevents cross-product leakage
       const reviewsData = await ctx.db.find({
         collection: 'reviews',
         limit: 1,
@@ -33,7 +37,8 @@ export const reviewsRouter = createTRPCRouter({
           and: [
             { tenant: { equals: sellerTenantId } },
             { user: { equals: user.id } },
-            { order: { equals: input.orderId } }
+            { order: { equals: input.orderId } },
+            { product: { equals: product.id } } // product filter added
           ]
         }
       });
@@ -41,6 +46,9 @@ export const reviewsRouter = createTRPCRouter({
       return reviewsData.docs[0] ?? null;
     }),
 
+  /**
+   * Create a review for a product in a specific order
+   */
   create: protectedProcedure
     .input(
       z.object({
@@ -55,8 +63,8 @@ export const reviewsRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ input, ctx }) => {
-      const id = ctx.session?.user?.id;
-      if (!id) {
+      const userId = ctx.session?.user?.id;
+      if (!userId) {
         throw new TRPCError({
           code: 'UNAUTHORIZED',
           message: 'No ID found for user'
@@ -65,9 +73,8 @@ export const reviewsRouter = createTRPCRouter({
 
       const user = await ctx.db.findByID({
         collection: 'users',
-        id
+        id: userId
       });
-
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
       const product = await ctx.db.findByID({
@@ -81,12 +88,10 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // 1) Ensure this user has an order for the product (handles multi-item + legacy single product)
       const orderRes = await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId
       });
-
       if (!orderRes) {
         throw new TRPCError({
           code: 'NOT_FOUND',
@@ -101,31 +106,23 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // Check if product exists in order items (multi-item orders)
+      // Multi-item check
       let hasOrder = false;
-
-      // Safe check: items array exists
       if (Array.isArray(orderRes.items)) {
         hasOrder = orderRes.items.some((item, index) => {
           if (!item.product) {
             console.warn(
               `Order ${orderRes.id} has an item at index ${index} missing a product reference`
             );
-            return false; // skip invalid items
+            return false;
           }
-          const productId = getRelId(item.product);
-          return productId === product.id;
+          return getRelId(item.product) === product.id;
         });
       }
 
-      // Fallback for legacy single-product orders
+      // Legacy single-product fallback
       if (!hasOrder && orderRes.product) {
         hasOrder = getRelId(orderRes.product) === product.id;
-      }
-
-      // Fallback for legacy single-product orders
-      if (!hasOrder) {
-        hasOrder = getRelId(orderRes.product ?? null) === product.id;
       }
 
       if (!hasOrder) {
@@ -135,10 +132,8 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // Ensure buyer is not the seller
       const buyerTenantIds = getTenantIdsFromUser(user);
       const sellerTenantId = getTenantId(product.tenant);
-
       if (buyerTenantIds?.includes(sellerTenantId)) {
         throw new TRPCError({
           code: 'FORBIDDEN',
@@ -146,14 +141,15 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // Optional UX pre-check (not sufficient against races, but keeps messages friendly)
+      // Pre-check for existing review (per order)
       const existing = await ctx.db.find({
         collection: 'reviews',
         limit: 1,
         where: {
           and: [
             { order: { equals: input.orderId } },
-            { user: { equals: user.id } }
+            { user: { equals: user.id } },
+            { product: { equals: product.id } } // ensure per-product
           ]
         }
       });
@@ -165,14 +161,13 @@ export const reviewsRouter = createTRPCRouter({
       }
 
       const fulfillmentStatus = orderRes.fulfillmentStatus;
-
       if (fulfillmentStatus !== 'delivered') {
         throw new TRPCError({
           code: 'BAD_REQUEST',
           message: 'You can only leave a review after delivery'
         });
       }
-      // Real protection is the unique index + this try/catch
+
       try {
         const review = await ctx.db.create({
           collection: 'reviews',
@@ -188,7 +183,6 @@ export const reviewsRouter = createTRPCRouter({
         return review;
       } catch (err) {
         const e = err as { code?: number | string; message?: string };
-
         const isMongoDup =
           e?.code === 11000 ||
           (typeof e?.message === 'string' && e.message.includes('E11000'));
@@ -204,7 +198,6 @@ export const reviewsRouter = createTRPCRouter({
         }
 
         console.error('Failed to create review:', err);
-
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'Could not create review'
@@ -212,6 +205,9 @@ export const reviewsRouter = createTRPCRouter({
       }
     }),
 
+  /**
+   * Update an existing review
+   */
   update: protectedProcedure
     .input(
       z.object({
@@ -230,7 +226,7 @@ export const reviewsRouter = createTRPCRouter({
 
       const existingReview = await ctx.db.findByID({
         collection: 'reviews',
-        depth: 0, // existingReview.user === id
+        depth: 0,
         id: input.reviewId
       });
 

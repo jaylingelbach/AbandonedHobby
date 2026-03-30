@@ -412,6 +412,7 @@ export const productsRouter = createTRPCRouter({
               await ctx.db.find({
                 collection: 'reviews',
                 pagination: false,
+                overrideAccess: true,
                 where: { product: { in: ids } }
               })
             ).docs
