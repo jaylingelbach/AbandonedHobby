@@ -259,11 +259,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled={disableResume}
-            onReturnToCheckoutAction={() => {
-              if (!lastCheckoutLinesRef.current) return;
-              purchase.mutate({ lines: lastCheckoutLinesRef.current });
-            }}
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -294,7 +289,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -311,7 +305,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -332,11 +325,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
       {states.cancel && (
         <CheckoutBanner
-          disabled={disableResume}
-          onReturnToCheckoutAction={() => {
-            if (!lastCheckoutLinesRef.current) return;
-            purchase.mutate({ lines: lastCheckoutLinesRef.current });
-          }}
           onDismissAction={() => setStates({ cancel: false, success: false })}
           onClearCartAction={() => {
             void clearCartOrAllCarts();

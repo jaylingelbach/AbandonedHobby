@@ -750,18 +750,5 @@ export function extractErrorDetails(err: unknown) {
 export function getTenantId(
   tenant: Tenant | string | null | undefined
 ): string {
-  if (!tenant) {
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'Missing tenant reference.'
-    });
-  }
-  if (typeof tenant === 'string') return tenant;
-  if (typeof tenant.id === 'string') {
-    return tenant.id;
-  }
-  throw new TRPCError({
-    code: 'BAD_REQUEST',
-    message: 'Invalid tenant reference.'
-  });
+  return asId(tenant as IdRef);
 }
