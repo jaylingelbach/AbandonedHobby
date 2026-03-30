@@ -7,7 +7,7 @@ import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const reviewsRouter = createTRPCRouter({
   getOne: protectedProcedure
-    .input(z.object({ productId: z.string() }))
+    .input(z.object({ productId: z.string(), orderId: z.string() }))
     .query(async ({ ctx, input }) => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -32,7 +32,8 @@ export const reviewsRouter = createTRPCRouter({
         where: {
           and: [
             { tenant: { equals: sellerTenantId } },
-            { user: { equals: user.id } }
+            { user: { equals: user.id } },
+            { order: { equals: input.orderId } }
           ]
         }
       });

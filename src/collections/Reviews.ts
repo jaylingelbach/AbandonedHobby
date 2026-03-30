@@ -15,7 +15,12 @@ export const Reviews: CollectionConfig = {
     ]
   },
   access: {
-    read: ({ req: { user } }) => Boolean(user),
+    read: ({ req: { user } }) => {
+      if (!user) return false;
+      return {
+        user: { equals: user.id }
+      };
+    },
     create: ({ req: { user } }) => Boolean(user),
     update: ({ req: { user } }) => isSuperAdmin(user),
     delete: ({ req: { user } }) => isSuperAdmin(user)
