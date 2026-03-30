@@ -80,7 +80,7 @@ export const reviewsRouter = createTRPCRouter({
         });
       }
 
-      // 1) Ensure this user has an order for the product (handles legacy + items[])
+      // 1) Ensure this user has an order for the product (handles multi-item + legacy single product)
       const orderRes = await ctx.db.findByID({
         collection: 'orders',
         id: input.orderId
@@ -96,13 +96,32 @@ export const reviewsRouter = createTRPCRouter({
       if (getRelId(orderRes.buyer) !== user.id) {
         throw new TRPCError({
           code: 'FORBIDDEN',
-          message: 'The order must belong to you' // rework message?
+          message: 'The order must belong to you'
         });
       }
-      const hasOrder = getRelId(orderRes?.product ?? null) === product.id;
+
+      // Check if product exists in order items (multi-item orders)
+      let hasOrder = false;
+
+      // Safe check: items array exists
+      if (Array.isArray(orderRes.items)) {
+        hasOrder = orderRes.items.some((item) => {
+          // item.product may exist or item itself may be the product (legacy)
+          const productId = getRelId(item.product ?? item);
+          return productId === product.id;
+        });
+      }
+
+      // Fallback for legacy single-product orders
+      if (!hasOrder) {
+        hasOrder = getRelId(orderRes.product ?? null) === product.id;
+      }
 
       if (!hasOrder) {
-        throw new TRPCError({ code: 'NOT_FOUND', message: 'No order found' });
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'No order found containing this product'
+        });
       }
 
       // Ensure buyer is not the seller
