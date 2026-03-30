@@ -745,7 +745,11 @@ export function extractErrorDetails(err: unknown) {
   return out;
 }
 /**
- * Extracts a tenant ID from a Tenant object or tenant ID string.
+ * Get the tenant id string for the given tenant reference.
+ *
+ * @param tenant - A Tenant-shaped object, a tenant id string, or null/undefined.
+ * @returns The tenant id string.
+ * @throws TRPCError with code `BAD_REQUEST` when the tenant reference is missing or invalid.
  */
 export function getTenantId(
   tenant: Tenant | string | null | undefined

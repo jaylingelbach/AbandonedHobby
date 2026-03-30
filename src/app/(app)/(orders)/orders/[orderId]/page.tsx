@@ -10,6 +10,12 @@ import { caller, getQueryClient, trpc } from '@/trpc/server';
 
 export const dynamic = 'force-dynamic';
 
+/**
+ * Server-side page handler that ensures the buyer is authenticated, prefetches and hydrates query data for the order, and renders the product view.
+ *
+ * @param params - A promise resolving to route parameters; must include `orderId`.
+ * @returns A React Server Component that wraps a hydrated query state and renders `ProductView` for the order's product.
+ */
 export default async function Page({
   params
 }: {
