@@ -4,6 +4,16 @@ import type { CollectionConfig } from 'payload';
 
 export const Reviews: CollectionConfig = {
   slug: 'reviews',
+  hooks: {
+    beforeChange: [
+      ({ req, data, operation }) => {
+        if (operation === 'create' && req.user) {
+          data.user = req.user.id;
+        }
+        return data;
+      }
+    ]
+  },
   access: {
     read: ({ req: { user } }) => Boolean(user),
     create: ({ req: { user } }) => Boolean(user),
