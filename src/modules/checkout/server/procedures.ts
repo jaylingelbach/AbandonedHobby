@@ -12,7 +12,7 @@ import { DECIMAL_PLATFORM_PERCENTAGE } from '@/constants';
 // ─── Project Utilities ───────────────────────────────────────────────────────
 import { flushIfNeeded } from '@/lib/server/analytics';
 import { posthogServer } from '@/lib/server/posthog-server';
-import { asId } from '@/lib/server/utils';
+import { asId, getTenantId } from '@/lib/server/utils';
 import { generateTenantURL } from '@/lib/utils';
 import { usdToCents } from '@/lib/money';
 import { stripe } from '@/lib/stripe';
@@ -39,6 +39,7 @@ import {
   computeFlatShippingCentsForCart
 } from './utils';
 import { CheckoutProductsNotFoundError } from './errors';
+import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const runtime = 'nodejs';
 
@@ -131,8 +132,21 @@ export const checkoutRouter = createTRPCRouter({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const user = ctx.session.user;
+      const id = ctx.session.user?.id;
+      if (!id) {
+        throw new TRPCError({
+          code: 'UNAUTHORIZED',
+          message: 'No ID found for user'
+        });
+      }
+
+      const user = await ctx.db.findByID({
+        collection: 'users',
+        id
+      });
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
+
+      const buyerTenantIds = getTenantIdsFromUser(user);
 
       /**
        * Normalize incoming lines into a map of productId -> quantity.
@@ -168,30 +182,6 @@ export const checkoutRouter = createTRPCRouter({
       }
 
       const productIds = Array.from(quantityByProductId.keys());
-
-      /**
-       * Extracts a tenant ID from a Tenant object or tenant ID string.
-       */
-      function getTenantId(tenant: Tenant | string | null | undefined): string {
-        if (!tenant) {
-          throw new TRPCError({
-            code: 'BAD_REQUEST',
-            message: 'Product is missing a tenant reference'
-          });
-        }
-        if (typeof tenant === 'string') return tenant;
-        if (
-          tenant &&
-          typeof tenant === 'object' &&
-          typeof tenant.id === 'string'
-        ) {
-          return tenant.id;
-        }
-        throw new TRPCError({
-          code: 'BAD_REQUEST',
-          message: 'Product is missing a valid tenant reference.'
-        });
-      }
 
       const productsRes = await ctx.db.find({
         collection: 'products',
@@ -229,6 +219,13 @@ export const checkoutRouter = createTRPCRouter({
 
       // Load seller tenant
       const sellerTenantId = Array.from(tenantIds)[0]!;
+      if (buyerTenantIds?.includes(sellerTenantId)) {
+        throw new TRPCError({
+          code: 'FORBIDDEN',
+          message: 'You can not purchase a product that you sell'
+        });
+      }
+
       const sellerTenant = await ctx.db.findByID({
         collection: 'tenants',
         id: sellerTenantId

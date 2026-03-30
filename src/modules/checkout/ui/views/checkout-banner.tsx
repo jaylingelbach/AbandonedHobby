@@ -1,34 +1,28 @@
 'use client';
 
-import { AlertTriangle, RotateCcw, Trash2, X, Loader2 } from 'lucide-react';
+import { AlertTriangle, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 
 type CheckoutBannerProps = {
-  onReturnToCheckoutAction?: () => void;
   onClearCartAction?: () => void;
   onDismissAction?: () => void;
-  disabled?: boolean;
 };
 
 /**
- * Displays a banner indicating that checkout was canceled and provides actions to resume checkout, clear the cart, or dismiss the banner.
+ * Displays a banner indicating that checkout was canceled and provides actions to clear the cart or dismiss the banner.
  *
- * @param onReturnToCheckoutAction - Callback invoked when the user chooses to resume checkout.
  * @param onClearCartAction - Callback invoked when the user chooses to clear the cart.
  * @param onDismissAction - Callback invoked when the user dismisses the banner.
- * @param disabled - When `true`, disables the primary "Return to checkout" action and shows a loading indicator (defaults to `false`).
  * @returns The checkout banner JSX element.
  */
 export default function CheckoutBanner({
-  onReturnToCheckoutAction,
   onClearCartAction,
-  onDismissAction,
-  disabled = false
+  onDismissAction
 }: CheckoutBannerProps) {
   return (
     <div role="status" aria-live="polite" className="mb-4">
-      <div className="relative rounded-xl border-2 border-black bg-[#FFFBEA] p-4 shadow-[6px_6px_0_0_#000]">
+      <div className="relative rounded-xl border-2 border-black bg-[#FFFBEA] p-10 shadow-[6px_6px_0_0_#000]">
         {onDismissAction ? (
           <button
             type="button"
@@ -55,26 +49,6 @@ export default function CheckoutBanner({
           </div>
 
           <div className="flex gap-2 pt-2 sm:pt-0">
-            {onReturnToCheckoutAction ? (
-              <Button
-                type="button"
-                onClick={disabled ? undefined : onReturnToCheckoutAction}
-                disabled={disabled}
-                aria-disabled={disabled}
-                className="border-2 border-black bg-white shadow-[4px_4px_0_0_#000]"
-              >
-                {disabled ? (
-                  <Loader2
-                    className="mr-2 h-4 w-4 animate-spin"
-                    aria-hidden="true"
-                  />
-                ) : (
-                  <RotateCcw className="mr-2 h-4 w-4" aria-hidden="true" />
-                )}
-                Return to checkout
-              </Button>
-            ) : null}
-
             {onClearCartAction ? (
               <Button
                 type="button"

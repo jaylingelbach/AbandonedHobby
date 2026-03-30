@@ -4,9 +4,24 @@ import type { CollectionConfig } from 'payload';
 
 export const Reviews: CollectionConfig = {
   slug: 'reviews',
+  hooks: {
+    beforeChange: [
+      ({ req, data, operation }) => {
+        if (operation === 'create' && req.user) {
+          data.user = req.user.id;
+        }
+        return data;
+      }
+    ]
+  },
   access: {
-    read: ({ req: { user } }) => isSuperAdmin(user),
-    create: ({ req: { user } }) => isSuperAdmin(user),
+    read: ({ req: { user } }) => {
+      if (!user) return false;
+      return {
+        user: { equals: user.id }
+      };
+    },
+    create: ({ req: { user } }) => Boolean(user),
     update: ({ req: { user } }) => isSuperAdmin(user),
     delete: ({ req: { user } }) => isSuperAdmin(user)
   },
@@ -16,7 +31,7 @@ export const Reviews: CollectionConfig = {
   },
   indexes: [
     {
-      fields: ['user', 'product'],
+      fields: ['user', 'order'],
       unique: true
     }
   ],
@@ -37,14 +52,25 @@ export const Reviews: CollectionConfig = {
       name: 'product',
       type: 'relationship',
       relationTo: 'products',
+      required: false
+    },
+    {
+      name: 'user', // buyer
+      type: 'relationship',
+      relationTo: 'users',
       hasMany: false,
       required: true
     },
     {
-      name: 'user',
+      name: 'order',
       type: 'relationship',
-      relationTo: 'users',
-      hasMany: false,
+      relationTo: 'orders',
+      required: true
+    },
+    {
+      name: 'tenant', // seller
+      type: 'relationship',
+      relationTo: 'tenants',
       required: true
     }
   ]

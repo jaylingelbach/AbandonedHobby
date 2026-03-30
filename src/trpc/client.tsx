@@ -32,6 +32,12 @@ function getUrl() {
   })();
   return `${base}/api/trpc`;
 }
+/**
+ * Wraps children with React Query and tRPC providers and adds React Query Devtools.
+ *
+ * @param props.children - React nodes to render within the provider tree.
+ * @returns The provider tree that supplies tRPC and React Query clients to its children and renders React Query Devtools.
+ */
 export function TRPCReactProvider(
   props: Readonly<{
     children: React.ReactNode;
@@ -60,7 +66,7 @@ export function TRPCReactProvider(
         {props.children}
         <ReactQueryDevtools
           initialIsOpen={false}
-          buttonPosition="bottom-left"
+          buttonPosition="bottom-right"
         />
       </TRPCProvider>
     </QueryClientProvider>

@@ -1,8 +1,8 @@
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
+import { useParams } from 'next/navigation';
 import { toast } from 'sonner';
 import { z } from 'zod';
 
@@ -18,6 +18,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ReviewsGetOneOutput } from '@/modules/reviews/types';
 import { useTRPC } from '@/trpc/client';
+import { notFound } from 'next/navigation';
 
 interface Props {
   productId: string;
@@ -35,11 +36,15 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
 
   const trpc = useTRPC();
   const queryClient = useQueryClient();
+  const params = useParams();
+  const rawOrderId = params.orderId;
+  const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
+  if (!orderId) notFound();
   const createReview = useMutation(
     trpc.reviews.create.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries(
-          trpc.reviews.getOne.queryOptions({ productId })
+          trpc.reviews.getOne.queryOptions({ productId, orderId })
         );
         setIsPreview(true);
       },
@@ -53,7 +58,7 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
     trpc.reviews.update.mutationOptions({
       onSuccess: () => {
         queryClient.invalidateQueries(
-          trpc.reviews.getOne.queryOptions({ productId })
+          trpc.reviews.getOne.queryOptions({ productId, orderId })
         );
         setIsPreview(true);
       },
@@ -82,7 +87,8 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
       createReview.mutate({
         productId,
         rating: values.rating,
-        description: values.description
+        description: values.description,
+        orderId
       });
     }
   };
@@ -92,8 +98,11 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
         className="flex flex-col gap-y-4"
         onSubmit={form.handleSubmit(onSubmit)}
       >
+        {/* TODO: Instead of give the seller a rating personalize it to the shop name. i.e. “How was your experience with Jay’s Store?” */}
         <p className="font-medium">
-          {isPreview ? 'Your rating: ' : 'Liked it? Give it a rating'}
+          {isPreview
+            ? 'Your rating: '
+            : 'Tell us how it went. Give the seller a rating.'}
         </p>
         <FormField
           control={form.control}
@@ -157,7 +166,9 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
 export const ReviewFormSkeleton = () => {
   return (
     <div className="flex flex-col gap-y-4">
-      <p className="font-medium">Liked it? Give it a rating</p>
+      <p className="font-medium">
+        Tell us how it went. Give the seller a rating.
+      </p>
       <StarPicker disabled />
       <Textarea placeholder="Want to leave a written review?" disabled />
       <Button

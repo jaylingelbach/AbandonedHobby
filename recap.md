@@ -6793,7 +6793,7 @@ Removed obsolete reinstate prop from removed-item UI; reinstate disabled until v
 - src/modules/users/server/procedures.ts
   - Remove unused imports/helpers (e.g., isSuperAdmin, ensureSuperAdmin, isStringArray).
 
-# Refactor pricing client
+# Refactor pricing client 03/19/26
 
 ## Walkthrough
 
@@ -6816,3 +6816,63 @@ The PR refactors the pricing page by extracting UI components and type definitio
 - src/app/(app)/api/support/route.ts, src/app/(app)/support/components/support-contact-form.tsx
   - Added optional website field validation (1–500 characters) to support form request schema.
   - Added early return in POST handler that responds with { ok: true, caseId: 'SPAM' } when website field is present. - Removed TODO comment from support form component.
+
+# Reviews V2 03/30/26
+
+## Walkthrough
+
+- Reviews were re-scoped to require order context and tenant metadata; creation now enforces authenticated buyer ownership, delivery status, and prevents self-reviews; tenant ID helper exported; related UI, types, checkout, and product review access logic updated.
+
+## New Features
+
+- Reviews now require an order, record the seller tenant, and creation is only allowed for delivered orders.
+- Review UI, sidebar, and prefetching include and require orderId.
+
+## Bug Fixes
+
+- Prevented users from reviewing or purchasing from their own shop.
+- Read/create review actions require authentication and are scoped to the current user.
+- Duplicate-review uniqueness scoped to order instead of product.
+
+## UI/UX
+
+- “Reviews” → “Review your seller”.
+- Removed “return to checkout” action and increased banner padding.
+- Devtools button moved to bottom-right.
+
+## File changes
+
+### Collections & Types
+
+- src/collections/Reviews.ts, src/payload-types.ts
+  - Changed Reviews schema: product optional, added required order and tenant; added beforeChange hook to set data.user on create when authenticated; unique index scope changed from ['user','product'] → ['user','order']; updated Review types/selectors.
+
+### Reviews server procedures
+
+- src/modules/reviews/server/procedures.ts
+  - getOne/create require orderId; create validates session user, loads user and order, ensures buyer matches user, verifies order contains product and is delivered, prevents tenant self-reviews, checks duplicates by { order, user, product }, persists order and tenant.
+
+### Checkout server & util
+
+- src/modules/checkout/server/procedures.ts, src/lib/server/utils.ts
+  - Added exported getTenantId(...); purchase enforces authenticated session, loads user, derives buyer tenant IDs, forbids purchases where buyer tenant equals seller tenant, and uses shared getTenantId.
+
+### Review UI & routing
+
+- src/modules/library/ui/components/review-form.tsx, src/modules/library/ui/components/review-sidebar.tsx, src/modules/library/ui/views/product-view.tsx, src/app/(app)/(orders)/orders/[orderId]/page.tsx
+  - ReviewForm/ReviewSidebar now accept/require orderId (form derives from route); create payload includes orderId; query invalidation keys updated to { productId, orderId }; ProductView title adjusted; server prefetch includes orderId.
+
+### Checkout UI
+
+- src/modules/checkout/ui/views/checkout-banner.tsx, src/modules/checkout/ui/views/checkout-view.tsx
+  - Removed resume/return-to-checkout props and related button/handlers; increased banner padding; cleaned unused icons; checkout-view now returns after UNAUTHORIZED redirect and handles FORBIDDEN with a specific toast.
+
+### Products review queries
+
+- src/modules/products/server/procedures.ts
+  - Review fetches in product endpoints now call ctx.db.find with overrideAccess: true for review queries.
+
+### Client config
+
+- src/trpc/client.tsx
+  - Changed ReactQueryDevtools buttonPosition from "bottom-left" → "bottom-right".

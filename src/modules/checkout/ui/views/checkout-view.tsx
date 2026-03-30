@@ -154,6 +154,9 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
           window.location.assign(buildSignInUrl(next));
+          return;
+        } else if (code === 'FORBIDDEN') {
+          toast.error('You cannot purchase items from your own shop.');
         } else {
           console.error('checkout.purchase failed:', err);
           toast.error('Checkout failed. Please try again.');
@@ -163,7 +166,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
   );
 
   const isBusy = purchase.isPending || isFetching;
-  const disableResume = !lastCheckoutLinesRef.current || isBusy;
 
   // When user clicks "Checkout" for a specific seller
   const handleCheckoutGroup = (group: TenantCheckoutGroup) => {
@@ -256,11 +258,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled={disableResume}
-            onReturnToCheckoutAction={() => {
-              if (!lastCheckoutLinesRef.current) return;
-              purchase.mutate({ lines: lastCheckoutLinesRef.current });
-            }}
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -291,7 +288,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -308,7 +304,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
       <div className="lg:pt-12 pt-4 px-4 lg:px-12">
         {states.cancel && (
           <CheckoutBanner
-            disabled
             onDismissAction={() => setStates({ cancel: false, success: false })}
             onClearCartAction={() => {
               void clearCartOrAllCarts();
@@ -329,11 +324,6 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
     <div className="lg:pt-12 pt-4 px-4 lg:px-12">
       {states.cancel && (
         <CheckoutBanner
-          disabled={disableResume}
-          onReturnToCheckoutAction={() => {
-            if (!lastCheckoutLinesRef.current) return;
-            purchase.mutate({ lines: lastCheckoutLinesRef.current });
-          }}
           onDismissAction={() => setStates({ cancel: false, success: false })}
           onClearCartAction={() => {
             void clearCartOrAllCarts();
