@@ -26,7 +26,7 @@ export const Reviews: CollectionConfig = {
   },
   indexes: [
     {
-      fields: ['user', 'tenant'],
+      fields: ['user', 'order'],
       unique: true
     }
   ],

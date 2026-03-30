@@ -122,7 +122,7 @@ export const reviewsRouter = createTRPCRouter({
         limit: 1,
         where: {
           and: [
-            { tenant: { equals: sellerTenantId } },
+            { order: { equals: input.orderId } },
             { user: { equals: user.id } }
           ]
         }
@@ -130,7 +130,7 @@ export const reviewsRouter = createTRPCRouter({
       if (existing.totalDocs > 0) {
         throw new TRPCError({
           code: 'BAD_REQUEST',
-          message: 'You have already left a review for this product'
+          message: 'You have already left a review for this order'
         });
       }
 
