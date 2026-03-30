@@ -58,7 +58,10 @@ export const reviewsRouter = createTRPCRouter({
           .int()
           .min(1, { message: 'Rating is required.' })
           .max(5),
-        description: z.string().min(3, { message: 'Description is required.' }),
+        description: z
+          .string()
+          .trim()
+          .min(3, { message: 'Description is required.' }),
         orderId: z.string().min(1)
       })
     )
@@ -217,7 +220,10 @@ export const reviewsRouter = createTRPCRouter({
           .int()
           .min(1, { message: 'Rating is required.' })
           .max(5),
-        description: z.string().min(3, { message: 'Description is required.' })
+        description: z
+          .string()
+          .trim()
+          .min(3, { message: 'Description is required.' })
       })
     )
     .mutation(async ({ input, ctx }) => {
