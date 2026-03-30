@@ -154,8 +154,8 @@ export const CheckoutView = ({ tenantSlug }: CheckoutViewProps) => {
           const next =
             typeof window !== 'undefined' ? window.location.href : '/';
           window.location.assign(buildSignInUrl(next));
-        }
-        if (code === 'FORBIDDEN') {
+          return;
+        } else if (code === 'FORBIDDEN') {
           toast.error('You cannot purchase items from your own shop.');
         } else {
           console.error('checkout.purchase failed:', err);
