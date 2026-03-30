@@ -18,7 +18,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { ReviewsGetOneOutput } from '@/modules/reviews/types';
 import { useTRPC } from '@/trpc/client';
-import { TRPCError } from '@trpc/server';
+import { notFound } from 'next/navigation';
 
 interface Props {
   productId: string;
@@ -39,11 +39,7 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
   const params = useParams();
   const rawOrderId = params.orderId;
   const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
-  if (!orderId)
-    throw new TRPCError({
-      code: 'BAD_REQUEST',
-      message: 'No orderId present'
-    });
+  if (!orderId) notFound();
   const createReview = useMutation(
     trpc.reviews.create.mutationOptions({
       onSuccess: () => {
@@ -88,11 +84,6 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
         description: values.description
       });
     } else {
-      if (!orderId) {
-        toast.error('Missing order ID');
-        return;
-      }
-
       createReview.mutate({
         productId,
         rating: values.rating,

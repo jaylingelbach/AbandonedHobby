@@ -161,7 +161,8 @@ export const productsRouter = createTRPCRouter({
       const reviews = await ctx.db.find({
         collection: 'reviews',
         pagination: false,
-        where: { product: { equals: input.id } }
+        where: { product: { equals: input.id } },
+        overrideAccess: true
       });
 
       const reviewRating =

@@ -7,7 +7,7 @@ import { getTenantIdsFromUser } from '@/payload/views/utils';
 
 export const reviewsRouter = createTRPCRouter({
   getOne: protectedProcedure
-    .input(z.object({ productId: z.string(), orderId: z.string() }))
+    .input(z.object({ productId: z.string(), orderId: z.string().min(1) }))
     .query(async ({ ctx, input }) => {
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
@@ -106,11 +106,21 @@ export const reviewsRouter = createTRPCRouter({
 
       // Safe check: items array exists
       if (Array.isArray(orderRes.items)) {
-        hasOrder = orderRes.items.some((item) => {
-          // item.product may exist or item itself may be the product (legacy)
-          const productId = getRelId(item.product ?? item);
+        hasOrder = orderRes.items.some((item, index) => {
+          if (!item.product) {
+            console.warn(
+              `Order ${orderRes.id} has an item at index ${index} missing a product reference`
+            );
+            return false; // skip invalid items
+          }
+          const productId = getRelId(item.product);
           return productId === product.id;
         });
+      }
+
+      // Fallback for legacy single-product orders
+      if (!hasOrder && orderRes.product) {
+        hasOrder = getRelId(orderRes.product) === product.id;
       }
 
       // Fallback for legacy single-product orders
@@ -189,9 +199,11 @@ export const reviewsRouter = createTRPCRouter({
         if (isMongoDup || isPostgresDup) {
           throw new TRPCError({
             code: 'BAD_REQUEST',
-            message: 'You have already left a review for this product'
+            message: 'You have already left a review for this order'
           });
         }
+
+        console.error('Failed to create review:', err);
 
         throw new TRPCError({
           code: 'INTERNAL_SERVER_ERROR',

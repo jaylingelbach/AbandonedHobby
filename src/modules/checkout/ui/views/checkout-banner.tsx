@@ -10,7 +10,7 @@ type CheckoutBannerProps = {
 };
 
 /**
- * Displays a banner indicating that checkout was canceled and provides actions to resume checkout, clear the cart, or dismiss the banner.
+ * Displays a banner indicating that checkout was canceled and provides actions to clear the cart or dismiss the banner.
  *
  * @param onClearCartAction - Callback invoked when the user chooses to clear the cart.
  * @param onDismissAction - Callback invoked when the user dismisses the banner.

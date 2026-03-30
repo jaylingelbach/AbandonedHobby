@@ -8,7 +8,6 @@ import {
 } from '@/modules/library/ui/views/product-view';
 import { caller, getQueryClient, trpc } from '@/trpc/server';
 
-
 export const dynamic = 'force-dynamic';
 
 export default async function Page({
@@ -51,7 +50,10 @@ export default async function Page({
       trpc.library.getOne.queryOptions({ productId: orderDTO.productId })
     ),
     queryClient.prefetchQuery(
-      trpc.reviews.getOne.queryOptions({ productId: orderDTO.productId })
+      trpc.reviews.getOne.queryOptions({
+        productId: orderDTO.productId,
+        orderId
+      })
     )
   ]);
 
