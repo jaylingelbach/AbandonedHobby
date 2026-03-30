@@ -245,7 +245,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
             </CardHeader>
             <CardContent>
               <Suspense fallback={<ReviewFormSkeleton />}>
-                <ReviewSidebar productId={productId} orderId={order.orderId} />
+                <ReviewSidebar productId={productId} orderId={orderId} />
               </Suspense>
             </CardContent>
           </Card>
