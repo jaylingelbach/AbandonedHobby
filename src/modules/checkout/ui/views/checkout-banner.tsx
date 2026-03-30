@@ -1,6 +1,6 @@
 'use client';
 
-import { AlertTriangle, Trash2, X g} from 'lucide-react';
+import { AlertTriangle, Trash2, X } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 

@@ -36,7 +36,8 @@ export const ReviewForm = ({ productId, initialData }: Props) => {
   const trpc = useTRPC();
   const queryClient = useQueryClient();
   const params = useParams();
-  const orderId = params.orderId as string | undefined;
+  const rawOrderId = params.orderId;
+  const orderId = Array.isArray(rawOrderId) ? rawOrderId[0] : rawOrderId;
   const createReview = useMutation(
     trpc.reviews.create.mutationOptions({
       onSuccess: () => {
