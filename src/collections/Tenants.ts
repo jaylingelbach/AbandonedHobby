@@ -1,5 +1,4 @@
 import { isSuperAdmin } from '@/lib/access';
-
 import type { CollectionConfig } from 'payload';
 
 export const Tenants: CollectionConfig = {
@@ -113,6 +112,54 @@ export const Tenants: CollectionConfig = {
         readOnly: true,
         description: 'Auto-managed count of products.'
       }
+    },
+    // Ratings
+    {
+      name: 'avgRating',
+      type: 'number',
+      required: false,
+      defaultValue: 0,
+      admin: {
+        readOnly: true,
+        description: 'Auto-managed average rating.'
+      },
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    {
+      name: 'reviewCount',
+      type: 'number',
+      defaultValue: 0,
+      admin: {
+        readOnly: true,
+        description: 'Auto managed count of reviews'
+      },
+      required: false,
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      }
+    },
+    // distribution of ratings
+    {
+      name: 'distribution',
+      admin: {
+        readOnly: true
+      },
+      type: 'group',
+      access: {
+        create: ({ req: { user } }) => isSuperAdmin(user),
+        update: ({ req: { user } }) => isSuperAdmin(user)
+      },
+      fields: [
+        { name: 'oneStar', type: 'number', defaultValue: 0 },
+        { name: 'twoStar', type: 'number', defaultValue: 0 },
+        { name: 'threeStar', type: 'number', defaultValue: 0 },
+        { name: 'fourStar', type: 'number', defaultValue: 0 },
+        { name: 'fiveStar', type: 'number', defaultValue: 0 }
+      ]
     }
   ]
 };

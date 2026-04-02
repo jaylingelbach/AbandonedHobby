@@ -16,6 +16,7 @@ import {
 import { mapOrderToSummary, mapOrderToConfirmation } from './utils';
 import { relId } from '@/lib/relationshipHelpers';
 import { buildSellerOrdersWhere, mapOrderToBuyer } from './utils';
+import { OrderStatus, orderStatusSchema } from '@/payload/views/types';
 
 export const ordersRouter = createTRPCRouter({
   getSummaryBySession: protectedProcedure
@@ -227,7 +228,8 @@ export const ordersRouter = createTRPCRouter({
         productId,
         productIds,
         shipping,
-        shipment
+        shipment,
+        fulfillmentStatus: order.fulfillmentStatus ?? 'unfulfilled'
       };
     }),
 
@@ -421,5 +423,69 @@ export const ordersRouter = createTRPCRouter({
         page: (result as { page?: number }).page ?? input.page,
         pageSize: input.pageSize
       };
+    }),
+  // For buyers to mark as delivered.
+  updateBuyerDeliveryStatus: protectedProcedure
+    .input(
+      z.object({
+        orderId: z.string().min(1),
+        fulfillmentStatus: orderStatusSchema
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const doc = await ctx.db.findByID({
+        collection: 'orders',
+        id: input.orderId,
+        depth: 0,
+        overrideAccess: true
+      });
+
+      if (!doc) {
+        throw new TRPCError({
+          code: 'NOT_FOUND',
+          message: 'Could not find an order with that id.'
+        });
+      }
+
+      const buyerId = relId(doc.buyer);
+      const isBuyer = buyerId === ctx.session.user?.id;
+
+      if (!isBuyer) {
+        throw new TRPCError({ code: 'UNAUTHORIZED' });
+      }
+
+      const current = doc.fulfillmentStatus;
+
+      if (!current) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: 'Order has no fulfillment status'
+        });
+      }
+
+      const validTransitions: Record<OrderStatus, OrderStatus[]> = {
+        unfulfilled: [],
+        shipped: ['delivered'],
+        delivered: ['shipped'],
+        returned: []
+      };
+
+      if (!validTransitions[current]?.includes(input.fulfillmentStatus)) {
+        throw new TRPCError({
+          code: 'BAD_REQUEST',
+          message: `Invalid status transition from ${current} → ${input.fulfillmentStatus}`
+        });
+      }
+
+      const updated = await ctx.db.update({
+        collection: 'orders',
+        id: input.orderId,
+        overrideAccess: true,
+        data: {
+          fulfillmentStatus: input.fulfillmentStatus
+        }
+      });
+
+      return updated;
     })
 });

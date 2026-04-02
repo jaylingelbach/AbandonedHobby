@@ -1,3 +1,4 @@
+import z from 'zod';
 import { Carrier } from '@/constants';
 
 export type CountSummary = {
@@ -36,7 +37,16 @@ export type BuyerOrderListItem = {
   shippedAtISO?: string;
 };
 
-export type OrderStatus = 'unfulfilled' | 'shipped' | 'delivered' | 'returned';
+export const ORDER_STATUS_VALUES = [
+  'unfulfilled',
+  'shipped',
+  'delivered',
+  'returned'
+] as const;
+
+export const orderStatusSchema = z.enum(ORDER_STATUS_VALUES);
+
+export type OrderStatus = (typeof ORDER_STATUS_VALUES)[number];
 
 export type SellerOrderRow = {
   id: string;

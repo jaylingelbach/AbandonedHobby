@@ -1,4 +1,5 @@
 import { Carrier } from '@/constants';
+import type { OrderStatus } from '@/payload/views/types';
 
 export type ShippingMode = 'free' | 'flat' | 'calculated';
 
@@ -92,6 +93,7 @@ export type OrderSummaryDTO = {
   shipping?: ShippingAddress;
   items?: OrderItemDTO[];
   shipment?: ShipmentDTO;
+  fulfillmentStatus?: OrderStatus;
 };
 
 export type ShipmentDTO = {
