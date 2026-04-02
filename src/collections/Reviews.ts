@@ -17,7 +17,8 @@ async function recomputeTenantRatings(tenantId: string, req: PayloadRequest) {
   const reviews = await req.payload.find({
     collection: 'reviews',
     where: { tenant: { equals: tenantId } },
-    limit: 1000
+    limit: 1000,
+    overrideAccess: true
   });
 
   const reviewCount = reviews.totalDocs;
@@ -40,6 +41,7 @@ async function recomputeTenantRatings(tenantId: string, req: PayloadRequest) {
   await req.payload.update({
     collection: 'tenants',
     id: tenantId,
+    overrideAccess: true,
     data: { avgRating, reviewCount, distribution }
   });
 }
@@ -48,12 +50,18 @@ export const Reviews: CollectionConfig = {
   slug: 'reviews',
   hooks: {
     afterChange: [
-      async ({ doc, operation, req }) => {
+      async ({ doc, previousDoc, operation, req }) => {
         if (operation !== 'create' && operation !== 'update') return;
         const tenantId = getRelId(doc.tenant);
         if (!tenantId) {
           console.error('Missing tenantId on review', doc.id);
           return;
+        }
+        if (operation === 'update') {
+          const previousTenantId = getRelId(previousDoc?.tenant);
+          if (previousTenantId && previousTenantId !== tenantId) {
+            await recomputeTenantRatings(previousTenantId, req);
+          }
         }
         await recomputeTenantRatings(tenantId, req);
       }

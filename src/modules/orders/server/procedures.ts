@@ -486,6 +486,9 @@ export const ordersRouter = createTRPCRouter({
         }
       });
 
-      return updated;
+      return {
+        orderId: String(updated.id),
+        fulfillmentStatus: updated.fulfillmentStatus ?? 'unfulfilled'
+      };
     })
 });
