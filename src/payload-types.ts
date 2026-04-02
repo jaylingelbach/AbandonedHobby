@@ -265,6 +265,21 @@ export interface Tenant {
    * Auto-managed count of products.
    */
   productCount?: number | null;
+  /**
+   * Auto-managed average rating.
+   */
+  avgRating?: number | null;
+  /**
+   * Auto managed count of reviews
+   */
+  reviewCount?: number | null;
+  distribution?: {
+    oneStar?: number | null;
+    twoStar?: number | null;
+    threeStar?: number | null;
+    fourStar?: number | null;
+    fiveStar?: number | null;
+  };
   updatedAt: string;
   createdAt: string;
 }
@@ -1435,6 +1450,17 @@ export interface TenantsSelect<T extends boolean = true> {
   notificationEmail?: T;
   notificationName?: T;
   productCount?: T;
+  avgRating?: T;
+  reviewCount?: T;
+  distribution?:
+    | T
+    | {
+        oneStar?: T;
+        twoStar?: T;
+        threeStar?: T;
+        fourStar?: T;
+        fiveStar?: T;
+      };
   updatedAt?: T;
   createdAt?: T;
 }

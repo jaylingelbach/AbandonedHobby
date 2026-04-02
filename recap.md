@@ -6876,3 +6876,42 @@ The PR refactors the pricing page by extracting UI components and type definitio
 
 - src/trpc/client.tsx
   - Changed ReactQueryDevtools buttonPosition from "bottom-left" → "bottom-right".
+
+# Reviews: Review Aggregation 04/02/26
+
+## Walkthrough
+
+- Added tenant-level rating aggregation: reviews now trigger recompute on create/update/delete, updating tenant documents with avgRating, reviewCount, and 1–5 star distribution. Also added order fulfillment status support (schema, server mutation, UI mutation) and surfaced tenant rating fields across payload types and product views.
+
+## New Features
+
+- Buyers can update order delivery status from the product view; updates show success/error toasts and enforce valid status transitions.
+- Tenant ratings now auto-aggregate from reviews, keeping average rating, review count, and per-star distribution in sync after create/update/delete.
+- Ratings UI shows tenant-scoped averages, counts and a 1–5 star distribution; review posting/viewing is gated by delivery state.
+
+## File changes
+
+### Reviews hooks & aggregation
+
+- src/collections/Reviews.ts
+  - Added afterChange/afterDelete hooks and recomputeTenantRatings(tenantId, req) to recalc tenant-level avgRating, reviewCount, and distribution (queries up to 1000 reviews, uses overrideAccess).
+  - Handles tenant changes on update by recomputing previous tenant.
+
+- Tenant schema & payload types
+- src/collections/Tenants.ts, src/payload-types.ts
+  - Added auto-managed fields to Tenants schema: avgRating, reviewCount, distribution (oneStar..fiveStar).
+  - Updated exported Tenant and TenantsSelect types to include these fields.
+
+### Order status types & server procedure
+
+- src/payload/views/types.ts, src/modules/orders/types.ts, src/modules/orders/server/procedures.ts
+  - Centralized ORDER_STATUS_VALUES + orderStatusSchema and OrderStatus type.
+  - Added optional fulfillmentStatus to OrderSummaryDTO.
+  - Implemented ordersRouter.updateBuyerDeliveryStatus TRPC mutation with validation, buyer auth, and allowed-transition checks.
+
+### UI: buyer/product views & mutation wiring
+
+- src/modules/library/ui/views/product-view.tsx, src/modules/products/ui/views/product-view.tsx
+  - Added React Query TRPC mutation updateBuyerDeliveryStatus and UI button to toggle delivered/shipped (with toasts).
+  - Conditionally render ReviewSidebar only when delivered.
+  - Switched product rating displays to use data.tenant.avgRating, reviewCount, and tenant distribution with star-key mapping.git

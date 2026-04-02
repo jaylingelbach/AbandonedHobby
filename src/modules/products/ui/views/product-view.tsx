@@ -58,6 +58,16 @@ interface ProductViewProps {
   tenantSlug: string;
 }
 
+const starKeyMap = {
+  1: 'oneStar',
+  2: 'twoStar',
+  3: 'threeStar',
+  4: 'fourStar',
+  5: 'fiveStar'
+} as const;
+
+type StarKey = (typeof starKeyMap)[keyof typeof starKeyMap];
+
 export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
   const trpc = useTRPC();
   const { data } = useSuspenseQuery(
@@ -462,22 +472,28 @@ export const ProductView = ({ productId, tenantSlug }: ProductViewProps) => {
               {/* BIG RATINGS BLOCK — stays at bottom */}
               <div className="p-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-medium">Ratings</h3>
+                  <h3 className="text-xl font-medium">Seller Ratings</h3>
                   <div className="flex items-center gap-x-1 font-medium">
                     <StarIcon className="size-4 fill-black" />
-                    <p>({data.reviewRating})</p>
-                    <p className="text-base">{data.reviewCount} ratings</p>
+                    <p>({data.tenant.avgRating ?? 0})</p>
+                    <p className="text-base">
+                      {data.tenant.reviewCount ?? 0} ratings
+                    </p>
                   </div>
                 </div>
 
                 <ProductRatingsBreakdown
-                  ratings={[5, 4, 3, 2, 1].map((stars) => ({
-                    stars,
-                    percentage: Number(
-                      (data as { ratingDistribution?: Record<number, number> })
-                        ?.ratingDistribution?.[stars] ?? 0
-                    )
-                  }))}
+                  ratings={[5, 4, 3, 2, 1].map((stars) => {
+                    const key = starKeyMap[stars as keyof typeof starKeyMap];
+                    const dist = (
+                      data.tenant as { distribution?: Record<StarKey, number> }
+                    )?.distribution;
+                    const count = dist?.[key] ?? 0;
+                    const total = data.tenant.reviewCount ?? 0;
+                    const percentage =
+                      total > 0 ? Math.round((count / total) * 100) : 0;
+                    return { stars, percentage };
+                  })}
                 />
               </div>
             </div>

@@ -3,12 +3,20 @@
 import {
   useQueryClient,
   useSuspenseQuery,
-  useQuery
+  useQuery,
+  useMutation
 } from '@tanstack/react-query';
-import { ArrowLeftIcon, Truck, RefreshCw } from 'lucide-react';
+import {
+  ArrowLeftIcon,
+  Truck,
+  RefreshCw,
+  CheckCircle2Icon
+} from 'lucide-react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useEffect, useMemo, useState } from 'react';
+
+import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -20,6 +28,7 @@ import { ChatButtonWithModal } from '@/modules/conversations/ui/chat-button-with
 import { OrderSummaryCard } from '@/modules/orders/ui/OrderSummaryCard';
 import type { Product, Tenant } from '@/payload-types';
 import type { OrderForBuyer } from '../components/types';
+
 import { useTRPC } from '@/trpc/client';
 
 import InvoiceDialog from '../components/invoice-dialog';
@@ -39,6 +48,7 @@ const neoBrut =
 export const ProductView = ({ productId, orderId }: Props) => {
   const [invoiceOpen, setInvoiceOpen] = useState(false);
   const [mounted, setMounted] = useState(false);
+
   useEffect(() => setMounted(true), []);
 
   const trpc = useTRPC();
@@ -46,6 +56,24 @@ export const ProductView = ({ productId, orderId }: Props) => {
   const queryClient = useQueryClient();
   const search = useSearchParams();
   const router = useRouter();
+
+  const updateBuyerDeliveryStatus = useMutation(
+    trpc.orders.updateBuyerDeliveryStatus.mutationOptions({
+      onSuccess: (data) => {
+        toast.success('Updated delivery status');
+        queryClient.invalidateQueries({
+          queryKey: trpc.orders.getForBuyerById.queryKey()
+        });
+      },
+      onError: (error) => {
+        const message =
+          error instanceof Error
+            ? error.message
+            : 'Failed to update delivery status.';
+        toast.error(message);
+      }
+    })
+  );
 
   // Product content
   const { data: product } = useSuspenseQuery(
@@ -124,6 +152,29 @@ export const ProductView = ({ productId, orderId }: Props) => {
     trackingProvided && carrier && trackingNumber
       ? buildTrackingUrl(carrier, trackingNumber)
       : null;
+
+  const isDelivered = order?.fulfillmentStatus === 'delivered';
+
+  /**
+   * Toggle the buyer-side fulfillment status for the current order between "delivered" and "shipped".
+   *
+   * If no order is loaded, the function returns immediately. Attempts to update the backend with the next
+   * status and logs any error to the console if the update fails.
+   */
+  async function handleFulfillmentStatusUpdate(): Promise<void> {
+    if (!order) return;
+
+    const nextStatus = isDelivered ? 'shipped' : 'delivered';
+
+    try {
+      await updateBuyerDeliveryStatus.mutateAsync({
+        orderId: order.orderId,
+        fulfillmentStatus: nextStatus
+      });
+    } catch (error) {
+      console.error(error);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
@@ -215,6 +266,25 @@ export const ProductView = ({ productId, orderId }: Props) => {
                 <Button
                   className="justify-start border-2 border-black mt-1"
                   variant="secondary"
+                  onClick={handleFulfillmentStatusUpdate}
+                  disabled={updateBuyerDeliveryStatus.isPending}
+                >
+                  {isDelivered ? (
+                    <>
+                      <CheckCircle2Icon className="mr-2 size-4" />
+                      Delivered (click to undo)
+                    </>
+                  ) : (
+                    <>
+                      <Truck className="mr-2 size-4" />
+                      Mark as Delivered
+                    </>
+                  )}
+                </Button>
+
+                <Button
+                  className="justify-start border-2 border-black mt-1"
+                  variant="secondary"
                   disabled
                 >
                   <RefreshCw className="mr-2 size-4" />
@@ -244,9 +314,15 @@ export const ProductView = ({ productId, orderId }: Props) => {
               <CardTitle className="text-base">Review your seller</CardTitle>
             </CardHeader>
             <CardContent>
-              <Suspense fallback={<ReviewFormSkeleton />}>
-                <ReviewSidebar productId={productId} orderId={orderId} />
-              </Suspense>
+              {!isDelivered ? (
+                <p className="text-sm italic text-muted-foreground">
+                  You can leave a review once this order is delivered.
+                </p>
+              ) : (
+                <Suspense fallback={<ReviewFormSkeleton />}>
+                  <ReviewSidebar productId={productId} orderId={orderId} />
+                </Suspense>
+              )}
             </CardContent>
           </Card>
         </div>
