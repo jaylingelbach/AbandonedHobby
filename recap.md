@@ -6876,3 +6876,11 @@ The PR refactors the pricing page by extracting UI components and type definitio
 
 - src/trpc/client.tsx
   - Changed ReactQueryDevtools buttonPosition from "bottom-left" → "bottom-right".
+
+# Reviews: Review Aggregation 04/02/26
+
+## New Features
+
+- Buyers can update order delivery status from the product view; updates show success/error toasts and enforce valid status transitions.
+- Tenant ratings now auto-aggregate from reviews, keeping average rating, review count, and per-star distribution in sync after create/update/delete.
+- Ratings UI shows tenant-scoped averages, counts and a 1–5 star distribution; review posting/viewing is gated by delivery state.
