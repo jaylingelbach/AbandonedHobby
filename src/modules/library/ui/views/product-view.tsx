@@ -155,6 +155,12 @@ export const ProductView = ({ productId, orderId }: Props) => {
 
   const isDelivered = order?.fulfillmentStatus === 'delivered';
 
+  /**
+   * Toggle the buyer-side fulfillment status for the current order between "delivered" and "shipped".
+   *
+   * If no order is loaded, the function returns immediately. Attempts to update the backend with the next
+   * status and logs any error to the console if the update fails.
+   */
   async function handleFulfillmentStatusUpdate(): Promise<void> {
     if (!order) return;
 
