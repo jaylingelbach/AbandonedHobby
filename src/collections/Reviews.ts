@@ -13,6 +13,12 @@ const ratingMap: Record<number, RatingKey> = {
   5: 'fiveStar'
 };
 
+/**
+ * Recomputes and writes a tenant's review aggregates (avgRating, reviewCount, distribution) based on up to 1000 reviews.
+ *
+ * @param tenantId - ID of the tenant whose aggregates will be recalculated and updated
+ * @param req - Payload request used to read reviews and update the tenant (access overridden)
+ */
 async function recomputeTenantRatings(tenantId: string, req: PayloadRequest) {
   const reviews = await req.payload.find({
     collection: 'reviews',
