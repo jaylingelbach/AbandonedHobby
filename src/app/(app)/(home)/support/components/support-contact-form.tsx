@@ -21,7 +21,8 @@ export default function SupportContactForm() {
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    const form = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
     try {
       const payload = Object.fromEntries(form.entries());
       if (process.env.NODE_ENV !== 'production') {
@@ -55,7 +56,7 @@ export default function SupportContactForm() {
       toast.success(
         `Thanks! Ticket ${caseId} created. We'll email you shortly.`
       );
-      (e.currentTarget as HTMLFormElement).reset();
+      formEl.reset();
     } catch (error) {
       toast.error(
         `Something went wrong: ${error instanceof Error ? error.message : 'Something went wrong please try again.'}`
