@@ -463,6 +463,7 @@ export default function ModerationInboxPage() {
           <button
             type="button"
             role="tab"
+            id="tab-inbox"
             aria-selected={activeTab === 'inbox'}
             onClick={() => setActiveTab('inbox')}
             className={cn(
@@ -491,6 +492,7 @@ export default function ModerationInboxPage() {
           <button
             type="button"
             role="tab"
+            id="tab-removed"
             aria-selected={activeTab === 'removed'}
             onClick={() => setActiveTab('removed')}
             className={cn(
@@ -519,6 +521,7 @@ export default function ModerationInboxPage() {
           <button
             type="button"
             role="tab"
+            id="tab-open_appeals"
             aria-selected={activeTab === 'open_appeals'}
             onClick={() => setActiveTab('open_appeals')}
             className={cn(
