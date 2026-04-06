@@ -70,6 +70,12 @@ function ModerationListSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
+/**
+ * Extracts a human-readable message from an error-like value.
+ *
+ * @param error - An Error instance or any value possibly containing a `message` property.
+ * @returns The message string if one can be derived from `error`, `undefined` otherwise.
+ */
 function getErrorMessage(error: unknown): string | undefined {
   if (error instanceof Error) return error.message;
   if (typeof error === 'object' && error !== null && 'message' in error) {
