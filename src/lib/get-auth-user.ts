@@ -18,11 +18,11 @@ export async function getAuthUserForApp(req: Request) {
   return ctx.session.user;
 }
 
-export async function getAuthUser(req?: NextRequest) {
-  // 1) Bind payload to *this* HTTP request
-  const payload = await getPayload({
-    config
-  });
+export async function getAuthUser(
+  _req?: NextRequest,
+  payloadInstance?: Awaited<ReturnType<typeof getPayload>>
+) {
+  const payload = payloadInstance ?? (await getPayload({ config }));
   const headers = await getHeaders();
 
   // 2) Authenticate from the raw headers

@@ -143,7 +143,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // ---------- Auth ----------
     const payload = await getPayload({ config });
 
-    const user = await getAuthUser(request);
+    const user = await getAuthUser(request, payload);
 
     const roles = Array.isArray(user?.roles) ? user.roles : [];
     const isStaff = roles.includes('super-admin');
