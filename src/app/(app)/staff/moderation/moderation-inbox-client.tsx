@@ -70,6 +70,14 @@ function ModerationListSkeleton({ rows = 6 }: { rows?: number }) {
   );
 }
 
+function getErrorMessage(error: unknown): string | undefined {
+  if (error instanceof Error) return error.message;
+  if (typeof error === 'object' && error !== null && 'message' in error) {
+    return String((error as { message: unknown }).message);
+  }
+  return undefined;
+}
+
 /**
  * Displays the moderation inbox page with tabs for waiting review, removed items, and open appeals.
  *
@@ -306,17 +314,7 @@ export default function ModerationInboxPage() {
       return isForbidden ? (
         <NotAllowedState />
       ) : (
-        <ErrorState
-          message={
-            inboxError instanceof Error
-              ? inboxError.message
-              : typeof inboxError === 'object' &&
-                  inboxError !== null &&
-                  'message' in inboxError
-                ? String((inboxError as { message: unknown }).message)
-                : undefined
-          }
-        />
+        <ErrorState message={getErrorMessage(inboxError)} />
       );
     }
 
@@ -355,17 +353,7 @@ export default function ModerationInboxPage() {
       return isRemovedUnauthorized ? (
         <NotAllowedState />
       ) : (
-        <ErrorState
-          message={
-            removedError instanceof Error
-              ? removedError.message
-              : typeof removedError === 'object' &&
-                  removedError !== null &&
-                  'message' in removedError
-                ? String((removedError as { message: unknown }).message)
-                : undefined
-          }
-        />
+        <ErrorState message={getErrorMessage(removedError)} />
       );
     }
 
