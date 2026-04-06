@@ -6954,3 +6954,42 @@ The PR refactors the pricing page by extracting UI components and type definitio
 
 - src/app/(app)/(home)/terms/terms-content.tsx
   - Replaced plain-text privacy-policy reference with an inline Next.js Link to /privacy and adjusted surrounding punctuation/wording.
+
+# Feature app wide auth consistency
+
+## Walkthrough
+
+- Server-side authentication was standardized via a new getAuthUser helper across API routes and the chat conversation page; the chat page now redirects unauthenticated requests to /sign-in. A debug GET route was removed and the getAuthUser signature was updated.
+
+## Security
+
+- Chat conversations now require authentication; unauthenticated users are redirected to sign-in with return-to support.
+
+## Refactor
+
+- Unified authentication handling across server and API flows for more consistent access checks.
+
+## Chores
+
+- Removed an obsolete route and performed related cleanup and signature simplification for an auth helper.
+
+## File changes
+
+### Chat Page
+
+src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getAuthUser and redirects to /sign-in?next=/chat/{conversationId} when no user is present.
+
+### API Auth Migration
+
+- src/app/api/admin/refunds/route.ts, src/app/api/orders/[orderId]/invoice/route.ts
+  - Replaced direct payload.auth(...) usage with getAuthUser(request, payload) for authentication; existing role checks and 401 handling preserved.
+
+### Auth Helper
+
+- src/lib/get-auth-user.ts
+  - Changed signature to getAuthUser(\_req?: NextRequest, payloadInstance?: ...); accepts optional payload instance and lazily initializes payload if not provided.
+
+### Route Removal
+
+- src/app/my-route/route.ts
+  - Removed exported GET debug route that listed users from the users collection.

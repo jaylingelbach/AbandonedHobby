@@ -7,6 +7,7 @@ import { OrderItem } from './types';
 import { formatCurrency } from '@/lib/utils';
 import type { PublicAmountsDTO } from '@/modules/orders/types';
 import { readQuantityOrDefault } from '@/lib/validation/quantity';
+import { getAuthUser } from '@/lib/get-auth-user';
 
 export const runtime = 'nodejs';
 
@@ -278,7 +279,7 @@ export async function GET(
   const payload = await getPayload({ config });
 
   // Verify user is authenticated and authorized to view this order
-  const user = await payload.auth({ headers: _req.headers });
+  const user = await getAuthUser(_req, payload);
   if (!user) {
     return new NextResponse('Unauthorized', { status: 401 });
   }

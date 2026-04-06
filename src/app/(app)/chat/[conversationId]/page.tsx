@@ -1,3 +1,6 @@
+import { redirect } from 'next/navigation';
+
+import { getAuthUser } from '@/lib/get-auth-user';
 import { ChatRoom } from '@/modules/messages/ui/chat-room';
 
 interface Props {
@@ -6,10 +9,22 @@ interface Props {
   }>;
 }
 
+/**
+ * Renders the chat conversation page for a given conversation after verifying the user is authenticated.
+ *
+ * If there is no authenticated user, performs a redirect to the sign-in page with a `next` query param back to the chat URL.
+ *
+ * @param params - An object whose `conversationId` identifies the conversation to display
+ * @returns A React element containing the conversation header and the chat room for `conversationId`
+ */
 export default async function FullChatPage({ params }: Props) {
   const { conversationId } = await params;
-  // You may want to look up the roomId from the conversation ID
-  // Or encode roomId into the route instead
+
+  const user = await getAuthUser();
+
+  if (!user) {
+    redirect(`/sign-in?next=${encodeURIComponent(`/chat/${conversationId}`)}`);
+  }
 
   return (
     <div className="p-4">
