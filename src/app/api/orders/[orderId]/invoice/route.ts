@@ -279,7 +279,6 @@ export async function GET(
   const payload = await getPayload({ config });
 
   // Verify user is authenticated and authorized to view this order
-  // const user = await payload.auth({ headers: _req.headers });
   const user = await getAuthUser(_req);
   if (!user) {
     return new NextResponse('Unauthorized', { status: 401 });

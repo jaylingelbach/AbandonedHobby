@@ -20,7 +20,7 @@ export default async function FullChatPage({ params }: Props) {
   const session = await payload.auth({ headers });
 
   if (!session?.user) {
-    redirect(`/sign-in?next=/chat/${conversationId}`);
+    redirect(`/sign-in?next=${encodeURIComponent(`/chat/${conversationId}`)}`);
   }
   // You may want to look up the roomId from the conversation ID
   // Or encode roomId into the route instead
