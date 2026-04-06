@@ -160,6 +160,7 @@ export const sections: TermsSection[] = [
       </p>
     )
   },
+  // TODO: link to privacy policy
   {
     id: 'privacy',
     heading: 'Privacy',

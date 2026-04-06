@@ -59,7 +59,7 @@ export default function SupportContactForm() {
       formEl.reset();
     } catch (error) {
       toast.error(
-        `Something went wrong: ${error instanceof Error ? error.message : 'Something went wrong please try again.'}`
+        `Something went wrong: ${error instanceof Error ? error.message : 'Please try again.'}`
       );
     } finally {
       setRole('buyer');
@@ -75,7 +75,7 @@ export default function SupportContactForm() {
       aria-busy={submitting}
       className="space-y-4"
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid lg:grid-cols-2 sm:grid-cols-1 gap-3">
         <div>
           <label className="mb-1 block text-sm font-bold">I am a</label>
           <div
@@ -105,7 +105,7 @@ export default function SupportContactForm() {
           <input type="hidden" name="role" value={role} />
         </div>
 
-        <div>
+        <div className="lg:pt-1">
           <label className="mb-1 block text-sm font-bold" htmlFor="topic">
             Topic
           </label>
