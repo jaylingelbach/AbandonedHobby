@@ -6915,3 +6915,42 @@ The PR refactors the pricing page by extracting UI components and type definitio
   - Added React Query TRPC mutation updateBuyerDeliveryStatus and UI button to toggle delivered/shipped (with toasts).
   - Conditionally render ReviewSidebar only when delivered.
   - Switched product rating displays to use data.tenant.avgRating, reviewCount, and tenant distribution with star-key mapping.git
+
+# Bug: support form null 04/06/26
+
+## Walkthrough
+
+### Support Contact Form
+
+- src/app/(app)/(home)/support/components/support-contact-form.tsx
+  - Replaced e.currentTarget cast with stored formEl reference for FormData, call formEl.reset() after success, changed error toast fallback from "Something went wrong please try again." to "Please try again.", and adjusted layout classes to lg:grid-cols-2 sm:grid-cols-1 plus lg:pt-1.
+
+### Terms Content
+
+- src/app/(app)/(home)/terms/terms-content.tsx
+  - Replaced plain-text privacy-policy reference with an inline Next.js Link to /privacy and adjusted surrounding punctuation/wording.
+
+### Style
+
+- Improved support form layout responsiveness and spacing for different screen sizes
+
+### Bug Fixes
+
+- Ensured form resets correctly after successful submission
+- Simplified fallback error text in the support form
+
+### Documentation
+
+- Replaced plain-text privacy reference with an inline Privacy Policy link in the terms content
+
+## File changes
+
+### Support Contact Form
+
+- src/app/(app)/(home)/support/components/support-contact-form.tsx
+  - Replaced e.currentTarget cast with stored formEl reference for FormData, call formEl.reset() after success, changed error toast fallback from "Something went wrong please try again." to "Please try again.", and adjusted layout classes to lg:grid-cols-2 sm:grid-cols-1 plus lg:pt-1.
+
+### Terms Content
+
+- src/app/(app)/(home)/terms/terms-content.tsx
+  - Replaced plain-text privacy-policy reference with an inline Next.js Link to /privacy and adjusted surrounding punctuation/wording.

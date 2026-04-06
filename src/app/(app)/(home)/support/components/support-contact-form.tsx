@@ -7,21 +7,38 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 /**
- * Render a support request form that collects user role, topic, order/item reference, contact email, and a description, and submits the data to the server.
+ * Render the support contact form and manage its submission lifecycle.
  *
- * On submission, the form validates required fields, sends a POST request to /api/support, displays a success or error toast, resets inputs on success, and restores initial component state.
+ * Validates required fields, submits the collected role, topic, reference, email, and description to the server, shows a success or error toast, resets the form on success, and restores initial component state when finished.
  *
- * @returns A JSX element containing the support contact form.
+ * @returns A JSX element containing the support contact form
  */
 export default function SupportContactForm() {
   const [submitting, setSubmitting] = useState(false);
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [topic, setTopic] = useState('Order');
 
+  /**
+   * Handles the support form submission: validates inputs, sends a POST to `/api/support`, shows success or error toasts, resets the form on success, and restores component state.
+   *
+   * Validations:
+   * - `description` is required and must be at least 10 characters.
+   * - `reference` is required.
+   * - `email` is required.
+   *
+   * Side effects:
+   * - Sends a JSON payload containing `role`, `topic`, `reference`, `email`, and `description` to `/api/support`.
+   * - On success, shows a success toast with the created `caseId` and resets the submitted form.
+   * - On failure, shows an error toast with the error message or a fallback message.
+   * - Always restores `role` to `'buyer'`, `topic` to `'Order'`, and clears the `submitting` state.
+   *
+   * @param e - The form submit event whose `currentTarget` is the submitted HTML form element
+   */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
-    const form = new FormData(e.currentTarget);
+    const formEl = e.currentTarget;
+    const form = new FormData(formEl);
     try {
       const payload = Object.fromEntries(form.entries());
       if (process.env.NODE_ENV !== 'production') {
@@ -55,10 +72,10 @@ export default function SupportContactForm() {
       toast.success(
         `Thanks! Ticket ${caseId} created. We'll email you shortly.`
       );
-      (e.currentTarget as HTMLFormElement).reset();
+      formEl.reset();
     } catch (error) {
       toast.error(
-        `Something went wrong: ${error instanceof Error ? error.message : 'Something went wrong please try again.'}`
+        `Something went wrong: ${error instanceof Error ? error.message : 'Please try again.'}`
       );
     } finally {
       setRole('buyer');
@@ -74,7 +91,7 @@ export default function SupportContactForm() {
       aria-busy={submitting}
       className="space-y-4"
     >
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid lg:grid-cols-2 sm:grid-cols-1 gap-3">
         <div>
           <label className="mb-1 block text-sm font-bold">I am a</label>
           <div
@@ -104,7 +121,7 @@ export default function SupportContactForm() {
           <input type="hidden" name="role" value={role} />
         </div>
 
-        <div>
+        <div className="lg:pt-1">
           <label className="mb-1 block text-sm font-bold" htmlFor="topic">
             Topic
           </label>

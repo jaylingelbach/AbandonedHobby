@@ -165,8 +165,11 @@ export const sections: TermsSection[] = [
     heading: 'Privacy',
     body: (
       <p>
-        Your use of the Platform is subject to our Privacy Policy, which
-        explains how we collect, use, and share information.
+        Your use of the Platform is subject to our{' '}
+        <Link className="underline" href="/privacy">
+          Privacy Policy
+        </Link>
+        , which explains how we collect, use, and share information.
       </p>
     )
   },
