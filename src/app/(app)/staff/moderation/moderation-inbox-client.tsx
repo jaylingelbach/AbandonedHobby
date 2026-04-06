@@ -546,7 +546,12 @@ export default function ModerationInboxPage() {
       </section>
 
       {/* Main list area */}
-      <section className="px-4 py-8 lg:px-12">
+      <section
+        className="px-4 py-8 lg:px-12"
+        role="tabpanel"
+        aria-labelledby={`tab-${activeTab}`}
+        id={`tabpanel-${activeTab}`}
+      >
         {activeTab === 'inbox' && renderInboxContent()}
         {activeTab === 'removed' && renderRemovedContent()}
         {activeTab === 'open_appeals' && (
