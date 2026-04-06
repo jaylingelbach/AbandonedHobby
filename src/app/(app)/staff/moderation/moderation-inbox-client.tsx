@@ -356,7 +356,15 @@ export default function ModerationInboxPage() {
         <NotAllowedState />
       ) : (
         <ErrorState
-          message={(removedError as unknown as Error | undefined)?.message}
+          message={
+            removedError instanceof Error
+              ? removedError.message
+              : typeof removedError === 'object' &&
+                  removedError !== null &&
+                  'message' in removedError
+                ? String((removedError as { message: unknown }).message)
+                : undefined
+          }
         />
       );
     }
