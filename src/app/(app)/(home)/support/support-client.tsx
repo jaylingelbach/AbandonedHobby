@@ -322,7 +322,7 @@ export default function SupportClient() {
                             <span className="shrink-0 rounded border border-black bg-yellow-200 px-1 text-[10px] font-bold leading-tight">
                               {s.type}
                             </span>
-                            <span className="truncate text-sm font-semibold">
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
                               {s.title}
                             </span>
                           </div>
