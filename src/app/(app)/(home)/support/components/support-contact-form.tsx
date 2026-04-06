@@ -7,17 +7,33 @@ import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
 
 /**
- * Render a support request form that collects user role, topic, order/item reference, contact email, and a description, and submits the data to the server.
+ * Render the support contact form and manage its submission lifecycle.
  *
- * On submission, the form validates required fields, sends a POST request to /api/support, displays a success or error toast, resets inputs on success, and restores initial component state.
+ * Validates required fields, submits the collected role, topic, reference, email, and description to the server, shows a success or error toast, resets the form on success, and restores initial component state when finished.
  *
- * @returns A JSX element containing the support contact form.
+ * @returns A JSX element containing the support contact form
  */
 export default function SupportContactForm() {
   const [submitting, setSubmitting] = useState(false);
   const [role, setRole] = useState<'buyer' | 'seller'>('buyer');
   const [topic, setTopic] = useState('Order');
 
+  /**
+   * Handles the support form submission: validates inputs, sends a POST to `/api/support`, shows success or error toasts, resets the form on success, and restores component state.
+   *
+   * Validations:
+   * - `description` is required and must be at least 10 characters.
+   * - `reference` is required.
+   * - `email` is required.
+   *
+   * Side effects:
+   * - Sends a JSON payload containing `role`, `topic`, `reference`, `email`, and `description` to `/api/support`.
+   * - On success, shows a success toast with the created `caseId` and resets the submitted form.
+   * - On failure, shows an error toast with the error message or a fallback message.
+   * - Always restores `role` to `'buyer'`, `topic` to `'Order'`, and clears the `submitting` state.
+   *
+   * @param e - The form submit event whose `currentTarget` is the submitted HTML form element
+   */
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
