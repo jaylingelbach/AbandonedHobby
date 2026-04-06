@@ -312,19 +312,23 @@ export default function SupportClient() {
               {searchable.length > 0 && (
                 <ul
                   aria-label="Search suggestions"
-                  className="mt-3 grid gap-2 md:grid-cols-2"
+                  className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2"
                 >
                   {searchable.map((s) => (
                     <li key={`${s.type}::${s.title}`}>
                       <Link href={s.href} className="group">
                         <div className="flex items-center justify-between rounded-xl border-4 border-black bg-white px-3 py-2 shadow-[6px_6px_0_#000] transition-transform group-hover:translate-x-px group-hover:translate-y-px group-hover:shadow-[4px_4px_0_#000]">
-                          <div className="truncate">
-                            <span className="mr-2 rounded-md border-2 border-black bg-yellow-200 px-1 text-xs font-bold">
+                          <div className="flex min-w-0 items-center gap-2">
+                            <span className="shrink-0 rounded border border-black bg-yellow-200 px-1 text-[10px] font-bold leading-tight">
                               {s.type}
                             </span>
-                            <span className="font-semibold">{s.title}</span>
+                            <span className="min-w-0 flex-1 truncate text-sm font-semibold">
+                              {s.title}
+                            </span>
                           </div>
-                          <span aria-hidden>→</span>
+                          <span aria-hidden className="ml-2 shrink-0">
+                            →
+                          </span>
                         </div>
                       </Link>
                     </li>
