@@ -4,10 +4,14 @@ import { caller } from '@/trpc/server';
 import ModerationInboxPage from './moderation-inbox-client';
 
 export default async function Page() {
+  let session;
   try {
-    const session = await caller.auth.session();
-    if (!session.user) redirect('/sign-in?next=/staff/moderation');
+    session = await caller.auth.session();
   } catch {
+    redirect('/sign-in?next=/staff/moderation');
+  }
+
+  if (!session?.user) {
     redirect('/sign-in?next=/staff/moderation');
   }
 
