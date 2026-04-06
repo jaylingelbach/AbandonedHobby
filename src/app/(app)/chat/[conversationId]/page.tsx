@@ -9,6 +9,14 @@ interface Props {
   }>;
 }
 
+/**
+ * Renders the chat conversation page for a given conversation after verifying the user is authenticated.
+ *
+ * If there is no authenticated user, performs a redirect to the sign-in page with a `next` query param back to the chat URL.
+ *
+ * @param params - An object whose `conversationId` identifies the conversation to display
+ * @returns A React element containing the conversation header and the chat room for `conversationId`
+ */
 export default async function FullChatPage({ params }: Props) {
   const { conversationId } = await params;
 

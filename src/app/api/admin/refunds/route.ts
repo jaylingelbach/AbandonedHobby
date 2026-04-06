@@ -113,16 +113,11 @@ function toSafeNonNegativeInteger(value: unknown, fallback = 0): number {
 }
 
 /**
- * Handle an admin POST request to create a refund for an order, validate input, enforce server-side shipping refund limits, invoke the refund engine, persist normalized selections (non-fatal), and trigger a recompute of refund state (non-fatal).
+ * Create an admin refund for an order, enforcing server-side shipping limits, invoking the refund engine, and performing best-effort persistence and state recompute.
  *
- * Performs:
- * - request body validation,
- * - super-admin authorization,
- * - shipping-amount guard that prevents refunding more shipping than remains refundable,
- * - creation of the refund via the refund engine,
- * - best-effort persistence of normalized selections and recompute of refund state.
+ * Performs request body validation, requires the caller to have the `super-admin` role, prevents refunding more shipping than remains refundable, creates the refund via the engine, and attempts non-fatal persistence of normalized selections and a refund-state recompute.
  *
- * @returns A NextResponse with JSON. On success: `{ ok: true, stripeRefundId, status, amount, refundId }`. On failure: an error object `{ error }` and, when applicable, `{ code, orderId }` (validation failures include `details` with `fieldErrors`/`formErrors`).
+ * @returns JSON response object. On success: `{ ok: true, stripeRefundId, status, amount, refundId }`. On failure: `{ error }` and, when applicable, `{ code, orderId }` (validation failures include `details` with `fieldErrors`/`formErrors`).
  */
 export async function POST(request: NextRequest): Promise<NextResponse> {
   try {
