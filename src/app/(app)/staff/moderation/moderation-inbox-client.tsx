@@ -308,7 +308,13 @@ export default function ModerationInboxPage() {
       ) : (
         <ErrorState
           message={
-            inboxError ? (inboxError as unknown as Error).message : undefined
+            inboxError instanceof Error
+              ? inboxError.message
+              : typeof inboxError === 'object' &&
+                  inboxError !== null &&
+                  'message' in inboxError
+                ? String((inboxError as { message: unknown }).message)
+                : undefined
           }
         />
       );
