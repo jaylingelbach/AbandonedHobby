@@ -1,3 +1,4 @@
+import { TRPCError } from '@trpc/server';
 import { redirect } from 'next/navigation';
 
 import { caller } from '@/trpc/server';
@@ -7,8 +8,11 @@ export default async function Page() {
   let session;
   try {
     session = await caller.auth.session();
-  } catch {
-    redirect('/sign-in?next=/staff/moderation');
+  } catch (error) {
+    if (error instanceof TRPCError && error.code === 'UNAUTHORIZED') {
+      redirect('/sign-in?next=/staff/moderation');
+    }
+    throw error; // Re-throw unexpected errors for error boundary
   }
 
   if (!session?.user) {
