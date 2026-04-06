@@ -14,6 +14,7 @@ import {
 } from './schema';
 
 import type { LineSelection } from '@/modules/refunds/types';
+import { getAuthUser } from '@/lib/get-auth-user';
 
 export const runtime = 'nodejs';
 
@@ -141,12 +142,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
 
     // ---------- Auth ----------
     const payload = await getPayload({ config });
-    const payloadRequest = request as unknown as PayloadRequest;
 
-    const { user } = await payload.auth({
-      req: payloadRequest,
-      headers: request.headers
-    });
+    const user = await getAuthUser(request);
 
     const roles = Array.isArray(user?.roles) ? user.roles : [];
     const isStaff = roles.includes('super-admin');
