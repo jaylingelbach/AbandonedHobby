@@ -18,9 +18,7 @@ import { redirect } from 'next/navigation';
 export async function BuyerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
   if (!initPageResult.req.user) {
-    redirect(
-      `/admin/login?redirect=${encodeURIComponent('/admin/buyer/dashboard')}`
-    );
+    redirect(`/admin/login?redirect=${encodeURIComponent('/admin/buyer')}`);
   }
   const data = await getBuyerData(props);
 
