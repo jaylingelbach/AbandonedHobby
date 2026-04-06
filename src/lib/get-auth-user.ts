@@ -18,7 +18,7 @@ export async function getAuthUserForApp(req: Request) {
   return ctx.session.user;
 }
 
-export async function getAuthUser(req: NextRequest) {
+export async function getAuthUser(req?: NextRequest) {
   // 1) Bind payload to *this* HTTP request
   const payload = await getPayload({
     config
