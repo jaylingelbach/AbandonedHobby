@@ -18,7 +18,6 @@ export async function getAuthUserForApp(req: Request) {
   return ctx.session.user;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 export async function getAuthUser(req: NextRequest) {
   // 1) Bind payload to *this* HTTP request
   const payload = await getPayload({
