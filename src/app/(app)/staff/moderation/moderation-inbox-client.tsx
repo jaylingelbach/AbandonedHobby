@@ -171,8 +171,7 @@ export default function ModerationInboxPage() {
   const removedErrorStatus = getErrorStatus(removedError);
 
   const isForbidden = inboxErrorStatus === 403;
-  const isRemovedUnauthorized =
-    removedErrorStatus === 401 || removedErrorStatus === 403;
+  const isRemovedForbidden = removedErrorStatus === 403;
 
   const hasInboxItems = inboxItems.length > 0;
   const hasRemovedItems = removedItems.length > 0;
@@ -197,6 +196,14 @@ export default function ModerationInboxPage() {
       router.push(`/sign-in?next=${encodeURIComponent(currentPath)}`);
     }
   }, [inboxErrorStatus, router]);
+
+  // Redirect to sign-in if the removed list returns 401.
+  useEffect(() => {
+    if (removedErrorStatus === 401 && typeof window !== 'undefined') {
+      const currentPath = window.location.pathname + window.location.search;
+      router.push(`/sign-in?next=${encodeURIComponent(currentPath)}`);
+    }
+  }, [removedErrorStatus, router]);
 
   // Delayed loading state (avoid flashing staff UI for logged-out)
   useEffect(() => {
@@ -356,7 +363,8 @@ export default function ModerationInboxPage() {
 
   const renderRemovedContent = () => {
     if (isRemovedError) {
-      return isRemovedUnauthorized ? (
+      if (removedErrorStatus === 401) return null;
+      return isRemovedForbidden ? (
         <NotAllowedState />
       ) : (
         <ErrorState message={getErrorMessage(removedError)} />
