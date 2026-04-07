@@ -7026,3 +7026,45 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/payload/views/buyer-dashboard/buyer-dashboard.tsx
   - Added early redirect to /admin/login?redirect=/admin/buyer when initPageResult.req.user is falsy to prevent further data fetching and rendering.
+
+# Standardize auth redirect 04/07/26
+
+## Walkthrough
+
+- Extracted the moderation UI into a new client component with three tabs and per-tab pagination/queries; converted the parent moderation page to an async server component that performs server-side session checks and redirects unauthenticated users; added an auth redirect guard to the buyer dashboard and minor error-status parsing update.
+
+## New Features
+
+- Moderation inbox dashboard with three tabs ("Waiting Review", "Removed for Policy", "Open Appeals"), per‑tab pagination, loading skeletons, and focused empty/error states.
+
+## Improvements
+
+- Moderation split into an interactive client inbox UI and a server‑side gate that enforces session checks and sign‑in redirects; clearer 401/403 handling.
+- Buyer dashboard now enforces auth and redirects to admin login when unauthorized.
+
+## Documentation
+
+- Updated recap documenting auth redirect standardization and moderation changes.
+
+## File changes
+
+### Moderation inbox (client)
+
+- src/app/(app)/staff/moderation/moderation-inbox-client.tsx
+  - New client default export ModerationInboxPage ('use client'): three tabs ("Waiting review", "Removed for policy", "Open Appeals"), independent pagination state per tab, two parallel tRPC/react-query requests (inbox gates initial load; removed loads independently), placeholderData for pagination, skeletons/empty states, and error handling mapping 401->redirect, 403->NotAllowed, others->Error.
+
+### Moderation page (server)
+
+-src/app/(app)/staff/moderation/page.tsx
+
+- Replaced prior client page with an async server component Page(). Calls caller.auth.session() server-side and redirects unauthenticated or TRPC UNAUTHORIZED to /sign-in?next=/staff/moderation; rethrows other errors and renders the new client ModerationInboxPage.
+
+### Buyer dashboard auth guard
+
+- src/payload/views/buyer-dashboard/buyer-dashboard.tsx
+  - Added redirect import and an early guard: when initPageResult.req.user is falsy, immediately redirect to /admin/login?redirect=/admin/buyer to prevent downstream fetch/render.
+
+### Error parsing util
+
+- src/app/(app)/staff/moderation/utils.ts
+  - getErrorStatus extended to extract numeric status from nested error.data.httpStatus in addition to existing status fallback.
