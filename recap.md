@@ -6955,7 +6955,7 @@ The PR refactors the pricing page by extracting UI components and type definitio
 - src/app/(app)/(home)/terms/terms-content.tsx
   - Replaced plain-text privacy-policy reference with an inline Next.js Link to /privacy and adjusted surrounding punctuation/wording.
 
-# Feature app wide auth consistency
+# Feature app wide auth consistency 04/06/26
 
 ## Walkthrough
 
@@ -6993,3 +6993,36 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/app/my-route/route.ts
   - Removed exported GET debug route that listed users from the users collection.
+
+# Standardize auth redirect 04/06/26
+
+## Walkthrough
+
+- Extracted the client-side moderation UI into a new ModerationInboxPage client component with three tabs and independent pagination/queries; converted the parent page.tsx to a server component that performs server-side auth checks and redirects unauthenticated users. Added a server-side auth redirect guard in the buyer dashboard.
+
+## New Features
+
+- Moderation inbox dashboard with three tabs ("Waiting Review", "Removed for Policy", "Open Appeals"), per-tab pagination, loading states, and detailed error/empty views.
+
+## Improvements
+
+- Moderation UI split: client-rendered inbox component with server-side page handling session gating and sign-in redirects.
+- Buyer dashboard now enforces server-side auth and redirects to admin login when unauthorized.
+
+## File changes
+
+### Moderation inbox (client)
+
+- src/app/(app)/staff/moderation/moderation-inbox-client.tsx
+  - New client component ModerationInboxPage: three tabs ("Waiting review", "Removed for policy", "Open Appeals"), two parallel tRPC queries (inbox gated, removed non-gated), per-tab pagination & page-size state, placeholderData for paging, delayed LoadingState, distinct error handling (401/403 vs others), client-side redirect on 401.
+
+### Moderation page (server)
+
+- src/app/(app)/staff/moderation/page.tsx
+  - Converted page from client to async server component.
+  - Calls caller.auth.session() server-side, redirects unauthenticated users to /sign-in?next=/staff/moderation on UNAUTHORIZED, rethrows other errors, and delegates UI to the client ModerationInboxPage.
+
+### Buyer dashboard auth guard
+
+- src/payload/views/buyer-dashboard/buyer-dashboard.tsx
+  - Added early redirect to /admin/login?redirect=/admin/buyer when initPageResult.req.user is falsy to prevent further data fetching and rendering.

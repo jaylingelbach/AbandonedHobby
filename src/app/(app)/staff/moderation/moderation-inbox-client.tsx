@@ -172,6 +172,8 @@ export default function ModerationInboxPage() {
 
   const isForbidden = inboxErrorStatus === 403;
   const isRemovedForbidden = removedErrorStatus === 403;
+  const shouldRedirectToSignIn =
+    inboxErrorStatus === 401 || removedErrorStatus === 401;
 
   const hasInboxItems = inboxItems.length > 0;
   const hasRemovedItems = removedItems.length > 0;
@@ -189,21 +191,12 @@ export default function ModerationInboxPage() {
     return String(removedMeta.totalDocs);
   }, [hasRemovedItems, isRemovedError, removedItems.length, removedMeta]);
 
-  // Redirect completely if not authenticated (401) for the primary inbox.
   useEffect(() => {
-    if (inboxErrorStatus === 401 && typeof window !== 'undefined') {
+    if (shouldRedirectToSignIn && typeof window !== 'undefined') {
       const currentPath = window.location.pathname + window.location.search;
       router.push(`/sign-in?next=${encodeURIComponent(currentPath)}`);
     }
-  }, [inboxErrorStatus, router]);
-
-  // Redirect to sign-in if the removed list returns 401.
-  useEffect(() => {
-    if (removedErrorStatus === 401 && typeof window !== 'undefined') {
-      const currentPath = window.location.pathname + window.location.search;
-      router.push(`/sign-in?next=${encodeURIComponent(currentPath)}`);
-    }
-  }, [removedErrorStatus, router]);
+  }, [router, shouldRedirectToSignIn]);
 
   // Delayed loading state (avoid flashing staff UI for logged-out)
   useEffect(() => {
@@ -221,7 +214,7 @@ export default function ModerationInboxPage() {
     setShowLoading(false);
   }, [inboxData, isInboxError]);
 
-  if (inboxErrorStatus === 401) {
+  if (shouldRedirectToSignIn) {
     return null;
   }
 
