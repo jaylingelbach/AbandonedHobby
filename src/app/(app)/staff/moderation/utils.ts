@@ -1,13 +1,14 @@
 import { ModerationInboxItem, PageMeta } from './types';
 
 /**
- * Extracts a numeric status code from an error-like value, if present.
+ * Extracts an HTTP status code from an error-like value, if present.
  *
- * The function returns the value of a numeric `status` property when `error` is an object
- * that contains such a property; otherwise it returns `undefined`.
+ * Checks two common error shapes in order:
+ * 1. tRPC errors: a numeric `data.httpStatus` property
+ * 2. Plain errors: a numeric top-level `status` property
  *
- * @param error - The value to inspect for a `status` property
- * @returns The numeric `status` value if present, `undefined` otherwise
+ * @param error - The value to inspect
+ * @returns The HTTP status code if found, `undefined` otherwise
  */
 export function getErrorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined;
