@@ -12,6 +12,14 @@ import { ModerationInboxItem, PageMeta } from './types';
 export function getErrorStatus(error: unknown): number | undefined {
   if (!error || typeof error !== 'object') return undefined;
 
+  if ('data' in error) {
+    const httpStatus = (error as { data?: { httpStatus?: unknown } }).data
+      ?.httpStatus;
+    if (typeof httpStatus === 'number') {
+      return httpStatus;
+    }
+  }
+
   if ('status' in error) {
     const statusValue = (error as { status?: unknown }).status;
     if (typeof statusValue === 'number') {
