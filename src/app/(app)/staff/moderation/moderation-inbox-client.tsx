@@ -198,28 +198,11 @@ export default function ModerationInboxPage() {
     }
   }, [router, shouldRedirectToSignIn]);
 
-  // Delayed loading state (avoid flashing staff UI for logged-out)
-  useEffect(() => {
-    if (!inboxData && !isInboxError) {
-      const timeoutId = window.setTimeout(() => {
-        setShowLoading(true);
-      }, 300);
-
-      return () => {
-        window.clearTimeout(timeoutId);
-        setShowLoading(false);
-      };
-    }
-
-    setShowLoading(false);
-  }, [inboxData, isInboxError]);
-
   if (shouldRedirectToSignIn) {
     return null;
   }
 
   if (!inboxData && !isInboxError) {
-    if (!showLoading) return null;
     return <LoadingState />;
   }
 
