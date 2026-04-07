@@ -7,6 +7,7 @@ import {
   getBuyerData,
   readCurrencyFromOrder
 } from './buyer-dashboard-utils';
+import { redirect } from 'next/navigation';
 
 /**
  * Renders the buyer dashboard view showing shipment summaries, awaiting and in-transit orders, and quick action links.
@@ -16,6 +17,9 @@ import {
  */
 export async function BuyerDashboard(props: AdminViewServerProps) {
   const { initPageResult, params, searchParams } = props;
+  if (!initPageResult.req.user) {
+    redirect(`/admin/login?redirect=${encodeURIComponent('/admin/buyer')}`);
+  }
   const data = await getBuyerData(props);
 
   return (
