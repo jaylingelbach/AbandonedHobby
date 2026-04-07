@@ -95,7 +95,6 @@ export default function ModerationInboxPage() {
   const router = useRouter();
   const trpc = useTRPC();
 
-  const [showLoading, setShowLoading] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<ModerationInboxTabs>('inbox');
 
   // Per-tab pagination state

@@ -59,7 +59,7 @@ export const ProductView = ({ productId, orderId }: Props) => {
 
   const updateBuyerDeliveryStatus = useMutation(
     trpc.orders.updateBuyerDeliveryStatus.mutationOptions({
-      onSuccess: (data) => {
+      onSuccess: () => {
         toast.success('Updated delivery status');
         queryClient.invalidateQueries({
           queryKey: trpc.orders.getForBuyerById.queryKey()

@@ -20,8 +20,8 @@ export interface ShippingQuote {
 }
 
 export async function quoteCalculatedShipping(
-  items: OrderItemForQuote[],
-  destination?: AddressShape
+  _items: OrderItemForQuote[],
+  _destination?: AddressShape
 ): Promise<ShippingQuote> {
   // MVP: $0.00 so “calculated” doesn’t block checkout.
   // Replace with real carrier API later.
