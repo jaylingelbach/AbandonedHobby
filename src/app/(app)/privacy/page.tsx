@@ -1,3 +1,8 @@
+import {
+  BUSINESS_CITY_STATE_ZIP,
+  BUSINESS_COUNTRY,
+  BUSINESS_STREET
+} from '@/constants';
 import type { ReactNode } from 'react';
 
 export default function PrivacyPage() {
@@ -384,7 +389,11 @@ export default function PrivacyPage() {
         </p>
         <p className="mt-3">
           Specific information about how we use such technologies and how you
-          can refuse certain cookies is set out in our Cookie Notice.
+          can refuse certain cookies is set out in our{' '}
+          <a href="/cookies" className="text-blue-600 underline">
+            Cookie Policy
+          </a>
+          .
         </p>
       </Section>
 
@@ -599,12 +608,12 @@ export default function PrivacyPage() {
                   [
                     'A. Identifiers',
                     'Contact details, such as real name, alias, postal address, telephone or mobile contact number, unique personal identifier, online identifier, Internet Protocol address, email address, and account name',
-                    'NO'
+                    'YES'
                   ],
                   [
                     'B. Personal information as defined in the California Customer Records statute',
                     'Name, contact information, education, employment, employment history, and financial information',
-                    'NO'
+                    'YES'
                   ],
                   [
                     'C. Protected classification characteristics under state or federal law',
@@ -614,7 +623,7 @@ export default function PrivacyPage() {
                   [
                     'D. Commercial information',
                     'Transaction information, purchase history, financial details, and payment information',
-                    'NO'
+                    'YES'
                   ],
                   [
                     'E. Biometric information',
@@ -624,9 +633,9 @@ export default function PrivacyPage() {
                   [
                     'F. Internet or other similar network activity',
                     'Browsing history, search history, online behavior, interest data, and interactions with our and other websites, applications, systems, and advertisements',
-                    'NO'
+                    'YES'
                   ],
-                  ['G. Geolocation data', 'Device location', 'NO'],
+                  ['G. Geolocation data', 'Device location', 'YES'],
                   [
                     'H. Audio, electronic, sensory, or similar information',
                     'Images and audio, video or call recordings created in connection with our business activities',
@@ -893,9 +902,9 @@ export default function PrivacyPage() {
         </p>
         <address className="not-italic mt-4 space-y-1">
           <p className="font-semibold">Abandoned Hobby</p>
-          <p>110 N 79th St</p>
-          <p>Belleville, IL 62223</p>
-          <p>United States</p>
+          <p>{BUSINESS_STREET}</p>
+          <p>{BUSINESS_CITY_STATE_ZIP}</p>
+          <p>{BUSINESS_COUNTRY}</p>
         </address>
       </Section>
 

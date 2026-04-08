@@ -37,6 +37,12 @@ export const Footer = ({ appUrl }: FooterProps) => {
           >
             Privacy Policy
           </Link>
+          <Link
+            href={`${appUrl}/cookies`}
+            className="hover:underline focus:underline focus:outline-none"
+          >
+            Cookie Policy
+          </Link>
         </div>
       </div>
     </footer>

@@ -1,5 +1,8 @@
 import {
   BUSINESS_ADDRESS,
+  BUSINESS_CITY_STATE_ZIP,
+  BUSINESS_COUNTRY,
+  BUSINESS_STREET,
   EMAIL_DISPLAY_JAY,
   EMAIL_HREF_JAY,
   PHONE_DISPLAY,
@@ -22,7 +25,7 @@ export default function TermsPage() {
         <p>
           We are <strong>Abandoned Hobby</strong> (&quot;Company,&quot;
           &quot;we,&quot; &quot;us,&quot; &quot;our&quot;), a company registered
-          in Illinois, United States at 110 N 79th St, Belleville, IL 62223.
+          in Illinois, {BUSINESS_COUNTRY} at {BUSINESS_ADDRESS}.
         </p>
         <p className="mt-3">
           We operate the website{' '}
@@ -733,9 +736,9 @@ export default function TermsPage() {
           <address className="not-italic mt-2 space-y-1">
             <p>Jay Lingelbach</p>
             <p>Attn: Copyright Agent</p>
-            <p>110 North 79th Street</p>
-            <p>Belleville, IL 62223</p>
-            <p>United States</p>
+            <p>{BUSINESS_STREET}</p>
+            <p>{BUSINESS_CITY_STATE_ZIP}</p>
+            <p>{BUSINESS_COUNTRY}</p>
             <p>
               <a href={EMAIL_HREF_JAY} className="text-blue-600 underline">
                 {EMAIL_DISPLAY_JAY}
@@ -996,9 +999,9 @@ export default function TermsPage() {
         </p>
         <address className="not-italic mt-4 space-y-1">
           <p className="font-semibold">Abandoned Hobby</p>
-          <p>110 N 79th St</p>
-          <p>Belleville, IL 62223</p>
-          <p>United States</p>
+          <p>{BUSINESS_STREET}</p>
+          <p>{BUSINESS_CITY_STATE_ZIP}</p>
+          <p>{BUSINESS_COUNTRY}</p>
           <p>
             Phone:{' '}
             <a href={PHONE_HREF} className="text-blue-600 underline">

@@ -24,6 +24,9 @@ export const Footer = () => {
         <Link href="/privacy" className="hover:underline">
           Privacy Policy
         </Link>
+        <Link href="/cookies" className="hover:underline">
+          Cookie Policy
+        </Link>
       </div>
     </footer>
   );
