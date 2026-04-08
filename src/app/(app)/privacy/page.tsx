@@ -3,6 +3,7 @@ import {
   BUSINESS_COUNTRY,
   BUSINESS_STREET
 } from '@/constants';
+import Link from 'next/link';
 import type { ReactNode } from 'react';
 
 export default function PrivacyPage() {
@@ -390,9 +391,9 @@ export default function PrivacyPage() {
         <p className="mt-3">
           Specific information about how we use such technologies and how you
           can refuse certain cookies is set out in our{' '}
-          <a href="/cookies" className="text-blue-600 underline">
+          <Link href="/cookies" className="text-blue-600 underline">
             Cookie Policy
-          </a>
+          </Link>
           .
         </p>
       </Section>
