@@ -817,7 +817,7 @@ export default function TermsPage() {
       <Section id="disputes" number={19} title="DISPUTE RESOLUTION">
         <p>
           Any legal action of whatever nature brought by either you or us
-          (collectively, the "Parties" and individually, a "Party") shall be
+          (collectively, the &quot;Parties&quot; and individually, a &quot;Party&quot;) shall be
           commenced or prosecuted in the state courts of competent jurisdiction
           in St. Clair County, Illinois, or the United States District Court for
           the Southern District of Illinois, Eastern Division. The Parties
