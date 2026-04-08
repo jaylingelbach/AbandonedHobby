@@ -118,9 +118,36 @@ export default function CookiePolicyPage() {
           please visit:
         </p>
         <ul className="list-disc list-inside mt-2 space-y-1 ml-4">
-          <li>Digital Advertising Alliance</li>
-          <li>Digital Advertising Alliance of Canada</li>
-          <li>European Interactive Digital Advertising Alliance</li>
+          <li>
+            <a
+              href="https://digitaladvertisingalliance.org/"
+              className="text-blue-600 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Digital Advertising Alliance
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://digitaladvertisingalliance.org/blog-terms/daac-digital-advertising-alliance-canada"
+              className="text-blue-600 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              Digital Advertising Alliance of Canada
+            </a>
+          </li>
+          <li>
+            <a
+              href="https://edaa.eu/"
+              className="text-blue-600 underline"
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              European Interactive Digital Advertising Alliance
+            </a>
+          </li>
         </ul>
       </Section>
 

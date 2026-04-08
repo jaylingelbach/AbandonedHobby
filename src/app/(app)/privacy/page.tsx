@@ -1,10 +1,14 @@
+import type { ReactNode } from 'react';
+
+import Link from 'next/link';
+
 import {
   BUSINESS_CITY_STATE_ZIP,
   BUSINESS_COUNTRY,
-  BUSINESS_STREET
+  BUSINESS_STREET,
+  SUPPORT_EMAIL_DISPLAY,
+  SUPPORT_EMAIL_HREF
 } from '@/constants';
-import Link from 'next/link';
-import type { ReactNode } from 'react';
 
 export default function PrivacyPage() {
   return (
@@ -14,7 +18,7 @@ export default function PrivacyPage() {
         <strong>Last updated</strong> April 07, 2026
       </p>
 
-      <Section title="">
+      <Section>
         <p>
           This Privacy Notice for Abandoned Hobby (&quot;we,&quot;
           &quot;us,&quot; or &quot;our&quot;) describes how and why we might
@@ -47,11 +51,8 @@ export default function PrivacyPage() {
           is processed. If you do not agree with our policies and practices,
           please do not use our Services. If you still have any questions or
           concerns, please contact us at{' '}
-          <a
-            href="mailto:support@abandonedhobby.com"
-            className="text-blue-600 underline"
-          >
-            support@abandonedhobby.com
+          <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+            {SUPPORT_EMAIL_DISPLAY}
           </a>
           .
         </p>
@@ -471,11 +472,8 @@ export default function PrivacyPage() {
           measures to promptly delete such data from our records. If you become
           aware of any data we may have collected from children under age 18,
           please contact us at{' '}
-          <a
-            href="mailto:support@abandonedhobby.com"
-            className="text-blue-600 underline"
-          >
-            support@abandonedhobby.com
+          <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+            {SUPPORT_EMAIL_DISPLAY}
           </a>
           .
         </p>
@@ -528,11 +526,8 @@ export default function PrivacyPage() {
         <p className="mt-3">
           If you have questions or comments about your privacy rights, you may
           email us at{' '}
-          <a
-            href="mailto:support@abandonedhobby.com"
-            className="text-blue-600 underline"
-          >
-            support@abandonedhobby.com
+          <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+            {SUPPORT_EMAIL_DISPLAY}
           </a>
           .
         </p>
@@ -792,11 +787,8 @@ export default function PrivacyPage() {
           <p>
             To exercise these rights, you can contact us by submitting a data
             subject access request, by emailing us at{' '}
-            <a
-              href="mailto:support@abandonedhobby.com"
-              className="text-blue-600 underline"
-            >
-              support@abandonedhobby.com
+            <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+              {SUPPORT_EMAIL_DISPLAY}
             </a>
             , or by referring to the contact details at the bottom of this
             document.
@@ -835,11 +827,8 @@ export default function PrivacyPage() {
             Under certain US state data protection laws, if we decline to take
             action regarding your request, you may appeal our decision by
             emailing us at{' '}
-            <a
-              href="mailto:support@abandonedhobby.com"
-              className="text-blue-600 underline"
-            >
-              support@abandonedhobby.com
+            <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+              {SUPPORT_EMAIL_DISPLAY}
             </a>
             . We will inform you in writing of any action taken or not taken in
             response to the appeal, including a written explanation of the
@@ -893,11 +882,8 @@ export default function PrivacyPage() {
         <p>
           If you have questions or comments about this notice, you may email us
           at{' '}
-          <a
-            href="mailto:support@abandonedhobby.com"
-            className="text-blue-600 underline"
-          >
-            support@abandonedhobby.com
+          <a href={SUPPORT_EMAIL_HREF} className="text-blue-600 underline">
+            {SUPPORT_EMAIL_DISPLAY}
           </a>{' '}
           or contact us by post at:
         </p>
@@ -938,7 +924,7 @@ function Section({
 }: {
   id?: string;
   number?: number;
-  title: string;
+  title?: string;
   children: ReactNode;
 }) {
   if (!title) {
