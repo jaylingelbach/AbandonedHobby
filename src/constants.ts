@@ -128,3 +128,12 @@ export const actionTypeLabels: Record<ActionType, string> = {
   removed: 'Removed',
   reinstated: 'Reinstated'
 };
+
+export const PHONE_DISPLAY = '(+1) 618-207-4767';
+export const PHONE_HREF = 'tel:+16182074767';
+export const EMAIL_HREF_JAY = 'mailto:jay@abandonedhobby.com';
+export const EMAIL_DISPLAY_JAY = 'jay@abandonedhobby.com';
+export const SUPPORT_EMAIL_DISPLAY = 'support@abandonedhobby.com';
+export const SUPPORT_EMAIL_HREF = 'mailto:support@abandonedhobby.com';
+export const BUSINESS_ADDRESS =
+  '110 N 79th St, Belleville, IL 62223, United States.';
