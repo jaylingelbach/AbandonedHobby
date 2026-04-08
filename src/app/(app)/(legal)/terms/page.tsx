@@ -1,3 +1,5 @@
+import { ReactNode } from 'react';
+
 import {
   BUSINESS_ADDRESS,
   BUSINESS_CITY_STATE_ZIP,
@@ -817,7 +819,7 @@ export default function TermsPage() {
           Any legal action of whatever nature brought by either you or us
           (collectively, the &quot;Parties&quot; and individually, a
           &quot;Party&quot;) shall be commenced or prosecuted in the state and
-          federal courts located in Saint Clair, Illinois, and the Parties
+          federal courts located in East St. Louis, Illinois, and the Parties
           hereby consent to, and waive all defenses of lack of personal
           jurisdiction and forum non conveniens with respect to venue and
           jurisdiction in such state and federal courts. Application of the
@@ -1028,7 +1030,7 @@ function Section({
   id?: string;
   number?: number;
   title: string;
-  children: React.ReactNode;
+  children: ReactNode;
 }) {
   return (
     <section id={id} className="mt-10">

@@ -1,3 +1,5 @@
+import { ReactNode } from 'react';
+
 import {
   BUSINESS_CITY_STATE_ZIP,
   BUSINESS_COUNTRY,
@@ -84,12 +86,6 @@ export default function CookiePolicyPage() {
           our Website though your access to some functionality and areas of our
           Website may be restricted. You may also set or amend your web browser
           controls to accept or refuse cookies.
-        </p>
-        <p className="mt-3">
-          The specific types of first- and third-party cookies served through
-          our Website and the purposes they perform are described in the table
-          below (please note that the specific cookies served may vary depending
-          on the specific Online Properties you visit).
         </p>
       </Section>
 
@@ -254,13 +250,7 @@ export default function CookiePolicyPage() {
   );
 }
 
-function Section({
-  title,
-  children
-}: {
-  title: string;
-  children: React.ReactNode;
-}) {
+function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-10">
       <h2 className="text-base font-bold text-gray-900 mb-3">{title}</h2>
