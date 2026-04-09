@@ -1399,13 +1399,9 @@ export async function POST(req: Request) {
     console.error('Webhook handler failed:', message);
     if (asError.stack) console.error('Error stack: ', asError.stack);
 
-    const status = process.env.NODE_ENV === 'production' ? 500 : 200;
-    if (status === 200) {
-      await markProcessed(payloadInstance, event.id);
-    }
     return NextResponse.json(
       { message: `Webhook handler failed: ${message}` },
-      { status }
+      { status: 500 }
     );
   }
 
