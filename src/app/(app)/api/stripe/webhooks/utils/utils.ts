@@ -79,6 +79,7 @@ export async function decrementInventoryBatch(args: {
   const { payload, qtyByProductId } = args;
   const insufficientProducts: Array<{ productId: string; qty: Quantity }> = [];
   let anyDecremented = false;
+  let hadNonInsufficientFailure = false;
 
   for (const [productId, purchasedQty] of qtyByProductId) {
     const res: DecProductStockResult = await decProductStockAtomic(
@@ -108,6 +109,8 @@ export async function decrementInventoryBatch(args: {
 
     if (res.reason === 'insufficient') {
       insufficientProducts.push({ productId, qty: purchasedQty });
+    } else {
+      hadNonInsufficientFailure = true;
     }
     // ‘not-tracked’: ignore (product doesn’t track inventory)
     // ‘not-found’: logged above, continue
@@ -120,7 +123,7 @@ export async function decrementInventoryBatch(args: {
         '[inv] partial failure - some decrements succeeded, cannot retry safely',
         { insufficientProducts }
       );
-    } else {
+    } else if (!hadNonInsufficientFailure) {
       // No decrements succeeded - safe to retry
       throw new Error(
         `[inv] insufficient stock for ${insufficientProducts.length} product(s) - webhook will retry`
