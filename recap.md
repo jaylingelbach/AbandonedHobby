@@ -7151,3 +7151,44 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 - src/app/(app)/api/stripe/webhooks/utils/utils.ts
   - decrementInventoryBatch now tracks anyDecremented and insufficientProducts; if any insufficient failures occurred and none succeeded it throws to trigger webhook retry; partial successes log an error instead of throwing.
   - Minor formatting changes to the decProductStockAtomic call and removed a commented policy block.
+
+# Loading States 04/09/26
+
+## Walkthrough
+
+- Added 13 route-level Next.js loading.tsx components across auth, home, tenants, orders, chat, checkout, inbox, and staff moderation; each exports a default Loading component that renders Tailwind-styled skeletons or delegates to existing skeleton views and includes ARIA attributes for loading state.
+
+## New Features
+
+- Added loading animations and skeleton screens across sign-in, sign-up, home/category, product, orders, checkout, chat, inbox, and staff moderation pages for smoother perceived performance.
+
+## Accessibility
+
+- Enhanced loading views with screen-reader announcements and ARIA attributes so assistive technologies convey loading status on affected pages.
+
+## File changes
+
+### Authentication Loading States
+
+- src/app/(app)/(auth)/sign-in/loading.tsx, src/app/(app)/(auth)/sign-up/loading.tsx
+  - Added responsive sign-in/sign-up loading components with centered spinner, decorative large-screen panel, and accessibility attributes (role="status", aria-label / aria-live).
+
+### Home / Category / Subcategory Loading
+
+- src/app/(app)/(home)/loading.tsx, src/app/(app)/(home)/[category]/loading.tsx, src/app/(app)/(home)/[category]/[subcategory]/loading.tsx
+  - Added "Curated for you" skeleton pages using animate-pulse placeholder grids, responsive column spans, and ARIA announcements.
+
+### Tenant Home & Product Loading
+
+- src/app/(app)/(tenants)/tenants/[slug]/(home)/loading.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/loading.tsx
+  - Added tenant home skeleton with two-block layout; product loading route delegates to ProductViewSkeleton.
+
+### Orders Loading States
+
+- src/app/(app)/(orders)/orders/loading.tsx, src/app/(app)/(orders)/orders/[orderId]/loading.tsx
+  - Added orders list and order-detail loading UIs. Detail includes nav/back row, pulsing header placeholders, and multiple card-like skeleton sections (uses inline Array.map to render repeated rows).
+
+### Chat / Checkout / Inbox / Moderation
+
+- src/app/(app)/chat/[conversationId]/loading.tsx, src/app/(app)/checkout/loading.tsx, src/app/(app)/inbox/loading.tsx, src/app/(app)/staff/moderation/loading.tsx
+  - Added chat spinner + message, checkout route delegating to CheckoutViewSkeleton, inbox full-viewport placeholders, and moderation spinner with aria-busy and screen-reader text.
