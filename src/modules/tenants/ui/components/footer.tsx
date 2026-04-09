@@ -14,12 +14,16 @@ const poppins = Poppins({
 
 export const Footer = ({ appUrl }: FooterProps) => {
   const normalizedAppUrl = appUrl.replace(/\/$/, '');
+  const appHomeHref = normalizedAppUrl || '/';
   return (
     <footer className="border-t  font-medium bg-white">
       <div className="max-w-(--breakpoint-xl) mx-auto flex flex-col items-center gap-4 h-full px-4 py-6 lg:px-12 md:flex-row md:justify-between">
         <div className="flex items-center gap-2 text-center md:text-left">
           <p>Powered by:</p>
-          <Link href={appUrl} aria-label="Go to Abandoned Hobbies homepage">
+          <Link
+            href={appHomeHref}
+            aria-label="Go to Abandoned Hobbies homepage"
+          >
             <span className={cn('text-2xl font-semibold', poppins.className)}>
               abandoned hobby, inc
             </span>
