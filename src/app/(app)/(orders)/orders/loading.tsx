@@ -1,5 +1,12 @@
 import { ArrowLeftIcon } from 'lucide-react';
 
+/**
+ * Render a non-interactive loading placeholder for the orders page.
+ *
+ * Displays a full-height white page with an offscreen status announcement ("Loading orders..."), a visually disabled "Continue shopping" navigation affordance, and decorative header and content placeholders.
+ *
+ * @returns A React element representing the orders page loading state.
+ */
 export default function Loading() {
   return (
     <div className="min-h-screen bg-white" aria-busy="true">

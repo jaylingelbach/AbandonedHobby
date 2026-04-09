@@ -1,3 +1,10 @@
+/**
+ * Render a responsive loading UI for the sign-up page.
+ *
+ * Renders a grid that shows a centered spinner in the main (left) panel and a decorative right-side panel that is visible on large screens.
+ *
+ * @returns A React element containing a two-column responsive layout with a centered spinner and a right-side decorative block shown on large screens.
+ */
 export default function Loading() {
   return (
     <div

@@ -1,3 +1,10 @@
+/**
+ * Renders a static skeleton UI for the "Curated for you" section while content is loading.
+ *
+ * Includes accessibility attributes (`role="status"`, `aria-live="polite"`, `aria-label="Loading content"`) and a responsive two-block pulsing placeholder layout.
+ *
+ * @returns A React element containing the loading skeleton markup
+ */
 export default function Loading() {
   return (
     <div

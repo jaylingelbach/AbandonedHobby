@@ -3,6 +3,13 @@ import { ArrowLeftIcon } from 'lucide-react';
 const neoBrut =
   'rounded-xl border-2 border-black bg-white shadow-[6px_6px_0_0_rgba(0,0,0,1)]';
 
+/**
+ * Render a full-page skeleton UI used while an order's details are loading.
+ *
+ * Renders a top navigation bar, header skeletons, and three card-like placeholder sections (order details, shipment & actions, review) with pulsing elements. The root element includes accessibility attributes indicating a busy loading state.
+ *
+ * @returns The JSX markup for the page-level loading placeholder
+ */
 export default function Loading() {
   return (
     <div

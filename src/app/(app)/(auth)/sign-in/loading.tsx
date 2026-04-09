@@ -1,3 +1,12 @@
+/**
+ * Render a responsive full-screen loading layout for the sign-in page.
+ *
+ * The rendered element includes accessibility attributes (`role="status"` and
+ * `aria-label="Loading sign-in page"`) and presents a centered spinner with a
+ * decorative right-side panel that is visible only on large screens.
+ *
+ * @returns A JSX element containing the loading UI (centered spinner and large-screen panel).
+ */
 export default function Loading() {
   return (
     <div

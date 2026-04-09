@@ -1,3 +1,8 @@
+/**
+ * Renders a loading placeholder for a conversation page.
+ *
+ * @returns A JSX element containing a status region with a spinning indicator and the heading "Loading conversation...".
+ */
 export default function Loading() {
   return (
     <div className="p-4">

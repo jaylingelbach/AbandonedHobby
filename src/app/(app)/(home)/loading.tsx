@@ -1,3 +1,11 @@
+/**
+ * Renders an accessible loading-state UI with a "Curated for you" heading and skeleton placeholders.
+ *
+ * The layout is responsive: a large left placeholder and two stacked right placeholders indicate loading content.
+ * Accessibility attributes (role, aria-live, aria-label) are included for assistive technologies.
+ *
+ * @returns The React element displaying the loading UI.
+ */
 export default function Loading() {
   return (
     <div

@@ -1,3 +1,11 @@
+/**
+ * Renders a skeleton placeholder for the "Curated for you" category section.
+ *
+ * The returned element provides an accessible loading state (role="status", aria-live="polite", aria-label="Loading content")
+ * and displays a heading plus pulsing gray blocks arranged in a responsive grid.
+ *
+ * @returns A React element containing the accessible loading skeleton with the "Curated for you" heading and pulsing placeholder blocks.
+ */
 export default function Loading() {
   return (
     <div
