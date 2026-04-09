@@ -100,16 +100,19 @@ export async function decrementInventoryBatch(args: {
     }
 
     // Failure paths are explicit and typed
-    console.warn('[inv] dec-atomic failed', {
+    console.warn(‘[inv] dec-atomic failed’, {
       productId,
       purchasedQty,
       reason: res.reason
     });
 
-    // Optional: decide your policy here
-    // - 'insufficient': you could mark the order for manual review or issue a refund
-    // - 'not-tracked': ignore (product doesn’t track inventory)
-    // - 'not-found': log / alert
+    if (res.reason === ‘insufficient’) {
+      throw new Error(
+        `[inv] insufficient stock for product ${productId} (requested ${purchasedQty}) — webhook will retry`
+      );
+    }
+    // ‘not-tracked’: ignore (product doesn’t track inventory)
+    // ‘not-found’: logged above, continue
   }
 }
 /**
