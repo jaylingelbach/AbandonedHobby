@@ -18,13 +18,22 @@ export const Footer = () => {
         </p>
       </div>
       <div className="flex items-center gap-4 text-sm text-muted-foreground">
-        <Link href="/terms" className="hover:underline">
+        <Link
+          href="/terms"
+          className="hover:underline focus:underline focus:outline-none"
+        >
           Terms of Service
         </Link>
-        <Link href="/privacy" className="hover:underline">
+        <Link
+          href="/privacy"
+          className="hover:underline focus:underline focus:outline-none"
+        >
           Privacy Policy
         </Link>
-        <Link href="/cookies" className="hover:underline">
+        <Link
+          href="/cookies"
+          className="hover:underline focus:underline focus:outline-none"
+        >
           Cookie Policy
         </Link>
       </div>

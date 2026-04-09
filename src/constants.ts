@@ -136,7 +136,7 @@ export const EMAIL_DISPLAY_JAY = 'jay@abandonedhobby.com';
 export const SUPPORT_EMAIL_DISPLAY = 'support@abandonedhobby.com';
 export const SUPPORT_EMAIL_HREF = 'mailto:support@abandonedhobby.com';
 export const BUSINESS_ADDRESS =
-  '110 N 79th St, Belleville, IL 62223, United States.';
+  '110 N. 79th St, Belleville, IL 62223, United States.';
 
 export const BUSINESS_STREET = '110 N. 79th';
 export const BUSINESS_CITY_STATE_ZIP = 'Belleville, IL 62223';

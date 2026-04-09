@@ -13,6 +13,7 @@ const poppins = Poppins({
 });
 
 export const Footer = ({ appUrl }: FooterProps) => {
+  const normalizedAppUrl = appUrl.replace(/\/$/, '');
   return (
     <footer className="border-t  font-medium bg-white">
       <div className="max-w-(--breakpoint-xl) mx-auto flex flex-col items-center gap-4 h-full px-4 py-6 lg:px-12 md:flex-row md:justify-between">
@@ -26,19 +27,19 @@ export const Footer = ({ appUrl }: FooterProps) => {
         </div>
         <div className="flex items-center gap-4 text-sm text-muted-foreground">
           <Link
-            href={`${appUrl}/terms`}
+            href={`${normalizedAppUrl}/terms`}
             className="hover:underline focus:underline focus:outline-none"
           >
             Terms of Service
           </Link>
           <Link
-            href={`${appUrl}/privacy`}
+            href={`${normalizedAppUrl}/privacy`}
             className="hover:underline focus:underline focus:outline-none"
           >
             Privacy Policy
           </Link>
           <Link
-            href={`${appUrl}/cookies`}
+            href={`${normalizedAppUrl}/cookies`}
             className="hover:underline focus:underline focus:outline-none"
           >
             Cookie Policy
