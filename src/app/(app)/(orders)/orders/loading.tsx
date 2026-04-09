@@ -16,7 +16,7 @@ export default function Loading() {
         </div>
       </nav>
       <header className="bg-[#F4F4F0] py-8 border-b" />
-      <section className="max-w-[var(--breakpoint-xl)] mx-auto px-4 lg:px-12 py-10" />
+      <section className="max-w-(--breakpoint-xl) mx-auto px-4 lg:px-12 py-10" />
     </div>
   );
 }
