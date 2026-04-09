@@ -100,13 +100,13 @@ export async function decrementInventoryBatch(args: {
     }
 
     // Failure paths are explicit and typed
-    console.warn(‘[inv] dec-atomic failed’, {
+    console.warn('[inv] dec-atomic failed', {
       productId,
       purchasedQty,
       reason: res.reason
     });
 
-    if (res.reason === ‘insufficient’) {
+    if (res.reason === 'insufficient') {
       throw new Error(
         `[inv] insufficient stock for product ${productId} (requested ${purchasedQty}) — webhook will retry`
       );
