@@ -7068,3 +7068,58 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/app/(app)/staff/moderation/utils.ts
   - getErrorStatus extended to extract numeric status from nested error.data.httpStatus in addition to existing status fallback.
+
+# Terms and privacy pages 04/09/26
+
+## Walkthough
+
+- Moves Terms content from the home route into a new (legal) route group with dedicated Terms, Privacy, and Cookie pages and layout; deletes the home-level Terms modules; adds contact/address constants; and updates home and tenant footers to link to the new policy routes.
+
+## New Features
+
+- Added standalone Terms of Service, Privacy Policy, and Cookie Policy pages with table-of-contents and in-page anchor navigation.
+- New legal layout that wraps legal content with site navigation and footer for consistent presentation.
+
+## UI
+
+- Footer updated to a responsive two-section layout and now includes direct links to Terms, Privacy, and Cookies.
+
+## Chores
+
+- Centralized business contact, phone, email, and address constants for consistent use.
+
+## Removed
+
+- Legacy client-side Terms view and duplicated terms content removed.
+
+## File changes
+
+### Legal Pages
+
+- src/app/(app)/(legal)/terms/page.tsx, src/app/(app)/(legal)/privacy/page.tsx, src/app/(app)/(legal)/cookies/page.tsx
+  - Added three full policy pages with structured legal content, TABLE OF CONTENTS anchors, and local Section/Subsection helpers; pages import shared contact/address constants and render mailto/tel/address links.
+
+### Legal Layout
+
+- src/app/(app)/(legal)/layout.tsx
+  - Added client-side LegalLayout (default export) composing a dynamically-loaded Navbar, main content wrapper, and Footer for legal pages.
+
+### Removed Home Terms Modules
+
+- src/app/(app)/(home)/terms/page.tsx, src/app/(app)/(home)/terms/terms-client.tsx, src/app/(app)/(home)/terms/terms-content.tsx
+  - Deleted home-level Terms entry, its client component, and the content module (removed Page/TermsClient exports and TermsSection/LAST_UPDATED/sections).
+
+### Constants — Contact & Address
+
+- src/constants.ts
+  - Added exported contact and address constants (phone display/href, Jay/support email display/hrefs, BUSINESS_ADDRESS, plus BUSINESS_STREET, BUSINESS_CITY_STATE_ZIP, BUSINESS_COUNTRY).
+
+### Footer — Home
+
+- src/modules/home/ui/components/footer.tsx
+  - Refactored layout to responsive column/row and added policy links: /terms, /privacy, /cookies; updated spacing and muted link styling with underline-on-hover/focus.
+
+### Footer — Tenants
+
+- src/modules/tenants/ui/components/footer.tsx
+  - Changed to responsive left/right layout, adjusted brand alignment, and added policy links constructed from appUrl (${appUrl}/terms, ${appUrl}/privacy, ${appUrl}/cookies) with muted styling and hover underline.
