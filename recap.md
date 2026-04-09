@@ -7123,3 +7123,31 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/modules/tenants/ui/components/footer.tsx
   - Changed to responsive left/right layout, adjusted brand alignment, and added policy links constructed from appUrl (${appUrl}/terms, ${appUrl}/privacy, ${appUrl}/cookies) with muted styling and hover underline.
+
+# Webhook error handling 04/09/26
+
+## Walkthrough
+
+- The Stripe webhook POST handler now returns HTTP 500 on handler failures (outer catch) unconditionally; decrementInventoryBatch was changed to track partial vs full failures, collect insufficient failures, throw when all decrements failed due to insufficient stock, and log partial failures instead of throwing.
+
+## Bug Fixes
+
+- Webhook failure responses now consistently return HTTP 500.
+
+## Improvements
+
+- Inventory decrement handling: when all attempts fail due to insufficient stock the system now triggers a retry; if some succeed it records a partial failure without forcing a retry.
+- Logging clarified: non-tracked cases are ignored and failure reporting is more explicit.
+
+## File changes
+
+### Webhook Error Handling
+
+- src/app/(app)/api/stripe/webhooks/route.ts
+  - Outer catch in POST handler now always responds with HTTP 500 (removed the non-production 200 branch and the conditional markProcessed() tied to that computed status).
+
+### Inventory Decrement Logic
+
+- src/app/(app)/api/stripe/webhooks/utils/utils.ts
+  - decrementInventoryBatch now tracks anyDecremented and insufficientProducts; if any insufficient failures occurred and none succeeded it throws to trigger webhook retry; partial successes log an error instead of throwing.
+  - Minor formatting changes to the decProductStockAtomic call and removed a commented policy block.

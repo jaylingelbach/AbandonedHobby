@@ -109,7 +109,7 @@ export async function decrementInventoryBatch(args: {
 
     if (res.reason === 'insufficient') {
       insufficientProducts.push({ productId, qty: purchasedQty });
-    } else {
+    } else if (res.reason === 'not-found') {
       hadNonInsufficientFailure = true;
     }
     // ‘not-tracked’: ignore (product doesn’t track inventory)
