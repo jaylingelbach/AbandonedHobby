@@ -11,7 +11,6 @@ export default function Loading() {
       aria-busy="true"
       aria-label="Loading order details"
     >
-      g
       <nav className="p-4 w-full border-b bg-[#F4F4F0]">
         <div className="flex items-center gap-2">
           <ArrowLeftIcon className="size-4" />
