@@ -1,3 +1,11 @@
+/**
+ * Render a skeleton loading UI for the "Curated for you" content section.
+ *
+ * Includes a page heading and two responsive placeholder blocks styled as animated skeletons,
+ * and exposes accessibility attributes (`role="status"`, `aria-live="polite"`, `aria-label="Loading content"`) to announce loading state.
+ *
+ * @returns A React element representing the loading skeleton for the curated content page.
+ */
 export default function Loading() {
   return (
     <div

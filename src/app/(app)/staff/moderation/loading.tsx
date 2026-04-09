@@ -1,3 +1,8 @@
+/**
+ * Renders a full-viewport loading screen for the moderation tools with an accessible status region and spinner.
+ *
+ * @returns The JSX element for the loading screen.
+ */
 export default function Loading() {
   return (
     <div className="min-h-screen bg-[#F4F4F0]">
