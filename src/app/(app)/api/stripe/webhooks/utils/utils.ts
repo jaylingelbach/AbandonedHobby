@@ -77,42 +77,58 @@ export async function decrementInventoryBatch(args: {
   qtyByProductId: Map<string, Quantity>;
 }): Promise<void> {
   const { payload, qtyByProductId } = args;
+  const insufficientProducts: Array<{ productId: string; qty: Quantity }> = [];
+  let anyDecremented = false;
+  let hadNonInsufficientFailure = false;
 
   for (const [productId, purchasedQty] of qtyByProductId) {
     const res: DecProductStockResult = await decProductStockAtomic(
       payload,
       productId,
       purchasedQty,
-      {
-        autoArchive: true
-      }
+      { autoArchive: true }
     );
 
     if (res.ok) {
-      // Typed log with post-update values
       console.log('[inv] dec-atomic', {
         productId,
         purchasedQty,
         after: res.after,
         archived: res.archived
       });
+      anyDecremented = true;
       continue;
     }
 
     // Failure paths are explicit and typed
-    console.warn(‘[inv] dec-atomic failed’, {
+    console.warn('[inv] dec-atomic failed', {
       productId,
       purchasedQty,
       reason: res.reason
     });
 
-    if (res.reason === ‘insufficient’) {
+    if (res.reason === 'insufficient') {
+      insufficientProducts.push({ productId, qty: purchasedQty });
+    } else if (res.reason === 'not-found') {
+      hadNonInsufficientFailure = true;
+    }
+    // 'not-tracked': ignore (product doesn't track inventory)
+    // 'not-found': logged above, continue
+  }
+
+  if (insufficientProducts.length > 0) {
+    if (anyDecremented) {
+      // Some products succeeded - cannot safely retry without double-decrement
+      console.error(
+        '[inv] partial failure - some decrements succeeded, cannot retry safely',
+        { insufficientProducts }
+      );
+    } else if (!hadNonInsufficientFailure) {
+      // No decrements succeeded - safe to retry
       throw new Error(
-        `[inv] insufficient stock for product ${productId} (requested ${purchasedQty}) — webhook will retry`
+        `[inv] insufficient stock for ${insufficientProducts.length} product(s) - webhook will retry`
       );
     }
-    // ‘not-tracked’: ignore (product doesn’t track inventory)
-    // ‘not-found’: logged above, continue
   }
 }
 /**
