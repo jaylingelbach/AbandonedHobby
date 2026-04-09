@@ -10,6 +10,13 @@ import {
   SUPPORT_EMAIL_HREF
 } from '@/constants';
 
+/**
+ * Render the site's Privacy Policy page.
+ *
+ * Renders a static, fully composed Privacy Policy as a React element with structured sections, a table of contents, internal and external links, and contact information populated from shared constants.
+ *
+ * @returns A JSX element containing the complete Privacy Policy content and layout.
+ */
 export default function PrivacyPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 text-sm text-gray-700 leading-relaxed">
@@ -916,6 +923,18 @@ export default function PrivacyPage() {
   );
 }
 
+/**
+ * Render a document section with an optional numbered heading.
+ *
+ * When `title` is provided the component renders a section element containing an `<h2>` heading
+ * (prefixed with `number` if present) and the `children`. When `title` is omitted it renders a
+ * plain section containing only the `children` (no heading or `id`).
+ *
+ * @param id - Optional id applied to the section element when a `title` is present (used for in-page anchors)
+ * @param number - Optional numeric prefix for the heading; when provided the heading will be prefixed with "`<number>. `"
+ * @param title - Optional heading text for the section; if omitted the section renders without a heading
+ * @param children - The content to render inside the section
+ */
 function Section({
   id,
   number,
@@ -941,6 +960,13 @@ function Section({
   );
 }
 
+/**
+ * Renders a subsection block with a heading followed by provided content.
+ *
+ * @param title - The subsection heading text displayed in an <h3>.
+ * @param children - Content rendered below the heading.
+ * @returns A <div> containing an <h3> title and the provided children.
+ */
 function Subsection({
   title,
   children

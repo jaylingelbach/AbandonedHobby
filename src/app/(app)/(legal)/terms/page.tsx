@@ -13,6 +13,11 @@ import {
   SUPPORT_EMAIL_HREF
 } from '@/constants';
 
+/**
+ * Render the complete "Terms of Service" page including a table of contents, numbered legal sections, DMCA and contact details.
+ *
+ * @returns The React node containing the full Terms of Service document
+ */
 export default function TermsPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 text-sm text-gray-700 leading-relaxed">
@@ -1016,6 +1021,15 @@ export default function TermsPage() {
   );
 }
 
+/**
+ * Render a document section with an optional anchor id and optional numeric prefix for the heading.
+ *
+ * @param id - Optional id used as the section's anchor (for in-page links)
+ * @param number - Optional section number to prefix the heading (e.g., `1`, `2`)
+ * @param title - The section heading text
+ * @param children - The section's content nodes
+ * @returns The rendered section element containing a heading and its content
+ */
 function Section({
   id,
   number,
@@ -1038,6 +1052,13 @@ function Section({
   );
 }
 
+/**
+ * Renders a subsection heading with its content.
+ *
+ * @param title - The subsection title text displayed as an H3 heading
+ * @param children - The content rendered beneath the heading
+ * @returns A JSX element containing the subsection heading and its children
+ */
 function Subsection({
   title,
   children

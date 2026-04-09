@@ -10,6 +10,13 @@ import {
   PHONE_HREF
 } from '@/constants';
 
+/**
+ * Render the COOKIE POLICY page as a styled React component with explanatory sections and contact details.
+ *
+ * The page displays a "Last updated April 08, 2026" line, multiple cookie-related sections (including external opt-out links), and contact/address information sourced from business constants.
+ *
+ * @returns The React element representing the cookie policy page.
+ */
 export default function CookiePolicyPage() {
   return (
     <div className="max-w-3xl mx-auto px-4 py-10 text-sm text-gray-700 leading-relaxed">
@@ -250,6 +257,13 @@ export default function CookiePolicyPage() {
   );
 }
 
+/**
+ * Render a document section with a bold title and its content.
+ *
+ * @param title - Text used as the section heading
+ * @param children - Content to display below the heading
+ * @returns A `<section>` element containing an `<h2>` title and the provided content
+ */
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <section className="mt-10">

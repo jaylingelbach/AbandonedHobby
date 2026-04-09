@@ -9,6 +9,14 @@ const Navbar = dynamic(
   { ssr: false }
 );
 
+/**
+ * Layout component for legal pages that provides a consistent page frame.
+ *
+ * Renders a full-height vertical column with a navbar at the top, a main content area that hosts `children`, and a footer at the bottom.
+ *
+ * @param children - The content to render inside the main area of the layout
+ * @returns A JSX element containing the navbar, the `children` within the main content area, and the footer
+ */
 export default function LegalLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex flex-col min-h-screen">
