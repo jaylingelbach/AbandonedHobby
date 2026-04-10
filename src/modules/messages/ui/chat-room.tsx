@@ -171,7 +171,7 @@ function ChatView({ conversationId }: { conversationId: string }) {
         {messages.map((message) => (
           <div key={message.id} className="px-3 py-2 rounded-md bg-pink-400">
             <div className="flex justify-between items-start gap-2">
-              <span>
+              <span className="min-w-0 flex-1 break-words">
                 <strong>{message.name ?? 'Anonymous'}:</strong>{' '}
                 {message.content}
               </span>
