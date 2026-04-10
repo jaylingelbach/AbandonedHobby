@@ -17,6 +17,16 @@ interface ChatModalProps {
   username: string;
 }
 
+/**
+ * Renders a modal dialog containing a chat UI for a specific conversation and room.
+ *
+ * @param open - Whether the dialog is visible
+ * @param onOpenChange - Callback invoked with the new open state when the dialog is opened or closed
+ * @param conversationId - Identifier for the conversation displayed in the chat
+ * @param roomId - Identifier for the chat room used by the embedded chat UI
+ * @param username - Display name shown in the dialog title
+ * @returns A Dialog element that houses the chat interface and accessibility metadata
+ */
 export function ChatModal({
   open,
   onOpenChange,
