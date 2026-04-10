@@ -124,6 +124,22 @@ function ChatViewSkeleton() {
  * @returns The chat view element containing the message list, input field, and Send button
  */
 function ChatView({ conversationId }: { conversationId: string }) {
+  const formatTimestamp = (createdAt: number) => {
+    const d = new Date(createdAt);
+    const today = new Date();
+    const isToday =
+      d.getFullYear() === today.getFullYear() &&
+      d.getMonth() === today.getMonth() &&
+      d.getDate() === today.getDate();
+    const time = d.toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    return isToday
+      ? time
+      : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+  };
+
   const { user } = useUser();
   const inputRef = useRef<HTMLInputElement>(null);
   const trpc = useTRPC();
@@ -191,21 +207,7 @@ function ChatView({ conversationId }: { conversationId: string }) {
                 {message.content}
               </span>
               <span className="text-xs text-primary whitespace-nowrap shrink-0">
-                {(() => {
-                  const d = new Date(message.createdAt);
-                  const today = new Date();
-                  const isToday =
-                    d.getFullYear() === today.getFullYear() &&
-                    d.getMonth() === today.getMonth() &&
-                    d.getDate() === today.getDate();
-                  const time = d.toLocaleTimeString([], {
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  });
-                  return isToday
-                    ? time
-                    : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
-                })()}
+                {formatTimestamp(message.createdAt)}
               </span>
             </div>
           </div>
