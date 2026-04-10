@@ -7192,3 +7192,40 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/app/(app)/chat/[conversationId]/loading.tsx, src/app/(app)/checkout/loading.tsx, src/app/(app)/inbox/loading.tsx, src/app/(app)/staff/moderation/loading.tsx
   - Added chat spinner + message, checkout route delegating to CheckoutViewSkeleton, inbox full-viewport placeholders, and moderation spinner with aria-busy and screen-reader text.
+
+# Chat polish and timestamps 04/10/26
+
+## Walkthrough
+
+- Backend: conversation listing now supplies explicit user context and notifications marking runs two concurrent updates (notifications + messages). UI: chat modal and chat room layouts switched to flex with improved message wrapping and runtime timestamp formatting.
+
+## New Features
+
+- Messages now display runtime timestamps: time for today, date+time for older messages.
+
+## Style
+
+- Improved chat modal and message list layout for better flex-based resizing, wrapping, and scroll behavior.
+- Message rows show sender/content and a right-aligned timestamp.
+
+## Bug Fixes
+
+- Marking a conversation as read now updates both notifications and messages as read.
+
+## File changes
+
+### Chat UI
+
+- src/modules/conversations/ui/chat-modal.tsx, src/modules/messages/ui/chat-room.tsx
+  - Dialog content uses flex flex-col; ChatRoom wrapped in a flex child (flex-1 min-h-0) to allow proper scrolling.
+  - Message rows split into content + right-aligned timestamp; timestamps rendered at runtime (today → locale time, otherwise Mon D + time).
+
+### Conversation listing
+
+- src/modules/conversations/server/procedures.ts
+  - conversationsRouter.listForMe now invokes the DB query with explicit user: ctx.session.user (and overrideAccess: false) in its options.
+
+### Notifications / Read marking
+
+- src/modules/notifications/server/procedures.ts
+  - markConversationRead now updates both notifications and messages (filtering by user/conversation/read=false) and executes the two updates concurrently via Promise.all, then returns the refreshed unread notifications count.
