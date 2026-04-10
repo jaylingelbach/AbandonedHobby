@@ -27,17 +27,30 @@ export const notificationsRouter = createTRPCRouter({
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-      await ctx.db.update({
-        collection: 'notifications',
-        where: {
-          and: [
-            { user: { equals: user.id } },
-            { 'payload.conversationId': { equals: input.conversationId } },
-            { read: { equals: false } }
-          ]
-        },
-        data: { read: true }
-      });
+      await Promise.all([
+        ctx.db.update({
+          collection: 'notifications',
+          where: {
+            and: [
+              { user: { equals: user.id } },
+              { 'payload.conversationId': { equals: input.conversationId } },
+              { read: { equals: false } }
+            ]
+          },
+          data: { read: true }
+        }),
+        ctx.db.update({
+          collection: 'messages',
+          where: {
+            and: [
+              { receiver: { equals: user.id } },
+              { conversationId: { equals: input.conversationId } },
+              { read: { equals: false } }
+            ]
+          },
+          data: { read: true }
+        })
+      ]);
 
       // Return fresh count to simplify client cache updates if you want
       const { totalDocs } = await ctx.db.find({

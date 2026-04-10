@@ -294,10 +294,11 @@ export const conversationsRouter = createTRPCRouter({
           roomId: true,
           updatedAt: true
         } as const,
-        depth: 0, // keep lean; we’ll load usernames in batch
+        depth: 0,
         limit: 100,
         sort: '-updatedAt',
-        overrideAccess: false
+        overrideAccess: false,
+        user: ctx.session.user
       });
 
       ctx.db.logger.info('[conversations.listForMe] primary ok', {
