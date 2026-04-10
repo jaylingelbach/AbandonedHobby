@@ -26,7 +26,7 @@ export function ChatModal({
 }: ChatModalProps) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl h-[70vh]">
+      <DialogContent className="max-w-2xl h-[70vh] flex flex-col">
         <DialogHeader className="flex justify-between items-center mb-2">
           <DialogTitle>Chat with {username}</DialogTitle>
           <VisuallyHidden>
@@ -49,7 +49,9 @@ export function ChatModal({
           This dialog allows you to chat with the seller about the product.
         </DialogDescription>
 
-        <ChatRoom conversationId={conversationId} roomId={roomId} />
+        <div className="flex-1 min-h-0">
+          <ChatRoom conversationId={conversationId} roomId={roomId} />
+        </div>
       </DialogContent>
     </Dialog>
   );

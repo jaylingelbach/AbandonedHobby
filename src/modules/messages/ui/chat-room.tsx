@@ -88,7 +88,7 @@ export function ChatRoom({
 function ChatViewSkeleton() {
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
+      <div className="flex-1 min-h-0 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
         Loading ..
       </div>
       <input
@@ -167,10 +167,32 @@ function ChatView({ conversationId }: { conversationId: string }) {
 
   return (
     <div className="flex flex-col h-full">
-      <div className="flex-1 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
+      <div className="flex-1 min-h-0 overflow-y-auto border border-gray-300 rounded-lg p-4 space-y-3 bg-white">
         {messages.map((message) => (
           <div key={message.id} className="px-3 py-2 rounded-md bg-pink-400">
-            <strong>{message.name ?? 'Anonymous'}:</strong> {message.content}
+            <div className="flex justify-between items-start gap-2">
+              <span>
+                <strong>{message.name ?? 'Anonymous'}:</strong>{' '}
+                {message.content}
+              </span>
+              <span className="text-xs text-primary whitespace-nowrap shrink-0">
+                {(() => {
+                  const d = new Date(message.createdAt);
+                  const today = new Date();
+                  const isToday =
+                    d.getFullYear() === today.getFullYear() &&
+                    d.getMonth() === today.getMonth() &&
+                    d.getDate() === today.getDate();
+                  const time = d.toLocaleTimeString([], {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                  });
+                  return isToday
+                    ? time
+                    : `${d.toLocaleDateString([], { month: 'short', day: 'numeric' })} ${time}`;
+                })()}
+              </span>
+            </div>
           </div>
         ))}
       </div>
