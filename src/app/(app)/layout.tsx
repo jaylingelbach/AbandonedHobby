@@ -97,6 +97,14 @@ export const metadata: Metadata = {
   }
 };
 
+/**
+ * Root layout component that provides the global HTML structure, font class, and application-level providers.
+ *
+ * The layout applies the DM Sans font class to the <body>, initializes PostHog, and wraps `children` with NuqsAdapter, TRPCReactProvider, AnalyticsIdentityBridge, LiveblocksWrapper, and a Toaster.
+ *
+ * @param children - The page or application content to render inside the global providers
+ * @returns The root HTML and body elements containing the provided children wrapped by global providers
+ */
 export default function RootLayout({
   children
 }: {
