@@ -57,9 +57,14 @@ const brandKeywords = [
 ];
 
 export const metadata: Metadata = {
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'
-  ),
+  metadataBase: (() => {
+    const fallbackUrl = 'https://www.abandonedhobby.com';
+    try {
+      return new URL(process.env.NEXT_PUBLIC_SITE_URL ?? fallbackUrl);
+    } catch {
+      return new URL(fallbackUrl);
+    }
+  })(),
   title: {
     default: 'Abandoned Hobby',
     template: '%s | Abandoned Hobby'
@@ -83,7 +88,7 @@ export const metadata: Metadata = {
     type: 'website',
     images: [
       {
-        url: '/placeholder.png',
+        url: '/open-graph-image.png',
         width: 1200,
         height: 630,
         alt: 'Abandoned Hobby'
