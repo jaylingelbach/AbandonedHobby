@@ -22,6 +22,10 @@ export function isMedia(value: unknown): value is Media {
   );
 }
 
+export function isMediaUrl(val: unknown): val is Media {
+  return typeof val === 'object' && val !== null && 'url' in val;
+}
+
 /**
  * Extracts a thumbnail URL from a product's first image when available.
  *
