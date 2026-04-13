@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { ChatModal } from '@/modules/conversations/ui/chat-modal';
 import { useTRPC } from '@/trpc/client';
 
-
 import { timeAgo } from './utils';
 
 import type { ConversationListItem } from './types';
@@ -122,7 +121,7 @@ export default function InboxClient() {
             <div className="mt-6">
               <Button
                 asChild
-                className="border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+                className="border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:bg-pink-500 hover:text-primary"
               >
                 <Link href="/sign-in">Sign in</Link>
               </Button>

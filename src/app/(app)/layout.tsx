@@ -15,11 +15,81 @@ import PostHogInit from './posthog-init'; // client
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com';
+
+const keywords = [
+  'abandoned hobbies',
+  'hobby marketplace',
+  'buy and sell hobby gear',
+  'used hobby equipment',
+  'creative hobbies',
+  'DIY hobbies',
+  'craft supplies marketplace',
+  'maker community',
+  'secondhand hobby supplies',
+  'unfinished projects'
+];
+
+const intentKeywords = [
+  'sell unused hobby supplies',
+  'buy cheap hobby gear',
+  'where to sell craft supplies',
+  'marketplace for handmade tools',
+  'resell hobby equipment',
+  'declutter hobby materials',
+  'find affordable craft tools'
+];
+
+const longTailKeywords = [
+  'what to do with abandoned hobbies',
+  'sell unfinished craft projects online',
+  'buy secondhand art supplies cheap',
+  'marketplace for hobbyists and makers',
+  'unused hobby gear resale platform',
+  'creative hobby supply exchange'
+];
+
+const brandKeywords = [
+  'Abandoned Hobby',
+  'Abandoned Hobby marketplace',
+  'Abandoned Hobby app'
+];
+
 export const metadata: Metadata = {
-  title: 'Abandoned Hobby',
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'
+  ),
+  title: {
+    default: 'Abandoned Hobby',
+    template: '%s | Abandoned Hobby'
+  },
   icons: { icon: '/favicon.ico' },
   description:
-    'A safe place for ADHD people to trade, buy and sell their hobbies judgement free'
+    'Turn unfinished projects into opportunity. Buy and sell unused hobby gear, craft supplies, and creative tools.',
+  keywords: [
+    ...keywords,
+    ...intentKeywords,
+    ...longTailKeywords,
+    ...brandKeywords
+  ],
+  openGraph: {
+    title: 'Abandoned Hobby',
+    description:
+      'Turn unfinished projects into opportunity. Buy and sell unused hobby gear, craft supplies, and creative tools.',
+    url: siteUrl,
+    siteName: 'Abandoned Hobby',
+    locale: 'en_US',
+    type: 'website',
+    images: [
+      {
+        url: '/placeholder.png',
+        width: 1200,
+        height: 630,
+        alt: 'Abandoned Hobby'
+      }
+    ]
+  }
 };
 
 export default function RootLayout({
