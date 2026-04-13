@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { ChatModal } from '@/modules/conversations/ui/chat-modal';
 import { useTRPC } from '@/trpc/client';
 
-
 import { timeAgo } from './utils';
 
 import type { ConversationListItem } from './types';
@@ -31,9 +30,12 @@ const badgeClasses = cn(
 );
 
 /**
- * Client-side Inbox UI: lists conversations, shows excerpts and unread counts, and opens a chat modal.
- * - Gates protected queries on session status to avoid 401s.
- * - Invalidates both the conversations list and the navbar unread counter after marking a conversation read.
+ * Renders the authenticated inbox UI for listing conversations and opening chat modals.
+ *
+ * Shows conversation excerpts, unread counts, and guards protected queries using session state.
+ * After a conversation is marked read, it invalidates the conversations list and the navbar unread count.
+ *
+ * @returns The inbox UI element
  */
 export default function InboxClient() {
   const trpc = useTRPC();
@@ -122,7 +124,7 @@ export default function InboxClient() {
             <div className="mt-6">
               <Button
                 asChild
-                className="border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)]"
+                className="border-2 border-black shadow-[4px_4px_0_0_rgba(0,0,0,1)] hover:bg-pink-500 hover:text-primary"
               >
                 <Link href="/sign-in">Sign in</Link>
               </Button>
