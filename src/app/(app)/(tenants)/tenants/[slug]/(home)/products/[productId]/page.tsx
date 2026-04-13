@@ -1,13 +1,17 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { Suspense } from 'react';
+import { cache, Suspense } from 'react';
 
 import { ProductView } from '@/modules/products/ui/views/product-view';
 import { ProductViewSkeleton } from '@/modules/products/ui/views/product-view';
-import { getQueryClient, trpc } from '@/trpc/server';
+import { caller, getQueryClient, trpc } from '@/trpc/server';
 
 import type { Metadata } from 'next';
-import { getPayloadClient } from '@/lib/payload';
 import { isMediaUrl } from '@/lib/server/moderation/utils';
+import { getTenantNameSafe } from '@/lib/utils';
+
+const getProduct = cache((productId: string) =>
+  caller.products.getOne({ id: productId })
+);
 
 interface Props {
   params: Promise<{ productId: string; slug: string }>;
@@ -16,12 +20,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { productId, slug } = await params;
 
   try {
-    const payload = await getPayloadClient();
-    const product = await payload.findByID({
-      collection: 'products',
-      id: productId,
-      depth: 1
-    });
+    const product = await getProduct(productId);
 
     const imageField = product.images?.[0]?.image;
     const imageUrl =
@@ -29,15 +28,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         ? imageField.url
         : '/open-graph-image.png';
 
-    const tenantName =
-      typeof product.tenant === 'object' &&
-      product.tenant !== null &&
-      'name' in product.tenant
-        ? product.tenant.name
-        : slug;
+    const tenantName = getTenantNameSafe(product.tenant);
 
     const description = `Buy ${product.name} from ${tenantName} on Abandoned Hobby. Find secondhand hobby gear, craft supplies, and creative tools.`;
-    const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}/products/${productId}`;
+    const url = `${process.env.NEXT_PUBLIC_SITE_URL}/tenants/${slug}/products/${productId}`;
 
     return {
       title: product.name,
@@ -45,24 +39,29 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: {
         type: 'website',
         url,
-        images: [imageUrl]
+        images: [
+          {
+            url: imageUrl,
+            alt: product.name
+          }
+        ]
       }
     };
-  } catch {
+  } catch (error) {
+    console.error('Failed to generate product metadata:', error);
     return { title: 'Product on Abandoned Hobby' };
   }
 }
 const Page = async ({ params }: Props) => {
   const { productId, slug } = await params;
-
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
   const queryClient = getQueryClient();
-  await Promise.all([
-    queryClient.prefetchQuery(trpc.tenants.getOne.queryOptions({ slug })),
-    queryClient.prefetchQuery(
-      trpc.products.getOne.queryOptions({ id: productId })
-    )
-  ]);
+  const product = await getProduct(productId);
+  queryClient.setQueryData(
+    trpc.products.getOne.queryOptions({ id: productId }).queryKey,
+    product
+  );
+  await queryClient.prefetchQuery(trpc.tenants.getOne.queryOptions({ slug }));
   return (
     <div>
       <HydrationBoundary state={dehydrate(queryClient)}>
