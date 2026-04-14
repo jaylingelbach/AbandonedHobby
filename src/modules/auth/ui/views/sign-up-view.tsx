@@ -29,6 +29,30 @@ import { registerSchema } from '../../schemas';
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
+/**
+ * Full-page sign-up view for the Abandoned Hobby platform.
+ *
+ * Renders a two-column layout:
+ * - **Left column** — a registration form (first name, last name, username,
+ *   e-mail, password with show/hide toggle) or, once registration succeeds, a
+ *   confirmation panel prompting the user to verify their inbox.
+ * - **Right column** — a decorative background image (hidden on mobile).
+ *
+ * ### Behaviour
+ * - Validates input client-side via `react-hook-form` + `zod`
+ *   (`registerSchema`).
+ * - Submits via the `auth.register` tRPC mutation.
+ * - Displays a loading spinner and "Creating Account…" label while the
+ *   mutation is in flight (`register.isPending`).
+ * - On success (`register.isSuccess`) replaces the form with a "Check your
+ *   inbox" confirmation panel showing the submitted e-mail address.
+ * - On error, surfaces the server error message via a `sonner` toast.
+ * - If a `?next=` search parameter is present it is preserved on the
+ *   "Sign in" link and used for post-registration redirect (validated against
+ *   {`@link` getSafeNextURL} before use).
+ *
+ */
+
 function SignUpView() {
   const [showPassword, setShowPassword] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
