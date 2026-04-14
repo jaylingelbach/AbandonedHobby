@@ -41,7 +41,12 @@ function isVerified(user: DbUser): boolean {
   return user._verified === true || user.emailVerified === true;
 }
 
-/* ──────────────────────── main API ───────────────────────── */
+/**
+ * Determine the user's current onboarding step and the next action path.
+ *
+ * @param user - The database user record used to evaluate verification, tenant, Stripe, and product states
+ * @returns The `OnboardingState` containing `step`, `label`, and `next` path appropriate for the user's progress
+ */
 
 export function computeOnboarding(user: DbUser): OnboardingState {
   if (!isVerified(user)) {

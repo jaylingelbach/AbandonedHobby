@@ -16,6 +16,18 @@ interface PageProps {
 
 const getTenant = cache((slug: string) => caller.tenants.getOne({ slug }));
 
+/**
+ * Generate SEO metadata for a tenant's seller page.
+ *
+ * Returns a Metadata object containing `title`, `description`, and `openGraph` (with `type`, canonical `url`, and `images`) derived from the tenant identified by the route `slug`.
+ *
+ * If the tenant name is unavailable, the slug is used as the title; if the tenant image is unavailable, `/open-graph-image.png` is used. The canonical URL is built from `NEXT_PUBLIC_SITE_URL` with a fallback to `https://www.abandonedhobby.com`.
+ *
+ * On error, logs the failure and returns a fallback metadata object with the title "Seller on Abandoned Hobby".
+ *
+ * @param params - Async route params resolving to an object with a `slug` property identifying the tenant
+ * @returns A Metadata object for the tenant page, or a fallback `{ title: 'Seller on Abandoned Hobby' }` on error
+ */
 export async function generateMetadata({
   params
 }: PageProps): Promise<Metadata> {

@@ -18,6 +18,14 @@ const getProduct = cache((productId: string) =>
 interface Props {
   params: Promise<{ productId: string; slug: string }>;
 }
+/**
+ * Builds page metadata for a product route using the provided route parameters.
+ *
+ * Fetches the product by `productId`, verifies the product belongs to the tenant identified by `slug`, and constructs metadata including `title`, `description`, and Open Graph data (type, canonical-ish URL, and an images array with `url` and `alt`).
+ *
+ * @param params - A promise resolving to route parameters `{ productId: string; slug: string }`
+ * @returns A `Metadata` object with `title`, `description`, and `openGraph` fields when the product and tenant match; an empty object `{}` if the tenant slug does not match the product's tenant; if an error occurs, returns `{ title: 'Product on Abandoned Hobby' }`.
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { productId, slug } = await params;
 
