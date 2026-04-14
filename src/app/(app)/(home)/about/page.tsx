@@ -1,7 +1,12 @@
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import type { Metadata } from 'next';
 
 export const dynamic = 'force-dynamic';
 
+export const metadata: Metadata = {
+  title: 'About',
+  description: 'Abandoned Hobby is a safe, judgment-free marketplace for neurodivergent people to buy, sell, and trade hobby supplies they have outgrown or left behind.'
+};
 function Page() {
   return (
     <div className="px-4 lg:px-12 py-8 flex flex-col gap-12 items-center">

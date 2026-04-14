@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { HydrationBoundary, dehydrate } from '@tanstack/react-query';
+
+export const metadata: Metadata = { robots: { index: false } };
 import { notFound } from 'next/navigation';
 
 import OrderConfirmationView from '@/modules/checkout/ui/views/order-confirmation-view';

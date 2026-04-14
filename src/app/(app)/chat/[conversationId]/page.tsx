@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
+
+export const metadata: Metadata = { robots: { index: false } };
 
 import { getAuthUser } from '@/lib/get-auth-user';
 import { ChatRoom } from '@/modules/messages/ui/chat-room';
