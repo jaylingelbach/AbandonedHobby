@@ -16,6 +16,19 @@ export function buildWelcomeVerifySubject(user: BasicUser) {
   return `Welcome to Abandoned Hobby, ${name}! Please verify your email`;
 }
 
+/**
+ * Builds the complete HTML email used to welcome a new user and prompt them to verify their email.
+ *
+ * @param token - Verification token appended to the verification URL included in the message.
+ * @param user - Basic user info; `firstName` is used for greetings when available, otherwise `email` is used. `username` is shown in the login info when present.
+ * @param appUrl - Base app URL (defaults to `process.env.NEXT_PUBLIC_APP_URL` or `'http://localhost:3000'`).
+ * @param loginUrl - Sign-in page URL (defaults to `process.env.SIGNIN_URL` or `${appUrl}/sign-in`).
+ * @param supportUrl - Help/docs URL (defaults to `process.env.SUPPORT_URL` or `${appUrl}/help`).
+ * @param supportEmail - Support email address (defaults to `process.env.POSTMARK_SUPPORT_EMAIL` or `'support@abandonedhobby.com'`).
+ * @param productName - Product name used in copy and title (defaults to `'Abandoned Hobby'`).
+ * @param senderName - Sender name used in the sign-off (defaults to `'Jay'`).
+ * @returns A string containing the full HTML document for the welcome/verify email, including a hidden preheader, a centered verification button, a 4-step onboarding checklist, login details, support links, and a plaintext fallback verification URL.
+ */
 export function buildWelcomeVerifyHTML({
   token,
   user,
