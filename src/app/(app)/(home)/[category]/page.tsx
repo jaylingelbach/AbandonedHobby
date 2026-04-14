@@ -20,8 +20,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
-  const categoryName = categoryNameFromSlug(category);
-  if (!categoryName) return {};
+  const categoryName = categoryNameFromSlug(category) ?? category;
   const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/${category}`;
 
   return {
