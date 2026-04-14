@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { handleDbError } from '@/trpc/handle-db-error';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 import { GetMessagesDTO, SendMessageDTO } from './schemas';
@@ -31,11 +32,29 @@ export const messagesRouter = createTRPCRouter({
       // used to get the other persons profile (if buyer, the sellers and vice versa)
       const otherUserId = currentUserId === buyerId ? sellerId : buyerId;
 
-      const otherUser = await ctx.db.findByID({
-        collection: 'users',
-        id: otherUserId,
-        depth: 1
-      });
+      let otherUser: Awaited<ReturnType<typeof ctx.db.findByID>>;
+      let messages: Awaited<ReturnType<typeof ctx.db.find>>;
+
+      try {
+        otherUser = await ctx.db.findByID({
+          collection: 'users',
+          id: otherUserId,
+          depth: 1
+        });
+
+        messages = await ctx.db.find({
+          collection: 'messages',
+          limit: 1,
+          sort: '-createdAt',
+          where: {
+            conversationId: {
+              equals: `chat-${buyerId}-${sellerId}-${productId}`
+            }
+          }
+        });
+      } catch (error) {
+        handleDbError(error, 'messages.getConversation', 'An error occurred while fetching the conversation');
+      }
 
       if (!otherUser) {
         throw new TRPCError({
@@ -43,17 +62,6 @@ export const messagesRouter = createTRPCRouter({
           message: 'Other user not found'
         });
       }
-
-      const messages = await ctx.db.find({
-        collection: 'messages',
-        limit: 1,
-        sort: '-createdAt',
-        where: {
-          conversationId: {
-            equals: `chat-${buyerId}-${sellerId}-${productId}`
-          }
-        }
-      });
 
       return {
         conversationId: `chat-${buyerId}-${sellerId}-${productId}`,
@@ -112,20 +120,24 @@ export const messagesRouter = createTRPCRouter({
           ? conversation.product
           : conversation.product.id;
 
-      // Persist the message referencing the conversation’s DB id
-      const message = await ctx.db.create({
-        collection: 'messages',
-        data: {
-          conversationId: conversation.id,
-          sender: user.id,
-          receiver: receiverId,
-          content: input.content,
-          product: productId,
-          read: false
-        }
-      });
+      // Persist the message referencing the conversation's DB id
+      try {
+        const message = await ctx.db.create({
+          collection: 'messages',
+          data: {
+            conversationId: conversation.id,
+            sender: user.id,
+            receiver: receiverId,
+            content: input.content,
+            product: productId,
+            read: false
+          }
+        });
 
-      return message;
+        return message;
+      } catch (error) {
+        handleDbError(error, 'messages.sendMessage', 'An error occurred while sending the message');
+      }
     }),
 
   getMessage: protectedProcedure
@@ -140,23 +152,27 @@ export const messagesRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const { conversationId, page, limit } = input;
 
-      const messages = await ctx.db.find({
-        collection: 'messages',
-        sort: '-createdAt',
-        where: {
-          conversationId: {
-            equals: conversationId
-          }
-        },
-        page,
-        limit,
-        depth: 1
-      });
+      try {
+        const messages = await ctx.db.find({
+          collection: 'messages',
+          sort: '-createdAt',
+          where: {
+            conversationId: {
+              equals: conversationId
+            }
+          },
+          page,
+          limit,
+          depth: 1
+        });
 
-      return {
-        messages: messages.docs,
-        hasNextPage: page < messages.totalPages
-      };
+        return {
+          messages: messages.docs,
+          hasNextPage: page < messages.totalPages
+        };
+      } catch (error) {
+        handleDbError(error, 'messages.getMessage', 'An error occurred while fetching messages');
+      }
     }),
   markMessagesRead: protectedProcedure
     .input(
@@ -176,33 +192,37 @@ export const messagesRouter = createTRPCRouter({
         });
       }
 
-      const updated = await ctx.db.update({
-        collection: 'messages',
-        where: {
-          and: [
-            {
-              conversationId: {
-                equals: input.conversationId
+      try {
+        const updated = await ctx.db.update({
+          collection: 'messages',
+          where: {
+            and: [
+              {
+                conversationId: {
+                  equals: input.conversationId
+                }
+              },
+              {
+                receiver: {
+                  equals: userId
+                }
+              },
+              {
+                read: {
+                  equals: false
+                }
               }
-            },
-            {
-              receiver: {
-                equals: userId
-              }
-            },
-            {
-              read: {
-                equals: false
-              }
-            }
-          ]
-        },
-        data: {
-          read: true
-        },
-        overrideAccess: false
-      });
+            ]
+          },
+          data: {
+            read: true
+          },
+          overrideAccess: false
+        });
 
-      return updated;
+        return updated;
+      } catch (error) {
+        handleDbError(error, 'messages.markMessagesRead', 'An error occurred while marking messages as read');
+      }
     })
 });

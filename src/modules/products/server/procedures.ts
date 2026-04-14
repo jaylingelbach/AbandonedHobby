@@ -8,6 +8,7 @@ import { isNotFound, summarizeReviews } from '@/lib/server/utils';
 import { sortValues } from '@/modules/products/search-params';
 import type { Media, Product, Tenant, Review } from '@/payload-types';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+import { handleDbError } from '@/trpc/handle-db-error';
 
 import type { Sort, Where } from 'payload';
 
@@ -319,114 +320,122 @@ export const productsRouter = createTRPCRouter({
           ? input.q.trim()
           : null;
 
-      // Category/Subcategory
-      if (input.subcategory) {
-        const subRes = await ctx.db.find({
-          collection: 'categories',
-          limit: 1,
-          depth: 0,
-          where: { slug: { equals: input.subcategory } }
-        });
-        const sub = subRes.docs[0];
+      try {
+        // Category/Subcategory
+        if (input.subcategory) {
+          const subRes = await ctx.db.find({
+            collection: 'categories',
+            limit: 1,
+            depth: 0,
+            where: { slug: { equals: input.subcategory } }
+          });
+          const sub = subRes.docs[0];
 
-        if (!sub) {
-          where.id = { equals: '__no_results__' };
+          if (!sub) {
+            where.id = { equals: '__no_results__' };
+          } else if (input.category) {
+            const parentId =
+              typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
+            const parentRes = await ctx.db.find({
+              collection: 'categories',
+              limit: 1,
+              depth: 0,
+              where: { slug: { equals: input.category } }
+            });
+            const parentCat = parentRes.docs[0];
+
+            if (!parentCat || String(parentId) !== String(parentCat.id)) {
+              where.id = { equals: '__no_results__' };
+            } else {
+              where.subcategory = { equals: sub.id };
+            }
+          } else {
+            where.subcategory = { equals: sub.id };
+          }
         } else if (input.category) {
-          const parentId =
-            typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
-          const parentRes = await ctx.db.find({
+          const catRes = await ctx.db.find({
             collection: 'categories',
             limit: 1,
             depth: 0,
             where: { slug: { equals: input.category } }
           });
-          const parentCat = parentRes.docs[0];
+          const cat = catRes.docs[0];
 
-          if (!parentCat || String(parentId) !== String(parentCat.id)) {
-            where.id = { equals: '__no_results__' };
+          if (cat) {
+            const childrenRes = await ctx.db.find({
+              collection: 'categories',
+              pagination: false,
+              depth: 0,
+              where: { parent: { equals: cat.id } }
+            });
+            const childIds = childrenRes.docs.map((d) => d.id);
+            where.or = [
+              { category: { equals: cat.id } },
+              ...(childIds.length ? [{ subcategory: { in: childIds } }] : [])
+            ];
           } else {
-            where.subcategory = { equals: sub.id };
+            where.id = { equals: '__no_results__' };
           }
-        } else {
-          where.subcategory = { equals: sub.id };
         }
-      } else if (input.category) {
-        const catRes = await ctx.db.find({
-          collection: 'categories',
-          limit: 1,
-          depth: 0,
-          where: { slug: { equals: input.category } }
-        });
-        const cat = catRes.docs[0];
 
-        if (cat) {
-          const childrenRes = await ctx.db.find({
-            collection: 'categories',
-            pagination: false,
-            depth: 0,
-            where: { parent: { equals: cat.id } }
+        // Final where: availability AND (optional) multi-field text search
+        const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
+
+        if (q) {
+          // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
+          andClauses.push({
+            or: [
+              { name: { like: q } },
+              { description: { like: q } },
+              { 'tenant.name': { like: q } }
+            ]
           });
-          const childIds = childrenRes.docs.map((d) => d.id);
-          where.or = [
-            { category: { equals: cat.id } },
-            ...(childIds.length ? [{ subcategory: { in: childIds } }] : [])
-          ];
-        } else {
-          where.id = { equals: '__no_results__' };
         }
-      }
 
-      // Final where: availability AND (optional) multi-field text search
-      const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
+        const finalWhere: Where = {
+          ...where,
+          and: andClauses
+        };
 
-      if (q) {
-        // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
-        andClauses.push({
-          or: [
-            { name: { like: q } },
-            { description: { like: q } },
-            { 'tenant.name': { like: q } }
-          ]
+        const data = await ctx.db.find({
+          collection: 'products',
+          depth: 2, // cover + images.image + tenant.image populated
+          where: finalWhere,
+          sort,
+          page: input.cursor,
+          limit: input.limit,
+          select: { content: false }
         });
+
+        const ids = data.docs.map((d) => d.id);
+        const reviewDocs =
+          ids.length > 0
+            ? (
+                await ctx.db.find({
+                  collection: 'reviews',
+                  pagination: false,
+                  overrideAccess: true,
+                  where: { product: { in: ids } }
+                })
+              ).docs
+            : [];
+
+        const summary = summarizeReviews(reviewDocs as Review[]);
+        const docsWithRatings = data.docs.map((doc) => {
+          const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
+          return { ...doc, reviewCount: s.count, reviewRating: s.avg };
+        });
+
+        return {
+          ...data,
+          docs: docsWithRatings
+        };
+      } catch (error) {
+        handleDbError(
+          error,
+          'products.getMany DB fetch failed:',
+          'An error occurred while fetching products'
+        );
       }
-
-      const finalWhere: Where = {
-        ...where,
-        and: andClauses
-      };
-
-      const data = await ctx.db.find({
-        collection: 'products',
-        depth: 2, // cover + images.image + tenant.image populated
-        where: finalWhere,
-        sort,
-        page: input.cursor,
-        limit: input.limit,
-        select: { content: false }
-      });
-
-      const ids = data.docs.map((d) => d.id);
-      const reviewDocs =
-        ids.length > 0
-          ? (
-              await ctx.db.find({
-                collection: 'reviews',
-                pagination: false,
-                overrideAccess: true,
-                where: { product: { in: ids } }
-              })
-            ).docs
-          : [];
-
-      const summary = summarizeReviews(reviewDocs as Review[]);
-      const docsWithRatings = data.docs.map((doc) => {
-        const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
-        return { ...doc, reviewCount: s.count, reviewRating: s.avg };
-      });
-
-      return {
-        ...data,
-        docs: docsWithRatings
-      };
     })
 });

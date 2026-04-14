@@ -128,139 +128,151 @@ export const libraryRouter = createTRPCRouter({
       const user = ctx.session.user;
       if (!user) throw new TRPCError({ code: 'UNAUTHORIZED' });
 
-      // 1) Page through this user's orders (newest first)
-      const orders = (await ctx.db.find({
-        collection: 'orders',
-        depth: 0,
-        page: input.cursor,
-        limit: input.limit,
-        sort: '-createdAt',
-        where: { buyer: { equals: user.id } }
-      })) as {
-        docs: OrderMinimal[];
-        page: number;
-        totalPages: number;
-        totalDocs: number;
-      };
+      try {
+        // 1) Page through this user's orders (newest first)
+        const orders = (await ctx.db.find({
+          collection: 'orders',
+          depth: 0,
+          page: input.cursor,
+          limit: input.limit,
+          sort: '-createdAt',
+          where: { buyer: { equals: user.id } }
+        })) as {
+          docs: OrderMinimal[];
+          page: number;
+          totalPages: number;
+          totalDocs: number;
+        };
 
-      // 2) Build:
-      //    - productIdSet: unique products for this page (for fetches)
-      //    - orderProductRefs: one entry per (orderId, productId) pair
-      const productIdSet = new Set<string>();
-      const orderProductRefs: { orderId: string; productId: string }[] = [];
+        // 2) Build:
+        //    - productIdSet: unique products for this page (for fetches)
+        //    - orderProductRefs: one entry per (orderId, productId) pair
+        const productIdSet = new Set<string>();
+        const orderProductRefs: { orderId: string; productId: string }[] = [];
 
-      for (const order of orders.docs) {
-        let orderHasItemProduct = false;
+        for (const order of orders.docs) {
+          let orderHasItemProduct = false;
 
-        if (Array.isArray(order.items) && order.items.length > 0) {
-          for (const item of order.items) {
-            const productIdentifier = getRelId(item?.product ?? null);
-            if (productIdentifier) {
-              productIdSet.add(productIdentifier);
+          if (Array.isArray(order.items) && order.items.length > 0) {
+            for (const item of order.items) {
+              const productIdentifier = getRelId(item?.product ?? null);
+              if (productIdentifier) {
+                productIdSet.add(productIdentifier);
+                orderProductRefs.push({
+                  orderId: order.id,
+                  productId: productIdentifier
+                });
+                orderHasItemProduct = true;
+              }
+            }
+          }
+
+          // Legacy shape: top-level `product` when items[] is empty
+          if (!orderHasItemProduct) {
+            const legacyProductIdentifier = getRelId(order.product ?? null);
+            if (legacyProductIdentifier) {
+              productIdSet.add(legacyProductIdentifier);
               orderProductRefs.push({
                 orderId: order.id,
-                productId: productIdentifier
+                productId: legacyProductIdentifier
               });
-              orderHasItemProduct = true;
             }
           }
         }
 
-        // Legacy shape: top-level `product` when items[] is empty
-        if (!orderHasItemProduct) {
-          const legacyProductIdentifier = getRelId(order.product ?? null);
-          if (legacyProductIdentifier) {
-            productIdSet.add(legacyProductIdentifier);
-            orderProductRefs.push({
-              orderId: order.id,
-              productId: legacyProductIdentifier
-            });
-          }
+        const productIds = Array.from(productIdSet);
+        const nextPage = orders.page < orders.totalPages ? orders.page + 1 : null;
+
+        if (productIds.length === 0) {
+          return {
+            docs: [] as ProductCardDTO[],
+            nextPage,
+            totalDocs: orders.totalDocs,
+            totalPages: orders.totalPages
+          };
         }
-      }
 
-      const productIds = Array.from(productIdSet);
-      const nextPage = orders.page < orders.totalPages ? orders.page + 1 : null;
+        // 3) Fetch products for those ids
+        const productsRes = (await ctx.db.find({
+          collection: 'products',
+          pagination: false,
+          depth: 2,
+          where: { id: { in: productIds } }
+        })) as { docs: Product[] };
 
-      if (productIds.length === 0) {
+        // 4) Reviews → summaries
+        const reviewsRes = (await ctx.db.find({
+          collection: 'reviews',
+          pagination: false,
+          depth: 0,
+          where: { product: { in: productIds } },
+          overrideAccess: true
+        })) as { docs: Review[] };
+
+        const summaries = summarizeReviews(reviewsRes.docs);
+
+        // 5) Build normalized DTOs in order of (orderId, productId) pairs
+        const productById = new Map(
+          productsRes.docs.map((product) => [product.id, product])
+        );
+
+        const docs: ProductCardDTO[] = orderProductRefs.flatMap((reference) => {
+          const product = productById.get(reference.productId);
+          if (!product) return []; // product deleted/filtered or filtered out
+
+          const stats = summaries.get(reference.productId) ?? {
+            count: 0,
+            avg: 0
+          };
+
+          const normalizedImage: Media | null = pickPrimaryMedia(product);
+
+          const tenantObject =
+            typeof product.tenant === 'object' && product.tenant !== null
+              ? product.tenant
+              : null;
+
+          const normalizedTenant: (Tenant & { image: Media | null }) | null =
+            tenantObject
+              ? {
+                  ...tenantObject,
+                  image:
+                    typeof tenantObject.image === 'object' &&
+                    tenantObject.image !== null
+                      ? tenantObject.image
+                      : null
+                }
+              : null;
+
+          return [
+            {
+              id: product.id,
+              name: product.name,
+              image: normalizedImage,
+              tenant: normalizedTenant,
+              reviewCount: stats.count,
+              reviewRating: stats.avg,
+              orderId: reference.orderId
+            }
+          ];
+        });
+
         return {
-          docs: [] as ProductCardDTO[],
+          docs,
           nextPage,
           totalDocs: orders.totalDocs,
           totalPages: orders.totalPages
         };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[library.getMany] DB fetch failed:', message);
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An error occurred while fetching your library'
+        });
       }
-
-      // 3) Fetch products for those ids
-      const productsRes = (await ctx.db.find({
-        collection: 'products',
-        pagination: false,
-        depth: 2,
-        where: { id: { in: productIds } }
-      })) as { docs: Product[] };
-
-      // 4) Reviews → summaries
-      const reviewsRes = (await ctx.db.find({
-        collection: 'reviews',
-        pagination: false,
-        depth: 0,
-        where: { product: { in: productIds } },
-        overrideAccess: true
-      })) as { docs: Review[] };
-
-      const summaries = summarizeReviews(reviewsRes.docs);
-
-      // 5) Build normalized DTOs in order of (orderId, productId) pairs
-      const productById = new Map(
-        productsRes.docs.map((product) => [product.id, product])
-      );
-
-      const docs: ProductCardDTO[] = orderProductRefs.flatMap((reference) => {
-        const product = productById.get(reference.productId);
-        if (!product) return []; // product deleted/filtered or filtered out
-
-        const stats = summaries.get(reference.productId) ?? {
-          count: 0,
-          avg: 0
-        };
-
-        const normalizedImage: Media | null = pickPrimaryMedia(product);
-
-        const tenantObject =
-          typeof product.tenant === 'object' && product.tenant !== null
-            ? product.tenant
-            : null;
-
-        const normalizedTenant: (Tenant & { image: Media | null }) | null =
-          tenantObject
-            ? {
-                ...tenantObject,
-                image:
-                  typeof tenantObject.image === 'object' &&
-                  tenantObject.image !== null
-                    ? tenantObject.image
-                    : null
-              }
-            : null;
-
-        return [
-          {
-            id: product.id,
-            name: product.name,
-            image: normalizedImage,
-            tenant: normalizedTenant,
-            reviewCount: stats.count,
-            reviewRating: stats.avg,
-            orderId: reference.orderId
-          }
-        ];
-      });
-
-      return {
-        docs,
-        nextPage,
-        totalDocs: orders.totalDocs,
-        totalPages: orders.totalPages
-      };
     })
 });
