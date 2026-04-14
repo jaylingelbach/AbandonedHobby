@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
     const payload = await getPayload({ config });
     await payload.verifyEmail({ collection: 'users', token });
 
-    return NextResponse.redirect(new URL('/sign-in?verified=1', req.url));
+    return NextResponse.redirect(new URL('/sign-in?verified=1&next=%2Fwelcome', req.url));
   } catch (error) {
     console.error('[verify] failed to verify email:', error);
     return NextResponse.redirect(

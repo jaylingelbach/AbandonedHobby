@@ -33,6 +33,8 @@ export function buildWelcomeVerifyHTML({
   const username = user.username || user.email;
   const displayName = user.firstName || user.email;
 
+  const dashboardUrl = `${appUrl}/admin`;
+
   return `<!doctype html>
 <html>
   <head>
@@ -47,34 +49,84 @@ export function buildWelcomeVerifyHTML({
       .muted { color:#6b7280; font-size:14px; line-height:1.6; }
       .btn { display:inline-block; padding:12px 18px; border-radius:10px; text-decoration:none; background:#111827; color:#ffffff; font-weight:600; }
       .spacer { height:16px; }
+      .spacer-sm { height:8px; }
+      .divider { border:none; border-top:1px solid #e5e7eb; margin:20px 0; }
       .attributes { width:100%; border-collapse:collapse; }
       .attributes td { padding:8px 0; }
+      .steps { width:100%; border-collapse:collapse; }
+      .steps td { padding:6px 0; vertical-align:top; }
+      .step-num { width:28px; font-weight:700; font-size:15px; color:#111827; }
+      .step-label { font-size:14px; line-height:1.5; }
+      .step-note { font-size:12px; color:#6b7280; }
       .sub { color:#6b7280; font-size:12px; }
       .preheader { display:none; visibility:hidden; opacity:0; color:transparent; height:0; width:0; overflow:hidden; }
       a { color:#111827; }
     </style>
   </head>
   <body>
-    <span class="preheader">Verify your email to finish setting up ${productName}.</span>
+    <span class="preheader">Verify your email then follow 3 more steps to start selling on ${productName}.</span>
     <div class="container">
       <div class="card">
         <h1 class="h1">Welcome, ${displayName}!</h1>
-        <p>Thanks for signing up for ${productName}. We’re thrilled to have you on board. To get the most out of ${productName}, do this primary next step:</p>
+        <p>Thanks for joining ${productName} -- a marketplace for buying and selling hobby-related items. Your first step is to verify your email:</p>
 
         <div class="spacer"></div>
         <p style="text-align:center;">
           <a href="${verifyUrl}" class="btn" target="_blank" rel="noopener noreferrer">Verify your email</a>
         </p>
 
+        <hr class="divider">
+
+        <p style="margin-bottom:12px;"><strong>How selling on ${productName} works</strong></p>
+        <p class="muted" style="margin-bottom:12px;">Once you’ve verified your email, there are a few more steps before you can list items for sale:</p>
+
+        <table class="steps">
+          <tr>
+            <td class="step-num">1.</td>
+            <td class="step-label">
+              <strong>Verify your email</strong> (this email)<br>
+              <span class="step-note">Required before you can log in.</span>
+            </td>
+          </tr>
+          <tr><td colspan="2" style="height:8px;"></td></tr>
+          <tr>
+            <td class="step-num">2.</td>
+            <td class="step-label">
+              <strong>Create your store</strong><br>
+              <span class="step-note">Set up your seller profile -- this is shown to buyers on your listings.</span>
+            </td>
+          </tr>
+          <tr><td colspan="2" style="height:8px;"></td></tr>
+          <tr>
+            <td class="step-num">3.</td>
+            <td class="step-label">
+              <strong>Connect Stripe</strong><br>
+              <span class="step-note">We use Stripe to handle payments. You’ll need to complete their onboarding to receive payouts.</span>
+            </td>
+          </tr>
+          <tr><td colspan="2" style="height:8px;"></td></tr>
+          <tr>
+            <td class="step-num">4.</td>
+            <td class="step-label">
+              <strong>List your first item</strong><br>
+              <span class="step-note">Listings are managed through your seller dashboard at <a href="${dashboardUrl}" target="_blank" rel="noopener noreferrer">${dashboardUrl}</a> -- that’s where you add products, manage orders, and update your store.</span>
+            </td>
+          </tr>
+        </table>
+
         <div class="spacer"></div>
-        <p class="muted">For reference, here's your login info:</p>
+        <p class="muted">After logging in, you’ll see a checklist that guides you through each of these steps. You can also find it anytime at <a href="${appUrl}/welcome" target="_blank" rel="noopener noreferrer">${appUrl}/welcome</a>.</p>
+
+        <hr class="divider">
+
+        <p class="muted">For reference, here’s your login info:</p>
         <table class="attributes">
           <tr><td><strong>Login Page:</strong> <a href="${loginUrl}" target="_blank" rel="noopener noreferrer">${loginUrl}</a></td></tr>
           <tr><td><strong>Username:</strong> ${username}</td></tr>
         </table>
 
         <div class="spacer"></div>
-        <p>If you have any questions, feel free to <a href="mailto:${supportEmail}">email our customer success team</a>. (We're lightning quick at replying.)</p>
+        <p>If you have any questions, feel free to <a href="mailto:${supportEmail}">email our customer success team</a>. (We’re lightning quick at replying.)</p>
         <p>Thanks,<br>${senderName} and the ${productName} Team</p>
 
         <div class="spacer"></div>
