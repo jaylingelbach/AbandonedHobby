@@ -22,10 +22,13 @@ export function isMedia(value: unknown): value is Media {
   );
 }
 
-export function isMediaUrl(val: unknown): val is Media {
-  return typeof val === 'object' && val !== null && 'url' in val;
-}
-
+export function isMediaUrl(val: unknown): val is { url: string } {
+  return (
+    typeof val === 'object' &&
+    val !== null &&
+    typeof (val as { url?: unknown }).url === 'string' &&
+    (val as { url: string }).url.length > 0
+  );
 /**
  * Extracts a thumbnail URL from a product's first image when available.
  *
