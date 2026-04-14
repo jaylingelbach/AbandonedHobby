@@ -7229,3 +7229,151 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 
 - src/modules/notifications/server/procedures.ts
   - markConversationRead now updates both notifications and messages (filtering by user/conversation/read=false) and executes the two updates concurrently via Promise.all, then returns the refreshed unread notifications count.
+
+# Update Metadata and styling 04/13/26
+
+## Walkthrough
+
+- Two files updated: metadata configuration in the main layout expanded with SEO settings including keywords arrays and Open Graph data, while a sign-in button received hover state styling in the inbox client component.
+
+## New Features
+
+- Improved site metadata and social media integration for enhanced discoverability and sharing capabilities.
+
+## Style
+
+- Enhanced "Sign in" button with improved hover effects for better visual feedback.
+
+## File changes
+
+### SEO & Metadata Configuration
+
+- src/app/(app)/layout.tsx
+  - Expanded metadata export with SEO-focused additions: metadataBase from environment variable, restructured title with default and template structure, updated description, added computed keywords from four keyword arrays (generic, intent, long-tail, brand), and introduced openGraph configuration block with title, description, URL, site metadata, locale, type, and image placeholder.
+
+### UI Styling Updates
+
+- src/modules/inbox/ui/inbox-client.tsx
+  - Added Tailwind hover state classes (hover:bg-pink-500, hover:text-primary) to sign-in button styling.
+
+# Sitewide metadata 04/14/26
+
+## Walkthrough
+
+- Adds server-side metadata generators to multiple dynamic routes, creates a centralized category taxonomy with slug→name lookup, adjusts seeding to use the new taxonomy and override access, introduces a media URL type-guard, and splits several client/server page responsibilities (welcome/stripe-verify).
+
+## New Features
+
+- Dynamic SEO/Open Graph metadata added site-wide for categories, subcategories, products, tenants, and key pages to improve link previews and search presence.
+- Several sensitive pages (orders, checkout, inbox, chat, staff, welcome, etc.) now include no-index metadata to prevent search indexing.
+- New client flows: a Stripe verification client for smoother payment verification and a revamped onboarding client with progress UI and actionable steps.
+
+## File changes
+
+### Dynamic page metadata
+
+-src/app/(app)/(home)/[category]/page.tsx, src/app/(app)/(home)/[category]/[subcategory]/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/page.tsx, src/app/(app)/(tenants)/tenants/[slug]/(home)/products/[productId]/page.tsx
+
+- Added exported generateMetadata functions that derive titles/descriptions/OpenGraph (URLs/images) from route params or fetched tenant/product data; include fallbacks and error logging. Product page also changed server data prefetch/cache usage (cached getProduct + queryClient.setQueryData, removed concurrent product prefetch).
+
+### Site-wide static metadata and robots
+
+- src/app/(app)/(home)/about/page.tsx, .../community-standards/page.tsx, .../features/page.tsx, .../pricing/page.tsx, .../support/page.tsx, .../orders/.../page.tsx, .../orders/page.tsx, .../chat/[conversationId]/page.tsx, .../checkout/\*\*/page.tsx, .../inbox/page.tsx, .../staff/moderation/page.tsx
+  - Added typed metadata exports (many set robots.index = false for private/checkout/order/chat pages) to multiple static pages; imports of Metadata type added.
+
+### Welcome & Stripe verify client/server split
+
+- src/app/(app)/welcome/page.tsx, src/app/(app)/welcome/welcome-client.tsx, src/app/(app)/(tenants)/stripe-verify/page.tsx, src/app/(app)/(tenants)/stripe-verify/stripe-verify-client.tsx
+  - Moved previously client-heavy page logic into new client components (WelcomeClient, StripeVerifyClient) and converted server pages to render those clients; added metadata (robots.index = false) and removed client logic from server files.
+
+### Category taxonomy & seed
+
+- src/lib/categories.ts, src/lib/seed.ts
+  - Added CategoryDefinition and exported categories array plus categoryNameFromSlug(slug) with an internal slug→name map. seed.ts now imports the taxonomy and uses overrideAccess: true for category existence checks and creations.
+
+### Moderation utils
+
+- src/lib/server/moderation/utils.ts
+  - Added exported type-guard isMediaUrl(val: unknown): val is Media to detect objects with a url property.
+
+# Error State gaps 04/1426
+
+## Walkthrough
+
+- Adds centralized DB error handling across several server modules and a client-side toast for inbox mark-as-read failures; non-TRPC errors are logged in non-production and converted to TRPC INTERNAL_SERVER_ERROR, while existing TRPCError instances are rethrown unchanged.
+
+## Bug Fixes
+
+Users now see an error toast if marking a conversation as read fails.
+Improved reliability when sending, fetching, and marking messages as read.
+More robust error handling for library and product retrieval to reduce silent failures.
+Notifications now handle backend failures more gracefully; unread counts may be unavailable instead of crashing.
+
+## File changes
+
+### Client: Inbox UI
+
+-src/modules/inbox/ui/inbox-client.tsx
+
+- Imported toast from sonner and added an onError handler on markConversationRead mutation to show toast.error('Failed to mark conversation as read') on failure.
+
+### Server: Messages
+
+- src/modules/messages/server/procedures.ts
+  - Wrapped DB calls in getConversation, sendMessage, getMessage, and markMessagesRead with try/catch, delegating non-TRPC errors to handleDbError. No public signatures changed.
+
+### Server: Notifications
+
+- src/modules/notifications/server/procedures.ts
+  - Wrapped unreadCount and markConversationRead DB operations in try/catch; rethrow TRPC errors, convert others to INTERNAL_SERVER_ERROR and log in non-production. Post-update unread-count fetch now returns { unreadCount: null } on count-fetch failure.
+
+### Server: Library
+
+- src/modules/library/server/procedures.ts
+  - Enclosed libraryRouter.getMany fetch/DTO logic in a try/catch; rethrows TRPCError, maps other errors to INTERNAL_SERVER_ERROR with conditional non-production logging.
+
+### Server: Products
+
+- src/modules/products/server/procedures.ts
+  - Enclosed category resolution, product/review fetch, and enrichment in a try/catch; rethrows TRPCError, maps other errors to INTERNAL_SERVER_ERROR with conditional logging.
+
+### Shared Utility
+
+- src/trpc/handle-db-error.ts
+  - New exported helper handleDbError(error, tag, message): never that rethrows TRPCError, logs non-production details, and throws a standardized TRPCError(INTERNAL_SERVER_ERROR, message) for other errors.
+
+# Sign up confirmation and loading 04/14/26
+
+## Walkthrough
+
+- This PR comprises documentation updates in recap.md covering sitewide changes (SEO, category taxonomy, error handling), a conditional Stripe business profile URL in the register mutation based on development environment, and new success confirmation UI with loading states in the sign-up form.
+
+## New Features
+
+- Registration confirmation screen displays submitted email and prompts user to check inbox
+- Sign-up button displays loading spinner and status message during account creation
+
+## Bug Fixes
+
+- Enhanced error handling for inbox operations with improved user-facing notifications
+
+## Documentation
+
+- Updated release notes documenting recent improvements
+
+## File changes
+
+### Documentation
+
+- recap.md
+  - Added dated recap entries documenting metadata/SEO enhancements, sitewide SEO changes with dynamic route metadata, category taxonomy helpers, and centralized DB error handling.
+
+### Auth Registration Flow
+
+- src/modules/auth/server/procedures.ts
+  - Introduced environment-based conditional logic: business_profile.url is now set only when not in development mode; field is omitted when isDev is true.
+
+### Sign-up UI States
+
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Added registration-success conditional render displaying "Check your inbox" confirmation, implemented loading state with spinning indicator on submit button, and expanded icon imports for Loader2 and Mail.

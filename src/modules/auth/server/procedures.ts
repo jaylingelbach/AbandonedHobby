@@ -14,11 +14,62 @@ import { baseProcedure, createTRPCRouter } from '@/trpc/init';
 import { loginSchema, registerSchema } from '../schemas';
 import { generateAuthCookie } from '../utils';
 
+/**
+ * tRPC router for authentication-related procedures.
+ *
+ * Exposes three procedures:
+ * - `session`  — retrieve the current authenticated session.
+ * - `register` — create a new user account, Stripe connected account, and
+ *                associated tenant in a single atomic flow.
+ * - `login`    — authenticate an existing user and issue a session cookie.
+ */
 
 export const authRouter = createTRPCRouter({
+  /**
+   * Retrieves the current authenticated session for the requesting user.
+   *
+   * Delegates to the Payload CMS `auth` helper using the incoming request
+   * headers so the server can identify the caller from their session cookie.
+   *
+   * `@returns` The Payload auth session object, or `null` when unauthenticated.
+   */
+
   session: baseProcedure.query(async ({ ctx }) => {
     return ctx.db.auth({ headers: ctx.headers });
   }),
+
+  /**
+   * Registers a new user on the Abandoned Hobby platform.
+   *
+   * Performs the following steps in order:
+   * 1. Validates that the requested username and e-mail are not already taken.
+   * 2. Derives a URL-safe tenant slug from the username and confirms it is
+   *    unique.
+   * 3. Creates a Stripe Standard connected account for the seller's shop.
+   *    In development the `business_profile.url` field is omitted to avoid
+   *    Stripe rejecting localhost URLs.
+   * 4. Creates the `users` document in Payload CMS.
+   * 5. Creates the `tenants` document linked to the new Stripe account.
+   * 6. Links the tenant back to the user record.
+   * 7. Computes the user's onboarding state and resolves a safe `returnTo`
+   *    URL from request headers.
+   *
+   * If any step after the Stripe account creation fails, partial data
+   * (tenant and/or user) is cleaned up before re-throwing.
+   *
+   * `@param` input - Validated registration payload conforming to
+   *   {`@link` registerSchema}: `firstName`, `lastName`, `email`, `username`,
+   *   `password`.
+   * `@throws` {TRPCError} `CONFLICT` when the username, e-mail, or derived
+   *   slug is already in use.
+   * `@throws` {TRPCError} `BAD_REQUEST` when Stripe account creation returns
+   *   a falsy result.
+   * `@throws` {TRPCError} `INTERNAL_SERVER_ERROR` for any other failure during
+   *   the registration flow.
+   * `@returns` An object containing the normalised `user`, their `onboarding`
+   *   state, and an optional safe `returnTo` URL.
+   */
+
   register: baseProcedure
     .input(registerSchema)
     .mutation(async ({ input, ctx }) => {
@@ -71,11 +122,12 @@ export const authRouter = createTRPCRouter({
         const MCC_USED_MERCH = '5932';
 
         // 1) Create Stripe account for the shop
+        const isDev = process.env.NODE_ENV === 'development';
         const account = await stripe.accounts.create({
           type: 'standard',
           business_type: 'individual',
           business_profile: {
-            url: generateTenantURL(slug),
+            ...(!isDev && { url: generateTenantURL(slug) }),
             product_description: `Sell hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
             mcc: MCC_USED_MERCH
           }
@@ -180,6 +232,24 @@ export const authRouter = createTRPCRouter({
         });
       }
     }),
+
+  /**
+   * Authenticates an existing user with e-mail and password credentials.
+   *
+   * After a successful Payload CMS login the procedure:
+   * - Rejects unverified accounts with an `UNAUTHORIZED` error that instructs
+   *   the user to confirm their e-mail.
+   * - Emits a `userLoggedIn` PostHog event in production (analytics errors
+   *   are swallowed to avoid blocking the auth flow).
+   * - Writes a signed session cookie via {`@link` generateAuthCookie}.
+   *
+   * `@param` input - Validated login payload conforming to {`@link` loginSchema}:
+   *   `email` and `password`.
+   * `@throws` {TRPCError} `UNAUTHORIZED` when the account is unverified or
+   *   when Payload does not return a token.
+   * `@returns` The raw Payload login response including the `user` object and
+   *   session `token`.
+   */
 
   login: baseProcedure.input(loginSchema).mutation(async ({ input, ctx }) => {
     const data = await ctx.db.login({
