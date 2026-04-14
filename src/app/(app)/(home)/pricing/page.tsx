@@ -10,6 +10,11 @@ export const metadata: Metadata = {
 
 import { PricingClient } from './pricing-client';
 
+/**
+ * Render the Pricing page.
+ *
+ * @returns The React element for the pricing page.
+ */
 export default function Page() {
   return <PricingClient />;
 }

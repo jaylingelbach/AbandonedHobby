@@ -9,6 +9,11 @@ export const metadata: Metadata = {
 
 import SupportClient from './support-client';
 
+/**
+ * Render the Support page for the application.
+ *
+ * @returns A React element that renders the support client UI for the support route.
+ */
 export default function Page() {
   return <SupportClient />;
 }

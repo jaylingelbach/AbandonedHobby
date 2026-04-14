@@ -7,6 +7,13 @@ export const metadata: Metadata = {
   title: 'About',
   description: 'Abandoned Hobby is a safe, judgment-free marketplace for neurodivergent people to buy, sell, and trade hobby supplies they have outgrown or left behind.'
 };
+/**
+ * Render the About page with an introduction and a three-card "How it works" section.
+ *
+ * Renders a centered layout describing the marketplace's purpose for neurodivergent users and three cards explaining listing, connecting/trading, and exploring hobbies.
+ *
+ * @returns A React element containing the About page layout with the intro section and the responsive "How it works" cards.
+ */
 function Page() {
   return (
     <div className="px-4 lg:px-12 py-8 flex flex-col gap-12 items-center">

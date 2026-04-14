@@ -10,7 +10,15 @@ import { useRedirectOnUnauthorized } from '@/hooks/use-redirect-on-unauthorized'
 import { cn } from '@/lib/utils';
 import { useTRPC } from '@/trpc/client';
 
-/* ---------- Skeleton ---------- */
+/**
+ * Renders a loading-state skeleton for the welcome/onboarding page.
+ *
+ * Provides an accessible placeholder UI with animated pulse, an ARIA status region
+ * (role="status", aria-live="polite", aria-busy="true"), a success-banner placeholder,
+ * action button placeholders, a progress bar placeholder, and a list of step placeholders.
+ *
+ * @returns A JSX element containing the welcome/onboarding skeleton UI.
+ */
 function WelcomeSkeleton() {
   return (
     <div
@@ -65,7 +73,16 @@ function WelcomeSkeleton() {
   );
 }
 
-/* ---------- Page ---------- */
+/**
+ * Render the client-side onboarding page driven by the current user's onboarding state.
+ *
+ * The component fetches the current user via the TRPC query and:
+ * - shows a skeleton while loading,
+ * - displays a generic error message if the query fails or returns no data,
+ * - otherwise renders a welcome banner, primary CTAs, and an onboarding card with a progress bar and actionable step list derived from `data.onboarding`.
+ *
+ * @returns The onboarding page as a JSX element. The element conditionally renders a loading skeleton, an error message, or the full onboarding UI (banner, CTAs, progress bar, and per-step actions) based on fetched user data.
+ */
 export default function WelcomeClient() {
   const trpc = useTRPC();
   const { data, isLoading, isError, error } = useQuery({

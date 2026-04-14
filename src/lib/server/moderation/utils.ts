@@ -22,6 +22,12 @@ export function isMedia(value: unknown): value is Media {
   );
 }
 
+/**
+ * Determines whether a value is an object containing a non-empty string `url` property.
+ *
+ * @param val - The value to check
+ * @returns `true` if `val` is an object with a `url` property that is a string with length > 0, `false` otherwise.
+ */
 export function isMediaUrl(val: unknown): val is { url: string } {
   return (
     typeof val === 'object' &&

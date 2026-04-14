@@ -254,6 +254,12 @@ for (const cat of categories) {
   }
 }
 
+/**
+ * Look up the category or subcategory display name for a given slug.
+ *
+ * @param slug - The category or subcategory slug to resolve
+ * @returns The matching category or subcategory name, or `undefined` if the slug is not found
+ */
 export function categoryNameFromSlug(slug: string): string | undefined {
   return slugToNameMap.get(slug);
 }

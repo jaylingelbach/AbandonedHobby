@@ -18,6 +18,12 @@ interface Props {
   searchParams: Promise<SearchParams>;
 }
 
+/**
+ * Build page metadata for a category route using the route params.
+ *
+ * @param params - Route params containing the `category` slug used to derive the display name and canonical URL
+ * @returns A `Metadata` object whose `title` is the derived category name (falls back to the slug), a description referencing that name, and an `openGraph` entry with `type: "website"`, the canonical URL for the category, and an image at `/open-graph-image.png`
+ */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
   const categoryName = categoryNameFromSlug(category) ?? category;
