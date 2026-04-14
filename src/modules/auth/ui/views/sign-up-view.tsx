@@ -29,6 +29,13 @@ import { registerSchema } from '../../schemas';
 
 const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
+/**
+ * Render the sign-up view containing the registration form, client-side validation, and a post-registration confirmation panel.
+ *
+ * The component manages password visibility and submitted email state, reads an optional `next` redirect query parameter to build the sign-in link, and performs the registration mutation with success/error handling and safe redirect logic.
+ *
+ * @returns The sign-up page UI as a JSX element.
+ */
 function SignUpView() {
   const [showPassword, setShowPassword] = useState(false);
   const [submittedEmail, setSubmittedEmail] = useState('');
