@@ -71,11 +71,12 @@ export const authRouter = createTRPCRouter({
         const MCC_USED_MERCH = '5932';
 
         // 1) Create Stripe account for the shop
+        const isDev = process.env.NODE_ENV === 'development';
         const account = await stripe.accounts.create({
           type: 'standard',
           business_type: 'individual',
           business_profile: {
-            url: generateTenantURL(slug),
+            ...(!isDev && { url: generateTenantURL(slug) }),
             product_description: `Sell hobby-related items via Abandoned Hobby (peer-to-peer marketplace).`,
             mcc: MCC_USED_MERCH
           }

@@ -1,10 +1,8 @@
 'use client';
 
-
-
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Eye, EyeOff } from 'lucide-react';
+import { Eye, EyeOff, Loader2, Mail } from 'lucide-react';
 import { Poppins } from 'next/font/google';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -91,6 +89,59 @@ function SignUpView() {
   const signInHref = rawNext
     ? `/sign-in?next=${encodeURIComponent(rawNext)}`
     : '/sign-in';
+
+  const submittedEmail = form.getValues('email');
+
+  // Confirmation panel on registration success.
+  if (register.isSuccess) {
+    return (
+      <div className="grid grid-cols-1 lg:grid-cols-5">
+        <div className="bg-[#F4F4F0] h-screen w-full lg:col-span-3 overflow-y-auto">
+          <div className="flex flex-col gap-8 p-4 lg:p-16 h-full">
+            <div className="flex items-center justify-between mb-8">
+              <Link href="/">
+                <span
+                  className={cn('text-2xl font-semibold', poppins.className)}
+                >
+                  Abandoned Hobby
+                </span>
+              </Link>
+            </div>
+            <div className="flex flex-col gap-6 my-auto">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-black">
+                <Mail className="text-white size-8" />
+              </div>
+              <h1 className="text-4xl font-medium">Check your inbox</h1>
+              <p className="text-lg text-muted-foreground">
+                {`We sent a verification link to `}
+                <strong>{submittedEmail}</strong>
+                {`. Click the link in that email to verify your account, then sign in.`}
+              </p>
+              <p className="text-sm text-muted-foreground">
+                {`Can't find it? Check your spam folder.`}
+              </p>
+              <Button
+                asChild
+                size="lg"
+                variant="elevated"
+                className="bg-black text-white hover:bg-pink-400 hover:text-primary w-fit"
+              >
+                <Link href={signInHref}>Sign in</Link>
+              </Button>
+            </div>
+          </div>
+        </div>
+        <div
+          className="h-screen w-full lg:col-span-2 hidden lg:block"
+          style={{
+            backgroundImage: "url('/auth-bg.png')",
+            backgroundSize: 'cover',
+            backgroundPosition: 'center'
+          }}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-5">
@@ -225,7 +276,14 @@ function SignUpView() {
               variant="elevated"
               className="bg-black text-white hover:bg-pink-400 hover:text-primary"
             >
-              Create Account
+              {register.isPending ? (
+                <>
+                  <Loader2 className="animate-spin" />
+                  Creating Account...
+                </>
+              ) : (
+                'Create Account'
+              )}
             </Button>
           </form>
         </Form>
