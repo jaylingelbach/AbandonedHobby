@@ -7296,7 +7296,7 @@ src/app/(app)/chat/[conversationId]/page.tsx Added server-side auth: awaits getA
 - src/lib/server/moderation/utils.ts
   - Added exported type-guard isMediaUrl(val: unknown): val is Media to detect objects with a url property.
 
-# Error State gaps 04/1426
+# Error State gaps 04/14/26
 
 ## Walkthrough
 
@@ -7377,3 +7377,32 @@ Notifications now handle backend failures more gracefully; unread counts may be 
 
 - src/modules/auth/ui/views/sign-up-view.tsx
   - Added registration-success conditional render displaying "Check your inbox" confirmation, implemented loading state with spinning indicator on submit button, and expanded icon imports for Loader2 and Mail.
+
+# Verification email and welcome flow 04/14/26
+
+## Walkthrough
+
+- The email verification flow is enhanced with a next parameter redirecting to /welcome upon successful verification. Simultaneously, the welcome/verify email template is expanded with a new steps section describing the onboarding process, alongside supporting styling and structural updates. A formatting adjustment is applied to the authentication procedures file.
+
+## New Features
+
+- Email verification now redirects users to the welcome page upon successful confirmation to continue onboarding.
+
+- Welcome email redesigned with multi-step onboarding guidance, checklist reference, and seller dashboard link integration.
+
+## File changes
+
+### Verification Redirect
+
+- src/app/api/verify/route.ts
+  - Success redirect now appends next=%2Fwelcome query parameter to guide users to onboarding flow after email verification.
+
+### Email Template Enhancement
+
+- src/lib/email/welcome-verify.ts
+  - Email preheader and introduction rewritten to describe multi-step onboarding; new steps section added with 4-step table and per-step notes; dashboard URL reference integrated; existing verification sections retained with minor wording updates.
+
+### Auth Procedures Formatting
+
+- src/modules/auth/server/procedures.ts
+  - Blank line added after generateAuthCookie call in login mutation for improved code readability.
