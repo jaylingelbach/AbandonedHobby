@@ -395,38 +395,50 @@ export const productsRouter = createTRPCRouter({
         and: andClauses
       };
 
-      const data = await ctx.db.find({
-        collection: 'products',
-        depth: 2, // cover + images.image + tenant.image populated
-        where: finalWhere,
-        sort,
-        page: input.cursor,
-        limit: input.limit,
-        select: { content: false }
-      });
+      try {
+        const data = await ctx.db.find({
+          collection: 'products',
+          depth: 2, // cover + images.image + tenant.image populated
+          where: finalWhere,
+          sort,
+          page: input.cursor,
+          limit: input.limit,
+          select: { content: false }
+        });
 
-      const ids = data.docs.map((d) => d.id);
-      const reviewDocs =
-        ids.length > 0
-          ? (
-              await ctx.db.find({
-                collection: 'reviews',
-                pagination: false,
-                overrideAccess: true,
-                where: { product: { in: ids } }
-              })
-            ).docs
-          : [];
+        const ids = data.docs.map((d) => d.id);
+        const reviewDocs =
+          ids.length > 0
+            ? (
+                await ctx.db.find({
+                  collection: 'reviews',
+                  pagination: false,
+                  overrideAccess: true,
+                  where: { product: { in: ids } }
+                })
+              ).docs
+            : [];
 
-      const summary = summarizeReviews(reviewDocs as Review[]);
-      const docsWithRatings = data.docs.map((doc) => {
-        const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
-        return { ...doc, reviewCount: s.count, reviewRating: s.avg };
-      });
+        const summary = summarizeReviews(reviewDocs as Review[]);
+        const docsWithRatings = data.docs.map((doc) => {
+          const s = summary.get(doc.id) ?? { count: 0, avg: 0 };
+          return { ...doc, reviewCount: s.count, reviewRating: s.avg };
+        });
 
-      return {
-        ...data,
-        docs: docsWithRatings
-      };
+        return {
+          ...data,
+          docs: docsWithRatings
+        };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[products.getMany] DB fetch failed:', message);
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An error occurred while fetching products'
+        });
+      }
     })
 });

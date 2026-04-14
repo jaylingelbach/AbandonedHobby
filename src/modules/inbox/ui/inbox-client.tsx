@@ -5,6 +5,8 @@ import { MessageSquare, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
 
+import { toast } from 'sonner';
+
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { ChatModal } from '@/modules/conversations/ui/chat-modal';
@@ -73,6 +75,9 @@ export default function InboxClient() {
       onSuccess: () => {
         qc.invalidateQueries({ queryKey: listOpts.queryKey });
         qc.invalidateQueries({ queryKey: unreadKey });
+      },
+      onError: () => {
+        toast.error('Failed to mark conversation as read');
       }
     })
   );

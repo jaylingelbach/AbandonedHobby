@@ -192,21 +192,36 @@ export const libraryRouter = createTRPCRouter({
       }
 
       // 3) Fetch products for those ids
-      const productsRes = (await ctx.db.find({
-        collection: 'products',
-        pagination: false,
-        depth: 2,
-        where: { id: { in: productIds } }
-      })) as { docs: Product[] };
+      let productsRes: { docs: Product[] };
+      let reviewsRes: { docs: Review[] };
 
-      // 4) Reviews → summaries
-      const reviewsRes = (await ctx.db.find({
-        collection: 'reviews',
-        pagination: false,
-        depth: 0,
-        where: { product: { in: productIds } },
-        overrideAccess: true
-      })) as { docs: Review[] };
+      try {
+        productsRes = (await ctx.db.find({
+          collection: 'products',
+          pagination: false,
+          depth: 2,
+          where: { id: { in: productIds } }
+        })) as { docs: Product[] };
+
+        // 4) Reviews → summaries
+        reviewsRes = (await ctx.db.find({
+          collection: 'reviews',
+          pagination: false,
+          depth: 0,
+          where: { product: { in: productIds } },
+          overrideAccess: true
+        })) as { docs: Review[] };
+      } catch (error) {
+        if (error instanceof TRPCError) throw error;
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[library.getMany] DB fetch failed:', message);
+        }
+        throw new TRPCError({
+          code: 'INTERNAL_SERVER_ERROR',
+          message: 'An error occurred while fetching your library'
+        });
+      }
 
       const summaries = summarizeReviews(reviewsRes.docs);
 
