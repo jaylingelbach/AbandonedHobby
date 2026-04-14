@@ -7341,3 +7341,39 @@ Notifications now handle backend failures more gracefully; unread counts may be 
 
 - src/trpc/handle-db-error.ts
   - New exported helper handleDbError(error, tag, message): never that rethrows TRPCError, logs non-production details, and throws a standardized TRPCError(INTERNAL_SERVER_ERROR, message) for other errors.
+
+# Sign up confirmation and loading 04/14/26
+
+## Walkthrough
+
+- This PR comprises documentation updates in recap.md covering sitewide changes (SEO, category taxonomy, error handling), a conditional Stripe business profile URL in the register mutation based on development environment, and new success confirmation UI with loading states in the sign-up form.
+
+## New Features
+
+- Registration confirmation screen displays submitted email and prompts user to check inbox
+- Sign-up button displays loading spinner and status message during account creation
+
+## Bug Fixes
+
+- Enhanced error handling for inbox operations with improved user-facing notifications
+
+## Documentation
+
+- Updated release notes documenting recent improvements
+
+## File changes
+
+### Documentation
+
+- recap.md
+  - Added dated recap entries documenting metadata/SEO enhancements, sitewide SEO changes with dynamic route metadata, category taxonomy helpers, and centralized DB error handling.
+
+### Auth Registration Flow
+
+- src/modules/auth/server/procedures.ts
+  - Introduced environment-based conditional logic: business_profile.url is now set only when not in development mode; field is omitted when isDev is true.
+
+### Sign-up UI States
+
+- src/modules/auth/ui/views/sign-up-view.tsx
+  - Added registration-success conditional render displaying "Check your inbox" confirmation, implemented loading state with spinning indicator on submit button, and expanded icon imports for Loader2 and Mail.
