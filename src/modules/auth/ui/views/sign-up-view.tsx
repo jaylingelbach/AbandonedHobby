@@ -31,6 +31,7 @@ const poppins = Poppins({ subsets: ['latin'], weight: ['700'] });
 
 function SignUpView() {
   const [showPassword, setShowPassword] = useState(false);
+  const [submittedEmail, setSubmittedEmail] = useState('');
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -79,6 +80,7 @@ function SignUpView() {
   });
 
   const onSubmit = (values: z.infer<typeof registerSchema>) => {
+    setSubmittedEmail(values.email);
     register.mutate(values);
   };
 
@@ -89,8 +91,6 @@ function SignUpView() {
   const signInHref = rawNext
     ? `/sign-in?next=${encodeURIComponent(rawNext)}`
     : '/sign-in';
-
-  const submittedEmail = form.getValues('email');
 
   // Confirmation panel on registration success.
   if (register.isSuccess) {
