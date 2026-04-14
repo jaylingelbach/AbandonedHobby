@@ -64,17 +64,6 @@ export const notificationsRouter = createTRPCRouter({
             data: { read: true }
           })
         ]);
-
-        // Return fresh count to simplify client cache updates
-        const { totalDocs } = await ctx.db.find({
-          collection: 'notifications',
-          where: {
-            and: [{ user: { equals: user.id } }, { read: { equals: false } }]
-          },
-          limit: 0
-        });
-
-        return { unreadCount: totalDocs };
       } catch (error) {
         if (error instanceof TRPCError) throw error;
         const message = error instanceof Error ? error.message : String(error);
@@ -85,6 +74,26 @@ export const notificationsRouter = createTRPCRouter({
           code: 'INTERNAL_SERVER_ERROR',
           message: 'An error occurred while marking conversation as read'
         });
+      }
+
+      // Return fresh count to simplify client cache updates.
+      // A failed count read should not fail the whole mutation -- writes already succeeded.
+      try {
+        const { totalDocs } = await ctx.db.find({
+          collection: 'notifications',
+          where: {
+            and: [{ user: { equals: user.id } }, { read: { equals: false } }]
+          },
+          limit: 0
+        });
+
+        return { unreadCount: totalDocs };
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (process.env.NODE_ENV !== 'production') {
+          console.error('[notifications.markConversationRead] count fetch failed:', message);
+        }
+        return { unreadCount: null };
       }
     })
 });
