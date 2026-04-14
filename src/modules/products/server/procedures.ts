@@ -8,6 +8,7 @@ import { isNotFound, summarizeReviews } from '@/lib/server/utils';
 import { sortValues } from '@/modules/products/search-params';
 import type { Media, Product, Tenant, Review } from '@/payload-types';
 import { baseProcedure, createTRPCRouter } from '@/trpc/init';
+import { handleDbError } from '@/trpc/handle-db-error';
 
 import type { Sort, Where } from 'payload';
 
@@ -430,15 +431,11 @@ export const productsRouter = createTRPCRouter({
           docs: docsWithRatings
         };
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        const message = error instanceof Error ? error.message : String(error);
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[products.getMany] DB fetch failed:', message);
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An error occurred while fetching products'
-        });
+        handleDbError(
+          error,
+          'products.getMany DB fetch failed:',
+          'An error occurred while fetching products'
+        );
       }
     })
 });
