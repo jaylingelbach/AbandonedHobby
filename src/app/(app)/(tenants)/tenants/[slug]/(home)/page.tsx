@@ -4,11 +4,59 @@ import { SearchParams } from 'nuqs/server';
 import { DEFAULT_LIMIT } from '@/constants';
 import { loadProductFilters } from '@/modules/products/search-params';
 import { ProductListView } from '@/modules/products/ui/views/product-list-view';
-import { getQueryClient, trpc } from '@/trpc/server';
+import { caller, getQueryClient, trpc } from '@/trpc/server';
+import type { Metadata } from 'next';
+import { cache } from 'react';
+import { getTenantImageURLSafe, getTenantNameSafe } from '@/lib/utils';
 
 interface PageProps {
   searchParams: Promise<SearchParams>;
   params: Promise<{ slug: string }>;
+}
+
+const getTenant = cache((slug: string) => caller.tenants.getOne({ slug }));
+
+/**
+ * Generate SEO metadata for a tenant's seller page.
+ *
+ * Returns a Metadata object containing `title`, `description`, and `openGraph` (with `type`, canonical `url`, and `images`) derived from the tenant identified by the route `slug`.
+ *
+ * If the tenant name is unavailable, the slug is used as the title; if the tenant image is unavailable, `/open-graph-image.png` is used. The canonical URL is built from `NEXT_PUBLIC_SITE_URL` with a fallback to `https://www.abandonedhobby.com`.
+ *
+ * On error, logs the failure and returns a fallback metadata object with the title "Seller on Abandoned Hobby".
+ *
+ * @param params - Async route params resolving to an object with a `slug` property identifying the tenant
+ * @returns A Metadata object for the tenant page, or a fallback `{ title: 'Seller on Abandoned Hobby' }` on error
+ */
+export async function generateMetadata({
+  params
+}: PageProps): Promise<Metadata> {
+  const { slug } = await params;
+  try {
+    const tenant = await getTenant(slug);
+    const tenantName = getTenantNameSafe(tenant) ?? slug;
+    const tenantImageUrl =
+      getTenantImageURLSafe(tenant, 'medium') ?? '/open-graph-image.png';
+
+    const description = `Check out this seller ${tenantName} on Abandoned Hobby`;
+    const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}`;
+    return {
+      title: tenantName,
+      description,
+      openGraph: {
+        type: 'website',
+        url,
+        images: [
+          {
+            url: tenantImageUrl
+          }
+        ]
+      }
+    };
+  } catch (error) {
+    console.error('Failed to generate tenant metadata:', error);
+    return { title: 'Seller on Abandoned Hobby' };
+  }
 }
 
 const Page = async ({ searchParams, params }: PageProps) => {
@@ -27,6 +75,7 @@ const Page = async ({ searchParams, params }: PageProps) => {
         lastPage.docs.length > 0 ? lastPage.nextPage : undefined
     })
   );
+
   return (
     <HydrationBoundary state={dehydrate(queryClient)}>
       <ProductListView tenantSlug={slug} narrowView />

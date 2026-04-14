@@ -1,26 +1,79 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
-import { Suspense } from 'react';
+import { notFound } from 'next/navigation';
+import { cache, Suspense } from 'react';
 
 import { ProductView } from '@/modules/products/ui/views/product-view';
 import { ProductViewSkeleton } from '@/modules/products/ui/views/product-view';
-import { getQueryClient, trpc } from '@/trpc/server';
+import { caller, getQueryClient, trpc } from '@/trpc/server';
+
+import type { Metadata } from 'next';
+import { isMediaUrl } from '@/lib/server/moderation/utils';
+import { getTenantNameSafe, getTenantSlugSafe } from '@/lib/utils';
+
+const getProduct = cache((productId: string) =>
+  caller.products.getOne({ id: productId })
+);
 
 
 interface Props {
   params: Promise<{ productId: string; slug: string }>;
 }
-
-const Page = async ({ params }: Props) => {
+/**
+ * Builds page metadata for a product route using the provided route parameters.
+ *
+ * Fetches the product by `productId`, verifies the product belongs to the tenant identified by `slug`, and constructs metadata including `title`, `description`, and Open Graph data (type, canonical-ish URL, and an images array with `url` and `alt`).
+ *
+ * @param params - A promise resolving to route parameters `{ productId: string; slug: string }`
+ * @returns A `Metadata` object with `title`, `description`, and `openGraph` fields when the product and tenant match; an empty object `{}` if the tenant slug does not match the product's tenant; if an error occurs, returns `{ title: 'Product on Abandoned Hobby' }`.
+ */
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { productId, slug } = await params;
 
+  try {
+    const product = await getProduct(productId);
+    if (getTenantSlugSafe(product.tenant) !== slug) return {};
+
+    const imageField = product.images?.[0]?.image;
+    const imageUrl =
+      isMediaUrl(imageField) && imageField.url
+        ? imageField.url
+        : '/open-graph-image.png';
+
+    const tenantName = getTenantNameSafe(product.tenant);
+
+    const description = `Buy ${product.name} from ${tenantName} on Abandoned Hobby. Find secondhand hobby gear, craft supplies, and creative tools.`;
+    const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}/products/${productId}`;
+
+    return {
+      title: product.name,
+      description,
+      openGraph: {
+        type: 'website',
+        url,
+        images: [
+          {
+            url: imageUrl,
+            alt: product.name
+          }
+        ]
+      }
+    };
+  } catch (error) {
+    console.error('Failed to generate product metadata:', error);
+    return { title: 'Product on Abandoned Hobby' };
+  }
+}
+const Page = async ({ params }: Props) => {
+  const { productId, slug } = await params;
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
   const queryClient = getQueryClient();
-  await Promise.all([
-    queryClient.prefetchQuery(trpc.tenants.getOne.queryOptions({ slug })),
-    queryClient.prefetchQuery(
-      trpc.products.getOne.queryOptions({ id: productId })
-    )
-  ]);
+  const product = await getProduct(productId);
+  if (getTenantSlugSafe(product.tenant) !== slug) return notFound();
+  queryClient.setQueryData(
+    trpc.products.getOne.queryOptions({ id: productId }).queryKey,
+    product
+  );
+  await queryClient.prefetchQuery(trpc.tenants.getOne.queryOptions({ slug }));
   return (
     <div>
       <HydrationBoundary state={dehydrate(queryClient)}>

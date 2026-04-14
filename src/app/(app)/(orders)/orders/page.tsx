@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+
+export const metadata: Metadata = { robots: { index: false } };
 import { redirect } from 'next/navigation';
 
 import { DEFAULT_LIMIT } from '@/constants';

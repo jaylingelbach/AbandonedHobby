@@ -1,4 +1,7 @@
+import type { Metadata } from 'next';
 import { TRPCError } from '@trpc/server';
+
+export const metadata: Metadata = { robots: { index: false } };
 import { redirect } from 'next/navigation';
 
 import { caller } from '@/trpc/server';

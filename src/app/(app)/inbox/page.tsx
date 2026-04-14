@@ -1,5 +1,9 @@
+import type { Metadata } from 'next';
+
 export const dynamic = 'force-dynamic';
 export const revalidate = 0;
+
+export const metadata: Metadata = { robots: { index: false } };
 
 import { headers as getHeaders } from 'next/headers';
 import { redirect } from 'next/navigation';

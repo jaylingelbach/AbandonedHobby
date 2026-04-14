@@ -1,4 +1,8 @@
+import type { Metadata } from 'next';
+
 import CheckoutView from '@/modules/checkout/ui/views/checkout-view';
+
+export const metadata: Metadata = { robots: { index: false } };
 import { CheckoutViewSkeleton } from '@/modules/checkout/ui/views/checkout-view-skeleton';
 
 import { Suspense } from 'react';
