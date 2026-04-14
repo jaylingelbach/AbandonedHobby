@@ -174,7 +174,8 @@ async function seed() {
       const existingParentResult = await payload.find({
         collection: 'categories',
         where: { slug: { equals: category.slug } },
-        limit: 1
+        limit: 1,
+        overrideAccess: true
       });
 
       let parentCategoryId: string;
@@ -192,7 +193,8 @@ async function seed() {
             slug: category.slug,
             color: category.color || null,
             parent: null
-          }
+          },
+          overrideAccess: true
         });
         parentCategoryId = createdParent.id as string;
         console.log(`✅ Created category: ${category.slug}`);
@@ -203,7 +205,8 @@ async function seed() {
           const existingSubResult = await payload.find({
             collection: 'categories',
             where: { slug: { equals: subCategory.slug } },
-            limit: 1
+            limit: 1,
+            overrideAccess: true
           });
 
           let currentParentId: string;
@@ -220,7 +223,8 @@ async function seed() {
                 slug: subCategory.slug,
                 color: subCategory.color || null,
                 parent: parentCategoryId
-              }
+              },
+              overrideAccess: true
             });
             currentParentId = createdSub.id as string;
             console.log(`✅ Created subcategory: ${subCategory.slug}`);
@@ -234,7 +238,8 @@ async function seed() {
               const existingNestedResult = await payload.find({
                 collection: 'categories',
                 where: { slug: { equals: nested.slug } },
-                limit: 1
+                limit: 1,
+                overrideAccess: true
               });
 
               if (existingNestedResult.docs.length > 0) {
@@ -249,7 +254,8 @@ async function seed() {
                     slug: nested.slug,
                     color: null,
                     parent: currentParentId
-                  }
+                  },
+                  overrideAccess: true
                 });
                 console.log(`✅ Created nested category: ${nested.slug}`);
               }

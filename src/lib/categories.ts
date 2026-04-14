@@ -2,12 +2,7 @@ export interface CategoryDefinition {
   name: string;
   slug: string;
   color?: string;
-  subcategories?: Array<{
-    name: string;
-    slug: string;
-    color?: string;
-    subcategories?: Array<{ name: string; slug: string; color?: string }>;
-  }>;
+  subcategories?: CategoryDefinition[];
 }
 
 export const categories: CategoryDefinition[] = [
@@ -61,7 +56,7 @@ export const categories: CategoryDefinition[] = [
       { name: 'Astronomy', slug: 'astronomy' },
       { name: 'Candle making', slug: 'candle-making' },
       { name: 'Crocheting', slug: 'crocheting' },
-      { name: 'Cross Stich', slug: 'cross-stitch' },
+      { name: 'Cross Stitch', slug: 'cross-stitch' },
       { name: 'Homebrewing', slug: 'homebrewing' },
       { name: 'Homebrewing & Fermentation', slug: 'homebrewing-fermentation' },
       { name: 'Knitting', slug: 'knitting' },
@@ -162,7 +157,7 @@ export const categories: CategoryDefinition[] = [
     slug: 'music',
     color: '#FFD700',
     subcategories: [
-      { name: 'Casette Tapes', slug: 'cassette-tapes' },
+      { name: 'Cassette Tapes', slug: 'cassette-tapes' },
       { name: 'Compact Discs', slug: 'compact-discs' },
       { name: 'Digital Audio Workstations', slug: 'daws' },
       { name: 'Musical Instruments', slug: 'musical-instruments' },

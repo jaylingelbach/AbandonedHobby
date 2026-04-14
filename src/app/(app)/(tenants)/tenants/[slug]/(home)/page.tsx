@@ -30,7 +30,7 @@ export async function generateMetadata({
       getTenantImageURLSafe(tenant, 'medium') ?? '/open-graph-image.png';
 
     const description = `Check out this seller ${tenantName} on Abandoned Hobby`;
-    const url = `${process.env.NEXT_PUBLIC_SITE_URL}/tenants/${slug}`;
+    const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}`;
     return {
       title: tenantName,
       description,

@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const tenantName = getTenantNameSafe(product.tenant);
 
     const description = `Buy ${product.name} from ${tenantName} on Abandoned Hobby. Find secondhand hobby gear, craft supplies, and creative tools.`;
-    const url = `${process.env.NEXT_PUBLIC_SITE_URL}/tenants/${slug}/products/${productId}`;
+    const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}/products/${productId}`;
 
     return {
       title: product.name,
