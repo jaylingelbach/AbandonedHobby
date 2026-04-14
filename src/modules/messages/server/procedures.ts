@@ -1,6 +1,7 @@
 import { TRPCError } from '@trpc/server';
 import { z } from 'zod';
 
+import { handleDbError } from '@/trpc/handle-db-error';
 import { createTRPCRouter, protectedProcedure } from '@/trpc/init';
 
 import { GetMessagesDTO, SendMessageDTO } from './schemas';
@@ -52,15 +53,7 @@ export const messagesRouter = createTRPCRouter({
           }
         });
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        const message = error instanceof Error ? error.message : String(error);
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[messages.getConversation] DB fetch failed:', message);
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An error occurred while fetching the conversation'
-        });
+        handleDbError(error, 'messages.getConversation', 'An error occurred while fetching the conversation');
       }
 
       if (!otherUser) {
@@ -143,15 +136,7 @@ export const messagesRouter = createTRPCRouter({
 
         return message;
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        const msg = error instanceof Error ? error.message : String(error);
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[messages.sendMessage] DB create failed:', msg);
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An error occurred while sending the message'
-        });
+        handleDbError(error, 'messages.sendMessage', 'An error occurred while sending the message');
       }
     }),
 
@@ -186,15 +171,7 @@ export const messagesRouter = createTRPCRouter({
           hasNextPage: page < messages.totalPages
         };
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        const message = error instanceof Error ? error.message : String(error);
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[messages.getMessage] DB fetch failed:', message);
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An error occurred while fetching messages'
-        });
+        handleDbError(error, 'messages.getMessage', 'An error occurred while fetching messages');
       }
     }),
   markMessagesRead: protectedProcedure
@@ -245,15 +222,7 @@ export const messagesRouter = createTRPCRouter({
 
         return updated;
       } catch (error) {
-        if (error instanceof TRPCError) throw error;
-        const message = error instanceof Error ? error.message : String(error);
-        if (process.env.NODE_ENV !== 'production') {
-          console.error('[messages.markMessagesRead] DB update failed:', message);
-        }
-        throw new TRPCError({
-          code: 'INTERNAL_SERVER_ERROR',
-          message: 'An error occurred while marking messages as read'
-        });
+        handleDbError(error, 'messages.markMessagesRead', 'An error occurred while marking messages as read');
       }
     })
 });

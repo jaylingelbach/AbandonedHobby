@@ -319,83 +319,83 @@ export const productsRouter = createTRPCRouter({
           ? input.q.trim()
           : null;
 
-      // Category/Subcategory
-      if (input.subcategory) {
-        const subRes = await ctx.db.find({
-          collection: 'categories',
-          limit: 1,
-          depth: 0,
-          where: { slug: { equals: input.subcategory } }
-        });
-        const sub = subRes.docs[0];
+      try {
+        // Category/Subcategory
+        if (input.subcategory) {
+          const subRes = await ctx.db.find({
+            collection: 'categories',
+            limit: 1,
+            depth: 0,
+            where: { slug: { equals: input.subcategory } }
+          });
+          const sub = subRes.docs[0];
 
-        if (!sub) {
-          where.id = { equals: '__no_results__' };
+          if (!sub) {
+            where.id = { equals: '__no_results__' };
+          } else if (input.category) {
+            const parentId =
+              typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
+            const parentRes = await ctx.db.find({
+              collection: 'categories',
+              limit: 1,
+              depth: 0,
+              where: { slug: { equals: input.category } }
+            });
+            const parentCat = parentRes.docs[0];
+
+            if (!parentCat || String(parentId) !== String(parentCat.id)) {
+              where.id = { equals: '__no_results__' };
+            } else {
+              where.subcategory = { equals: sub.id };
+            }
+          } else {
+            where.subcategory = { equals: sub.id };
+          }
         } else if (input.category) {
-          const parentId =
-            typeof sub.parent === 'object' ? sub.parent?.id : sub.parent;
-          const parentRes = await ctx.db.find({
+          const catRes = await ctx.db.find({
             collection: 'categories',
             limit: 1,
             depth: 0,
             where: { slug: { equals: input.category } }
           });
-          const parentCat = parentRes.docs[0];
+          const cat = catRes.docs[0];
 
-          if (!parentCat || String(parentId) !== String(parentCat.id)) {
-            where.id = { equals: '__no_results__' };
+          if (cat) {
+            const childrenRes = await ctx.db.find({
+              collection: 'categories',
+              pagination: false,
+              depth: 0,
+              where: { parent: { equals: cat.id } }
+            });
+            const childIds = childrenRes.docs.map((d) => d.id);
+            where.or = [
+              { category: { equals: cat.id } },
+              ...(childIds.length ? [{ subcategory: { in: childIds } }] : [])
+            ];
           } else {
-            where.subcategory = { equals: sub.id };
+            where.id = { equals: '__no_results__' };
           }
-        } else {
-          where.subcategory = { equals: sub.id };
         }
-      } else if (input.category) {
-        const catRes = await ctx.db.find({
-          collection: 'categories',
-          limit: 1,
-          depth: 0,
-          where: { slug: { equals: input.category } }
-        });
-        const cat = catRes.docs[0];
 
-        if (cat) {
-          const childrenRes = await ctx.db.find({
-            collection: 'categories',
-            pagination: false,
-            depth: 0,
-            where: { parent: { equals: cat.id } }
+        // Final where: availability AND (optional) multi-field text search
+        const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
+
+        if (q) {
+          // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
+          andClauses.push({
+            or: [
+              { name: { like: q } },
+              { description: { like: q } },
+              { 'tenant.name': { like: q } }
+            ]
           });
-          const childIds = childrenRes.docs.map((d) => d.id);
-          where.or = [
-            { category: { equals: cat.id } },
-            ...(childIds.length ? [{ subcategory: { in: childIds } }] : [])
-          ];
-        } else {
-          where.id = { equals: '__no_results__' };
         }
-      }
 
-      // Final where: availability AND (optional) multi-field text search
-      const andClauses: Where[] = [...(where.and ?? []), availabilityFilter];
+        const finalWhere: Where = {
+          ...where,
+          and: andClauses
+        };
 
-      if (q) {
-        // IMPORTANT: no %...% — Payload's `like` already does contains/ILIKE
-        andClauses.push({
-          or: [
-            { name: { like: q } },
-            { description: { like: q } },
-            { 'tenant.name': { like: q } }
-          ]
-        });
-      }
-
-      const finalWhere: Where = {
-        ...where,
-        and: andClauses
-      };
-
-      try {
         const data = await ctx.db.find({
           collection: 'products',
           depth: 2, // cover + images.image + tenant.image populated
