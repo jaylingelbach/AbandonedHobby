@@ -16,9 +16,6 @@ interface PageProps {
 
 const getTenant = cache((slug: string) => caller.tenants.getOne({ slug }));
 
-// why and what to fetch
-// Shop homepage - shareable storefront
-// Tenant name, bio, image
 export async function generateMetadata({
   params
 }: PageProps): Promise<Metadata> {

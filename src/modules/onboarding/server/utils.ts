@@ -74,7 +74,7 @@ export function computeOnboarding(user: DbUser): OnboardingState {
     return {
       step: 'list-first-product',
       label: 'List your first item',
-      next: `/t/${activeTenant.slug}/products/new`
+      next: '/admin/collections/products?limit=10'
     };
   }
 

@@ -1,4 +1,5 @@
 import { dehydrate, HydrationBoundary } from '@tanstack/react-query';
+import { notFound } from 'next/navigation';
 import { cache, Suspense } from 'react';
 
 import { ProductView } from '@/modules/products/ui/views/product-view';
@@ -7,11 +8,12 @@ import { caller, getQueryClient, trpc } from '@/trpc/server';
 
 import type { Metadata } from 'next';
 import { isMediaUrl } from '@/lib/server/moderation/utils';
-import { getTenantNameSafe } from '@/lib/utils';
+import { getTenantNameSafe, getTenantSlugSafe } from '@/lib/utils';
 
 const getProduct = cache((productId: string) =>
   caller.products.getOne({ id: productId })
 );
+
 
 interface Props {
   params: Promise<{ productId: string; slug: string }>;
@@ -21,6 +23,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   try {
     const product = await getProduct(productId);
+    if (getTenantSlugSafe(product.tenant) !== slug) return {};
 
     const imageField = product.images?.[0]?.image;
     const imageUrl =
@@ -57,6 +60,7 @@ const Page = async ({ params }: Props) => {
   /* ── pre-fetch tenant data on the server ─────────────────────────────── */
   const queryClient = getQueryClient();
   const product = await getProduct(productId);
+  if (getTenantSlugSafe(product.tenant) !== slug) return notFound();
   queryClient.setQueryData(
     trpc.products.getOne.queryOptions({ id: productId }).queryKey,
     product

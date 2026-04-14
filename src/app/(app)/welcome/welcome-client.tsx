@@ -150,7 +150,7 @@ export default function WelcomeClient() {
       done: hasProducts,
       icon: Package,
       action: !hasProducts && canDo('list-first-product') && (
-        <Link href="/admin/collections/products?limit=10">
+        <Link href={onboarding.next ?? '/admin/collections/products?limit=10'}>
           <Button size="sm">Add product</Button>
         </Link>
       )
