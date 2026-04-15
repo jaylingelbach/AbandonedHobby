@@ -12,6 +12,7 @@ import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identi
 import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
 
 import PostHogInit from './posthog-init'; // client
+import { CookieConsentBanner } from '@/components/analytics/cookie-consent-banner'; // client
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
@@ -114,6 +115,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${dmSans.className} antialiased`}>
         <PostHogInit />
+        <CookieConsentBanner />
         <NuqsAdapter>
           <TRPCReactProvider>
             <AnalyticsIdentityBridge />

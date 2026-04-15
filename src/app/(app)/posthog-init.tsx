@@ -2,15 +2,14 @@
 import { useEffect } from 'react';
 import posthog from 'posthog-js';
 import { POSTHOG } from '@/lib/posthog/config';
+import {
+  CONSENT_EVENT,
+  getConsent,
+  type ConsentValue
+} from '@/lib/analytics/consent';
 
 let initialized = false;
 
-/**
- * Determines whether a rejection reason is an `AbortError` that references PostHog.
- *
- * @param reason - The rejection reason to inspect (for example, the `event.reason` from an `unhandledrejection` handler)
- * @returns `true` if `reason` is an `AbortError` and its message or stack contains either `"posthog"` or the hostname of `POSTHOG.apiHost`, `false` otherwise
- */
 function isPosthogAbort(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false;
   const name = (reason as { name?: unknown }).name;
@@ -22,21 +21,31 @@ function isPosthogAbort(reason: unknown): boolean {
   );
 }
 
-/**
- * Initializes PostHog analytics for the application and, in development, suppresses unhandled promise rejection events caused by PostHog aborts.
- *
- * When mounted, the component:
- * - In development only: attaches an `unhandledrejection` listener that prevents the default handling of rejections identified as PostHog aborts.
- * - On first run: reads `NEXT_PUBLIC_POSTHOG_KEY` and, if present, calls `posthog.init` with environment-aware hosts and sensible defaults (pageview, pageleave, session recording with masked inputs, and exception capture disabled in development).
- *
- * @returns `null` — the component renders nothing.
- */
+function initPosthog(consent: ConsentValue): void {
+  if (initialized) return;
+  initialized = true;
+
+  const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
+  if (!key) return;
+
+  const isDev = process.env.NODE_ENV === 'development';
+  const necessary = consent === 'necessary';
+
+  posthog.init(key, {
+    api_host: isDev ? POSTHOG.apiHost : `/${POSTHOG.proxyPath}`,
+    ui_host: POSTHOG.uiHost,
+    capture_pageview: true,
+    capture_pageleave: !necessary,
+    capture_exceptions: !isDev,
+    persistence: necessary ? 'memory' : 'localStorage+cookie',
+    session_recording: necessary ? { sampleRate: 0 } : { maskAllInputs: true },
+    debug: isDev
+  });
+}
+
 export default function PostHogInit() {
   useEffect(() => {
-    if (
-      process.env.NODE_ENV === 'development' &&
-      typeof window !== 'undefined'
-    ) {
+    if (isDev() && typeof window !== 'undefined') {
       const onRejection = (event: PromiseRejectionEvent) => {
         if (isPosthogAbort(event?.reason)) event.preventDefault();
       };
@@ -47,24 +56,27 @@ export default function PostHogInit() {
   }, []);
 
   useEffect(() => {
-    if (initialized) return;
-    initialized = true;
+    const consent = getConsent();
+    if (consent === 'accepted' || consent === 'necessary') {
+      initPosthog(consent);
+    }
 
-    const key = process.env.NEXT_PUBLIC_POSTHOG_KEY;
-    if (!key) return;
+    const onConsentChange = (event: Event) => {
+      const value = (event as CustomEvent<ConsentValue>).detail;
+      if (value === 'accepted' || value === 'necessary') {
+        initPosthog(value);
+      } else if (value === 'declined' && initialized) {
+        posthog.opt_out_capturing();
+      }
+    };
 
-    const isDev = process.env.NODE_ENV === 'development';
-
-    posthog.init(key, {
-      api_host: isDev ? POSTHOG.apiHost : `/${POSTHOG.proxyPath}`,
-      ui_host: POSTHOG.uiHost,
-      capture_pageview: true,
-      capture_pageleave: true,
-      capture_exceptions: process.env.NODE_ENV !== 'development',
-      session_recording: { maskAllInputs: true },
-      debug: process.env.NODE_ENV === 'development'
-    });
+    window.addEventListener(CONSENT_EVENT, onConsentChange);
+    return () => window.removeEventListener(CONSENT_EVENT, onConsentChange);
   }, []);
 
   return null;
+}
+
+function isDev(): boolean {
+  return process.env.NODE_ENV === 'development';
 }
