@@ -12,6 +12,7 @@ export function getConsent(): ConsentValue | null {
 }
 
 export function setConsent(value: ConsentValue): void {
+  if (typeof window === 'undefined') return;
   localStorage.setItem(CONSENT_KEY, value);
   window.dispatchEvent(new CustomEvent(CONSENT_EVENT, { detail: value }));
 }
