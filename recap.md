@@ -7406,3 +7406,38 @@ Notifications now handle backend failures more gracefully; unread counts may be 
 
 - src/modules/auth/server/procedures.ts
   - Blank line added after generateAuthCookie call in login mutation for improved code readability.
+
+# Cookie consent banner posthog consent driven 04/15/26
+
+## Walkthough
+
+- Adds a browser cookie-consent system and UI, and makes PostHog initialization consent-aware by gating initialization and runtime config changes on stored consent and consent-change events.
+
+## New Features
+
+- Added a cookie consent banner shown on first visit with links to Privacy and Cookies pages.
+- Users can choose "Accept all", "Necessary only", or "Decline".
+- Consent is persisted in the browser and emits change events so the app reacts to updates.
+- Analytics initialization and behavior now respect user consent (adjusts data capture and session settings accordingly).
+
+## File changes
+
+### Consent Utilities
+
+- src/lib/analytics/consent.ts
+  - New module defining CONSENT_KEY, CONSENT_EVENT, ConsentValue type, and getConsent() / setConsent() to persist consent in localStorage and emit a window CustomEvent.
+
+### Cookie Consent UI
+
+- src/components/analytics/cookie-consent-banner.tsx
+  - New client React component CookieConsentBanner() that shows a bottom banner when no consent exists and calls setConsent() with 'accepted', 'necessary', or 'declined'.
+
+### PostHog Initialization
+
+- src/app/(app)/posthog-init.tsx
+  - Refactors PostHog init into initPosthog(consent) and makes initialization/configuration conditional on consent; adds CONSENT_EVENT listener to init/update/opt-out at runtime; adds isDev() helper.
+
+### Layout Integration
+
+- src/app/(app)/layout.tsx
+  - Imports and renders <CookieConsentBanner /> immediately after <PostHogInit /> in the app layout.
