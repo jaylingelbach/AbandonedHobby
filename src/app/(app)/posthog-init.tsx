@@ -4,6 +4,7 @@ import posthog from 'posthog-js';
 import { POSTHOG } from '@/lib/posthog/config';
 import {
   CONSENT_EVENT,
+  CONSENT_KEY,
   getConsent,
   type ConsentValue
 } from '@/lib/analytics/consent';
@@ -73,6 +74,7 @@ export default function PostHogInit() {
               ? { sampleRate: 0 }
               : { maskAllInputs: true }
           });
+          posthog.opt_in_capturing();
         } else {
           initPosthog(value);
         }
@@ -81,8 +83,19 @@ export default function PostHogInit() {
       }
     };
 
+    const onStorageChange = (event: StorageEvent) => {
+      if (event.key !== CONSENT_KEY || !event.newValue) return;
+      onConsentChange(
+        new CustomEvent(CONSENT_EVENT, { detail: event.newValue as ConsentValue })
+      );
+    };
+
     window.addEventListener(CONSENT_EVENT, onConsentChange);
-    return () => window.removeEventListener(CONSENT_EVENT, onConsentChange);
+    window.addEventListener('storage', onStorageChange);
+    return () => {
+      window.removeEventListener(CONSENT_EVENT, onConsentChange);
+      window.removeEventListener('storage', onStorageChange);
+    };
   }, []);
 
   return null;
