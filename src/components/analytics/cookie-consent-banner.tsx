@@ -4,6 +4,13 @@ import { Button } from '@/components/ui/button';
 import { getConsent, setConsent } from '@/lib/analytics/consent';
 import Link from 'next/link';
 
+/**
+ * Displays a cookie consent banner when no prior consent is stored and lets users accept all, restrict to necessary, or decline tracking.
+ *
+ * Renders links to the site's Privacy and Cookie policy. Selecting an option stores the chosen consent (`'accepted'`, `'necessary'`, or `'declined'`) and hides the banner.
+ *
+ * @returns The banner element when consent is unset, otherwise `null`.
+ */
 export function CookieConsentBanner() {
   const [visible, setVisible] = useState(false);
 

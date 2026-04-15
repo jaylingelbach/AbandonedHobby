@@ -11,6 +11,12 @@ import {
 
 let initialized = false;
 
+/**
+ * Determine whether an unknown rejection reason is a PostHog-related AbortError.
+ *
+ * @param reason - The rejection reason to inspect; may be any value.
+ * @returns `true` if `reason` is an object with `name === 'AbortError'` and its message or stack contains either "posthog" or the configured PostHog API hostname, `false` otherwise.
+ */
 function isPosthogAbort(reason: unknown): boolean {
   if (!reason || typeof reason !== 'object') return false;
   const name = (reason as { name?: unknown }).name;
@@ -22,6 +28,13 @@ function isPosthogAbort(reason: unknown): boolean {
   );
 }
 
+/**
+ * Initialize PostHog analytics once using the provided consent to determine capture and persistence settings.
+ *
+ * If PostHog is already initialized or the `NEXT_PUBLIC_POSTHOG_KEY` env var is not set, this function is a no-op.
+ *
+ * @param consent - The current consent value; `'necessary'` enables minimal in-memory-only collection and disables session recording, while other accepted values enable persistent storage and fuller capture.
+ */
 function initPosthog(consent: ConsentValue): void {
   if (initialized) return;
   initialized = true;
@@ -43,6 +56,15 @@ function initPosthog(consent: ConsentValue): void {
   });
 }
 
+/**
+ * React component that initializes and updates PostHog according to stored consent and suppresses PostHog-related unhandled promise rejections during development.
+ *
+ * Sets up two effects:
+ * - In development, registers an `unhandledrejection` handler that prevents default behavior for rejections identified as PostHog aborts.
+ * - On mount, reads current consent and initializes PostHog when consent is `accepted` or `necessary`; listens for `CONSENT_EVENT` to update runtime PostHog configuration or opt in/out of capturing; listens for cross-tab `storage` events to propagate consent changes.
+ *
+ * The component renders nothing.
+ */
 export default function PostHogInit() {
   useEffect(() => {
     if (isDev() && typeof window !== 'undefined') {
@@ -101,6 +123,11 @@ export default function PostHogInit() {
   return null;
 }
 
+/**
+ * Detects whether the current runtime environment is development.
+ *
+ * @returns `true` if `process.env.NODE_ENV` is `'development'`, `false` otherwise.
+ */
 function isDev(): boolean {
   return process.env.NODE_ENV === 'development';
 }
