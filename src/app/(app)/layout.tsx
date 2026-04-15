@@ -12,6 +12,7 @@ import { AnalyticsIdentityBridge } from '@/components/analytics/analytics-identi
 import { LiveblocksWrapper } from '@/components/providers/liveblocks-wrapper';
 
 import PostHogInit from './posthog-init'; // client
+import { CookieConsentBanner } from '@/components/analytics/cookie-consent-banner'; // client
 
 const dmSans = DM_Sans({ subsets: ['latin'] });
 
@@ -98,12 +99,10 @@ export const metadata: Metadata = {
 };
 
 /**
- * Root layout component that provides the global HTML structure, font class, and application-level providers.
+ * Renders the application's root HTML structure, applies the global font class to <body>, and wraps `children` with app-level providers and utilities.
  *
- * The layout applies the DM Sans font class to the <body>, initializes PostHog, and wraps `children` with NuqsAdapter, TRPCReactProvider, AnalyticsIdentityBridge, LiveblocksWrapper, and a Toaster.
- *
- * @param children - The page or application content to render inside the global providers
- * @returns The root HTML and body elements containing the provided children wrapped by global providers
+ * @param children - The page or application content to render inside the global layout
+ * @returns The root HTML and body elements containing `children` wrapped by global providers and utilities
  */
 export default function RootLayout({
   children
@@ -114,6 +113,7 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${dmSans.className} antialiased`}>
         <PostHogInit />
+        <CookieConsentBanner />
         <NuqsAdapter>
           <TRPCReactProvider>
             <AnalyticsIdentityBridge />
