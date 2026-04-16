@@ -11,6 +11,13 @@ export const carrierLabels: Record<Carrier, string> = {
   other: 'Other'
 };
 
+export const carrierTrackingUrls: Record<Carrier, string | null> = {
+  usps: 'https://tools.usps.com/go/TrackConfirmAction?tLabels=',
+  ups: 'https://www.ups.com/track?trackingNumber=',
+  fedex: 'https://www.fedex.com/apps/fedextrack/?tracknumbers=',
+  other: null
+};
+
 export const STRIPE_METADATA_MAX_LENGTH = 500 as const;
 
 export const CART_SESSION_COOKIE = 'ah_cart_session';

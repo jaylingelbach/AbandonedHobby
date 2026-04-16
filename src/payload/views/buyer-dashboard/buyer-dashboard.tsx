@@ -8,6 +8,7 @@ import {
   readCurrencyFromOrder
 } from './buyer-dashboard-utils';
 import { redirect } from 'next/navigation';
+import { carrierLabels, carrierTrackingUrls } from '@/constants';
 
 /**
  * Renders the buyer dashboard view showing shipment summaries, awaiting and in-transit orders, and quick action links.
@@ -176,47 +177,59 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                 </tr>
               </thead>
               <tbody>
-                {data.inTransit.map((order) => (
-                  <tr key={order.id}>
-                    <td className="ah-col--order">#{order.orderNumber}</td>
-                    <td className="ah-col--date">
-                      {order.shippedAtISO
-                        ? new Date(order.shippedAtISO).toLocaleDateString(
-                            initPageResult.locale?.code?.replace('_', '-'),
-                            { dateStyle: 'medium' }
-                          )
-                        : '—'}
-                    </td>
-                    <td className="ah-col--total">
-                      {formatCurrencyDisplay(
-                        order.totalCents / 100,
-                        readCurrencyFromOrder(order, 'USD'),
-                        initPageResult.locale?.code?.replace('_', '-')
-                      )}
-                    </td>
-                    <td className="ah-col--tracking">
-                      {order.trackingNumber ? (
-                        <span>
-                          {order.carrier
-                            ? `${order.carrier.toUpperCase()}: `
-                            : ''}
-                          {order.trackingNumber}
-                        </span>
-                      ) : (
-                        <span>—</span>
-                      )}
-                    </td>
-                    <td className="ah-col--actions">
-                      <Link
-                        prefetch={false}
-                        className="btn btn--sm"
-                        href={`/orders/${order.id}`}
-                      >
-                        View
-                      </Link>
-                    </td>
-                  </tr>
-                ))}
+                {data.inTransit.map((order) => {
+                  const url = order.carrier
+                    ? carrierTrackingUrls[order.carrier]
+                    : null;
+                  const fullUrl = url ? `${url}${order.trackingNumber}` : null;
+                  return (
+                    <tr key={order.id}>
+                      <td className="ah-col--order">#{order.orderNumber}</td>
+                      <td className="ah-col--date">
+                        {order.shippedAtISO
+                          ? new Date(order.shippedAtISO).toLocaleDateString(
+                              initPageResult.locale?.code?.replace('_', '-'),
+                              { dateStyle: 'medium' }
+                            )
+                          : '—'}
+                      </td>
+                      <td className="ah-col--total">
+                        {formatCurrencyDisplay(
+                          order.totalCents / 100,
+                          readCurrencyFromOrder(order, 'USD'),
+                          initPageResult.locale?.code?.replace('_', '-')
+                        )}
+                      </td>
+                      <td className="ah-col--tracking">
+                        {order.trackingNumber ? (
+                          <span>
+                            {order.carrier
+                              ? `${carrierLabels[order.carrier]}: `
+                              : ''}
+                            {fullUrl ? (
+                              <a href={fullUrl} target="_blank" rel="noopener noreferrer">
+                                {order.trackingNumber}
+                              </a>
+                            ) : (
+                              order.trackingNumber
+                            )}
+                          </span>
+                        ) : (
+                          <span>—</span>
+                        )}
+                      </td>
+                      <td className="ah-col--actions">
+                        <Link
+                          prefetch={false}
+                          className="btn btn--sm"
+                          href={`/orders/${order.id}`}
+                        >
+                          View
+                        </Link>
+                      </td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           )}

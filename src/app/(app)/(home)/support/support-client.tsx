@@ -147,8 +147,8 @@ export default function SupportClient() {
         a: (
           <>
             Sellers must accept returns for damaged or not-as-described items.
-            Start a return within <strong>7 days of delivery</strong> from your
-            order page.
+            Start a return within <strong>7 days of delivery</strong> by
+            messaging the seller.
           </>
         )
       },
