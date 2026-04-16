@@ -21,7 +21,7 @@ const getTenant = cache((slug: string) => caller.tenants.getOne({ slug }));
  *
  * Returns a Metadata object containing `title`, `description`, and `openGraph` (with `type`, canonical `url`, and `images`) derived from the tenant identified by the route `slug`.
  *
- * If the tenant name is unavailable, the slug is used as the title; if the tenant image is unavailable, `/open-graph-image.png` is used. The canonical URL is built from `NEXT_PUBLIC_SITE_URL` with a fallback to `https://www.abandonedhobby.com`.
+ * If the tenant name is unavailable, the slug is used as the title; if the tenant image is unavailable, `/og-1.png` is used. The canonical URL is built from `NEXT_PUBLIC_SITE_URL` with a fallback to `https://www.abandonedhobby.com`.
  *
  * On error, logs the failure and returns a fallback metadata object with the title "Seller on Abandoned Hobby".
  *
@@ -36,7 +36,7 @@ export async function generateMetadata({
     const tenant = await getTenant(slug);
     const tenantName = getTenantNameSafe(tenant) ?? slug;
     const tenantImageUrl =
-      getTenantImageURLSafe(tenant, 'medium') ?? '/open-graph-image.png';
+      getTenantImageURLSafe(tenant, 'medium') ?? '/og-1.png';
 
     const description = `Check out this seller ${tenantName} on Abandoned Hobby`;
     const url = `${process.env.NEXT_PUBLIC_SITE_URL ?? 'https://www.abandonedhobby.com'}/tenants/${slug}`;

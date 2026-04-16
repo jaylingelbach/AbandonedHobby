@@ -14,7 +14,6 @@ const getProduct = cache((productId: string) =>
   caller.products.getOne({ id: productId })
 );
 
-
 interface Props {
   params: Promise<{ productId: string; slug: string }>;
 }
@@ -35,9 +34,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
     const imageField = product.images?.[0]?.image;
     const imageUrl =
-      isMediaUrl(imageField) && imageField.url
-        ? imageField.url
-        : '/open-graph-image.png';
+      isMediaUrl(imageField) && imageField.url ? imageField.url : '/og-1.png';
 
     const tenantName = getTenantNameSafe(product.tenant);
 

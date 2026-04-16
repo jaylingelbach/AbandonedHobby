@@ -22,7 +22,7 @@ interface Props {
  * Build page metadata for a category route using the route params.
  *
  * @param params - Route params containing the `category` slug used to derive the display name and canonical URL
- * @returns A `Metadata` object whose `title` is the derived category name (falls back to the slug), a description referencing that name, and an `openGraph` entry with `type: "website"`, the canonical URL for the category, and an image at `/open-graph-image.png`
+ * @returns A `Metadata` object whose `title` is the derived category name (falls back to the slug), a description referencing that name, and an `openGraph` entry with `type: "website"`, the canonical URL for the category, and an image at `/og-1.png`
  */
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { category } = await params;
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       type: 'website',
       url,
-      images: [{ url: '/open-graph-image.png' }]
+      images: [{ url: '/og-1.png' }]
     }
   };
 }
