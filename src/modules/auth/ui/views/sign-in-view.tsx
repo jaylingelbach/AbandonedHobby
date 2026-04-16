@@ -105,7 +105,6 @@ function SignInView() {
         }
       },
       onSuccess: async () => {
-        // Only bother clearing the cookie when something changed (your earlier rule)
         try {
           const mergeRes = await mergeGuestIntoUser.mutateAsync();
 
@@ -115,7 +114,7 @@ function SignInView() {
               mergeRes.itemsMoved > 0 ||
               mergeRes.cartsMerged > 0);
 
-          // optional: only log in dev
+          // only log in dev
           if (process.env.NODE_ENV !== 'production' && didWork) {
             console.log('[cart] merged guest into user', mergeRes);
           }
