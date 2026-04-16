@@ -7441,3 +7441,34 @@ Notifications now handle backend failures more gracefully; unread counts may be 
 
 - src/app/(app)/layout.tsx
   - Imports and renders <CookieConsentBanner /> immediately after <PostHogInit /> in the app layout.
+
+# Clickable tracking 04/16/26
+
+## Walkthrough
+
+- This pull request adds a new carrier tracking URL constant mapping carriers to their tracking URL bases, and updates the buyer dashboard to render tracking numbers as clickable external links using these mappings and carrier labels. Minor comment clarifications and FAQ text updates are also included.
+
+## New Features
+
+- Order tracking numbers in the buyer dashboard now display as clickable links to carrier tracking pages for convenient shipment monitoring.
+
+## Documentation
+
+- Updated Returns & refunds FAQ: users are now directed to message sellers to initiate returns.
+
+### File changes
+
+### Carrier Tracking Constants
+
+- src/constants.ts
+  - Added exported carrierTrackingUrls constant mapping carriers (usps, ups, fedex, other) to tracking URL string prefixes, with other mapped to null.
+
+### Buyer Dashboard Tracking Links
+
+- src/payload/views/buyer-dashboard/buyer-dashboard.tsx
+  - Updated "In transit" table rendering to construct and display carrier-specific tracking links using carrierLabels and carrierTrackingUrls constants; tracking numbers now render as external anchor tags when a valid tracking URL exists.
+
+### Support & Authentication Cleanup
+
+- src/app/(app)/(home)/support/support-client.tsx, src/modules/auth/ui/views/sign-in-view.tsx
+  - Updated Returns & Refunds FAQ text to clarify users should message the seller to start returns; simplified inline comment wording and added trailing newline to sign-in view.
