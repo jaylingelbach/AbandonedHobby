@@ -181,7 +181,13 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                   const url = order.carrier
                     ? carrierTrackingUrls[order.carrier]
                     : null;
-                  const fullUrl = url ? `${url}${order.trackingNumber}` : null;
+                  const encodedTrackingNumber = order.trackingNumber
+                    ? encodeURIComponent(order.trackingNumber)
+                    : null;
+                  const fullUrl =
+                    url && encodedTrackingNumber
+                      ? `${url}${encodedTrackingNumber}`
+                      : null;
                   return (
                     <tr key={order.id}>
                       <td className="ah-col--order">#{order.orderNumber}</td>
@@ -207,7 +213,11 @@ export async function BuyerDashboard(props: AdminViewServerProps) {
                               ? `${carrierLabels[order.carrier]}: `
                               : ''}
                             {fullUrl ? (
-                              <a href={fullUrl} target="_blank" rel="noopener noreferrer">
+                              <a
+                                href={fullUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
                                 {order.trackingNumber}
                               </a>
                             ) : (
