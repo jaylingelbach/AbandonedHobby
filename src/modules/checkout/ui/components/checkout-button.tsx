@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { ShoppingCartIcon } from 'lucide-react';
 
@@ -21,6 +21,15 @@ export const CheckoutButton = ({
   const { cartSummary, badgeCount, isLoading, isError, error } =
     useCartGlobalSummary();
 
+  const [checkoutHref, setCheckoutHref] = useState('/checkout');
+
+  useEffect(() => {
+    const rootDomain = process.env.NEXT_PUBLIC_ROOT_DOMAIN;
+    if (rootDomain) {
+      setCheckoutHref(`${window.location.protocol}//${rootDomain}/checkout`);
+    }
+  }, []);
+
   useEffect(() => {
     if (isError) {
       console.error('error: ', error);
@@ -36,7 +45,7 @@ export const CheckoutButton = ({
 
   return (
     <Button asChild variant="elevated" className={cn('bg-white', className)}>
-      <Link href={'/checkout'} aria-label={ariaLabel}>
+      <Link href={checkoutHref} aria-label={ariaLabel}>
         <ShoppingCartIcon /> {badgeCount > 0 ? badgeCount : ''}
       </Link>
     </Button>
